@@ -1,3 +1,32 @@
+// Draw target selection radius under the cursor.
+if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_camera_controller))
+{
+	var _camera_controller = instance_find(o_camera_controller, 0);
+	var _mouse_x = device_mouse_x_to_gui(0);
+	var _mouse_y = device_mouse_y_to_gui(0);
+	var _radius_scale = camera_view_width / _camera_controller.view_width;
+	var _draw_radius = target_selection_radius * _radius_scale;
+	var _target_color = COLOR_PROJECTILE_DAMAGE;
+
+	if (target_selection_projectile_type == PROJECTILE_TYPE.CORRUPTION)
+	{
+		_target_color = COLOR_PROJECTILE_CORRUPTION;
+	}
+	else if (target_selection_projectile_type == PROJECTILE_TYPE.SUMMON)
+	{
+		_target_color = COLOR_PROJECTILE_SUMMON;
+	}
+
+	draw_set_color(_target_color);
+	draw_set_alpha(target_selection_alpha);
+	draw_circle(_mouse_x, _mouse_y, _draw_radius, false);
+	draw_set_alpha(target_selection_outline_alpha);
+	draw_circle(_mouse_x, _mouse_y, _draw_radius, true);
+
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+}
+
 // Draw nothing while the pause menu is closed.
 if (!pause_menu_open)
 {

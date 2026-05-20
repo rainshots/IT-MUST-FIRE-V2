@@ -1,9 +1,29 @@
-// Toggle pause menu with Escape.
+// Resolve Escape by the current focused window.
 if (keyboard_check_pressed(vk_escape))
 {
-	pause_menu_open = !pause_menu_open;
-	settings_open = false;
-	global.pause = pause_menu_open;
+	if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION)
+	{
+		global.focus_window = FOCUS_WINDOW.NOONE;
+	}
+	else if (global.focus_window == FOCUS_WINDOW.SETTINGS)
+	{
+		settings_open = false;
+		global.focus_window = FOCUS_WINDOW.PAUSE_MENU;
+	}
+	else if (global.focus_window == FOCUS_WINDOW.PAUSE_MENU)
+	{
+		pause_menu_open = false;
+		settings_open = false;
+		global.pause = false;
+		global.focus_window = FOCUS_WINDOW.NOONE;
+	}
+	else
+	{
+		pause_menu_open = true;
+		settings_open = false;
+		global.pause = true;
+		global.focus_window = FOCUS_WINDOW.PAUSE_MENU;
+	}
 }
 
 // Keep game surfaces aligned with the current window size.
@@ -44,6 +64,48 @@ if (!application_surface_ready && surface_exists(application_surface))
 	application_surface_ready = true;
 }
 
+// Start target selection mode from hotkeys when no other window has focus.
+if (global.focus_window == FOCUS_WINDOW.NOONE)
+{
+	if (keyboard_check_pressed(ord("1")))
+	{
+		target_selection_projectile_type = PROJECTILE_TYPE.DAMAGE;
+		global.focus_window = FOCUS_WINDOW.TARGET_SELECTION;
+	}
+	else if (keyboard_check_pressed(ord("2")))
+	{
+		target_selection_projectile_type = PROJECTILE_TYPE.CORRUPTION;
+		global.focus_window = FOCUS_WINDOW.TARGET_SELECTION;
+	}
+	else if (keyboard_check_pressed(ord("3")))
+	{
+		target_selection_projectile_type = PROJECTILE_TYPE.SUMMON;
+		global.focus_window = FOCUS_WINDOW.TARGET_SELECTION;
+	}
+}
+
+// Confirm target selection with left mouse button.
+if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && mouse_check_button_pressed(mb_left))
+{
+	if (instance_exists(o_camera_controller))
+	{
+		var _camera_controller = instance_find(o_camera_controller, 0);
+		var _mouse_x = device_mouse_x_to_gui(0);
+		var _mouse_y = device_mouse_y_to_gui(0);
+		var _camera_x = camera_get_view_x(_camera_controller.camera_id);
+		var _camera_y = camera_get_view_y(_camera_controller.camera_id);
+		var _view_width = camera_get_view_width(_camera_controller.camera_id);
+		var _view_height = camera_get_view_height(_camera_controller.camera_id);
+
+		global.cannon_target_exists = true;
+		global.cannon_target_x = _camera_x + ((_mouse_x / camera_view_width) * _view_width);
+		global.cannon_target_y = _camera_y + ((_mouse_y / camera_view_height) * _view_height);
+		global.cannon_target_projectile_type = target_selection_projectile_type;
+		global.cannon_target_version++;
+		global.focus_window = FOCUS_WINDOW.NOONE;
+	}
+}
+
 // Handle pause menu buttons.
 if (pause_menu_open && mouse_check_button_pressed(mb_left))
 {
@@ -65,10 +127,12 @@ if (pause_menu_open && mouse_check_button_pressed(mb_left))
 			{
 				pause_menu_open = false;
 				global.pause = false;
+				global.focus_window = FOCUS_WINDOW.NOONE;
 			}
 			else if (_mouse_y >= _settings_button_y && _mouse_y <= _settings_button_y + button_height)
 			{
 				settings_open = true;
+				global.focus_window = FOCUS_WINDOW.SETTINGS;
 			}
 			else if (_mouse_y >= _quit_button_y && _mouse_y <= _quit_button_y + button_height)
 			{
@@ -106,6 +170,7 @@ if (pause_menu_open && mouse_check_button_pressed(mb_left))
 		if (_mouse_x >= _close_button_x && _mouse_x <= _close_button_x + button_width && _mouse_y >= _close_button_y && _mouse_y <= _close_button_y + button_height)
 		{
 			settings_open = false;
+			global.focus_window = FOCUS_WINDOW.PAUSE_MENU;
 		}
 	}
 }

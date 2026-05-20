@@ -1,5 +1,19 @@
 // Global pause state used by gameplay objects.
 global.pause = false;
+global.focus_window = FOCUS_WINDOW.NOONE;
+
+// Global cannon target selected through the target selection mode.
+global.cannon_target_exists = false;
+global.cannon_target_x = 0;
+global.cannon_target_y = 0;
+global.cannon_target_projectile_type = PROJECTILE_TYPE.DAMAGE;
+global.cannon_target_version = 0;
+
+// Global resource storage used by HUD and economy systems.
+global.resources = array_create(RESOURCES.COUNT, 0);
+global.resources[RESOURCES.SOULS] = 0;
+global.resources[RESOURCES.IRON] = 0;
+global.resources[RESOURCES.CULTISTS] = 0;
 
 // Base window and GUI size for the strategy view.
 base_view_width = 1366;
@@ -24,6 +38,12 @@ application_surface_ready = false;
 pause_menu_open = false;
 settings_open = false;
 fullscreen_enabled = window_get_fullscreen();
+
+// Target selection state.
+target_selection_projectile_type = PROJECTILE_TYPE.DAMAGE;
+target_selection_radius = 200;
+target_selection_alpha = 0.35;
+target_selection_outline_alpha = 0.85;
 
 // Pause menu button data.
 continue_button_index = 0;
