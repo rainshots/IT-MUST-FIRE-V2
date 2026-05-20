@@ -48,7 +48,11 @@ if (_flight_progress >= 1)
 
 		if (_is_valid_target && point_distance(x, y, other.target_x, other.target_y) <= other.effect_radius)
 		{
-			if (other.projectile_type == PROJECTILE_TYPE.DAMAGE)
+			if (variable_instance_exists(id, "on_projectile_hit"))
+			{
+				on_projectile_hit(other.projectile_type);
+			}
+			else if (other.projectile_type == PROJECTILE_TYPE.DAMAGE)
 			{
 				if (variable_instance_exists(id, "health"))
 				{

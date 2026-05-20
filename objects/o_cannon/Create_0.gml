@@ -1,4 +1,6 @@
 // Cannon target selected by the player.
+max_hp = 300;
+hp = max_hp;
 target_exists = false;
 target_x = x;
 target_y = y;
@@ -13,3 +15,10 @@ shot_timer = shot_interval;
 projectile_effect_radius = 200;
 projectile_spawn_offset_y = -20;
 projectile_layer_name = "Instances";
+
+// Cannon starts with corrupted ground around it.
+starting_corruption_radius_in_cells = 6;
+starting_corruption_radius = starting_corruption_radius_in_cells * 100;
+starting_corruption_amount = 1;
+
+corrupt_circle(x, y, starting_corruption_radius, starting_corruption_amount);

@@ -1,4 +1,5 @@
 // Ground corruption grid settings.
+depth = 50;
 cell_size = 100;
 grid_width = ceil(room_width / cell_size);
 grid_height = ceil(room_height / cell_size);
