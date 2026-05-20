@@ -13,9 +13,13 @@ if (hp <= 0)
 
 // Choose target by faction.
 target_instance = noone;
+is_attacking_target = false;
 
 var _is_enemy_unit = (unit_faction == UNIT_FACTION.ENEMY);
 var _is_friendly_unit = (unit_faction == UNIT_FACTION.FRIENDLY);
+
+// Update lightweight separation vector before movement.
+update_separation_push();
 
 if (_is_enemy_unit)
 {
@@ -29,6 +33,11 @@ if (_is_enemy_unit)
 else if (_is_friendly_unit)
 {
 	target_instance = find_nearest_target(o_enemy_units, target_detection_radius);
+
+	if (!instance_exists(target_instance))
+	{
+		target_instance = find_nearest_cannon_attacker();
+	}
 
 	if (!instance_exists(target_instance) && instance_exists(o_cannon))
 	{
@@ -46,11 +55,18 @@ else if (_is_friendly_unit)
 if (instance_exists(target_instance))
 {
 	var _target_distance = point_distance(x, y, target_instance.x, target_instance.y);
+	var _current_attack_radius = attack_radius;
 
-	if (_target_distance <= attack_radius)
+	if (_is_enemy_unit && target_instance.object_index == o_cannon)
+	{
+		_current_attack_radius = cannon_attack_radius;
+	}
+
+	if (_target_distance <= _current_attack_radius)
 	{
 		if (target_instance.object_index != o_cannon || _is_enemy_unit)
 		{
+			is_attacking_target = true;
 			attack_target(target_instance);
 		}
 	}
@@ -59,3 +75,6 @@ if (instance_exists(target_instance))
 		move_towards_target(target_instance);
 	}
 }
+
+// Apply separation after main AI movement so units do not stack.
+apply_separation_push();

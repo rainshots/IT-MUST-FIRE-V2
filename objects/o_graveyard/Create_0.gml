@@ -7,12 +7,20 @@ hp = max_hp;
 max_corruption = 100;
 corruption = 0;
 
+// Tooltip lines describe projectile reactions for player targeting.
+tooltip_lines = [
+	"Damage: +1 Soul",
+	"Corruption: +33 Corruption, Graveyard Lv2 at max",
+	"Summon: Create 5 Skeletons"
+];
+
 // Graveyard projectile reactions.
 on_damage_projectile_hit = function()
 {
 	var _souls_reward = 1;
 
 	global.resources[RESOURCES.SOULS] += _souls_reward;
+	resource_popup_create(x, y - bar_offset_y, RESOURCES.SOULS, _souls_reward);
 };
 
 on_corruption_projectile_hit = function()

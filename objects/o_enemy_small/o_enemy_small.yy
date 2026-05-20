@@ -1,19 +1,20 @@
 {
   "$GMObject":"",
-  "%Name":"o_map_objects_parent",
+  "%Name":"o_enemy_small",
   "eventList":[
     {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":0,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
-    {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":8,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
-    {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":64,"eventType":8,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
   ],
   "managed":true,
-  "name":"o_map_objects_parent",
+  "name":"o_enemy_small",
   "overriddenProperties":[],
   "parent":{
-    "name":"map_objects",
-    "path":"folders/Objects/map_objects.yy",
+    "name":"Units",
+    "path":"folders/Objects/Units.yy",
   },
-  "parentObjectId":null,
+  "parentObjectId":{
+    "name":"o_enemy_units",
+    "path":"objects/o_enemy_units/o_enemy_units.yy",
+  },
   "persistent":false,
   "physicsAngularDamping":0.1,
   "physicsDensity":0.5,
@@ -31,7 +32,10 @@
   "resourceType":"GMObject",
   "resourceVersion":"2.0",
   "solid":false,
-  "spriteId":null,
+  "spriteId":{
+    "name":"s_enemy_small",
+    "path":"sprites/s_enemy_small/s_enemy_small.yy",
+  },
   "spriteMaskId":null,
   "visible":true,
 }

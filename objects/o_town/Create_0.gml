@@ -7,6 +7,13 @@ hp = max_hp;
 max_corruption = 100;
 corruption = 0;
 
+// Tooltip lines describe projectile reactions for player targeting.
+tooltip_lines = [
+	"Damage: -20 HP, +3 Souls, Graveyard at 0 HP",
+	"Corruption: +33 Corruption, Cursed Town at max",
+	"Summon: +2 Cultists"
+];
+
 // Town projectile reactions.
 on_damage_projectile_hit = function()
 {
@@ -15,6 +22,7 @@ on_damage_projectile_hit = function()
 
 	hp = max(hp - _damage_amount, 0);
 	global.resources[RESOURCES.SOULS] += _souls_reward;
+	resource_popup_create(x, y - bar_offset_y, RESOURCES.SOULS, _souls_reward);
 
 	if (hp <= 0)
 	{
@@ -24,7 +32,7 @@ on_damage_projectile_hit = function()
 
 on_corruption_projectile_hit = function()
 {
-	var _corruption_amount = 33;
+	var _corruption_amount = 34;
 
 	corruption = min(corruption + _corruption_amount, max_corruption);
 
@@ -39,4 +47,5 @@ on_summon_projectile_hit = function()
 	var _cultists_reward = 2;
 
 	global.resources[RESOURCES.CULTISTS] += _cultists_reward;
+	resource_popup_create(x, y - bar_offset_y, RESOURCES.CULTISTS, _cultists_reward);
 };

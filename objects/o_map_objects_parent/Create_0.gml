@@ -10,6 +10,17 @@ bar_height = 6;
 bar_gap = 3;
 bar_offset_y = 48;
 
+// Tooltip text and visual settings.
+tooltip_lines = [
+	"Damage: No effect",
+	"Corruption: No effect",
+	"Summon: No effect"
+];
+tooltip_padding = 10;
+tooltip_line_height = 18;
+tooltip_width = 390;
+tooltip_offset_y = 72;
+
 // Transform target. noone means the object does not transform by default.
 transform_object = noone;
 

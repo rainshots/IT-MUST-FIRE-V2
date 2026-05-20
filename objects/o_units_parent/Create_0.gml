@@ -6,12 +6,23 @@ damage = 1;
 reload_time = room_speed;
 reload_timer = 0;
 attack_radius = 32;
+cannon_attack_radius = 200;
 
 // Base unit movement and target search settings.
 move_speed = 1.2;
 target_detection_radius = 320;
 cannon_guard_radius = 460;
 target_instance = noone;
+
+// Unit separation keeps units from stacking into one point.
+separation_radius = 26;
+separation_strength = 0.55;
+separation_update_interval = 5;
+separation_update_timer = irandom(separation_update_interval - 1);
+separation_max_neighbors = 6;
+separation_push_x = 0;
+separation_push_y = 0;
+is_attacking_target = false;
 
 // Health bar visual settings.
 bar_width = 34;
@@ -35,6 +46,41 @@ find_nearest_target = function(_object_index, _max_distance)
 	return noone;
 };
 
+find_nearest_cannon_attacker = function()
+{
+	if (!instance_exists(o_cannon))
+	{
+		return noone;
+	}
+
+	var _cannon = instance_find(o_cannon, 0);
+	var _nearby_enemies = ds_list_create();
+	var _enemy_count = collision_circle_list(_cannon.x, _cannon.y, cannon_attack_radius, o_enemy_units, false, true, _nearby_enemies, false);
+	var _nearest_attacker = noone;
+	var _nearest_distance = infinity;
+
+	// Pick the closest enemy that is close enough to attack the cannon.
+	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	{
+		var _enemy = _nearby_enemies[| _enemy_index];
+
+		if (instance_exists(_enemy) && _enemy.hp > 0)
+		{
+			var _enemy_distance = point_distance(x, y, _enemy.x, _enemy.y);
+
+			if (_enemy_distance < _nearest_distance)
+			{
+				_nearest_attacker = _enemy;
+				_nearest_distance = _enemy_distance;
+			}
+		}
+	}
+
+	ds_list_destroy(_nearby_enemies);
+
+	return _nearest_attacker;
+};
+
 move_towards_target = function(_target)
 {
 	if (instance_exists(_target))
@@ -44,6 +90,72 @@ move_towards_target = function(_target)
 		x += lengthdir_x(move_speed, _target_direction);
 		y += lengthdir_y(move_speed, _target_direction);
 	}
+};
+
+update_separation_push = function()
+{
+	separation_update_timer++;
+
+	if (separation_update_timer mod separation_update_interval != 0)
+	{
+		return;
+	}
+
+	var _separation_object = o_units_parent;
+
+	if (unit_faction == UNIT_FACTION.ENEMY)
+	{
+		_separation_object = o_enemy_units;
+	}
+	else if (unit_faction == UNIT_FACTION.FRIENDLY)
+	{
+		_separation_object = o_friendly_units;
+	}
+
+	var _nearby_units = ds_list_create();
+	var _nearby_unit_count = collision_circle_list(x, y, separation_radius, _separation_object, false, true, _nearby_units, false);
+	var _checked_unit_count = min(_nearby_unit_count, separation_max_neighbors);
+	var _push_x = 0;
+	var _push_y = 0;
+
+	// Push away from a few nearby units. This avoids expensive full crowd checks.
+	for (var _unit_index = 0; _unit_index < _checked_unit_count; ++_unit_index)
+	{
+		var _nearby_unit = _nearby_units[| _unit_index];
+
+		if (instance_exists(_nearby_unit))
+		{
+			var _distance_to_unit = point_distance(x, y, _nearby_unit.x, _nearby_unit.y);
+			var _push_direction = point_direction(_nearby_unit.x, _nearby_unit.y, x, y);
+
+			if (_distance_to_unit <= 0)
+			{
+				_distance_to_unit = 1;
+				_push_direction = id mod 360;
+			}
+
+			var _push_amount = 1 - clamp(_distance_to_unit / separation_radius, 0, 1);
+
+			_push_x += lengthdir_x(_push_amount, _push_direction);
+			_push_y += lengthdir_y(_push_amount, _push_direction);
+		}
+	}
+
+	ds_list_destroy(_nearby_units);
+
+	separation_push_x = clamp(_push_x, -1, 1) * separation_strength;
+	separation_push_y = clamp(_push_y, -1, 1) * separation_strength;
+};
+
+apply_separation_push = function()
+{
+	if (is_attacking_target)
+	{
+		return;
+	}
+
+	x += separation_push_x;
+	y += separation_push_y;
 };
 
 attack_target = function(_target)

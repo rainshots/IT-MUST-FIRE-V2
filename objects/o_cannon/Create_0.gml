@@ -1,6 +1,12 @@
 // Cannon target selected by the player.
 max_hp = 300;
 hp = max_hp;
+
+// Cannon health bar visual settings.
+bar_width = 84;
+bar_height = 7;
+bar_offset_y = 58;
+
 target_exists = false;
 target_x = x;
 target_y = y;
