@@ -1,3 +1,9 @@
+// F3 toggles fog visibility for fast map testing.
+if (keyboard_check_pressed(vk_f3))
+{
+	global.fog_of_war_visible = !global.fog_of_war_visible;
+}
+
 // Resolve Escape by the current focused window.
 if (keyboard_check_pressed(vk_escape))
 {

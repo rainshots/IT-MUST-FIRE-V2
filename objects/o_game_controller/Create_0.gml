@@ -1,6 +1,7 @@
 // Global pause state used by gameplay objects.
 global.pause = false;
 global.focus_window = FOCUS_WINDOW.NOONE;
+global.fog_of_war_visible = true;
 
 // Global cannon target selected through the target selection mode.
 global.cannon_target_exists = false;

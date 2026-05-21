@@ -31,6 +31,7 @@
     {"id":{"name":"o_enemy_big","path":"objects/o_enemy_big/o_enemy_big.yy",},},
     {"id":{"name":"o_enemy_small","path":"objects/o_enemy_small/o_enemy_small.yy",},},
     {"id":{"name":"o_enemy_units","path":"objects/o_enemy_units/o_enemy_units.yy",},},
+    {"id":{"name":"o_fog_of_war","path":"objects/o_fog_of_war/o_fog_of_war.yy",},},
     {"id":{"name":"o_forest","path":"objects/o_forest/o_forest.yy",},},
     {"id":{"name":"o_friendly_units","path":"objects/o_friendly_units/o_friendly_units.yy",},},
     {"id":{"name":"o_game_controller","path":"objects/o_game_controller/o_game_controller.yy",},},

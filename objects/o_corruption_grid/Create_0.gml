@@ -3,7 +3,7 @@ map_assets_depth = 100;
 ground_background_depth = 300;
 draw_depth_between_ground_and_assets = (map_assets_depth + ground_background_depth) * 0.5;
 depth = draw_depth_between_ground_and_assets;
-cell_size = 100;
+cell_size = BALANCE_GRID_CELL_SIZE;
 grid_width = ceil(room_width / cell_size);
 grid_height = ceil(room_height / cell_size);
 
