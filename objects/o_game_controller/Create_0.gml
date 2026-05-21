@@ -41,7 +41,7 @@ fullscreen_enabled = window_get_fullscreen();
 
 // Target selection state.
 target_selection_projectile_type = PROJECTILE_TYPE.DAMAGE;
-target_selection_radius = 200;
+target_selection_radius = BALANCE_PROJECTILE_EFFECT_RADIUS;
 target_selection_alpha = 0.35;
 target_selection_outline_alpha = 0.85;
 

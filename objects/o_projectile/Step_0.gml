@@ -4,6 +4,13 @@ if (global.pause)
 	exit;
 }
 
+// Delay launch so volley projectiles land with slight timing differences.
+if (launch_delay_timer > 0)
+{
+	launch_delay_timer--;
+	exit;
+}
+
 flight_timer++;
 
 var _flight_progress = clamp(flight_timer / flight_time, 0, 1);

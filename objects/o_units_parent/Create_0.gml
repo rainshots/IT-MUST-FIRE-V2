@@ -10,9 +10,13 @@ cannon_attack_radius = 200;
 
 // Base unit movement and target search settings.
 move_speed = 1.2;
-target_detection_radius = 320;
+target_detection_radius = BALANCE_UNIT_VISION_RADIUS;
+vision_radius = BALANCE_UNIT_VISION_RADIUS;
 cannon_guard_radius = 460;
 target_instance = noone;
+alert_target = noone;
+alert_target_timer = 0;
+alert_target_time = BALANCE_UNIT_ALERT_TARGET_TIME * room_speed;
 
 // Optional guard behavior is used by spawned defenders.
 owner_garnizon = noone;
@@ -94,6 +98,58 @@ find_nearest_cannon_attacker = function()
 	ds_list_destroy(_nearby_enemies);
 
 	return _nearest_attacker;
+};
+
+find_nearest_enemy_object = function(_max_distance)
+{
+	var _nearest_target = noone;
+	var _nearest_distance = _max_distance;
+
+	// Holy towers are hostile structures for friendly units.
+	if (instance_exists(o_holy_tower))
+	{
+		var _holy_tower_count = instance_number(o_holy_tower);
+
+		for (var _tower_index = 0; _tower_index < _holy_tower_count; ++_tower_index)
+		{
+			var _tower = instance_find(o_holy_tower, _tower_index);
+
+			if (instance_exists(_tower) && _tower.hp > 0)
+			{
+				var _tower_distance = point_distance(x, y, _tower.x, _tower.y);
+
+				if (_tower_distance <= _nearest_distance)
+				{
+					_nearest_distance = _tower_distance;
+					_nearest_target = _tower;
+				}
+			}
+		}
+	}
+
+	// Garnizons are hostile structures for friendly units.
+	if (instance_exists(o_garnizon))
+	{
+		var _garnizon_count = instance_number(o_garnizon);
+
+		for (var _garnizon_index = 0; _garnizon_index < _garnizon_count; ++_garnizon_index)
+		{
+			var _garnizon = instance_find(o_garnizon, _garnizon_index);
+
+			if (instance_exists(_garnizon) && _garnizon.hp > 0)
+			{
+				var _garnizon_distance = point_distance(x, y, _garnizon.x, _garnizon.y);
+
+				if (_garnizon_distance <= _nearest_distance)
+				{
+					_nearest_distance = _garnizon_distance;
+					_nearest_target = _garnizon;
+				}
+			}
+		}
+	}
+
+	return _nearest_target;
 };
 
 move_towards_target = function(_target)

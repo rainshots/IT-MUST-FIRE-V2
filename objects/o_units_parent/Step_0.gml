@@ -17,6 +17,22 @@ if (attack_feedback_timer > 0)
 	attack_feedback_timer--;
 }
 
+// Forget shared threat after a short time.
+if (alert_target_timer > 0)
+{
+	alert_target_timer--;
+
+	if (!instance_exists(alert_target))
+	{
+		alert_target = noone;
+		alert_target_timer = 0;
+	}
+}
+else
+{
+	alert_target = noone;
+}
+
 // Choose target by faction.
 target_instance = noone;
 is_attacking_target = false;
@@ -48,7 +64,20 @@ if (_is_enemy_unit)
 }
 else if (_is_friendly_unit)
 {
-	target_instance = find_nearest_target(o_enemy_units, target_detection_radius);
+	if (instance_exists(alert_target))
+	{
+		target_instance = alert_target;
+	}
+
+	if (!instance_exists(target_instance))
+	{
+		target_instance = find_nearest_target(o_enemy_units, vision_radius);
+	}
+
+	if (!instance_exists(target_instance))
+	{
+		target_instance = find_nearest_enemy_object(vision_radius);
+	}
 
 	if (!instance_exists(target_instance))
 	{

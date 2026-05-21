@@ -1,19 +1,21 @@
 {
   "$GMObject":"",
-  "%Name":"o_hud",
+  "%Name":"o_forest",
   "eventList":[
     {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":0,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
     {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":3,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
-    {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":64,"eventType":8,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
   ],
   "managed":true,
-  "name":"o_hud",
+  "name":"o_forest",
   "overriddenProperties":[],
   "parent":{
-    "name":"Objects",
-    "path":"folders/Objects.yy",
+    "name":"map_objects",
+    "path":"folders/Objects/map_objects.yy",
   },
-  "parentObjectId":null,
+  "parentObjectId":{
+    "name":"o_map_objects_parent",
+    "path":"objects/o_map_objects_parent/o_map_objects_parent.yy",
+  },
   "persistent":false,
   "physicsAngularDamping":0.1,
   "physicsDensity":0.5,
@@ -31,7 +33,10 @@
   "resourceType":"GMObject",
   "resourceVersion":"2.0",
   "solid":false,
-  "spriteId":null,
+  "spriteId":{
+    "name":"s_wood",
+    "path":"sprites/s_wood/s_wood.yy",
+  },
   "spriteMaskId":null,
   "visible":true,
 }

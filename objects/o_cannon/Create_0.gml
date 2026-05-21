@@ -13,12 +13,12 @@ target_y = y;
 target_projectile_type = PROJECTILE_TYPE.DAMAGE;
 target_version = -1;
 
-// Shot timing. One shot every 15 seconds while target exists.
-shot_interval = 15 * room_speed;
-shot_timer = shot_interval;
-
 // Projectile settings passed to created projectile instances.
-projectile_effect_radius = 200;
+projectile_effect_radius = BALANCE_PROJECTILE_EFFECT_RADIUS;
+volley_projectile_count = BALANCE_CANNON_VOLLEY_PROJECTILE_COUNT;
+volley_spread_radius = BALANCE_CANNON_VOLLEY_SPREAD_RADIUS;
+volley_launch_delay_min = BALANCE_CANNON_VOLLEY_LAUNCH_DELAY_MIN;
+volley_launch_delay_max = BALANCE_CANNON_VOLLEY_LAUNCH_DELAY_MAX;
 projectile_spawn_offset_y = -20;
 projectile_layer_name = "Instances";
 

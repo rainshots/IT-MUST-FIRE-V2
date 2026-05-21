@@ -20,8 +20,18 @@ for (var _cell_x = _left_cell; _cell_x <= _right_cell; ++_cell_x)
 	for (var _cell_y = _top_cell; _cell_y <= _bottom_cell; ++_cell_y)
 	{
 		var _corruption = ds_grid_get(corruption_grid, _cell_x, _cell_y);
+		var _holy_count = ds_grid_get(holy_grid, _cell_x, _cell_y);
 
-		if (_corruption >= minimum_draw_corruption)
+		if (_holy_count > 0)
+		{
+			var _holy_draw_x = _cell_x * cell_size;
+			var _holy_draw_y = _cell_y * cell_size;
+
+			draw_set_color(holy_cell_color);
+			draw_set_alpha(holy_cell_alpha);
+			draw_rectangle(_holy_draw_x, _holy_draw_y, _holy_draw_x + cell_size, _holy_draw_y + cell_size, false);
+		}
+		else if (_corruption >= minimum_draw_corruption)
 		{
 			var _draw_x = _cell_x * cell_size;
 			var _draw_y = _cell_y * cell_size;
