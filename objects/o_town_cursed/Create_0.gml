@@ -7,6 +7,12 @@ hp = max_hp;
 max_corruption = 100;
 corruption = max_corruption;
 
+// Cursed town corrupts nearby ground when it appears.
+spawn_corruption_radius_in_cells = 3;
+spawn_corruption_radius = spawn_corruption_radius_in_cells * 100;
+spawn_corruption_amount = 1;
+corrupt_circle(x, y, spawn_corruption_radius, spawn_corruption_amount);
+
 // Tooltip lines describe projectile reactions for player targeting.
 tooltip_lines = [
 	"Damage: -20 HP, +3 Souls, Graveyard at 0 HP",

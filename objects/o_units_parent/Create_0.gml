@@ -14,6 +14,12 @@ target_detection_radius = 320;
 cannon_guard_radius = 460;
 target_instance = noone;
 
+// Optional guard behavior is used by spawned defenders.
+owner_garnizon = noone;
+guard_target = noone;
+guard_radius = 220;
+unit_can_attack_cannon = true;
+
 // Unit separation keeps units from stacking into one point.
 separation_radius = 26;
 separation_strength = 0.55;
@@ -22,7 +28,16 @@ separation_update_timer = irandom(separation_update_interval - 1);
 separation_max_neighbors = 6;
 separation_push_x = 0;
 separation_push_y = 0;
+combat_separation_multiplier = 0.45;
 is_attacking_target = false;
+
+// Attack feedback shows who hit whom for a short moment.
+attack_feedback_time = 0.16 * room_speed;
+attack_feedback_timer = 0;
+attack_feedback_target = noone;
+attack_feedback_target_x = x;
+attack_feedback_target_y = y;
+attack_feedback_line_width = 2;
 
 // Health bar visual settings.
 bar_width = 34;
@@ -149,13 +164,15 @@ update_separation_push = function()
 
 apply_separation_push = function()
 {
+	var _separation_multiplier = 1;
+
 	if (is_attacking_target)
 	{
-		return;
+		_separation_multiplier = combat_separation_multiplier;
 	}
 
-	x += separation_push_x;
-	y += separation_push_y;
+	x += separation_push_x * _separation_multiplier;
+	y += separation_push_y * _separation_multiplier;
 };
 
 attack_target = function(_target)
@@ -175,6 +192,12 @@ attack_target = function(_target)
 	{
 		_target.hp = max(_target.hp - damage, 0);
 	}
+
+	// Store attack feedback position even if the target dies immediately after hit.
+	attack_feedback_target = _target;
+	attack_feedback_target_x = _target.x;
+	attack_feedback_target_y = _target.y;
+	attack_feedback_timer = attack_feedback_time;
 
 	reload_timer = reload_time;
 };

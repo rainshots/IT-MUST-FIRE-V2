@@ -1,19 +1,20 @@
 {
   "$GMObject":"",
-  "%Name":"o_enemy_small",
+  "%Name":"o_garnizon",
   "eventList":[
     {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":0,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
+    {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":3,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
   ],
   "managed":true,
-  "name":"o_enemy_small",
+  "name":"o_garnizon",
   "overriddenProperties":[],
   "parent":{
-    "name":"Units",
-    "path":"folders/Objects/Units.yy",
+    "name":"map_objects",
+    "path":"folders/Objects/map_objects.yy",
   },
   "parentObjectId":{
-    "name":"o_enemy_units",
-    "path":"objects/o_enemy_units/o_enemy_units.yy",
+    "name":"o_map_objects_parent",
+    "path":"objects/o_map_objects_parent/o_map_objects_parent.yy",
   },
   "persistent":false,
   "physicsAngularDamping":0.1,
@@ -33,8 +34,8 @@
   "resourceVersion":"2.0",
   "solid":false,
   "spriteId":{
-    "name":"s_enemy_small",
-    "path":"sprites/s_enemy_small/s_enemy_small.yy",
+    "name":"s_garnizon",
+    "path":"sprites/s_garnizon/s_garnizon.yy",
   },
   "spriteMaskId":null,
   "visible":true,

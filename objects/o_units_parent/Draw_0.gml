@@ -1,6 +1,31 @@
 // Draw unit sprite.
 draw_self();
 
+// Draw short attack feedback line.
+if (attack_feedback_timer > 0)
+{
+	var _feedback_progress = clamp(attack_feedback_timer / attack_feedback_time, 0, 1);
+	var _feedback_alpha = _feedback_progress;
+	var _feedback_color = COLOR_PROJECTILE_DAMAGE;
+	var _target_x = attack_feedback_target_x;
+	var _target_y = attack_feedback_target_y;
+
+	if (unit_faction == UNIT_FACTION.FRIENDLY)
+	{
+		_feedback_color = COLOR_PROJECTILE_SUMMON;
+	}
+
+	if (instance_exists(attack_feedback_target))
+	{
+		_target_x = attack_feedback_target.x;
+		_target_y = attack_feedback_target.y;
+	}
+
+	draw_set_alpha(_feedback_alpha);
+	draw_set_color(_feedback_color);
+	draw_line_width(x, y, _target_x, _target_y, attack_feedback_line_width);
+}
+
 // Draw unit health bar.
 var _bar_x = x - (bar_width * 0.5);
 var _bar_y = y - bar_offset_y;
