@@ -4,6 +4,22 @@ if (keyboard_check_pressed(vk_f3))
 	global.fog_of_war_visible = !global.fog_of_war_visible;
 }
 
+// F2 enables infinite projectile testing with one projectile of every known type.
+if (keyboard_check_pressed(vk_f2))
+{
+	var _cheat_projectile_count = array_length(global.cannon_projectile_drop_types);
+
+	global.cannon_projectile_queue = array_create(_cheat_projectile_count);
+	global.cannon_projectile_cheat_enabled = true;
+	global.cannon_projectile_gain_timer = 0;
+	target_selection_projectile_type = global.cannon_projectile_drop_types[0];
+
+	for (var _cheat_projectile_index = 0; _cheat_projectile_index < _cheat_projectile_count; ++_cheat_projectile_index)
+	{
+		global.cannon_projectile_queue[_cheat_projectile_index] = global.cannon_projectile_drop_types[_cheat_projectile_index];
+	}
+}
+
 // Resolve Escape by the current focused window.
 if (keyboard_check_pressed(vk_escape))
 {
@@ -70,30 +86,154 @@ if (!application_surface_ready && surface_exists(application_surface))
 	application_surface_ready = true;
 }
 
-// Start target selection mode from hotkeys when no other window has focus.
-if (global.focus_window == FOCUS_WINDOW.NOONE)
+// Update day and night cycle.
+if (!global.pause)
 {
-	if (keyboard_check_pressed(ord("1")))
+	if (global.day_phase == DAY_PHASE.DAY)
 	{
-		target_selection_projectile_type = PROJECTILE_TYPE.DAMAGE;
-		global.focus_window = FOCUS_WINDOW.TARGET_SELECTION;
+		global.night_attack_unit_count = 0;
+		global.day_timer--;
+
+		if (global.day_timer <= 0)
+		{
+			global.day_phase = DAY_PHASE.NIGHT;
+
+			with (o_garnizon)
+			{
+				if (is_activated)
+				{
+					release_owned_units();
+				}
+			}
+
+			var _released_enemy_count = instance_number(o_enemy_units);
+
+			for (var _enemy_index = 0; _enemy_index < _released_enemy_count; ++_enemy_index)
+			{
+				var _enemy = instance_find(o_enemy_units, _enemy_index);
+
+				if (instance_exists(_enemy)
+					&& variable_instance_exists(_enemy, "owner_garnizon")
+					&& instance_exists(_enemy.owner_garnizon)
+					&& _enemy.owner_garnizon.is_activated)
+				{
+					_enemy.unit_can_attack_cannon = true;
+					_enemy.is_night_attack_unit = true;
+					_enemy.guard_target = noone;
+					_enemy.owner_garnizon = noone;
+				}
+			}
+		}
 	}
-	else if (keyboard_check_pressed(ord("2")))
+	else if (global.day_phase == DAY_PHASE.NIGHT)
 	{
-		target_selection_projectile_type = PROJECTILE_TYPE.CORRUPTION;
-		global.focus_window = FOCUS_WINDOW.TARGET_SELECTION;
+		var _night_unit_count = 0;
+		var _night_enemy_count = instance_number(o_enemy_units);
+
+		for (var _enemy_index = 0; _enemy_index < _night_enemy_count; ++_enemy_index)
+		{
+			var _enemy = instance_find(o_enemy_units, _enemy_index);
+
+			if (instance_exists(_enemy)
+				&& variable_instance_exists(_enemy, "is_night_attack_unit")
+				&& _enemy.is_night_attack_unit)
+			{
+				_night_unit_count++;
+			}
+		}
+
+		global.night_attack_unit_count = _night_unit_count;
+
+		if (_night_unit_count <= 0)
+		{
+			global.day_phase = DAY_PHASE.DAY;
+			global.day_timer = global.day_duration * room_speed;
+			global.night_attack_unit_count = 0;
+		}
 	}
-	else if (keyboard_check_pressed(ord("3")))
+}
+
+// Add a new projectile to the back of the queue at a fixed room-speed-aware interval.
+if (!global.pause && variable_global_exists("cannon_projectile_queue") && !global.cannon_projectile_cheat_enabled)
+{
+	var _projectile_queue_count = array_length(global.cannon_projectile_queue);
+	var _projectile_gain_interval = global.cannon_projectile_gain_time * room_speed;
+
+	if (_projectile_queue_count < global.cannon_projectile_queue_max)
 	{
-		target_selection_projectile_type = PROJECTILE_TYPE.SUMMON;
-		global.focus_window = FOCUS_WINDOW.TARGET_SELECTION;
+		global.cannon_projectile_gain_timer++;
+
+		if (global.cannon_projectile_gain_timer >= _projectile_gain_interval)
+		{
+			var _drop_type_count = array_length(global.cannon_projectile_drop_types);
+			var _new_projectile_type = global.cannon_projectile_drop_types[irandom(_drop_type_count - 1)];
+
+			array_push(global.cannon_projectile_queue, _new_projectile_type);
+			global.cannon_projectile_gain_timer = 0;
+		}
+	}
+	else
+	{
+		global.cannon_projectile_gain_timer = 0;
+	}
+}
+
+// Start or update target selection mode from hotkeys when a queued projectile is ready.
+if (global.focus_window == FOCUS_WINDOW.NOONE
+	|| (global.cannon_projectile_cheat_enabled && global.focus_window == FOCUS_WINDOW.TARGET_SELECTION))
+{
+	var _projectile_queue_count = array_length(global.cannon_projectile_queue);
+
+	if (global.cannon_projectile_cheat_enabled)
+	{
+		var _selected_projectile_index = -1;
+		var _max_digit_count = min(_projectile_queue_count, 9);
+
+		for (var _digit_index = 0; _digit_index < _max_digit_count; ++_digit_index)
+		{
+			if (keyboard_check_pressed(ord(string(_digit_index + 1))))
+			{
+				_selected_projectile_index = _digit_index;
+				break;
+			}
+		}
+
+		if (_selected_projectile_index >= 0)
+		{
+			var _selected_projectile_type = global.cannon_projectile_queue[_selected_projectile_index];
+
+			for (var _queue_index = _selected_projectile_index; _queue_index > 0; --_queue_index)
+			{
+				global.cannon_projectile_queue[_queue_index] = global.cannon_projectile_queue[_queue_index - 1];
+			}
+
+			global.cannon_projectile_queue[0] = _selected_projectile_type;
+			target_selection_projectile_type = _selected_projectile_type;
+			global.focus_window = FOCUS_WINDOW.TARGET_SELECTION;
+		}
+	}
+	else
+	{
+		var _target_hotkey_pressed = keyboard_check_pressed(ord("1"))
+			|| keyboard_check_pressed(ord("2"))
+			|| keyboard_check_pressed(ord("3"));
+
+		if (_target_hotkey_pressed && _projectile_queue_count > 0)
+		{
+			target_selection_projectile_type = global.cannon_projectile_queue[0];
+			global.focus_window = FOCUS_WINDOW.TARGET_SELECTION;
+		}
 	}
 }
 
 // Confirm target selection with left mouse button.
 if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && mouse_check_button_pressed(mb_left))
 {
-	if (instance_exists(o_camera_controller))
+	if (array_length(global.cannon_projectile_queue) <= 0)
+	{
+		global.focus_window = FOCUS_WINDOW.NOONE;
+	}
+	else if (instance_exists(o_camera_controller))
 	{
 		var _camera_controller = instance_find(o_camera_controller, 0);
 		var _mouse_x = device_mouse_x_to_gui(0);
@@ -103,6 +243,7 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && mouse_check_button_p
 		var _view_width = camera_get_view_width(_camera_controller.camera_id);
 		var _view_height = camera_get_view_height(_camera_controller.camera_id);
 
+		target_selection_projectile_type = global.cannon_projectile_queue[0];
 		global.cannon_target_exists = true;
 		global.cannon_target_x = _camera_x + ((_mouse_x / camera_view_width) * _view_width);
 		global.cannon_target_y = _camera_y + ((_mouse_y / camera_view_height) * _view_height);

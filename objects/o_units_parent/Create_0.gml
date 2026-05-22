@@ -23,6 +23,7 @@ owner_garnizon = noone;
 guard_target = noone;
 guard_radius = 220;
 unit_can_attack_cannon = true;
+is_night_attack_unit = false;
 
 // Unit separation keeps units from stacking into one point.
 separation_radius = 26;
@@ -194,7 +195,7 @@ update_separation_push = function()
 	{
 		var _nearby_unit = _nearby_units[| _unit_index];
 
-		if (instance_exists(_nearby_unit))
+		if (instance_exists(_nearby_unit) && _nearby_unit != id)
 		{
 			var _distance_to_unit = point_distance(x, y, _nearby_unit.x, _nearby_unit.y);
 			var _push_direction = point_direction(_nearby_unit.x, _nearby_unit.y, x, y);
@@ -202,7 +203,7 @@ update_separation_push = function()
 			if (_distance_to_unit <= 0)
 			{
 				_distance_to_unit = 1;
-				_push_direction = id mod 360;
+				_push_direction = (_unit_index * 47) mod 360;
 			}
 
 			var _push_amount = 1 - clamp(_distance_to_unit / separation_radius, 0, 1);

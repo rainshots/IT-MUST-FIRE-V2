@@ -10,6 +10,8 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 	// Fire once at the freshly selected target.
 	if (!global.pause)
 	{
+		var _projectile_queue_count = array_length(global.cannon_projectile_queue);
+
 		for (var _projectile_index = 0; _projectile_index < volley_projectile_count; ++_projectile_index)
 		{
 			var _spread_direction = random(360);
@@ -35,6 +37,19 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			_projectile.effect_radius = projectile_effect_radius;
 			_projectile.launch_delay_timer = _launch_delay_seconds * room_speed;
 			_projectile.flight_time = _flight_time_seconds * room_speed;
+		}
+
+		// Remove the fired projectile from the front of the queue outside cheat testing.
+		if (_projectile_queue_count > 0 && !global.cannon_projectile_cheat_enabled)
+		{
+			var _updated_projectile_queue = array_create(_projectile_queue_count - 1);
+
+			for (var _queue_index = 1; _queue_index < _projectile_queue_count; ++_queue_index)
+			{
+				_updated_projectile_queue[_queue_index - 1] = global.cannon_projectile_queue[_queue_index];
+			}
+
+			global.cannon_projectile_queue = _updated_projectile_queue;
 		}
 	}
 }

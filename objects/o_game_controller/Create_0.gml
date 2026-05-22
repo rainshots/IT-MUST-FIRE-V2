@@ -3,12 +3,34 @@ global.pause = false;
 global.focus_window = FOCUS_WINDOW.NOONE;
 global.fog_of_war_visible = true;
 
+// Global day cycle: day has a fixed timer, night ends when released holy troops die.
+global.day_phase = DAY_PHASE.DAY;
+global.day_duration = BALANCE_DAY_DURATION;
+global.day_timer = global.day_duration * room_speed;
+global.night_attack_unit_count = 0;
+
 // Global cannon target selected through the target selection mode.
 global.cannon_target_exists = false;
 global.cannon_target_x = 0;
 global.cannon_target_y = 0;
 global.cannon_target_projectile_type = PROJECTILE_TYPE.DAMAGE;
 global.cannon_target_version = 0;
+
+// Global cannon projectile queue consumed from the first slot.
+global.cannon_projectile_queue = [
+	PROJECTILE_TYPE.DAMAGE,
+	PROJECTILE_TYPE.CORRUPTION,
+	PROJECTILE_TYPE.SUMMON
+];
+global.cannon_projectile_queue_max = BALANCE_CANNON_PROJECTILE_QUEUE_MAX;
+global.cannon_projectile_gain_time = BALANCE_CANNON_PROJECTILE_GAIN_TIME;
+global.cannon_projectile_gain_timer = 0;
+global.cannon_projectile_drop_types = [
+	PROJECTILE_TYPE.DAMAGE,
+	PROJECTILE_TYPE.CORRUPTION,
+	PROJECTILE_TYPE.SUMMON
+];
+global.cannon_projectile_cheat_enabled = false;
 
 // Global resource storage used by HUD and economy systems.
 global.resources = array_create(RESOURCES.COUNT, 0);
@@ -55,6 +77,7 @@ pause_button_count = array_length(pause_button_labels);
 
 // Menu visual settings.
 overlay_alpha = 0.45;
+night_overlay_alpha = BALANCE_NIGHT_OVERLAY_ALPHA;
 button_width = 280;
 button_height = 58;
 button_gap = 18;

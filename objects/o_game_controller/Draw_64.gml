@@ -1,3 +1,13 @@
+// Draw daytime tint over the world while keeping HUD readable.
+if (global.day_phase == DAY_PHASE.DAY)
+{
+	draw_set_alpha(night_overlay_alpha);
+	draw_set_color(COLOR_NIGHT_OVERLAY);
+	draw_rectangle(0, 0, camera_view_width, camera_view_height, false);
+	draw_set_alpha(1);
+	draw_set_color(c_white);
+}
+
 // Draw target selection radius under the cursor.
 if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_camera_controller))
 {
