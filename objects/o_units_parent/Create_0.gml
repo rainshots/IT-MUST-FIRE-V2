@@ -18,6 +18,17 @@ alert_target = noone;
 alert_target_timer = 0;
 alert_target_time = BALANCE_UNIT_ALERT_TARGET_TIME * room_speed;
 
+// Rally command state is assigned by rally projectiles.
+rally_group_id = 0;
+rally_target_x = x;
+rally_target_y = y;
+rally_home_x = x;
+rally_home_y = y;
+rally_arrive_radius = BALANCE_PROJECTILE_RALLY_ARRIVE_RADIUS;
+rally_is_active = false;
+rally_is_returning = false;
+rally_has_arrived = false;
+
 // Optional guard behavior is used by spawned defenders.
 owner_garnizon = noone;
 guard_target = noone;
@@ -161,6 +172,57 @@ move_towards_target = function(_target)
 
 		x += lengthdir_x(move_speed, _target_direction);
 		y += lengthdir_y(move_speed, _target_direction);
+	}
+};
+
+move_towards_world_point = function(_target_x, _target_y)
+{
+	var _target_direction = point_direction(x, y, _target_x, _target_y);
+
+	x += lengthdir_x(move_speed, _target_direction);
+	y += lengthdir_y(move_speed, _target_direction);
+};
+
+rally_group_ready_to_return = function()
+{
+	var _friendly_count = instance_number(o_friendly_units);
+
+	for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_index)
+	{
+		var _friendly_unit = instance_find(o_friendly_units, _friendly_index);
+
+		if (instance_exists(_friendly_unit)
+			&& _friendly_unit.rally_is_active
+			&& !_friendly_unit.rally_is_returning
+			&& _friendly_unit.rally_group_id == rally_group_id)
+		{
+			if (!_friendly_unit.rally_has_arrived
+				|| _friendly_unit.is_attacking_target
+				|| instance_exists(_friendly_unit.target_instance))
+			{
+				return false;
+			}
+		}
+	}
+
+	return true;
+};
+
+rally_group_start_returning = function()
+{
+	var _friendly_count = instance_number(o_friendly_units);
+
+	for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_index)
+	{
+		var _friendly_unit = instance_find(o_friendly_units, _friendly_index);
+
+		if (instance_exists(_friendly_unit)
+			&& _friendly_unit.rally_is_active
+			&& _friendly_unit.rally_group_id == rally_group_id)
+		{
+			_friendly_unit.rally_is_returning = true;
+			_friendly_unit.rally_has_arrived = false;
+		}
 	}
 };
 

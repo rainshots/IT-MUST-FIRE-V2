@@ -4,6 +4,28 @@ if (global.pause)
 	exit;
 }
 
+// Destroy dead garnizons and release references held by their prepared troops.
+if (hp <= 0)
+{
+	var _enemy_count = instance_number(o_enemy_units);
+
+	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	{
+		var _enemy = instance_find(o_enemy_units, _enemy_index);
+
+		if (instance_exists(_enemy) && _enemy.owner_garnizon == id)
+		{
+			_enemy.unit_can_attack_cannon = true;
+			_enemy.is_night_attack_unit = (global.day_phase == DAY_PHASE.NIGHT);
+			_enemy.guard_target = noone;
+			_enemy.owner_garnizon = noone;
+		}
+	}
+
+	instance_destroy();
+	exit;
+}
+
 // Activate when damaged or when corrupted ground gets close enough.
 if (hp < previous_hp)
 {

@@ -111,6 +111,10 @@ if (variable_global_exists("cannon_projectile_queue"))
 		{
 			_projectile_color = COLOR_PROJECTILE_SUMMON;
 		}
+		else if (_projectile_type == PROJECTILE_TYPE.RALLY)
+		{
+			_projectile_color = COLOR_PROJECTILE_RALLY;
+		}
 
 		if (_is_current_projectile)
 		{

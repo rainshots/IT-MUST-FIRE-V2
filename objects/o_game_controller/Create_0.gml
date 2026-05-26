@@ -20,7 +20,8 @@ global.cannon_target_version = 0;
 global.cannon_projectile_queue = [
 	PROJECTILE_TYPE.DAMAGE,
 	PROJECTILE_TYPE.CORRUPTION,
-	PROJECTILE_TYPE.SUMMON
+	PROJECTILE_TYPE.SUMMON,
+	PROJECTILE_TYPE.RALLY
 ];
 global.cannon_projectile_queue_max = BALANCE_CANNON_PROJECTILE_QUEUE_MAX;
 global.cannon_projectile_gain_time = BALANCE_CANNON_PROJECTILE_GAIN_TIME;
@@ -28,14 +29,16 @@ global.cannon_projectile_gain_timer = 0;
 global.cannon_projectile_drop_types = [
 	PROJECTILE_TYPE.DAMAGE,
 	PROJECTILE_TYPE.CORRUPTION,
-	PROJECTILE_TYPE.SUMMON
+	PROJECTILE_TYPE.SUMMON,
+	PROJECTILE_TYPE.RALLY
 ];
 global.cannon_projectile_cheat_enabled = false;
+global.rally_projectile_group_id = 0;
 
 // Global resource storage used by HUD and economy systems.
 global.resources = array_create(RESOURCES.COUNT, 0);
 global.resources[RESOURCES.SOULS] = 0;
-global.resources[RESOURCES.IRON] = 0;
+global.resources[RESOURCES.GOLD] = 0;
 global.resources[RESOURCES.CULTISTS] = 0;
 
 // Base window and GUI size for the strategy view.

@@ -11,8 +11,14 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 	if (!global.pause)
 	{
 		var _projectile_queue_count = array_length(global.cannon_projectile_queue);
+		var _fired_projectile_count = volley_projectile_count;
 
-		for (var _projectile_index = 0; _projectile_index < volley_projectile_count; ++_projectile_index)
+		if (target_projectile_type == PROJECTILE_TYPE.RALLY)
+		{
+			_fired_projectile_count = 1;
+		}
+
+		for (var _projectile_index = 0; _projectile_index < _fired_projectile_count; ++_projectile_index)
 		{
 			var _spread_direction = random(360);
 			var _spread_distance = sqrt(random(1)) * volley_spread_radius;
@@ -22,6 +28,14 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			var _projectile_x = x;
 			var _projectile_y = y + projectile_spawn_offset_y;
 			var _projectile = instance_create_layer(_projectile_x, _projectile_y, projectile_layer_name, o_projectile);
+
+			if (target_projectile_type == PROJECTILE_TYPE.RALLY)
+			{
+				_spread_target_x = target_x;
+				_spread_target_y = target_y;
+				_launch_delay_seconds = 0;
+			}
+
 			var _projectile_distance = point_distance(_projectile_x, _projectile_y, _spread_target_x, _spread_target_y);
 			var _flight_time_seconds = clamp(
 				_projectile_distance / _projectile.projectile_speed,

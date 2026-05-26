@@ -166,7 +166,42 @@ if (!global.pause && variable_global_exists("cannon_projectile_queue") && !globa
 		if (global.cannon_projectile_gain_timer >= _projectile_gain_interval)
 		{
 			var _drop_type_count = array_length(global.cannon_projectile_drop_types);
-			var _new_projectile_type = global.cannon_projectile_drop_types[irandom(_drop_type_count - 1)];
+			var _new_projectile_type = PROJECTILE_TYPE.DAMAGE;
+			var _valid_drop_types = array_create(0);
+
+			for (var _drop_type_index = 0; _drop_type_index < _drop_type_count; ++_drop_type_index)
+			{
+				var _drop_type = global.cannon_projectile_drop_types[_drop_type_index];
+				var _can_drop_type = true;
+
+				if (_drop_type == PROJECTILE_TYPE.RALLY)
+				{
+					_can_drop_type = false;
+
+					if (instance_exists(o_cannon) && instance_exists(o_friendly_units))
+					{
+						var _cannon = instance_find(o_cannon, 0);
+						var _friendly_unit = instance_nearest(_cannon.x, _cannon.y, o_friendly_units);
+
+						if (instance_exists(_friendly_unit))
+						{
+							var _friendly_distance = point_distance(_cannon.x, _cannon.y, _friendly_unit.x, _friendly_unit.y);
+
+							_can_drop_type = _friendly_distance <= BALANCE_PROJECTILE_RALLY_UNIT_SEARCH_RADIUS;
+						}
+					}
+				}
+
+				if (_can_drop_type)
+				{
+					array_push(_valid_drop_types, _drop_type);
+				}
+			}
+
+			if (array_length(_valid_drop_types) > 0)
+			{
+				_new_projectile_type = _valid_drop_types[irandom(array_length(_valid_drop_types) - 1)];
+			}
 
 			array_push(global.cannon_projectile_queue, _new_projectile_type);
 			global.cannon_projectile_gain_timer = 0;

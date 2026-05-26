@@ -26,6 +26,10 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 	{
 		_target_color = COLOR_PROJECTILE_SUMMON;
 	}
+	else if (target_selection_projectile_type == PROJECTILE_TYPE.RALLY)
+	{
+		_target_color = COLOR_PROJECTILE_RALLY;
+	}
 
 	draw_set_color(_target_color);
 	draw_set_alpha(target_selection_alpha);

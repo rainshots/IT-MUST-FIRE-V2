@@ -14,10 +14,10 @@ function resource_popup_create(_x, _y, _resource_type, _amount)
 		_resource_name = "soul";
 		_resource_color = COLOR_HUD_SOULS;
 	}
-	else if (_resource_type == RESOURCES.IRON)
+	else if (_resource_type == RESOURCES.GOLD)
 	{
-		_resource_name = "iron";
-		_resource_color = COLOR_HUD_IRON;
+		_resource_name = "gold";
+		_resource_color = COLOR_HUD_GOLD;
 	}
 	else if (_resource_type == RESOURCES.CULTISTS)
 	{
@@ -27,7 +27,7 @@ function resource_popup_create(_x, _y, _resource_type, _amount)
 
 	// Add plural suffix for countable resources.
 	var _plural_suffix = "";
-	if (_amount != 1 && _resource_type != RESOURCES.IRON)
+	if (_amount != 1 && _resource_type != RESOURCES.GOLD)
 	{
 		_plural_suffix = "s";
 	}

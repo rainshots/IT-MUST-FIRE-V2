@@ -41,47 +41,95 @@ if (_flight_progress >= 1)
 	{
 		corrupt_circle(target_x, target_y, effect_radius, ground_corruption_amount);
 	}
-
-	with (all)
+	else if (projectile_type == PROJECTILE_TYPE.RALLY)
 	{
-		var _is_valid_target = (
-			id != other.id
-			&& object_index != o_projectile
-			&& object_index != o_particle_smoke
-			&& object_index != o_particle_explosion
-			&& object_index != o_camera_controller
-			&& object_index != o_game_controller
-		);
-
-		if (_is_valid_target && point_distance(x, y, other.target_x, other.target_y) <= other.effect_radius)
+		if (instance_exists(o_cannon))
 		{
-			if (variable_instance_exists(id, "on_projectile_hit"))
-			{
-				on_projectile_hit(other.projectile_type);
-			}
-			else if (other.projectile_type == PROJECTILE_TYPE.DAMAGE)
-			{
-				if (variable_instance_exists(id, "health"))
-				{
-					health -= other.damage_amount;
-				}
-				else if (variable_instance_exists(id, "hp"))
-				{
-					hp -= other.damage_amount;
-				}
-			}
-			else if (other.projectile_type == PROJECTILE_TYPE.CORRUPTION)
-			{
-				if (!variable_instance_exists(id, "corruption"))
-				{
-					corruption = 0;
-				}
+			var _cannon = instance_find(o_cannon, 0);
+			var _nearby_units = ds_list_create();
+			var _search_radius = BALANCE_PROJECTILE_RALLY_UNIT_SEARCH_RADIUS;
+			var _nearby_unit_count = collision_circle_list(
+				_cannon.x,
+				_cannon.y,
+				_search_radius,
+				o_friendly_units,
+				false,
+				true,
+				_nearby_units,
+				true
+			);
+			var _assigned_unit_count = ceil(_nearby_unit_count * BALANCE_PROJECTILE_RALLY_UNIT_SHARE);
 
-				corruption += other.corruption_amount;
-			}
-			else if (other.projectile_type == PROJECTILE_TYPE.SUMMON)
+			if (_assigned_unit_count > 0)
 			{
-				// Summon contract will be added when the target object API is agreed.
+				global.rally_projectile_group_id++;
+
+				for (var _unit_index = 0; _unit_index < _assigned_unit_count; ++_unit_index)
+				{
+					var _unit = _nearby_units[| _unit_index];
+
+					if (instance_exists(_unit))
+					{
+						_unit.rally_group_id = global.rally_projectile_group_id;
+						_unit.rally_target_x = target_x;
+						_unit.rally_target_y = target_y;
+						_unit.rally_home_x = _cannon.x;
+						_unit.rally_home_y = _cannon.y;
+						_unit.rally_arrive_radius = BALANCE_PROJECTILE_RALLY_ARRIVE_RADIUS;
+						_unit.rally_is_active = true;
+						_unit.rally_is_returning = false;
+						_unit.rally_has_arrived = false;
+					}
+				}
+			}
+
+			ds_list_destroy(_nearby_units);
+		}
+	}
+
+	if (projectile_type != PROJECTILE_TYPE.RALLY)
+	{
+		with (all)
+		{
+			var _is_valid_target = (
+				id != other.id
+				&& object_index != o_projectile
+				&& object_index != o_particle_smoke
+				&& object_index != o_particle_explosion
+				&& object_index != o_camera_controller
+				&& object_index != o_game_controller
+			);
+
+			if (_is_valid_target && point_distance(x, y, other.target_x, other.target_y) <= other.effect_radius)
+			{
+				if (variable_instance_exists(id, "on_projectile_hit"))
+				{
+					on_projectile_hit(other.projectile_type);
+				}
+				else if (other.projectile_type == PROJECTILE_TYPE.DAMAGE)
+				{
+					if (variable_instance_exists(id, "health"))
+					{
+						health -= other.damage_amount;
+					}
+					else if (variable_instance_exists(id, "hp"))
+					{
+						hp -= other.damage_amount;
+					}
+				}
+				else if (other.projectile_type == PROJECTILE_TYPE.CORRUPTION)
+				{
+					if (!variable_instance_exists(id, "corruption"))
+					{
+						corruption = 0;
+					}
+
+					corruption += other.corruption_amount;
+				}
+				else if (other.projectile_type == PROJECTILE_TYPE.SUMMON)
+				{
+					// Summon contract will be added when the target object API is agreed.
+				}
 			}
 		}
 	}

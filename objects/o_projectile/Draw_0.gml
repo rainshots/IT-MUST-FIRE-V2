@@ -9,6 +9,10 @@ else if (projectile_type == PROJECTILE_TYPE.SUMMON)
 {
 	_projectile_color = COLOR_PROJECTILE_SUMMON;
 }
+else if (projectile_type == PROJECTILE_TYPE.RALLY)
+{
+	_projectile_color = COLOR_PROJECTILE_RALLY;
+}
 
 // Draw a round projectile.
 draw_set_color(_projectile_color);
