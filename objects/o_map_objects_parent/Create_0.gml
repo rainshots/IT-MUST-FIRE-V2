@@ -39,6 +39,11 @@ on_summon_projectile_hit = function()
 
 on_projectile_hit = function(_projectile_type)
 {
+	if (variable_global_exists("legacy_building_logic_enabled") && !global.legacy_building_logic_enabled)
+	{
+		return;
+	}
+
 	if (_projectile_type == PROJECTILE_TYPE.DAMAGE)
 	{
 		on_damage_projectile_hit();

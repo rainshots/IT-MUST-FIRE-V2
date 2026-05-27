@@ -121,6 +121,11 @@ has_corrupted_cell_nearby = function()
 
 on_projectile_hit = function(_projectile_type)
 {
+	if (variable_global_exists("legacy_building_logic_enabled") && !global.legacy_building_logic_enabled)
+	{
+		return;
+	}
+
 	activate_garnizon();
 
 	if (_projectile_type == PROJECTILE_TYPE.DAMAGE)

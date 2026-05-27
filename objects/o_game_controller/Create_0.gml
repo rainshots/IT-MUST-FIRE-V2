@@ -1,4 +1,5 @@
 // Global pause state used by gameplay objects.
+randomise()
 global.pause = false;
 global.focus_window = FOCUS_WINDOW.NOONE;
 global.fog_of_war_visible = true;
@@ -8,6 +9,77 @@ global.day_phase = DAY_PHASE.DAY;
 global.day_duration = BALANCE_DAY_DURATION;
 global.day_timer = global.day_duration * room_speed;
 global.night_attack_unit_count = 0;
+global.day_cycle_enabled = false;
+global.legacy_building_logic_enabled = false;
+global.cultists = array_create(0);
+
+// Global particle system used by lightweight world effects.
+global.particle_system_effects = part_system_create();
+global.particle_type_blood = part_type_create();
+global.particle_type_frenzy = part_type_create();
+global.particle_type_blood_rage = part_type_create();
+part_system_depth(global.particle_system_effects, BALANCE_PARTICLE_SYSTEM_TOP_DEPTH);
+part_system_automatic_update(global.particle_system_effects, true);
+part_system_automatic_draw(global.particle_system_effects, true);
+part_type_shape(global.particle_type_blood, pt_shape_square);
+part_type_size(
+	global.particle_type_blood,
+	BALANCE_BLOOD_PARTICLE_SIZE_MIN,
+	BALANCE_BLOOD_PARTICLE_SIZE_MAX,
+	-0.01,
+	0
+);
+part_type_color1(global.particle_type_blood, COLOR_PARTICLE_BLOOD);
+part_type_alpha2(global.particle_type_blood, 1, 0);
+part_type_speed(
+	global.particle_type_blood,
+	BALANCE_BLOOD_PARTICLE_SPEED_MIN,
+	BALANCE_BLOOD_PARTICLE_SPEED_MAX,
+	-0.05,
+	0
+);
+part_type_direction(global.particle_type_blood, 0, 359, 0, 0);
+part_type_life(global.particle_type_blood, BALANCE_BLOOD_PARTICLE_LIFE_MIN, BALANCE_BLOOD_PARTICLE_LIFE_MAX);
+
+part_type_shape(global.particle_type_frenzy, pt_shape_square);
+part_type_size(
+	global.particle_type_frenzy,
+	BALANCE_IMP_FRENZY_PARTICLE_SIZE_MIN,
+	BALANCE_IMP_FRENZY_PARTICLE_SIZE_MAX,
+	-0.01,
+	0
+);
+part_type_color1(global.particle_type_frenzy, COLOR_PARTICLE_FRENZY);
+part_type_alpha2(global.particle_type_frenzy, 0.8, 0);
+part_type_speed(
+	global.particle_type_frenzy,
+	BALANCE_IMP_FRENZY_PARTICLE_SPEED_MIN,
+	BALANCE_IMP_FRENZY_PARTICLE_SPEED_MAX,
+	-0.03,
+	0
+);
+part_type_direction(global.particle_type_frenzy, 160, 200, 0, 0);
+part_type_life(global.particle_type_frenzy, BALANCE_IMP_FRENZY_PARTICLE_LIFE_MIN, BALANCE_IMP_FRENZY_PARTICLE_LIFE_MAX);
+
+part_type_shape(global.particle_type_blood_rage, pt_shape_square);
+part_type_size(
+	global.particle_type_blood_rage,
+	BALANCE_IMP_BLOOD_RAGE_PARTICLE_SIZE_MIN,
+	BALANCE_IMP_BLOOD_RAGE_PARTICLE_SIZE_MAX,
+	-0.01,
+	0
+);
+part_type_color1(global.particle_type_blood_rage, COLOR_PARTICLE_BLOOD_RAGE);
+part_type_alpha2(global.particle_type_blood_rage, 0.9, 0);
+part_type_speed(
+	global.particle_type_blood_rage,
+	BALANCE_IMP_BLOOD_RAGE_PARTICLE_SPEED_MIN,
+	BALANCE_IMP_BLOOD_RAGE_PARTICLE_SPEED_MAX,
+	-0.02,
+	0
+);
+part_type_direction(global.particle_type_blood_rage, 0, 359, 0, 0);
+part_type_life(global.particle_type_blood_rage, BALANCE_IMP_BLOOD_RAGE_PARTICLE_LIFE_MIN, BALANCE_IMP_BLOOD_RAGE_PARTICLE_LIFE_MAX);
 
 // Global cannon target selected through the target selection mode.
 global.cannon_target_exists = false;
@@ -26,6 +98,7 @@ global.cannon_projectile_queue = [
 global.cannon_projectile_queue_max = BALANCE_CANNON_PROJECTILE_QUEUE_MAX;
 global.cannon_projectile_gain_time = BALANCE_CANNON_PROJECTILE_GAIN_TIME;
 global.cannon_projectile_gain_timer = 0;
+global.cannon_projectile_gain_enabled = false;
 global.cannon_projectile_drop_types = [
 	PROJECTILE_TYPE.DAMAGE,
 	PROJECTILE_TYPE.CORRUPTION,
@@ -90,6 +163,186 @@ fullscreen_toggle_size = 34;
 settings_toggle_right_padding = 82;
 settings_toggle_top_padding = 84;
 settings_close_bottom_padding = 28;
+
+// Cultist prototype state.
+cultist_start_count = BALANCE_STARTING_CULTIST_COUNT;
+cultists_spawned = false;
+cultist_spawn_spacing = 54;
+cultist_spawn_offset_x = -96;
+cultist_spawn_offset_y = 76;
+cultist_selection_index = 0;
+cultist_selected_demon_type = DEMON_TYPE.IMP;
+cultist_name_input_active = true;
+cultist_selection_buttons = [
+	DEMON_TYPE.IMP,
+	DEMON_TYPE.WARLOCK,
+	DEMON_TYPE.ZOMBIE
+];
+cultist_selection_button_width = 128;
+cultist_selection_button_height = 42;
+cultist_selection_button_gap = 14;
+cultist_panel_width = 720;
+cultist_panel_height = 520;
+cultist_levelup_open = false;
+cultist_levelup_index = 0;
+
+spawn_starting_cultists = function()
+{
+	if (!instance_exists(o_cannon))
+	{
+		return;
+	}
+
+	var _cannon = instance_find(o_cannon, 0);
+	global.cultists = array_create(0);
+
+	for (var _cultist_index = 0; _cultist_index < cultist_start_count; ++_cultist_index)
+	{
+		var _spawn_x = _cannon.x + cultist_spawn_offset_x + (_cultist_index * cultist_spawn_spacing);
+		var _spawn_y = _cannon.y + cultist_spawn_offset_y;
+		var _cultist = instance_create_layer(_spawn_x, _spawn_y, "Instances", o_cultist);
+
+		array_push(global.cultists, _cultist);
+	}
+
+	cultists_spawned = true;
+	global.pause = true;
+	global.focus_window = FOCUS_WINDOW.CULTIST_DEMON_SELECTION;
+	keyboard_string = "";
+};
+
+get_current_cultist = function()
+{
+	if (cultist_selection_index >= 0 && cultist_selection_index < array_length(global.cultists))
+	{
+		var _cultist = global.cultists[cultist_selection_index];
+
+		if (instance_exists(_cultist))
+		{
+			return _cultist;
+		}
+	}
+
+	return noone;
+};
+
+assign_current_cultist_demon = function()
+{
+	var _cultist = get_current_cultist();
+
+	if (!instance_exists(_cultist))
+	{
+		return;
+	}
+
+	var _typed_name = string_trim(keyboard_string);
+
+	if (_typed_name == "")
+	{
+		_typed_name = "Cultist " + string(cultist_selection_index + 1);
+	}
+
+	_cultist.cultist_name = string_copy(_typed_name, 1, 16);
+	_cultist.demon_type = cultist_selected_demon_type;
+	_cultist.demon_ability = cultist_ability_roll(cultist_selected_demon_type);
+
+	cultist_selection_index++;
+	keyboard_string = "";
+	cultist_selected_demon_type = DEMON_TYPE.IMP;
+
+	if (cultist_selection_index >= array_length(global.cultists))
+	{
+		global.pause = false;
+		global.focus_window = FOCUS_WINDOW.NOONE;
+	}
+};
+
+transform_cultists_to_demons = function()
+{
+	var _cultist_count = array_length(global.cultists);
+	var _new_units = array_create(0);
+
+	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+	{
+		var _cultist = global.cultists[_cultist_index];
+
+		if (!instance_exists(_cultist) || _cultist.object_index != o_cultist || _cultist.demon_type == DEMON_TYPE.NONE)
+		{
+			if (instance_exists(_cultist))
+			{
+				array_push(_new_units, _cultist);
+			}
+
+			continue;
+		}
+
+		var _demon_object = cultist_demon_object_get(_cultist.demon_type);
+
+		if (_demon_object == noone)
+		{
+			continue;
+		}
+
+		var _demon = instance_create_layer(_cultist.x, _cultist.y, "Instances", _demon_object);
+		_demon.cultist_name = _cultist.cultist_name;
+		_demon.cultist_points = _cultist.cultist_points;
+		_demon.demon_type = _cultist.demon_type;
+		_demon.demon_ability = _cultist.demon_ability;
+		_demon.current_exp = _cultist.current_exp;
+		_demon.current_lvl = _cultist.current_lvl;
+		cultist_stats_apply(_demon);
+
+		if (variable_instance_exists(_demon, "ability_cooldown"))
+		{
+			_demon.ability_cooldown = cultist_ability_cooldown_get(_demon.demon_ability) * room_speed;
+			_demon.ability_timer = _demon.ability_cooldown;
+			_demon.base_reload_time = _demon.reload_time;
+		}
+
+		array_push(_new_units, _demon);
+		instance_destroy(_cultist);
+	}
+
+	global.cultists = _new_units;
+};
+
+open_cultist_levelup = function()
+{
+	cultist_levelup_open = true;
+	cultist_levelup_index = 0;
+	global.pause = true;
+	global.focus_window = FOCUS_WINDOW.CULTIST_LEVEL_UP;
+};
+
+add_cultist_level_point = function(_stat_index)
+{
+	if (cultist_levelup_index < 0 || cultist_levelup_index >= array_length(global.cultists))
+	{
+		return;
+	}
+
+	var _cultist = global.cultists[cultist_levelup_index];
+
+	if (instance_exists(_cultist) && variable_instance_exists(_cultist, "cultist_points"))
+	{
+		_cultist.cultist_points[_stat_index]++;
+		_cultist.current_lvl++;
+
+		if (variable_instance_exists(_cultist, "demon_type") && _cultist.demon_type != DEMON_TYPE.NONE && _cultist.object_index != o_cultist)
+		{
+			cultist_stats_apply(_cultist);
+		}
+	}
+
+	cultist_levelup_index++;
+
+	if (cultist_levelup_index >= array_length(global.cultists))
+	{
+		cultist_levelup_open = false;
+		global.pause = false;
+		global.focus_window = FOCUS_WINDOW.NOONE;
+	}
+};
 
 // Window setup for a non-stretched 16:9 camera.
 window_set_size(base_view_width, base_view_height);

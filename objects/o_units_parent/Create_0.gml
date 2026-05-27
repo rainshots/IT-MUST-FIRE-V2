@@ -55,6 +55,15 @@ attack_feedback_target_x = x;
 attack_feedback_target_y = y;
 attack_feedback_line_width = 2;
 
+// Optional combat modifiers used by cultist demon forms and debuffs.
+armor = 0;
+armor_debuff_multiplier = 1;
+armor_debuff_timer = 0;
+crit_chance = 0;
+aoe_radius = 0;
+next_attack_damage_multiplier = 1;
+next_attack_radius_multiplier = 1;
+
 // Health bar visual settings.
 bar_width = 34;
 bar_height = 4;
@@ -307,10 +316,78 @@ attack_target = function(_target)
 		return;
 	}
 
+	var _damage_amount = damage * next_attack_damage_multiplier;
+
+	if (variable_instance_exists(id, "demon_ability")
+		&& demon_ability == DEMON_ABILITY.IMP_BLOOD_RAGE
+		&& hp < max_hp * BALANCE_ABILITY_IMP_BLOOD_RAGE_HP_THRESHOLD)
+	{
+		_damage_amount *= BALANCE_ABILITY_IMP_BLOOD_RAGE_DAMAGE_MULTIPLIER;
+	}
+
+	var _is_critical_hit = false;
+
+	if (crit_chance > 0 && random(1) < crit_chance)
+	{
+		_damage_amount *= 2;
+		_is_critical_hit = true;
+	}
+
+	if (variable_instance_exists(_target, "armor"))
+	{
+		var _target_armor = _target.armor;
+
+		if (variable_instance_exists(_target, "armor_debuff_multiplier"))
+		{
+			_target_armor *= _target.armor_debuff_multiplier;
+		}
+
+		_damage_amount *= 1 - (clamp(_target_armor, 0, 100) * 0.01);
+	}
+
 	if (variable_instance_exists(_target, "hp"))
 	{
-		_target.hp = max(_target.hp - damage, 0);
+		_target.hp = max(_target.hp - _damage_amount, 0);
+
+		if (variable_instance_exists(_target, "unit_faction"))
+		{
+			damage_popup_create(_target.x, _target.y, _damage_amount, _target.unit_faction, _is_critical_hit);
+		}
 	}
+
+	if (aoe_radius > 0)
+	{
+		var _aoe_object = o_enemy_units;
+
+		if (unit_faction == UNIT_FACTION.ENEMY)
+		{
+			_aoe_object = o_friendly_units;
+		}
+
+		var _aoe_list = ds_list_create();
+		var _aoe_range = aoe_radius * next_attack_radius_multiplier;
+		var _aoe_count = collision_circle_list(_target.x, _target.y, _aoe_range, _aoe_object, false, true, _aoe_list, false);
+
+		for (var _aoe_index = 0; _aoe_index < _aoe_count; ++_aoe_index)
+		{
+			var _aoe_target = _aoe_list[| _aoe_index];
+
+			if (instance_exists(_aoe_target) && _aoe_target != _target && variable_instance_exists(_aoe_target, "hp"))
+			{
+				_aoe_target.hp = max(_aoe_target.hp - _damage_amount, 0);
+
+				if (variable_instance_exists(_aoe_target, "unit_faction"))
+				{
+					damage_popup_create(_aoe_target.x, _aoe_target.y, _damage_amount, _aoe_target.unit_faction);
+				}
+			}
+		}
+
+		ds_list_destroy(_aoe_list);
+	}
+
+	next_attack_damage_multiplier = 1;
+	next_attack_radius_multiplier = 1;
 
 	// Store attack feedback position even if the target dies immediately after hit.
 	attack_feedback_target = _target;

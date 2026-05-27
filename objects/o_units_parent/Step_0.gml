@@ -17,6 +17,17 @@ if (attack_feedback_timer > 0)
 	attack_feedback_timer--;
 }
 
+// Update temporary armor debuffs.
+if (armor_debuff_timer > 0)
+{
+	armor_debuff_timer--;
+
+	if (armor_debuff_timer <= 0)
+	{
+		armor_debuff_multiplier = 1;
+	}
+}
+
 // Forget shared threat after a short time.
 if (alert_target_timer > 0)
 {

@@ -4,6 +4,12 @@ if (global.pause)
 	exit;
 }
 
+// V13 keeps legacy building wave logic disabled while the cultist prototype is rebuilt.
+if (variable_global_exists("legacy_building_logic_enabled") && !global.legacy_building_logic_enabled)
+{
+	exit;
+}
+
 // Destroy dead garnizons and release references held by their prepared troops.
 if (hp <= 0)
 {

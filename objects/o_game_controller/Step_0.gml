@@ -4,6 +4,47 @@ if (keyboard_check_pressed(vk_f3))
 	global.fog_of_war_visible = !global.fog_of_war_visible;
 }
 
+// L restarts the current room for fast prototype iteration.
+if (keyboard_check_pressed(ord("L")))
+{
+	room_restart();
+	exit;
+}
+
+// Spawn the starting cultists once the cannon exists in the room.
+if (!cultists_spawned)
+{
+	spawn_starting_cultists();
+}
+
+// F4 manually starts a combat-form test while the full day/night cycle is disabled.
+if (keyboard_check_pressed(vk_f4) && global.focus_window == FOCUS_WINDOW.NOONE)
+{
+	transform_cultists_to_demons();
+}
+
+// F5 opens the prototype level-up choice window.
+if (keyboard_check_pressed(vk_f5) && global.focus_window == FOCUS_WINDOW.NOONE)
+{
+	open_cultist_levelup();
+}
+
+// Right mouse button spawns blood particles at the cursor for particle testing.
+if (mouse_check_button_pressed(mb_right) && global.focus_window == FOCUS_WINDOW.NOONE && instance_exists(o_camera_controller))
+{
+	var _camera_controller = instance_find(o_camera_controller, 0);
+	var _mouse_gui_x = device_mouse_x_to_gui(0);
+	var _mouse_gui_y = device_mouse_y_to_gui(0);
+	var _camera_x = camera_get_view_x(_camera_controller.camera_id);
+	var _camera_y = camera_get_view_y(_camera_controller.camera_id);
+	var _camera_width = camera_get_view_width(_camera_controller.camera_id);
+	var _camera_height = camera_get_view_height(_camera_controller.camera_id);
+	var _mouse_world_x = _camera_x + ((_mouse_gui_x / camera_view_width) * _camera_width);
+	var _mouse_world_y = _camera_y + ((_mouse_gui_y / camera_view_height) * _camera_height);
+
+	blood_particles_create(_mouse_world_x, _mouse_world_y, BALANCE_BLOOD_PARTICLE_COUNT * 3);
+}
+
 // F2 enables infinite projectile testing with one projectile of every known type.
 if (keyboard_check_pressed(vk_f2))
 {
@@ -26,6 +67,11 @@ if (keyboard_check_pressed(vk_escape))
 	if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION)
 	{
 		global.focus_window = FOCUS_WINDOW.NOONE;
+	}
+	else if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION
+		|| global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
+	{
+		// Cultist setup and level-up choices are mandatory prototype windows.
 	}
 	else if (global.focus_window == FOCUS_WINDOW.SETTINGS)
 	{
@@ -86,8 +132,8 @@ if (!application_surface_ready && surface_exists(application_surface))
 	application_surface_ready = true;
 }
 
-// Update day and night cycle.
-if (!global.pause)
+// Update day and night cycle when the prototype allows it.
+if (!global.pause && global.day_cycle_enabled)
 {
 	if (global.day_phase == DAY_PHASE.DAY)
 	{
@@ -152,9 +198,78 @@ if (!global.pause)
 		}
 	}
 }
+else
+{
+	global.day_phase = DAY_PHASE.DAY;
+	global.day_timer = global.day_duration * room_speed;
+	global.night_attack_unit_count = 0;
+}
 
-// Add a new projectile to the back of the queue at a fixed room-speed-aware interval.
-if (!global.pause && variable_global_exists("cannon_projectile_queue") && !global.cannon_projectile_cheat_enabled)
+// Handle cultist demon selection window.
+if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION && mouse_check_button_pressed(mb_left))
+{
+	var _mouse_x = device_mouse_x_to_gui(0);
+	var _mouse_y = device_mouse_y_to_gui(0);
+	var _panel_x = (camera_view_width - cultist_panel_width) * 0.5;
+	var _panel_y = (camera_view_height - cultist_panel_height) * 0.5;
+	var _button_start_x = _panel_x + 70;
+	var _button_y = _panel_y + 360;
+	var _button_step = cultist_selection_button_width + cultist_selection_button_gap;
+	var _button_count = array_length(cultist_selection_buttons);
+
+	for (var _button_index = 0; _button_index < _button_count; ++_button_index)
+	{
+		var _button_x = _button_start_x + (_button_step * _button_index);
+
+		if (_mouse_x >= _button_x && _mouse_x <= _button_x + cultist_selection_button_width
+			&& _mouse_y >= _button_y && _mouse_y <= _button_y + cultist_selection_button_height)
+		{
+			cultist_selected_demon_type = cultist_selection_buttons[_button_index];
+		}
+	}
+
+	var _confirm_x = _panel_x + cultist_panel_width - 210;
+	var _confirm_y = _panel_y + cultist_panel_height - 78;
+	var _confirm_width = 150;
+	var _confirm_height = 44;
+
+	if (_mouse_x >= _confirm_x && _mouse_x <= _confirm_x + _confirm_width
+		&& _mouse_y >= _confirm_y && _mouse_y <= _confirm_y + _confirm_height)
+	{
+		assign_current_cultist_demon();
+	}
+}
+
+// Handle cultist level-up choice window.
+if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP && mouse_check_button_pressed(mb_left))
+{
+	var _mouse_x = device_mouse_x_to_gui(0);
+	var _mouse_y = device_mouse_y_to_gui(0);
+	var _panel_x = (camera_view_width - cultist_panel_width) * 0.5;
+	var _panel_y = (camera_view_height - 330) * 0.5;
+	var _button_y = _panel_y + 210;
+	var _button_width = 150;
+	var _button_height = 44;
+	var _button_gap = 18;
+	var _button_start_x = _panel_x + 92;
+
+	for (var _stat_index = 0; _stat_index < CULTIST_STAT.COUNT; ++_stat_index)
+	{
+		var _button_x = _button_start_x + ((_button_width + _button_gap) * _stat_index);
+
+		if (_mouse_x >= _button_x && _mouse_x <= _button_x + _button_width
+			&& _mouse_y >= _button_y && _mouse_y <= _button_y + _button_height)
+		{
+			add_cultist_level_point(_stat_index);
+		}
+	}
+}
+
+// Add a new projectile to the back of the queue when automatic gain is enabled.
+if (!global.pause
+	&& variable_global_exists("cannon_projectile_queue")
+	&& global.cannon_projectile_gain_enabled
+	&& !global.cannon_projectile_cheat_enabled)
 {
 	var _projectile_queue_count = array_length(global.cannon_projectile_queue);
 	var _projectile_gain_interval = global.cannon_projectile_gain_time * room_speed;

@@ -4,6 +4,12 @@ if (global.pause)
 	exit;
 }
 
+// V13 keeps legacy hostile building combat disabled for now.
+if (variable_global_exists("legacy_building_logic_enabled") && !global.legacy_building_logic_enabled)
+{
+	exit;
+}
+
 // Destroy the tower safely if any damage source reduced HP to zero.
 if (hp <= 0)
 {
@@ -53,6 +59,7 @@ if (reload_timer > 0)
 if (variable_instance_exists(target_instance, "hp"))
 {
 	target_instance.hp = max(target_instance.hp - damage, 0);
+	damage_popup_create(target_instance.x, target_instance.y, damage, target_instance.unit_faction);
 	call_nearby_friendly_units_for_help(target_instance);
 }
 

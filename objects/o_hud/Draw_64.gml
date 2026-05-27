@@ -63,7 +63,11 @@ if (variable_global_exists("day_phase"))
 	var _phase_y = hud_margin_y;
 	var _phase_text = "DAY: " + string(ceil(global.day_timer / room_speed));
 
-	if (global.day_phase == DAY_PHASE.NIGHT)
+	if (variable_global_exists("day_cycle_enabled") && !global.day_cycle_enabled)
+	{
+		_phase_text = "DAY";
+	}
+	else if (global.day_phase == DAY_PHASE.NIGHT)
 	{
 		_phase_text = "NIGHT: " + string(global.night_attack_unit_count);
 	}

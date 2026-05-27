@@ -13,6 +13,8 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 		var _projectile_queue_count = array_length(global.cannon_projectile_queue);
 		var _fired_projectile_count = volley_projectile_count;
 
+		global.cannon_fire_version++;
+
 		if (target_projectile_type == PROJECTILE_TYPE.RALLY)
 		{
 			_fired_projectile_count = 1;

@@ -32,8 +32,8 @@
   "resourceVersion":"2.0",
   "solid":false,
   "spriteId":{
-    "name":"s_cannon",
-    "path":"sprites/s_cannon/s_cannon.yy",
+    "name":"s_cannon_sleep",
+    "path":"sprites/s_cannon_sleep/s_cannon_sleep.yy",
   },
   "spriteMaskId":null,
   "visible":true,

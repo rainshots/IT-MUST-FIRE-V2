@@ -115,6 +115,11 @@ if (_flight_progress >= 1)
 					else if (variable_instance_exists(id, "hp"))
 					{
 						hp -= other.damage_amount;
+
+						if (variable_instance_exists(id, "unit_faction"))
+						{
+							damage_popup_create(x, y, other.damage_amount, unit_faction);
+						}
 					}
 				}
 				else if (other.projectile_type == PROJECTILE_TYPE.CORRUPTION)
