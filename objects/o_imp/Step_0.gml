@@ -6,6 +6,11 @@ if (global.pause || hp <= 0)
 	exit;
 }
 
+if (is_being_dragged)
+{
+	exit;
+}
+
 // Active frenzy doubles attack speed for a short burst.
 if (ability_active_timer > 0)
 {

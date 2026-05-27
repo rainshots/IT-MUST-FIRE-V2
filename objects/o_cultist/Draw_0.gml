@@ -1,3 +1,19 @@
+// Draw the landing shadow while the player is carrying this cultist.
+if (is_being_dragged)
+{
+	draw_set_alpha(0.35);
+	draw_set_color(c_black);
+	draw_ellipse(
+		drag_drop_x - (global.cultist_drag_shadow_width * 0.5),
+		drag_drop_y - (global.cultist_drag_shadow_height * 0.5),
+		drag_drop_x + (global.cultist_drag_shadow_width * 0.5),
+		drag_drop_y + (global.cultist_drag_shadow_height * 0.5),
+		false
+	);
+	draw_set_alpha(1);
+	draw_set_color(c_white);
+}
+
 // Draw day cultist sprite.
 draw_self();
 

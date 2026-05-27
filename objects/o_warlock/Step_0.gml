@@ -6,6 +6,11 @@ if (global.pause || hp <= 0 || ability_cooldown <= 0)
 	exit;
 }
 
+if (is_being_dragged)
+{
+	exit;
+}
+
 // Warlock active abilities run on cooldown.
 ability_timer--;
 

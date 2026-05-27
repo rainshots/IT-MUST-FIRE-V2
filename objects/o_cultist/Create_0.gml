@@ -14,3 +14,7 @@ bar_height = 4;
 bar_offset_y = 24;
 name_offset_y = 36;
 
+// Drag state is controlled by o_game_controller during manual cultist repositioning.
+is_being_dragged = false;
+drag_drop_x = x;
+drag_drop_y = y;

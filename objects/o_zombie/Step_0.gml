@@ -6,6 +6,11 @@ if (global.pause || hp <= 0)
 	exit;
 }
 
+if (is_being_dragged)
+{
+	exit;
+}
+
 // Poison aura deals periodic magic damage around the zombie.
 if (demon_ability == DEMON_ABILITY.ZOMBIE_POISON_AURA)
 {

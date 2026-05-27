@@ -11,6 +11,14 @@ if (hp <= 0)
 	exit;
 }
 
+// Dragged cultists cannot move, attack, or progress abilities until released.
+if (is_being_dragged)
+{
+	target_instance = noone;
+	is_attacking_target = false;
+	exit;
+}
+
 // Update short attack feedback lifetime.
 if (attack_feedback_timer > 0)
 {

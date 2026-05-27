@@ -17,14 +17,89 @@ if (!cultists_spawned)
 	spawn_starting_cultists();
 }
 
+// Allow the player to pick up and reposition cultists during gameplay.
+if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultists") && instance_exists(o_camera_controller))
+{
+	var _camera_controller = instance_find(o_camera_controller, 0);
+	var _mouse_gui_x = device_mouse_x_to_gui(0);
+	var _mouse_gui_y = device_mouse_y_to_gui(0);
+	var _camera_x = camera_get_view_x(_camera_controller.camera_id);
+	var _camera_y = camera_get_view_y(_camera_controller.camera_id);
+	var _camera_width = camera_get_view_width(_camera_controller.camera_id);
+	var _camera_height = camera_get_view_height(_camera_controller.camera_id);
+	var _mouse_world_x = _camera_x + ((_mouse_gui_x / camera_view_width) * _camera_width);
+	var _mouse_world_y = _camera_y + ((_mouse_gui_y / camera_view_height) * _camera_height);
+
+	if (instance_exists(global.dragged_cultist))
+	{
+		var _dragged_cultist = global.dragged_cultist;
+
+		_dragged_cultist.x = _mouse_world_x;
+		_dragged_cultist.y = _mouse_world_y + cultist_drag_lift_offset_y;
+		_dragged_cultist.drag_drop_x = _mouse_world_x;
+		_dragged_cultist.drag_drop_y = _mouse_world_y + cultist_drag_drop_offset_y;
+
+		if (!mouse_check_button(mb_left))
+		{
+			_dragged_cultist.x = _dragged_cultist.drag_drop_x;
+			_dragged_cultist.y = _dragged_cultist.drag_drop_y;
+			_dragged_cultist.is_being_dragged = false;
+			global.dragged_cultist = noone;
+		}
+	}
+	else if (mouse_check_button_pressed(mb_left) && !global.pause)
+	{
+		var _cultist_count = array_length(global.cultists);
+		var _closest_cultist = noone;
+		var _closest_distance = infinity;
+
+		for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+		{
+			var _cultist = global.cultists[_cultist_index];
+
+			if (instance_exists(_cultist)
+				&& _mouse_world_x >= _cultist.bbox_left
+				&& _mouse_world_x <= _cultist.bbox_right
+				&& _mouse_world_y >= _cultist.bbox_top
+				&& _mouse_world_y <= _cultist.bbox_bottom)
+			{
+				var _distance_to_cultist = point_distance(_mouse_world_x, _mouse_world_y, _cultist.x, _cultist.y);
+
+				if (_distance_to_cultist < _closest_distance)
+				{
+					_closest_distance = _distance_to_cultist;
+					_closest_cultist = _cultist;
+				}
+			}
+		}
+
+		if (instance_exists(_closest_cultist))
+		{
+			global.dragged_cultist = _closest_cultist;
+			_closest_cultist.is_being_dragged = true;
+			_closest_cultist.x = _mouse_world_x;
+			_closest_cultist.y = _mouse_world_y + cultist_drag_lift_offset_y;
+			_closest_cultist.drag_drop_x = _mouse_world_x;
+			_closest_cultist.drag_drop_y = _mouse_world_y + cultist_drag_drop_offset_y;
+		}
+	}
+}
+else if (instance_exists(global.dragged_cultist))
+{
+	global.dragged_cultist.x = global.dragged_cultist.drag_drop_x;
+	global.dragged_cultist.y = global.dragged_cultist.drag_drop_y;
+	global.dragged_cultist.is_being_dragged = false;
+	global.dragged_cultist = noone;
+}
+
 // F4 manually starts a combat-form test while the full day/night cycle is disabled.
-if (keyboard_check_pressed(vk_f4) && global.focus_window == FOCUS_WINDOW.NOONE)
+if (keyboard_check_pressed(vk_f4) && global.focus_window == FOCUS_WINDOW.NOONE && !instance_exists(global.dragged_cultist))
 {
 	transform_cultists_to_demons();
 }
 
 // F5 opens the prototype level-up choice window.
-if (keyboard_check_pressed(vk_f5) && global.focus_window == FOCUS_WINDOW.NOONE)
+if (keyboard_check_pressed(vk_f5) && global.focus_window == FOCUS_WINDOW.NOONE && !instance_exists(global.dragged_cultist))
 {
 	open_cultist_levelup();
 }

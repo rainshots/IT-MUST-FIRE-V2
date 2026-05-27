@@ -64,6 +64,9 @@ crit_chance = 0;
 aoe_radius = 0;
 next_attack_damage_multiplier = 1;
 next_attack_radius_multiplier = 1;
+is_being_dragged = false;
+drag_drop_x = x;
+drag_drop_y = y;
 
 // Health bar visual settings.
 bar_width = 34;
