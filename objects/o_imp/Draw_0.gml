@@ -28,6 +28,11 @@ if (demon_ability == DEMON_ABILITY.IMP_BLOOD_RAGE && hp < max_hp * BALANCE_ABILI
 }
 
 // Draw the cultist name above the demon.
+if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+{
+	draw_set_font(global.ui_font);
+}
+
 draw_set_halign(fa_center);
 draw_set_valign(fa_middle);
 draw_set_color(COLOR_HUD_TEXT);

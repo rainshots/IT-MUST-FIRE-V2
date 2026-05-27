@@ -3,6 +3,7 @@ unit_faction = UNIT_FACTION.NOONE;
 max_hp = 20;
 hp = max_hp;
 damage = 1;
+magic_damage = 0;
 reload_time = room_speed;
 reload_timer = 0;
 attack_radius = 32;
@@ -56,7 +57,7 @@ attack_feedback_target_y = y;
 attack_feedback_line_width = 2;
 
 // Optional combat modifiers used by cultist demon forms and debuffs.
-armor = 0;
+armor = 100;
 armor_debuff_multiplier = 1;
 armor_debuff_timer = 0;
 crit_chance = 0;
@@ -303,6 +304,24 @@ apply_separation_push = function()
 	y += separation_push_y * _separation_multiplier;
 };
 
+physical_damage_after_armor = function(_raw_damage, _target)
+{
+	if (!instance_exists(_target) || !variable_instance_exists(_target, "armor"))
+	{
+		return _raw_damage;
+	}
+
+	var _target_armor = _target.armor;
+
+	if (variable_instance_exists(_target, "armor_debuff_multiplier"))
+	{
+		_target_armor *= _target.armor_debuff_multiplier;
+	}
+
+	var _armor_damage_multiplier = max(2 - (min(_target_armor, 190) * 0.01), 0.1);
+	return _raw_damage * _armor_damage_multiplier;
+};
+
 attack_target = function(_target)
 {
 	if (!instance_exists(_target))
@@ -316,7 +335,15 @@ attack_target = function(_target)
 		return;
 	}
 
-	var _damage_amount = damage * next_attack_damage_multiplier;
+	var _is_magic_damage = magic_damage > 0;
+	var _base_attack_damage = damage;
+
+	if (_is_magic_damage)
+	{
+		_base_attack_damage = magic_damage;
+	}
+
+	var _damage_amount = _base_attack_damage * next_attack_damage_multiplier;
 
 	if (variable_instance_exists(id, "demon_ability")
 		&& demon_ability == DEMON_ABILITY.IMP_BLOOD_RAGE
@@ -333,16 +360,11 @@ attack_target = function(_target)
 		_is_critical_hit = true;
 	}
 
-	if (variable_instance_exists(_target, "armor"))
+	var _raw_damage_amount = _damage_amount;
+
+	if (!_is_magic_damage)
 	{
-		var _target_armor = _target.armor;
-
-		if (variable_instance_exists(_target, "armor_debuff_multiplier"))
-		{
-			_target_armor *= _target.armor_debuff_multiplier;
-		}
-
-		_damage_amount *= 1 - (clamp(_target_armor, 0, 100) * 0.01);
+		_damage_amount = physical_damage_after_armor(_raw_damage_amount, _target);
 	}
 
 	if (variable_instance_exists(_target, "hp"))
@@ -374,11 +396,18 @@ attack_target = function(_target)
 
 			if (instance_exists(_aoe_target) && _aoe_target != _target && variable_instance_exists(_aoe_target, "hp"))
 			{
-				_aoe_target.hp = max(_aoe_target.hp - _damage_amount, 0);
+				var _aoe_damage_amount = _raw_damage_amount;
+
+				if (!_is_magic_damage)
+				{
+					_aoe_damage_amount = physical_damage_after_armor(_raw_damage_amount, _aoe_target);
+				}
+
+				_aoe_target.hp = max(_aoe_target.hp - _aoe_damage_amount, 0);
 
 				if (variable_instance_exists(_aoe_target, "unit_faction"))
 				{
-					damage_popup_create(_aoe_target.x, _aoe_target.y, _damage_amount, _aoe_target.unit_faction);
+					damage_popup_create(_aoe_target.x, _aoe_target.y, _aoe_damage_amount, _aoe_target.unit_faction);
 				}
 			}
 		}

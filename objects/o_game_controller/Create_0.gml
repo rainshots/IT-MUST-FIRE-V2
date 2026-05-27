@@ -186,6 +186,22 @@ cultist_panel_height = 520;
 cultist_levelup_open = false;
 cultist_levelup_index = 0;
 
+// Runtime UI font includes Cyrillic glyphs for cultist names.
+var _ui_font_size = 11;
+var _should_create_ui_font = !variable_global_exists("ui_font") || !font_exists(global.ui_font);
+
+if (!_should_create_ui_font && (!variable_global_exists("ui_font_size") || global.ui_font_size != _ui_font_size))
+{
+	font_delete(global.ui_font);
+	_should_create_ui_font = true;
+}
+
+if (_should_create_ui_font)
+{
+	global.ui_font = font_add("Arial", _ui_font_size, false, false, 32, 1279);
+	global.ui_font_size = _ui_font_size;
+}
+
 spawn_starting_cultists = function()
 {
 	if (!instance_exists(o_cannon))

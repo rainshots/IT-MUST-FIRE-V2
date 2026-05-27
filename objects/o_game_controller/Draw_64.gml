@@ -1,4 +1,9 @@
 // Draw night tint over the world while keeping HUD readable.
+if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+{
+	draw_set_font(global.ui_font);
+}
+
 if (global.day_phase == DAY_PHASE.NIGHT)
 {
 	draw_set_alpha(night_overlay_alpha);
@@ -54,6 +59,7 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 	var _mouse_x = device_mouse_x_to_gui(0);
 	var _mouse_y = device_mouse_y_to_gui(0);
 	var _hovered_demon_type = DEMON_TYPE.NONE;
+	var _recommended_demon_type = DEMON_TYPE.NONE;
 
 	draw_set_alpha(0.55);
 	draw_set_color(c_black);
@@ -68,7 +74,7 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 	draw_set_halign(fa_center);
 	draw_set_valign(fa_middle);
 	draw_set_color(COLOR_HUD_TEXT);
-	draw_text(_panel_x + (cultist_panel_width * 0.5), _panel_y + 34, "Choose Demon");
+	draw_text(_panel_x + (cultist_panel_width * 0.5), _panel_y + 34, "Choose Cultist Demon Form");
 
 	if (instance_exists(_cultist))
 	{
@@ -81,9 +87,23 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 		var _box_size = 12;
 		var _box_gap = 5;
 		var _stat_names = ["Body", "Fervor", "Spirit"];
-		var _stat_notes = ["HP, Armor, Damage", "Crit, Attack, Cooldown", "Exp, Magic, Resistance"];
+		var _stat_notes = ["HP, Armor, Physical damage", "Crit chance, Attack, Ability Recharge", "Exp, Magic damage, Magic power, Resistance"];
 		var _stat_points = [_body_points, _fervor_points, _spirit_points];
 		var _stat_colors = [COLOR_CULTIST_BODY, COLOR_CULTIST_FERVOR, COLOR_CULTIST_SPIRIT];
+
+		// Recommend the demon form that best fits the cultist's strongest attribute.
+		if (_body_points >= _fervor_points && _body_points >= _spirit_points)
+		{
+			_recommended_demon_type = DEMON_TYPE.ZOMBIE;
+		}
+		else if (_fervor_points >= _spirit_points)
+		{
+			_recommended_demon_type = DEMON_TYPE.IMP;
+		}
+		else
+		{
+			_recommended_demon_type = DEMON_TYPE.WARLOCK;
+		}
 
 		draw_set_halign(fa_left);
 
@@ -106,21 +126,53 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 			}
 		}
 
+		var _name_input_x = _panel_x + 90;
+		var _name_input_y = _panel_y + 310;
+		var _name_input_width = 380;
+		var _name_input_height = 40;
+		var _name_input_text_x = _name_input_x + 14;
+		var _name_input_text_y = _name_input_y + (_name_input_height * 0.5);
+
 		draw_set_color(COLOR_HUD_TEXT);
-		draw_text(_panel_x + 90, _panel_y + 300, "Name");
+		draw_text(_name_input_x, _panel_y + 288, "Cultist name");
 		draw_set_color(c_white);
-		draw_rectangle(_panel_x + 170, _panel_y + 287, _panel_x + 470, _panel_y + 327, true);
-		draw_text(_panel_x + 184, _panel_y + 298, _name_text);
+		draw_rectangle(_name_input_x, _name_input_y, _name_input_x + _name_input_width, _name_input_y + _name_input_height, true);
+		draw_text(_name_input_text_x, _name_input_text_y, _name_text);
 
 		// Blink the name input caret while this setup window owns keyboard input.
 		if ((current_time div 500) mod 2 == 0)
 		{
-			var _caret_x = _panel_x + 184 + string_width(_name_text);
-			var _caret_y = _panel_y + 298;
+			var _caret_x = _name_input_text_x + string_width(_name_text);
+			var _caret_y = _name_input_text_y;
 
 			draw_set_color(COLOR_HUD_TEXT);
-			draw_line(_caret_x + 2, _caret_y - 1, _caret_x + 2, _caret_y + 16);
+			draw_line(_caret_x + 2, _caret_y - 8, _caret_x + 2, _caret_y + 8);
 		}
+	}
+
+	var _preview_name = _name_text;
+
+	if (_preview_name == "" && instance_exists(_cultist))
+	{
+		_preview_name = "Cultist " + string(cultist_selection_index + 1);
+	}
+
+	var _preview_object = cultist_demon_object_get(cultist_selected_demon_type);
+	var _preview_sprite = object_get_sprite(_preview_object);
+
+	if (_preview_sprite != -1)
+	{
+		var _preview_x = _panel_x + 585;
+		var _preview_y = _panel_y + 332;
+		var _preview_scale = 2.3;
+		var _preview_frame_count = max(sprite_get_number(_preview_sprite), 1);
+		var _preview_frame = (current_time div 120) mod _preview_frame_count;
+
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_middle);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text(_preview_x, _panel_y + 102, _preview_name);
+		draw_sprite_ext(_preview_sprite, _preview_frame, _preview_x, _preview_y, _preview_scale, _preview_scale, 0, c_white, 1);
 	}
 
 	var _button_count = array_length(cultist_selection_buttons);
@@ -157,6 +209,12 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 		draw_set_halign(fa_center);
 		draw_set_color(_is_selected ? c_black : COLOR_HUD_TEXT);
 		draw_text(_button_x + (cultist_selection_button_width * 0.5), _button_y + (cultist_selection_button_height * 0.5), cultist_demon_name_get(_demon_type));
+
+		if (_demon_type == _recommended_demon_type)
+		{
+			draw_set_color(COLOR_HEALTH_BAR);
+			draw_text(_button_x + (cultist_selection_button_width * 0.5), _button_y + cultist_selection_button_height + 18, "RECOMMENDED");
+		}
 	}
 
 	var _confirm_x = _panel_x + cultist_panel_width - 210;
@@ -213,12 +271,12 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 		var _stat_labels = [
 			"HP",
 			"Armor",
-			"Damage",
-			"Crit",
+			"Physical damage",
+			"Crit chance",
 			"Attack speed",
-			"CD speed",
+			"Ability Recharge",
 			"Exp",
-			"Magic",
+			"Magic power",
 			"Resistance"
 		];
 		var _stat_base_values = [
@@ -254,6 +312,15 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 			COLOR_CULTIST_SPIRIT,
 			COLOR_CULTIST_SPIRIT
 		];
+
+		if (_hover_stats.magic_damage > 0)
+		{
+			_stat_labels[2] = "Magic damage";
+			_stat_base_values[2] = _hover_stats.magic_damage;
+			_stat_bonuses[2] = _hover_stats.magic_damage * (_hover_spirit * 0.05);
+			_stat_colors[2] = COLOR_CULTIST_SPIRIT;
+		}
+
 		var _stat_count = array_length(_stat_labels);
 		var _stat_line_height = 16;
 		var _stat_value_x = _hover_x + _hover_padding;
@@ -266,6 +333,17 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 			var _final_value = _base_value + _bonus_value;
 			var _line_text = _stat_labels[_hover_stat_index] + ": " + string_format(_final_value, 0, 2);
 			var _bonus_text = " (+" + string_format(_bonus_value, 0, 2) + ")";
+
+			if (_hover_stat_index == 3)
+			{
+				_line_text = _stat_labels[_hover_stat_index] + ": " + string_format(_final_value * 100, 0, 1) + "%";
+				_bonus_text = " (+" + string_format(_bonus_value * 100, 0, 1) + "%)";
+			}
+			else if (_hover_stat_index == 1)
+			{
+				_line_text = _stat_labels[_hover_stat_index] + ": " + string_format(_final_value - 100, 0, 1) + "%";
+				_bonus_text = " (+" + string_format(_bonus_value, 0, 1) + "%)";
+			}
 
 			draw_set_color(_stat_colors[_hover_stat_index]);
 			draw_text(_stat_value_x, _stat_y, _line_text);
@@ -303,15 +381,31 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 	}
 
 	var _panel_width = cultist_panel_width;
-	var _panel_height = 330;
+	var _panel_height = 580;
 	var _panel_x = (camera_view_width - _panel_width) * 0.5;
 	var _panel_y = (camera_view_height - _panel_height) * 0.5;
 	var _button_width = 150;
 	var _button_height = 44;
 	var _button_gap = 18;
 	var _button_start_x = _panel_x + 92;
-	var _button_y = _panel_y + 210;
+	var _button_y = _panel_y + 470;
 	var _stat_names = ["Body", "Spirit", "Fervor"];
+	var _mouse_x = device_mouse_x_to_gui(0);
+	var _mouse_y = device_mouse_y_to_gui(0);
+	var _hovered_stat = -1;
+
+	// Detect button hover before drawing stats so bonuses can preview the next point.
+	for (var _hover_stat_index = 0; _hover_stat_index < CULTIST_STAT.COUNT; ++_hover_stat_index)
+	{
+		var _hover_button_x = _button_start_x + ((_button_width + _button_gap) * _hover_stat_index);
+		var _is_button_hovered = _mouse_x >= _hover_button_x && _mouse_x <= _hover_button_x + _button_width
+			&& _mouse_y >= _button_y && _mouse_y <= _button_y + _button_height;
+
+		if (_is_button_hovered)
+		{
+			_hovered_stat = _hover_stat_index;
+		}
+	}
 
 	draw_set_alpha(0.55);
 	draw_set_color(c_black);
@@ -337,20 +431,250 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 			_display_name = "Cultist " + string(cultist_levelup_index + 1);
 		}
 
-		draw_text(_panel_x + (_panel_width * 0.5), _panel_y + 94, _display_name);
-		draw_text(_panel_x + (_panel_width * 0.5), _panel_y + 132, "Choose one attribute point");
+		var _cultist_level = 1;
+
+		if (variable_instance_exists(_cultist, "current_lvl"))
+		{
+			_cultist_level = _cultist.current_lvl + 1;
+		}
+
+		draw_text_transformed(_panel_x + (_panel_width * 0.5), _panel_y + 88, "LVL " + string(_cultist_level), 2, 2, 0);
+		draw_text(_panel_x + (_panel_width * 0.5), _panel_y + 132, _display_name);
+
+		if (variable_instance_exists(_cultist, "demon_type") && _cultist.demon_type != DEMON_TYPE.NONE)
+		{
+			var _points = _cultist.cultist_points;
+			var _base_stats = cultist_base_stats_get(_cultist.demon_type);
+			var _demon_stats = cultist_calculated_stats_get(_cultist.demon_type, _points);
+			var _stats_left_x = _panel_x + 92;
+			var _stats_right_x = _panel_x + 390;
+			var _stats_y = _panel_y + 242;
+			var _line_height = 22;
+			var _body_points = _points[CULTIST_STAT.BODY];
+			var _spirit_points = _points[CULTIST_STAT.SPIRIT];
+			var _fervor_points = _points[CULTIST_STAT.FERVOR];
+			var _preview_body_points = _body_points;
+			var _preview_spirit_points = _spirit_points;
+			var _preview_fervor_points = _fervor_points;
+
+			if (_hovered_stat == CULTIST_STAT.BODY)
+			{
+				_preview_body_points++;
+			}
+			else if (_hovered_stat == CULTIST_STAT.SPIRIT)
+			{
+				_preview_spirit_points++;
+			}
+			else if (_hovered_stat == CULTIST_STAT.FERVOR)
+			{
+				_preview_fervor_points++;
+			}
+
+			var _hp_bonus = _base_stats.hp * (_preview_body_points * 0.05);
+			var _armor_bonus = _base_stats.armor * (_preview_body_points * 0.05);
+			var _damage_bonus = _base_stats.damage * (_preview_body_points * 0.05);
+			var _magic_damage_bonus = _base_stats.magic_damage * (_preview_spirit_points * 0.05);
+			var _crit_bonus = _base_stats.crit_chance * (_preview_fervor_points * 0.05);
+			var _attack_speed_bonus = _base_stats.attack_speed * (_preview_fervor_points * 0.07);
+			var _cooldown_bonus = _base_stats.abilities_cd_spd * (_preview_fervor_points * 0.07);
+			var _exp_bonus = _base_stats.exp_effectiveness * (_preview_spirit_points * 0.07);
+			var _magic_bonus = _base_stats.magic_effectiveness * (_preview_spirit_points * 0.07);
+			var _resistance_bonus = _base_stats.resistance * (_preview_spirit_points * 0.07);
+			var _hp_text = "HP: " + string_format(_demon_stats.hp, 0, 1);
+
+			if (variable_instance_exists(_cultist, "hp"))
+			{
+				_hp_text = "HP: " + string_format(_cultist.hp, 0, 1) + " / " + string_format(_cultist.max_hp, 0, 1);
+			}
+
+			draw_set_halign(fa_left);
+			draw_set_valign(fa_top);
+
+			draw_set_color(COLOR_HUD_TEXT);
+			draw_text(_stats_left_x, _panel_y + 184, "Demon: " + cultist_demon_name_get(_cultist.demon_type));
+			draw_text(_stats_left_x, _panel_y + 206, "Ability: " + cultist_ability_name_get(_cultist.demon_ability));
+
+			// Draw current attribute points as compact square rows.
+			var _square_start_x = _stats_right_x + 72;
+			var _square_y = _panel_y + 182;
+			var _square_size = 8;
+			var _square_gap = 4;
+			var _attribute_names = ["Body", "Spirit", "Fervor"];
+			var _attribute_points = [_body_points, _spirit_points, _fervor_points];
+			var _attribute_colors = [COLOR_CULTIST_BODY, COLOR_CULTIST_SPIRIT, COLOR_CULTIST_FERVOR];
+
+			for (var _attribute_index = 0; _attribute_index < CULTIST_STAT.COUNT; ++_attribute_index)
+			{
+				var _row_y = _square_y + (_attribute_index * 18);
+
+				draw_set_color(_attribute_colors[_attribute_index]);
+				draw_text(_stats_right_x, _row_y - 3, _attribute_names[_attribute_index]);
+
+				for (var _point_index = 0; _point_index < _attribute_points[_attribute_index]; ++_point_index)
+				{
+					var _square_x = _square_start_x + ((_square_size + _square_gap) * _point_index);
+					draw_rectangle(_square_x, _row_y, _square_x + _square_size, _row_y + _square_size, false);
+				}
+
+				if (_hovered_stat == _attribute_index)
+				{
+					var _preview_square_x = _square_start_x + ((_square_size + _square_gap) * _attribute_points[_attribute_index]);
+					draw_rectangle(_preview_square_x, _row_y, _preview_square_x + _square_size, _row_y + _square_size, true);
+				}
+			}
+
+			draw_set_color(COLOR_CULTIST_BODY);
+			draw_text(_stats_left_x, _stats_y, _hp_text);
+			draw_set_color(COLOR_HEALTH_BAR);
+			draw_text(_stats_left_x + string_width(_hp_text), _stats_y, " (+" + string_format(_hp_bonus, 0, 1) + ")");
+
+			var _stat_text = "Armor: " + string_format(_demon_stats.armor - 100, 0, 1) + "%";
+			draw_set_color(COLOR_CULTIST_BODY);
+			draw_text(_stats_left_x, _stats_y + (_line_height * 1), _stat_text);
+			draw_set_color(COLOR_HEALTH_BAR);
+			draw_text(_stats_left_x + string_width(_stat_text), _stats_y + (_line_height * 1), " (+" + string_format(_armor_bonus, 0, 1) + "%)");
+
+			_stat_text = "Physical damage: " + string_format(_demon_stats.damage, 0, 2);
+			var _damage_text_color = COLOR_CULTIST_BODY;
+			var _shown_damage_bonus = _damage_bonus;
+
+			if (_demon_stats.magic_damage > 0)
+			{
+				_stat_text = "Magic damage: " + string_format(_demon_stats.magic_damage, 0, 2);
+				_damage_text_color = COLOR_CULTIST_SPIRIT;
+				_shown_damage_bonus = _magic_damage_bonus;
+			}
+
+			draw_set_color(_damage_text_color);
+			draw_text(_stats_left_x, _stats_y + (_line_height * 2), _stat_text);
+			draw_set_color(COLOR_HEALTH_BAR);
+			draw_text(_stats_left_x + string_width(_stat_text), _stats_y + (_line_height * 2), " (+" + string_format(_shown_damage_bonus, 0, 2) + ")");
+
+			_stat_text = "Crit chance: " + string_format(_demon_stats.crit_chance * 100, 0, 1) + "%";
+			draw_set_color(COLOR_CULTIST_FERVOR);
+			draw_text(_stats_left_x, _stats_y + (_line_height * 3), _stat_text);
+			draw_set_color(COLOR_HEALTH_BAR);
+			draw_text(_stats_left_x + string_width(_stat_text), _stats_y + (_line_height * 3), " (+" + string_format(_crit_bonus * 100, 0, 1) + "%)");
+
+			_stat_text = "Attack speed: " + string_format(_demon_stats.attack_speed, 0, 2);
+			draw_set_color(COLOR_CULTIST_FERVOR);
+			draw_text(_stats_left_x, _stats_y + (_line_height * 4), _stat_text);
+			draw_set_color(COLOR_HEALTH_BAR);
+			draw_text(_stats_left_x + string_width(_stat_text), _stats_y + (_line_height * 4), " (+" + string_format(_attack_speed_bonus, 0, 2) + ")");
+
+			_stat_text = "Ability Recharge: " + string_format(_demon_stats.abilities_cd_spd, 0, 2);
+			draw_set_color(COLOR_CULTIST_FERVOR);
+			draw_text(_stats_left_x, _stats_y + (_line_height * 5), _stat_text);
+			draw_set_color(COLOR_HEALTH_BAR);
+			draw_text(_stats_left_x + string_width(_stat_text), _stats_y + (_line_height * 5), " (+" + string_format(_cooldown_bonus, 0, 2) + ")");
+
+			_stat_text = "Exp: " + string_format(_demon_stats.exp_effectiveness, 0, 2);
+			draw_set_color(COLOR_CULTIST_SPIRIT);
+			draw_text(_stats_right_x, _stats_y, _stat_text);
+			draw_set_color(COLOR_HEALTH_BAR);
+			draw_text(_stats_right_x + string_width(_stat_text), _stats_y, " (+" + string_format(_exp_bonus, 0, 2) + ")");
+
+			_stat_text = "Magic power: " + string_format(_demon_stats.magic_effectiveness, 0, 2);
+			draw_set_color(COLOR_CULTIST_SPIRIT);
+			draw_text(_stats_right_x, _stats_y + (_line_height * 1), _stat_text);
+			draw_set_color(COLOR_HEALTH_BAR);
+			draw_text(_stats_right_x + string_width(_stat_text), _stats_y + (_line_height * 1), " (+" + string_format(_magic_bonus, 0, 2) + ")");
+
+			_stat_text = "Resistance: " + string_format(_demon_stats.resistance, 0, 2);
+			draw_set_color(COLOR_CULTIST_SPIRIT);
+			draw_text(_stats_right_x, _stats_y + (_line_height * 2), _stat_text);
+			draw_set_color(COLOR_HEALTH_BAR);
+			draw_text(_stats_right_x + string_width(_stat_text), _stats_y + (_line_height * 2), " (+" + string_format(_resistance_bonus, 0, 2) + ")");
+
+			if (_demon_stats.aoe_radius > 0)
+			{
+				draw_set_color(COLOR_HUD_TEXT);
+				draw_text(_stats_right_x, _stats_y + (_line_height * 3), "Aoe radius: " + string(_demon_stats.aoe_radius));
+			}
+		}
 	}
+
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
+	draw_set_color(COLOR_HUD_TEXT);
+	draw_text(_panel_x + (_panel_width * 0.5), _button_y - 28, "Choose one attribute point");
 
 	var _levelup_stat_colors = [COLOR_CULTIST_BODY, COLOR_CULTIST_SPIRIT, COLOR_CULTIST_FERVOR];
 
 	for (var _stat_index = 0; _stat_index < CULTIST_STAT.COUNT; ++_stat_index)
 	{
 		var _button_x = _button_start_x + ((_button_width + _button_gap) * _stat_index);
+		var _is_hovered = _mouse_x >= _button_x && _mouse_x <= _button_x + _button_width
+			&& _mouse_y >= _button_y && _mouse_y <= _button_y + _button_height;
 
+		if (_is_hovered)
+		{
+			_hovered_stat = _stat_index;
+		}
+
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_middle);
 		draw_set_color(c_white);
 		draw_rectangle(_button_x, _button_y, _button_x + _button_width, _button_y + _button_height, true);
 		draw_set_color(_levelup_stat_colors[_stat_index]);
 		draw_text(_button_x + (_button_width * 0.5), _button_y + (_button_height * 0.5), _stat_names[_stat_index]);
+	}
+
+	if (_hovered_stat >= 0)
+	{
+		var _tooltip_width = 250;
+		var _tooltip_height = 136;
+		var _tooltip_x = min(_mouse_x + 18, camera_view_width - _tooltip_width - 18);
+		var _tooltip_y = min(_mouse_y + 18, camera_view_height - _tooltip_height - 18);
+		var _tooltip_text = "";
+
+		if (instance_exists(_cultist) && variable_instance_exists(_cultist, "demon_type") && _cultist.demon_type != DEMON_TYPE.NONE)
+		{
+			var _base_stats = cultist_base_stats_get(_cultist.demon_type);
+
+			if (_hovered_stat == CULTIST_STAT.BODY)
+			{
+				_tooltip_text = "Next point gives:"
+					+ "\nHP +" + string_format(_base_stats.hp * 0.05, 0, 2)
+					+ "\nArmor +" + string_format(_base_stats.armor * 0.05, 0, 1) + "%";
+
+				if (_base_stats.damage > 0)
+				{
+					_tooltip_text += "\nPhysical damage +" + string_format(_base_stats.damage * 0.05, 0, 2);
+				}
+			}
+			else if (_hovered_stat == CULTIST_STAT.SPIRIT)
+			{
+				_tooltip_text = "Next point gives:"
+					+ "\nExp +" + string_format(_base_stats.exp_effectiveness * 0.07, 0, 2)
+					+ "\nMagic power +" + string_format(_base_stats.magic_effectiveness * 0.07, 0, 2)
+					+ "\nResistance +" + string_format(_base_stats.resistance * 0.07, 0, 2);
+
+				if (_base_stats.magic_damage > 0)
+				{
+					_tooltip_text += "\nMagic damage +" + string_format(_base_stats.magic_damage * 0.05, 0, 2);
+				}
+			}
+			else if (_hovered_stat == CULTIST_STAT.FERVOR)
+			{
+				_tooltip_text = "Next point gives:"
+					+ "\nCrit chance +" + string_format(_base_stats.crit_chance * 5, 0, 1) + "%"
+					+ "\nAttack speed +" + string_format(_base_stats.attack_speed * 0.07, 0, 2)
+					+ "\nAbility Recharge +" + string_format(_base_stats.abilities_cd_spd * 0.07, 0, 2);
+			}
+		}
+
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_alpha(0.96);
+		draw_set_color(COLOR_HUD_BACKGROUND);
+		draw_rectangle(_tooltip_x, _tooltip_y, _tooltip_x + _tooltip_width, _tooltip_y + _tooltip_height, false);
+		draw_set_alpha(1);
+		draw_set_color(_levelup_stat_colors[_hovered_stat]);
+		draw_rectangle(_tooltip_x, _tooltip_y, _tooltip_x + _tooltip_width, _tooltip_y + _tooltip_height, true);
+		draw_text(_tooltip_x + 12, _tooltip_y + 10, _stat_names[_hovered_stat]);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text_ext(_tooltip_x + 12, _tooltip_y + 34, _tooltip_text, 18, _tooltip_width - 24);
 	}
 
 	draw_set_halign(fa_left);
@@ -472,6 +796,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 		var _hp_bonus = _base_stats.hp * (_body_points * 0.05);
 		var _armor_bonus = _base_stats.armor * (_body_points * 0.05);
 		var _damage_bonus = _base_stats.damage * (_body_points * 0.05);
+		var _magic_damage_bonus = _base_stats.magic_damage * (_spirit_points * 0.05);
 		var _crit_bonus = _base_stats.crit_chance * (_fervor_points * 0.05);
 		var _attack_speed_bonus = _base_stats.attack_speed * (_fervor_points * 0.07);
 		var _cooldown_bonus = _base_stats.abilities_cd_spd * (_fervor_points * 0.07);
@@ -489,23 +814,33 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 		draw_set_color(COLOR_HEALTH_BAR);
 		draw_text(_left_x + string_width(_hp_text), _stats_y, " (+" + string_format(_hp_bonus, 0, 1) + ")");
 
-		var _left_stat_text = "Armor: " + string_format(_demon_stats.armor, 0, 2);
+		var _left_stat_text = "Armor: " + string_format(_demon_stats.armor - 100, 0, 1) + "%";
 		draw_set_color(COLOR_CULTIST_BODY);
 		draw_text(_left_x, _stats_y + (_line_height * 1), _left_stat_text);
 		draw_set_color(COLOR_HEALTH_BAR);
-		draw_text(_left_x + string_width(_left_stat_text), _stats_y + (_line_height * 1), " (+" + string_format(_armor_bonus, 0, 2) + ")");
+		draw_text(_left_x + string_width(_left_stat_text), _stats_y + (_line_height * 1), " (+" + string_format(_armor_bonus, 0, 1) + "%)");
 
-		_left_stat_text = "Damage: " + string_format(_demon_stats.damage, 0, 2);
-		draw_set_color(COLOR_CULTIST_BODY);
+		_left_stat_text = "Physical damage: " + string_format(_demon_stats.damage, 0, 2);
+		var _left_damage_color = COLOR_CULTIST_BODY;
+		var _left_damage_bonus = _damage_bonus;
+
+		if (_demon_stats.magic_damage > 0)
+		{
+			_left_stat_text = "Magic damage: " + string_format(_demon_stats.magic_damage, 0, 2);
+			_left_damage_color = COLOR_CULTIST_SPIRIT;
+			_left_damage_bonus = _magic_damage_bonus;
+		}
+
+		draw_set_color(_left_damage_color);
 		draw_text(_left_x, _stats_y + (_line_height * 2), _left_stat_text);
 		draw_set_color(COLOR_HEALTH_BAR);
-		draw_text(_left_x + string_width(_left_stat_text), _stats_y + (_line_height * 2), " (+" + string_format(_damage_bonus, 0, 2) + ")");
+		draw_text(_left_x + string_width(_left_stat_text), _stats_y + (_line_height * 2), " (+" + string_format(_left_damage_bonus, 0, 2) + ")");
 
-		_left_stat_text = "Crit: " + string_format(_demon_stats.crit_chance, 0, 2);
+		_left_stat_text = "Crit chance: " + string_format(_demon_stats.crit_chance * 100, 0, 1) + "%";
 		draw_set_color(COLOR_CULTIST_FERVOR);
 		draw_text(_left_x, _stats_y + (_line_height * 3), _left_stat_text);
 		draw_set_color(COLOR_HEALTH_BAR);
-		draw_text(_left_x + string_width(_left_stat_text), _stats_y + (_line_height * 3), " (+" + string_format(_crit_bonus, 0, 2) + ")");
+		draw_text(_left_x + string_width(_left_stat_text), _stats_y + (_line_height * 3), " (+" + string_format(_crit_bonus * 100, 0, 1) + "%)");
 
 		_left_stat_text = "Attack speed: " + string_format(_demon_stats.attack_speed, 0, 2);
 		draw_set_color(COLOR_CULTIST_FERVOR);
@@ -513,7 +848,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 		draw_set_color(COLOR_HEALTH_BAR);
 		draw_text(_left_x + string_width(_left_stat_text), _stats_y + (_line_height * 4), " (+" + string_format(_attack_speed_bonus, 0, 2) + ")");
 
-		var _right_stat_text = "CD speed: " + string_format(_demon_stats.abilities_cd_spd, 0, 2);
+		var _right_stat_text = "Ability Recharge: " + string_format(_demon_stats.abilities_cd_spd, 0, 2);
 		draw_set_color(COLOR_CULTIST_FERVOR);
 		draw_text(_right_x, _stats_y, _right_stat_text);
 		draw_set_color(COLOR_HEALTH_BAR);
@@ -525,7 +860,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 		draw_set_color(COLOR_HEALTH_BAR);
 		draw_text(_right_x + string_width(_right_stat_text), _stats_y + (_line_height * 1), " (+" + string_format(_exp_bonus, 0, 2) + ")");
 
-		_right_stat_text = "Magic: " + string_format(_demon_stats.magic_effectiveness, 0, 2);
+		_right_stat_text = "Magic power: " + string_format(_demon_stats.magic_effectiveness, 0, 2);
 		draw_set_color(COLOR_CULTIST_SPIRIT);
 		draw_text(_right_x, _stats_y + (_line_height * 2), _right_stat_text);
 		draw_set_color(COLOR_HEALTH_BAR);

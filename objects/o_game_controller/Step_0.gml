@@ -246,8 +246,8 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP && mouse_check_button_p
 	var _mouse_x = device_mouse_x_to_gui(0);
 	var _mouse_y = device_mouse_y_to_gui(0);
 	var _panel_x = (camera_view_width - cultist_panel_width) * 0.5;
-	var _panel_y = (camera_view_height - 330) * 0.5;
-	var _button_y = _panel_y + 210;
+	var _panel_y = (camera_view_height - 580) * 0.5;
+	var _button_y = _panel_y + 470;
 	var _button_width = 150;
 	var _button_height = 44;
 	var _button_gap = 18;
