@@ -1,4 +1,4 @@
-// Cursed gold mines produce gold passively during the day.
+// Cursed iron mines produce iron passively during the day.
 if (global.pause)
 {
 	exit;
@@ -20,6 +20,6 @@ day_reward_timer--;
 
 if (day_reward_timer <= 0)
 {
-	give_gold_reward(day_gold_reward);
+	give_iron_reward(day_iron_reward);
 	day_reward_timer = day_reward_interval;
 }

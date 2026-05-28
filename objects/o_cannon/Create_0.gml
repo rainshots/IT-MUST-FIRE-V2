@@ -2,6 +2,7 @@
 max_hp = 300;
 hp = max_hp;
 global.cannon_fire_version = 0;
+y_sort_enabled = true;
 
 // Cannon health bar visual settings.
 bar_width = 84;

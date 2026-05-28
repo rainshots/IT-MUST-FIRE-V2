@@ -110,9 +110,9 @@ global.rally_projectile_group_id = 0;
 
 // Global resource storage used by HUD and economy systems.
 global.resources = array_create(RESOURCES.COUNT, 0);
+global.resources[RESOURCES.FLESH] = 0;
 global.resources[RESOURCES.SOULS] = 0;
-global.resources[RESOURCES.GOLD] = 0;
-global.resources[RESOURCES.CULTISTS] = 0;
+global.resources[RESOURCES.IRON] = 0;
 
 // Base window and GUI size for the strategy view.
 base_view_width = 1366;
@@ -190,6 +190,129 @@ cultist_drag_drop_offset_y = 30;
 global.cultist_drag_shadow_width = 46;
 global.cultist_drag_shadow_height = 14;
 global.dragged_cultist = noone;
+global.cultist_assignment_preview_building = noone;
+
+// Worker assignment helpers connect day-form cultists to production buildings.
+arrange_resource_building_workers = function(_building)
+{
+	if (!instance_exists(_building) || !variable_instance_exists(_building, "worker_cultists"))
+	{
+		return;
+	}
+
+	var _worker_count = array_length(_building.worker_cultists);
+
+	for (var _worker_index = 0; _worker_index < _worker_count; ++_worker_index)
+	{
+		var _worker = _building.worker_cultists[_worker_index];
+
+		if (!instance_exists(_worker))
+		{
+			continue;
+		}
+
+		var _worker_offset = (_worker_index - ((_worker_count - 1) * 0.5)) * _building.worker_stand_spacing;
+
+		_worker.x = _building.x + _worker_offset;
+		_worker.y = _building.bbox_bottom + _building.worker_stand_offset_y;
+		_worker.drag_drop_x = _worker.x;
+		_worker.drag_drop_y = _worker.y;
+	}
+};
+
+clear_cultist_building_assignment = function(_cultist)
+{
+	if (!instance_exists(_cultist) || !variable_instance_exists(_cultist, "assigned_building"))
+	{
+		return;
+	}
+
+	var _assigned_building = _cultist.assigned_building;
+
+	if (instance_exists(_assigned_building)
+		&& variable_instance_exists(_assigned_building, "worker_cultists"))
+	{
+		var _worker_count = array_length(_assigned_building.worker_cultists);
+		var _write_index = 0;
+
+		for (var _worker_index = 0; _worker_index < _worker_count; ++_worker_index)
+		{
+			var _worker = _assigned_building.worker_cultists[_worker_index];
+
+			if (_worker != _cultist)
+			{
+				_assigned_building.worker_cultists[_write_index] = _worker;
+				_write_index++;
+			}
+		}
+
+		array_resize(_assigned_building.worker_cultists, _write_index);
+		arrange_resource_building_workers(_assigned_building);
+
+		if (variable_instance_exists(_assigned_building, "recalculate_production_speed_multiplier"))
+		{
+			_assigned_building.recalculate_production_speed_multiplier();
+		}
+	}
+
+	_cultist.assigned_building = noone;
+	_cultist.is_assigned_to_building = false;
+};
+
+// Find the first empty resource building under a world-space point.
+find_resource_building_at_position = function(_world_x, _world_y)
+{
+	var _building_count = instance_number(o_v13buildings_parent);
+
+	for (var _building_index = 0; _building_index < _building_count; ++_building_index)
+	{
+		var _building = instance_find(o_v13buildings_parent, _building_index);
+
+		if (instance_exists(_building)
+			&& variable_instance_exists(_building, "production_resource")
+			&& _building.production_resource != noone
+			&& variable_instance_exists(_building, "worker_cultists")
+			&& array_length(_building.worker_cultists) < _building.worker_max
+			&& _world_x >= _building.bbox_left
+			&& _world_x <= _building.bbox_right
+			&& _world_y >= _building.bbox_top
+			&& _world_y <= _building.bbox_bottom)
+		{
+			return _building;
+		}
+	}
+
+	return noone;
+};
+
+// Assign a day-form cultist to a resource building and snap them beside it.
+assign_cultist_to_resource_building = function(_cultist, _building)
+{
+	if (!instance_exists(_cultist) || !instance_exists(_building) || _cultist.object_index != o_cultist)
+	{
+		return false;
+	}
+
+	clear_cultist_building_assignment(_cultist);
+
+	if (!variable_instance_exists(_building, "worker_cultists")
+		|| array_length(_building.worker_cultists) >= _building.worker_max)
+	{
+		return false;
+	}
+
+	array_push(_building.worker_cultists, _cultist);
+	_cultist.assigned_building = _building;
+	_cultist.is_assigned_to_building = true;
+	arrange_resource_building_workers(_building);
+
+	if (variable_instance_exists(_building, "recalculate_production_speed_multiplier"))
+	{
+		_building.recalculate_production_speed_multiplier();
+	}
+
+	return true;
+};
 
 // Runtime UI font includes Cyrillic glyphs for cultist names.
 var _ui_font_size = 11;

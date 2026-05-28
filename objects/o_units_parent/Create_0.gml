@@ -8,6 +8,7 @@ reload_time = room_speed;
 reload_timer = 0;
 attack_radius = 32;
 cannon_attack_radius = 200;
+y_sort_enabled = true;
 
 // Base unit movement and target search settings.
 move_speed = 1.2;

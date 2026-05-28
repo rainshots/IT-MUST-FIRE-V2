@@ -5,6 +5,8 @@ resource_item_width = 150;
 resource_item_height = 34;
 resource_item_gap = 10;
 resource_icon_radius = 8;
+resource_icon_size = 22;
+resource_icon_text_gap = 12;
 resource_text_padding = 20;
 
 // Day cycle display in the top-right corner.
@@ -15,21 +17,21 @@ day_phase_text_padding = 14;
 
 // Resource display order from left to right in the top-left corner.
 resource_order = [
+	RESOURCES.FLESH,
 	RESOURCES.SOULS,
-	RESOURCES.GOLD,
-	RESOURCES.CULTISTS
-];
-
-resource_names = [
-	"SOULS",
-	"GOLD",
-	"CULTISTS"
+	RESOURCES.IRON
 ];
 
 resource_colors = [
+	COLOR_HUD_FLESH,
 	COLOR_HUD_SOULS,
-	COLOR_HUD_GOLD,
-	COLOR_HUD_CULTISTS
+	COLOR_HUD_IRON
+];
+
+resource_icon_sprites = [
+	s_flesh_icon,
+	s_soul_icon,
+	s_iron_icon
 ];
 
 // Corruption display is derived from the ground corruption grid.

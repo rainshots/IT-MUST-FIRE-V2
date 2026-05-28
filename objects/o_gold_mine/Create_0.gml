@@ -1,7 +1,7 @@
 // Initialize shared map object state.
 event_inherited();
 
-// Gold mine durability.
+// Iron mine durability.
 max_hp = 100;
 hp = max_hp;
 max_corruption = 100;
@@ -9,15 +9,15 @@ corruption = 0;
 
 // Tooltip lines describe projectile reactions for player targeting.
 tooltip_lines = [
-	"Damage: +3 Gold",
+	"Damage: +3 Iron",
 	"Corruption: Cursed on infected ground",
 	"Summon: No effect yet"
 ];
 
-give_gold_reward = function(_gold_reward)
+give_iron_reward = function(_iron_reward)
 {
-	global.resources[RESOURCES.GOLD] += _gold_reward;
-	resource_popup_create(x, y - bar_offset_y, RESOURCES.GOLD, _gold_reward);
+	global.resources[RESOURCES.IRON] += _iron_reward;
+	resource_popup_create(x, y - bar_offset_y, RESOURCES.IRON, _iron_reward);
 };
 
 is_on_corrupted_ground = function()
@@ -37,7 +37,7 @@ is_on_corrupted_ground = function()
 
 on_damage_projectile_hit = function()
 {
-	var _gold_reward = BALANCE_GOLD_MINE_DAMAGE_GOLD_REWARD;
+	var _iron_reward = BALANCE_GOLD_MINE_DAMAGE_IRON_REWARD;
 
-	give_gold_reward(_gold_reward);
+	give_iron_reward(_iron_reward);
 };

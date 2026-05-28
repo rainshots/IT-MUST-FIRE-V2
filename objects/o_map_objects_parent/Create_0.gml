@@ -3,6 +3,7 @@ max_hp = 100;
 hp = max_hp;
 max_corruption = 100;
 corruption = 0;
+y_sort_enabled = true;
 
 // Health and corruption bar visual settings.
 bar_width = 72;

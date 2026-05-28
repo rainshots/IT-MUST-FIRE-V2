@@ -7,14 +7,16 @@ demon_ability = DEMON_ABILITY.NONE;
 cultist_points = cultist_points_roll();
 current_exp = 0;
 current_lvl = 1;
+y_sort_enabled = true;
 
 // Visual settings for the day form labels.
-bar_width = 36;
-bar_height = 4;
-bar_offset_y = 24;
-name_offset_y = 36;
+name_offset_y = 20;
 
 // Drag state is controlled by o_game_controller during manual cultist repositioning.
 is_being_dragged = false;
 drag_drop_x = x;
 drag_drop_y = y;
+
+// Building work assignment. The game controller updates these when dropped on a building.
+assigned_building = noone;
+is_assigned_to_building = false;

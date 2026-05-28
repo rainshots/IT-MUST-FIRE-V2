@@ -10,6 +10,7 @@ move_speed_y = -0.45;
 // Popup text values are set by resource_popup_create after creation.
 popup_text = "";
 popup_color = c_white;
+popup_icon = noone;
 
 // Popup visual settings.
 background_color = COLOR_HUD_BACKGROUND;
@@ -17,3 +18,8 @@ background_padding_x = 8;
 background_padding_y = 4;
 background_alpha = 0.78;
 text_offset_y = -18;
+icon_size = 18;
+icon_gap = 6;
+
+// Resource popups should always draw above world objects and building UI.
+depth = BALANCE_PARTICLE_SYSTEM_TOP_DEPTH - 100;

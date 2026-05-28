@@ -39,12 +39,22 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 		_dragged_cultist.drag_drop_x = _mouse_world_x;
 		_dragged_cultist.drag_drop_y = _mouse_world_y + cultist_drag_drop_offset_y;
 
+		global.cultist_assignment_preview_building = find_resource_building_at_position(_mouse_world_x, _mouse_world_y);
+
 		if (!mouse_check_button(mb_left))
 		{
-			_dragged_cultist.x = _dragged_cultist.drag_drop_x;
-			_dragged_cultist.y = _dragged_cultist.drag_drop_y;
+			var _drop_building = global.cultist_assignment_preview_building;
+			var _was_assigned_to_building = assign_cultist_to_resource_building(_dragged_cultist, _drop_building);
+
+			if (!_was_assigned_to_building)
+			{
+				_dragged_cultist.x = _dragged_cultist.drag_drop_x;
+				_dragged_cultist.y = _dragged_cultist.drag_drop_y;
+			}
+
 			_dragged_cultist.is_being_dragged = false;
 			global.dragged_cultist = noone;
+			global.cultist_assignment_preview_building = noone;
 		}
 	}
 	else if (mouse_check_button_pressed(mb_left) && !global.pause)
@@ -75,6 +85,8 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 
 		if (instance_exists(_closest_cultist))
 		{
+			clear_cultist_building_assignment(_closest_cultist);
+
 			global.dragged_cultist = _closest_cultist;
 			_closest_cultist.is_being_dragged = true;
 			_closest_cultist.x = _mouse_world_x;
@@ -90,6 +102,27 @@ else if (instance_exists(global.dragged_cultist))
 	global.dragged_cultist.y = global.dragged_cultist.drag_drop_y;
 	global.dragged_cultist.is_being_dragged = false;
 	global.dragged_cultist = noone;
+	global.cultist_assignment_preview_building = noone;
+}
+else
+{
+	global.cultist_assignment_preview_building = noone;
+}
+
+// Sort enabled world objects by their feet position: lower screen y draws above.
+with (all)
+{
+	if (variable_instance_exists(id, "y_sort_enabled") && y_sort_enabled)
+	{
+		var _sort_y = y;
+
+		if (variable_instance_exists(id, "is_being_dragged") && is_being_dragged)
+		{
+			_sort_y = drag_drop_y;
+		}
+
+		depth = -floor(_sort_y);
+	}
 }
 
 // F4 manually starts a combat-form test while the full day/night cycle is disabled.

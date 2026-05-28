@@ -17,7 +17,7 @@ if (is_being_dragged)
 // Draw day cultist sprite.
 draw_self();
 
-// Draw the assigned name or an unnamed placeholder above the cultist.
+// Draw the assigned name or an unnamed placeholder below the cultist.
 var _name_text = cultist_name;
 
 if (_name_text == "")
@@ -30,25 +30,25 @@ if (variable_global_exists("ui_font") && font_exists(global.ui_font))
 	draw_set_font(global.ui_font);
 }
 
+// Color the name by the cultist's strongest attribute.
+var _name_color = COLOR_CULTIST_BODY;
+var _body_points = cultist_points[CULTIST_STAT.BODY];
+var _spirit_points = cultist_points[CULTIST_STAT.SPIRIT];
+var _fervor_points = cultist_points[CULTIST_STAT.FERVOR];
+
+if (_spirit_points > _body_points && _spirit_points >= _fervor_points)
+{
+	_name_color = COLOR_CULTIST_SPIRIT;
+}
+else if (_fervor_points > _body_points && _fervor_points > _spirit_points)
+{
+	_name_color = COLOR_CULTIST_FERVOR;
+}
+
 draw_set_halign(fa_center);
 draw_set_valign(fa_middle);
-draw_set_color(COLOR_HUD_TEXT);
-draw_text(x, y - name_offset_y, _name_text);
-
-// Draw a small possession marker once a demon is selected.
-if (demon_type != DEMON_TYPE.NONE)
-{
-	var _bar_x = x - (bar_width * 0.5);
-	var _bar_y = y + bar_offset_y;
-
-	draw_set_alpha(0.75);
-	draw_set_color(COLOR_HUD_BACKGROUND);
-	draw_rectangle(_bar_x, _bar_y, _bar_x + bar_width, _bar_y + bar_height, false);
-
-	draw_set_alpha(1);
-	draw_set_color(COLOR_CULTIST_FERVOR);
-	draw_rectangle(_bar_x, _bar_y, _bar_x + bar_width, _bar_y + bar_height, false);
-}
+draw_set_color(_name_color);
+draw_text(x, y + name_offset_y, _name_text);
 
 // Restore default draw state.
 draw_set_halign(fa_left);

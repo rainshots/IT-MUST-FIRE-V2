@@ -11,7 +11,7 @@ corruption = 0;
 tooltip_lines = [
 	"Damage: -20 HP, +3 Souls, Graveyard at 0 HP",
 	"Corruption: +33 Corruption, Cursed Town at max",
-	"Summon: +2 Cultists"
+	"Summon: +2 Flesh"
 ];
 
 // Town projectile reactions.
@@ -44,8 +44,8 @@ on_corruption_projectile_hit = function()
 
 on_summon_projectile_hit = function()
 {
-	var _cultists_reward = 2;
+	var _flesh_reward = 2;
 
-	global.resources[RESOURCES.CULTISTS] += _cultists_reward;
-	resource_popup_create(x, y - bar_offset_y, RESOURCES.CULTISTS, _cultists_reward);
+	global.resources[RESOURCES.FLESH] += _flesh_reward;
+	resource_popup_create(x, y - bar_offset_y, RESOURCES.FLESH, _flesh_reward);
 };

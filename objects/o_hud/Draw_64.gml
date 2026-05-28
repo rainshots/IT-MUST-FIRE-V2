@@ -15,22 +15,34 @@ for (var _resource_index = 0; _resource_index < _resource_count; ++_resource_ind
 	var _draw_x = hud_margin_x + ((resource_item_width + resource_item_gap) * _resource_index);
 	var _draw_y = hud_margin_y;
 	var _value = global.resources[_resource];
-	var _label = resource_names[_resource] + ": " + string(_value);
 	var _icon_x = _draw_x + resource_text_padding;
 	var _icon_y = _draw_y + (resource_item_height * 0.5);
-	var _text_x = _draw_x + (resource_text_padding * 1.8);
+	var _icon_sprite = resource_icon_sprites[_resource];
+	var _text_x = _icon_x + (resource_icon_size * 0.5) + resource_icon_text_gap;
 	var _text_y = _icon_y;
 
+	// Draw resource panel background.
 	draw_set_alpha(0.72);
 	draw_set_color(COLOR_HUD_BACKGROUND);
 	draw_rectangle(_draw_x, _draw_y, _draw_x + resource_item_width, _draw_y + resource_item_height, false);
 
+	// Draw resource icon, falling back to a color dot if the sprite is unavailable.
 	draw_set_alpha(1);
-	draw_set_color(resource_colors[_resource]);
-	draw_circle(_icon_x, _icon_y, resource_icon_radius, false);
+	if (sprite_exists(_icon_sprite))
+	{
+		var _icon_left = _icon_x - (resource_icon_size * 0.5);
+		var _icon_top = _icon_y - (resource_icon_size * 0.5);
+
+		draw_sprite_stretched_ext(_icon_sprite, 0, _icon_left, _icon_top, resource_icon_size, resource_icon_size, c_white, 1);
+	}
+	else
+	{
+		draw_set_color(resource_colors[_resource]);
+		draw_circle(_icon_x, _icon_y, resource_icon_radius, false);
+	}
 
 	draw_set_color(COLOR_HUD_TEXT);
-	draw_text(_text_x, _text_y, _label);
+	draw_text(_text_x, _text_y, string(_value));
 }
 
 // Draw derived ground corruption after regular resources.
