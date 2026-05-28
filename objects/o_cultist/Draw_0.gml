@@ -50,6 +50,22 @@ draw_set_valign(fa_middle);
 draw_set_color(_name_color);
 draw_text(x, y + name_offset_y, _name_text);
 
+// Draw the same health bar style used by demon forms under the day-form name.
+if (max_hp > 0)
+{
+	var _bar_x = x - (bar_width * 0.5);
+	var _bar_y = y + name_offset_y + name_health_bar_gap;
+	var _hp_progress = clamp(hp / max_hp, 0, 1);
+
+	draw_set_alpha(0.75);
+	draw_set_color(c_black);
+	draw_rectangle(_bar_x, _bar_y, _bar_x + bar_width, _bar_y + bar_height, false);
+
+	draw_set_alpha(1);
+	draw_set_color(COLOR_HEALTH_BAR);
+	draw_rectangle(_bar_x, _bar_y, _bar_x + (bar_width * _hp_progress), _bar_y + bar_height, false);
+}
+
 // Restore default draw state.
 draw_set_halign(fa_left);
 draw_set_valign(fa_top);

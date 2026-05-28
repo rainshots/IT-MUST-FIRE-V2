@@ -8,8 +8,8 @@ if (instance_exists(game_controller))
 	}
 }
 
-// Pause stops camera movement while menu input remains available.
-if (global.pause)
+// Blocking focus windows stop camera movement while their menu input remains available.
+if (global.pause && global.focus_window != FOCUS_WINDOW.NOONE)
 {
 	velocity_x = 0;
 	velocity_y = 0;

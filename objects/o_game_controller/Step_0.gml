@@ -11,6 +11,16 @@ if (keyboard_check_pressed(ord("L")))
 	exit;
 }
 
+// Space toggles gameplay pause without opening a blocking focus window.
+if (keyboard_check_pressed(vk_space)
+	&& global.focus_window == FOCUS_WINDOW.NOONE
+	&& !pause_menu_open
+	&& !instance_exists(global.dragged_cultist))
+{
+	player_pause_active = !player_pause_active;
+	global.pause = player_pause_active;
+}
+
 // Spawn the starting cultists once the cannon exists in the room.
 if (!cultists_spawned)
 {
@@ -39,12 +49,12 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 		_dragged_cultist.drag_drop_x = _mouse_world_x;
 		_dragged_cultist.drag_drop_y = _mouse_world_y + cultist_drag_drop_offset_y;
 
-		global.cultist_assignment_preview_building = find_resource_building_at_position(_mouse_world_x, _mouse_world_y);
+		global.cultist_assignment_preview_building = find_worker_building_at_position(_mouse_world_x, _mouse_world_y);
 
 		if (!mouse_check_button(mb_left))
 		{
 			var _drop_building = global.cultist_assignment_preview_building;
-			var _was_assigned_to_building = assign_cultist_to_resource_building(_dragged_cultist, _drop_building);
+			var _was_assigned_to_building = assign_cultist_to_worker_building(_dragged_cultist, _drop_building);
 
 			if (!_was_assigned_to_building)
 			{
@@ -153,6 +163,107 @@ if (mouse_check_button_pressed(mb_right) && global.focus_window == FOCUS_WINDOW.
 	blood_particles_create(_mouse_world_x, _mouse_world_y, BALANCE_BLOOD_PARTICLE_COUNT * 3);
 }
 
+// Mouse button 5 damages the topmost HP-bearing instance under the cursor for debugging.
+var _debug_damage_mouse_button = 5;
+
+if (mouse_check_button_pressed(_debug_damage_mouse_button)
+	&& global.focus_window == FOCUS_WINDOW.NOONE
+	&& instance_exists(o_camera_controller))
+{
+	var _camera_controller = instance_find(o_camera_controller, 0);
+	var _mouse_gui_x = device_mouse_x_to_gui(0);
+	var _mouse_gui_y = device_mouse_y_to_gui(0);
+	var _camera_x = camera_get_view_x(_camera_controller.camera_id);
+	var _camera_y = camera_get_view_y(_camera_controller.camera_id);
+	var _camera_width = camera_get_view_width(_camera_controller.camera_id);
+	var _camera_height = camera_get_view_height(_camera_controller.camera_id);
+	var _mouse_world_x = _camera_x + ((_mouse_gui_x / camera_view_width) * _camera_width);
+	var _mouse_world_y = _camera_y + ((_mouse_gui_y / camera_view_height) * _camera_height);
+	var _target_instance = noone;
+	var _target_depth = infinity;
+	var _instance_count = instance_number(all);
+
+	for (var _instance_index = 0; _instance_index < _instance_count; ++_instance_index)
+	{
+		var _instance = instance_find(all, _instance_index);
+
+		if (instance_exists(_instance)
+			&& variable_instance_exists(_instance, "hp")
+			&& _instance.hp > 0
+			&& _mouse_world_x >= _instance.bbox_left
+			&& _mouse_world_x <= _instance.bbox_right
+			&& _mouse_world_y >= _instance.bbox_top
+			&& _mouse_world_y <= _instance.bbox_bottom
+			&& _instance.depth < _target_depth)
+		{
+			_target_instance = _instance;
+			_target_depth = _instance.depth;
+		}
+	}
+
+	if (instance_exists(_target_instance))
+	{
+		var _damage_amount = BALANCE_DEBUG_MOUSE_DAMAGE;
+		var _target_faction = UNIT_FACTION.ENEMY;
+
+		if (variable_instance_exists(_target_instance, "unit_faction"))
+		{
+			_target_faction = _target_instance.unit_faction;
+		}
+
+		_target_instance.hp = max(_target_instance.hp - _damage_amount, 0);
+		damage_popup_create(_target_instance.x, _target_instance.y, _damage_amount, _target_faction);
+	}
+}
+
+// Mouse button 4 gives night reward EXP to the topmost cultist or demon under the cursor.
+var _debug_exp_mouse_button = 4;
+
+if (mouse_check_button_pressed(_debug_exp_mouse_button)
+	&& global.focus_window == FOCUS_WINDOW.NOONE
+	&& instance_exists(o_camera_controller))
+{
+	var _camera_controller = instance_find(o_camera_controller, 0);
+	var _mouse_gui_x = device_mouse_x_to_gui(0);
+	var _mouse_gui_y = device_mouse_y_to_gui(0);
+	var _camera_x = camera_get_view_x(_camera_controller.camera_id);
+	var _camera_y = camera_get_view_y(_camera_controller.camera_id);
+	var _camera_width = camera_get_view_width(_camera_controller.camera_id);
+	var _camera_height = camera_get_view_height(_camera_controller.camera_id);
+	var _mouse_world_x = _camera_x + ((_mouse_gui_x / camera_view_width) * _camera_width);
+	var _mouse_world_y = _camera_y + ((_mouse_gui_y / camera_view_height) * _camera_height);
+	var _target_instance = noone;
+	var _target_depth = infinity;
+	var _instance_count = instance_number(all);
+
+	for (var _instance_index = 0; _instance_index < _instance_count; ++_instance_index)
+	{
+		var _instance = instance_find(all, _instance_index);
+
+		if (instance_exists(_instance)
+			&& variable_instance_exists(_instance, "current_exp")
+			&& variable_instance_exists(_instance, "current_lvl")
+			&& variable_instance_exists(_instance, "cultist_points")
+			&& _mouse_world_x >= _instance.bbox_left
+			&& _mouse_world_x <= _instance.bbox_right
+			&& _mouse_world_y >= _instance.bbox_top
+			&& _mouse_world_y <= _instance.bbox_bottom
+			&& _instance.depth < _target_depth)
+		{
+			_target_instance = _instance;
+			_target_depth = _instance.depth;
+		}
+	}
+
+	if (instance_exists(_target_instance))
+	{
+		if (cultist_exp_add(_target_instance, BALANCE_CULTIST_NIGHT_EXP_REWARD))
+		{
+			open_cultist_levelup();
+		}
+	}
+}
+
 // F2 enables infinite projectile testing with one projectile of every known type.
 if (keyboard_check_pressed(vk_f2))
 {
@@ -197,6 +308,7 @@ if (keyboard_check_pressed(vk_escape))
 	{
 		pause_menu_open = true;
 		settings_open = false;
+		player_pause_active = false;
 		global.pause = true;
 		global.focus_window = FOCUS_WINDOW.PAUSE_MENU;
 	}
@@ -303,6 +415,8 @@ if (!global.pause && global.day_cycle_enabled)
 			global.day_phase = DAY_PHASE.DAY;
 			global.day_timer = global.day_duration * room_speed;
 			global.night_attack_unit_count = 0;
+			update_summoned_unit_night_life();
+			award_cultist_night_exp();
 		}
 	}
 }
@@ -532,6 +646,7 @@ if (pause_menu_open && mouse_check_button_pressed(mb_left))
 			{
 				pause_menu_open = false;
 				global.pause = false;
+				player_pause_active = false;
 				global.focus_window = FOCUS_WINDOW.NOONE;
 			}
 			else if (_mouse_y >= _settings_button_y && _mouse_y <= _settings_button_y + button_height)

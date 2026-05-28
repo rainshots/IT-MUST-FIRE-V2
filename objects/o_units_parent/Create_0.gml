@@ -56,6 +56,10 @@ attack_feedback_target = noone;
 attack_feedback_target_x = x;
 attack_feedback_target_y = y;
 attack_feedback_line_width = 2;
+attack_lunge_distance = 6;
+attack_lunge_return_time_multiplier = 0.65;
+visual_attack_offset_x = 0;
+visual_attack_offset_y = 0;
 
 // Optional combat modifiers used by cultist demon forms and debuffs.
 armor = 100;
@@ -73,6 +77,34 @@ drag_drop_y = y;
 bar_width = 34;
 bar_height = 4;
 bar_offset_y = 28;
+
+// Walking sway tilts the sprite a little while the unit is moving.
+is_walking = false;
+walk_sway_angle = 4;
+walk_sway_half_time = 0.16;
+walk_sway_timer = random(walk_sway_half_time);
+walk_sway_direction = choose(-1, 1);
+
+face_world_x = function(_target_x)
+{
+	var _facing_dead_zone = 1;
+	var _sprite_scale = abs(image_xscale);
+
+	if (abs(_target_x - x) <= _facing_dead_zone)
+	{
+		return;
+	}
+
+	// Unit sprites need a mirrored xscale to face left in-game.
+	if (_target_x < x)
+	{
+		image_xscale = -_sprite_scale;
+	}
+	else
+	{
+		image_xscale = _sprite_scale;
+	}
+};
 
 find_nearest_target = function(_object_index, _max_distance)
 {
@@ -184,6 +216,8 @@ move_towards_target = function(_target)
 	{
 		var _target_direction = point_direction(x, y, _target.x, _target.y);
 
+		is_walking = true;
+		face_world_x(_target.x);
 		x += lengthdir_x(move_speed, _target_direction);
 		y += lengthdir_y(move_speed, _target_direction);
 	}
@@ -193,8 +227,70 @@ move_towards_world_point = function(_target_x, _target_y)
 {
 	var _target_direction = point_direction(x, y, _target_x, _target_y);
 
+	is_walking = true;
+	face_world_x(_target_x);
 	x += lengthdir_x(move_speed, _target_direction);
 	y += lengthdir_y(move_speed, _target_direction);
+};
+
+update_walk_sway = function()
+{
+	if (!is_walking)
+	{
+		walk_sway_timer = 0;
+		walk_sway_direction = 1;
+		image_angle = 0;
+		return;
+	}
+
+	walk_sway_timer += 1 / max(1, room_speed);
+
+	if (walk_sway_timer >= walk_sway_half_time)
+	{
+		walk_sway_timer -= walk_sway_half_time;
+		walk_sway_direction *= -1;
+	}
+
+	image_angle = walk_sway_angle * walk_sway_direction;
+};
+
+start_attack_lunge = function(_target)
+{
+	if (!instance_exists(_target))
+	{
+		return;
+	}
+
+	var _lunge_direction = point_direction(x, y, _target.x, _target.y);
+
+	visual_attack_offset_x = lengthdir_x(attack_lunge_distance, _lunge_direction);
+	visual_attack_offset_y = lengthdir_y(attack_lunge_distance, _lunge_direction);
+};
+
+update_attack_lunge = function()
+{
+	var _return_time = max(1, reload_time * attack_lunge_return_time_multiplier);
+	var _return_amount = attack_lunge_distance / _return_time;
+	var _offset_distance = point_distance(0, 0, visual_attack_offset_x, visual_attack_offset_y);
+
+	if (_offset_distance <= 0)
+	{
+		visual_attack_offset_x = 0;
+		visual_attack_offset_y = 0;
+		return;
+	}
+
+	if (_offset_distance <= _return_amount)
+	{
+		visual_attack_offset_x = 0;
+		visual_attack_offset_y = 0;
+		return;
+	}
+
+	var _return_direction = point_direction(visual_attack_offset_x, visual_attack_offset_y, 0, 0);
+
+	visual_attack_offset_x += lengthdir_x(_return_amount, _return_direction);
+	visual_attack_offset_y += lengthdir_y(_return_amount, _return_direction);
 };
 
 rally_group_ready_to_return = function()
@@ -333,6 +429,8 @@ attack_target = function(_target)
 		return;
 	}
 
+	face_world_x(_target.x);
+
 	if (reload_timer > 0)
 	{
 		reload_timer--;
@@ -374,6 +472,7 @@ attack_target = function(_target)
 	if (variable_instance_exists(_target, "hp"))
 	{
 		_target.hp = max(_target.hp - _damage_amount, 0);
+		start_attack_lunge(_target);
 
 		if (variable_instance_exists(_target, "unit_faction"))
 		{

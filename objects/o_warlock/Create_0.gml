@@ -12,6 +12,7 @@ demon_type = DEMON_TYPE.WARLOCK;
 demon_ability = cultist_ability_roll(demon_type);
 current_exp = 0;
 current_lvl = 1;
+pending_level_points = 0;
 
 // Demon combat stats are derived from base stats and cultist attributes.
 cultist_stats_apply(id);

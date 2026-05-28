@@ -7,10 +7,18 @@ demon_ability = DEMON_ABILITY.NONE;
 cultist_points = cultist_points_roll();
 current_exp = 0;
 current_lvl = 1;
+pending_level_points = 0;
 y_sort_enabled = true;
 
-// Visual settings for the day form labels.
-name_offset_y = 20;
+// Day-form health is synced with the chosen demon form after selection.
+max_hp = 1;
+hp = max_hp;
+
+// Visual settings for the day form labels and shared health bar style.
+name_offset_y = 8;
+bar_width = 34;
+bar_height = 4;
+name_health_bar_gap = 8;
 
 // Drag state is controlled by o_game_controller during manual cultist repositioning.
 is_being_dragged = false;

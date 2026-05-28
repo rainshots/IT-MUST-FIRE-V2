@@ -25,8 +25,160 @@ if (variable_global_exists("cultist_assignment_preview_building")
 	);
 }
 
+// Draw remaining paid healing for the current Flesh chunk.
+if (object_index == o_meat_bath)
+{
+	if (meat_bath_heal_pool > 0)
+	{
+		var _bar_x = x - (production_bar_width * 0.5);
+		var _bar_y = y - production_bar_offset_y;
+		var _progress = clamp(meat_bath_heal_pool / BALANCE_MEAT_BATH_FLESH_HEAL_AMOUNT, 0, 1);
+		var _icon_x = _bar_x + production_bar_width + production_icon_gap;
+		var _icon_y = _bar_y + (production_bar_height * 0.5);
+
+		draw_set_alpha(production_bar_background_alpha);
+		draw_set_color(COLOR_HUD_BACKGROUND);
+		draw_rectangle(_bar_x, _bar_y, _bar_x + production_bar_width, _bar_y + production_bar_height, false);
+
+		draw_set_alpha(1);
+		draw_set_color(production_resource_color);
+		draw_rectangle(_bar_x, _bar_y, _bar_x + (production_bar_width * _progress), _bar_y + production_bar_height, false);
+
+		draw_set_alpha(production_bar_outline_alpha);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_rectangle(_bar_x, _bar_y, _bar_x + production_bar_width, _bar_y + production_bar_height, true);
+
+		if (sprite_exists(production_resource_icon))
+		{
+			draw_sprite_stretched_ext(
+				production_resource_icon,
+				0,
+				_icon_x,
+				_icon_y - (production_icon_size * 0.5),
+				production_icon_size,
+				production_icon_size,
+				c_white,
+				1
+			);
+		}
+	}
+
+	// Restore default draw state.
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+	exit;
+}
+
+// Draw remaining paid XP for the current Soul chunk.
+if (object_index == o_ritual_circle)
+{
+	if (ritual_circle_exp_pool > 0)
+	{
+		var _bar_x = x - (production_bar_width * 0.5);
+		var _bar_y = y - production_bar_offset_y;
+		var _progress = clamp(ritual_circle_exp_pool / BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT, 0, 1);
+		var _icon_x = _bar_x + production_bar_width + production_icon_gap;
+		var _icon_y = _bar_y + (production_bar_height * 0.5);
+
+		draw_set_alpha(production_bar_background_alpha);
+		draw_set_color(COLOR_HUD_BACKGROUND);
+		draw_rectangle(_bar_x, _bar_y, _bar_x + production_bar_width, _bar_y + production_bar_height, false);
+
+		draw_set_alpha(1);
+		draw_set_color(production_resource_color);
+		draw_rectangle(_bar_x, _bar_y, _bar_x + (production_bar_width * _progress), _bar_y + production_bar_height, false);
+
+		draw_set_alpha(production_bar_outline_alpha);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_rectangle(_bar_x, _bar_y, _bar_x + production_bar_width, _bar_y + production_bar_height, true);
+
+		if (sprite_exists(production_resource_icon))
+		{
+			draw_sprite_stretched_ext(
+				production_resource_icon,
+				0,
+				_icon_x,
+				_icon_y - (production_icon_size * 0.5),
+				production_icon_size,
+				production_icon_size,
+				c_white,
+				1
+			);
+		}
+	}
+
+	// Restore default draw state.
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+	exit;
+}
+
+// Draw summoning progress for paid Soul cycles.
+if (summon_unit_object != noone)
+{
+	if (summon_has_paid_cost)
+	{
+		var _bar_x = x - (production_bar_width * 0.5);
+		var _bar_y = y - production_bar_offset_y;
+		var _progress = clamp(summon_progress, 0, 1);
+		var _multiplier_text = string_format(production_speed_multiplier, 0, 1) + "x";
+		var _multiplier_x = _bar_x - production_multiplier_gap - string_width(_multiplier_text);
+		var _multiplier_y = _bar_y + (production_bar_height * 0.5);
+		var _icon_x = _bar_x + production_bar_width + production_icon_gap;
+		var _icon_y = _bar_y + (production_bar_height * 0.5);
+
+		draw_set_alpha(production_bar_background_alpha);
+		draw_set_color(COLOR_HUD_BACKGROUND);
+		draw_rectangle(_bar_x, _bar_y, _bar_x + production_bar_width, _bar_y + production_bar_height, false);
+
+		draw_set_alpha(1);
+		draw_set_color(production_resource_color);
+		draw_rectangle(_bar_x, _bar_y, _bar_x + (production_bar_width * _progress), _bar_y + production_bar_height, false);
+
+		draw_set_alpha(production_bar_outline_alpha);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_rectangle(_bar_x, _bar_y, _bar_x + production_bar_width, _bar_y + production_bar_height, true);
+
+		draw_set_alpha(1);
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_middle);
+		draw_set_color(production_bonus_stat_color);
+		draw_text(_multiplier_x, _multiplier_y, _multiplier_text);
+
+		if (sprite_exists(production_resource_icon))
+		{
+			draw_sprite_stretched_ext(
+				production_resource_icon,
+				0,
+				_icon_x,
+				_icon_y - (production_icon_size * 0.5),
+				production_icon_size,
+				production_icon_size,
+				c_white,
+				1
+			);
+		}
+	}
+
+	// Restore default draw state.
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+	exit;
+}
+
 if (production_resource == noone)
 {
+	// Restore default draw state.
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
 	exit;
 }
 

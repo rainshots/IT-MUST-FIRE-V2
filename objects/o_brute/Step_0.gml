@@ -11,8 +11,8 @@ if (is_being_dragged)
 	exit;
 }
 
-// Poison aura deals periodic magic damage around the zombie.
-if (demon_ability == DEMON_ABILITY.ZOMBIE_POISON_AURA)
+// Poison aura deals periodic magic damage around the brute.
+if (demon_ability == DEMON_ABILITY.BRUTE_POISON_AURA)
 {
 	poison_tick_timer--;
 
@@ -22,7 +22,7 @@ if (demon_ability == DEMON_ABILITY.ZOMBIE_POISON_AURA)
 
 		var _enemy_list = ds_list_create();
 		var _enemy_count = collision_circle_list(x, y, poison_aura_radius, o_enemy_units, false, true, _enemy_list, false);
-		var _poison_damage = max(BALANCE_ABILITY_ZOMBIE_POISON_DAMAGE_MIN, magic_effectiveness);
+		var _poison_damage = max(BALANCE_ABILITY_BRUTE_POISON_DAMAGE_MIN, magic_effectiveness);
 
 		for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
 		{
@@ -36,18 +36,18 @@ if (demon_ability == DEMON_ABILITY.ZOMBIE_POISON_AURA)
 		}
 
 		ds_list_destroy(_enemy_list);
-		poison_tick_timer = BALANCE_ABILITY_ZOMBIE_POISON_TICK_TIME * room_speed;
+		poison_tick_timer = BALANCE_ABILITY_BRUTE_POISON_TICK_TIME * room_speed;
 	}
 }
-else if (demon_ability == DEMON_ABILITY.ZOMBIE_MEGA_STRIKE)
+else if (demon_ability == DEMON_ABILITY.BRUTE_MEGA_STRIKE)
 {
 	ability_timer--;
 
 	if (ability_timer <= 0)
 	{
 		mega_strike_ready = true;
-		next_attack_damage_multiplier = BALANCE_ABILITY_ZOMBIE_MEGA_STRIKE_DAMAGE_MULTIPLIER;
-		next_attack_radius_multiplier = BALANCE_ABILITY_ZOMBIE_MEGA_STRIKE_AOE_MULTIPLIER;
+		next_attack_damage_multiplier = BALANCE_ABILITY_BRUTE_MEGA_STRIKE_DAMAGE_MULTIPLIER;
+		next_attack_radius_multiplier = BALANCE_ABILITY_BRUTE_MEGA_STRIKE_AOE_MULTIPLIER;
 		ability_timer = max(ability_cooldown / abilities_cd_spd, 1);
 		ability_popup_create(x, y, demon_ability);
 	}

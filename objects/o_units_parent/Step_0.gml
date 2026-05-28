@@ -4,6 +4,9 @@ if (global.pause)
 	exit;
 }
 
+// Visual attack offset returns even while the unit has no target this frame.
+update_attack_lunge();
+
 // Destroy dead units.
 if (hp <= 0)
 {
@@ -16,6 +19,10 @@ if (is_being_dragged)
 {
 	target_instance = noone;
 	is_attacking_target = false;
+	is_walking = false;
+	visual_attack_offset_x = 0;
+	visual_attack_offset_y = 0;
+	update_walk_sway();
 	exit;
 }
 
@@ -55,6 +62,7 @@ else
 // Choose target by faction.
 target_instance = noone;
 is_attacking_target = false;
+is_walking = false;
 
 var _is_enemy_unit = (unit_faction == UNIT_FACTION.ENEMY);
 var _is_friendly_unit = (unit_faction == UNIT_FACTION.FRIENDLY);
@@ -120,6 +128,8 @@ if (instance_exists(target_instance))
 {
 	var _target_distance = point_distance(x, y, target_instance.x, target_instance.y);
 	var _current_attack_radius = attack_radius;
+
+	face_world_x(target_instance.x);
 
 	if (target_instance == guard_target)
 	{
@@ -188,3 +198,6 @@ else if (_is_friendly_unit && rally_is_active)
 
 // Apply separation after main AI movement so units do not stack.
 apply_separation_push();
+
+// Add a simple sprite sway while the unit is walking.
+update_walk_sway();

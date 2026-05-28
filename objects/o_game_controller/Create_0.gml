@@ -136,6 +136,7 @@ application_surface_ready = false;
 // Pause menu state.
 pause_menu_open = false;
 settings_open = false;
+player_pause_active = false;
 fullscreen_enabled = window_get_fullscreen();
 
 // Target selection state.
@@ -176,7 +177,7 @@ cultist_name_input_active = true;
 cultist_selection_buttons = [
 	DEMON_TYPE.IMP,
 	DEMON_TYPE.WARLOCK,
-	DEMON_TYPE.ZOMBIE
+	DEMON_TYPE.BRUTE
 ];
 cultist_selection_button_width = 128;
 cultist_selection_button_height = 42;
@@ -259,8 +260,8 @@ clear_cultist_building_assignment = function(_cultist)
 	_cultist.is_assigned_to_building = false;
 };
 
-// Find the first empty resource building under a world-space point.
-find_resource_building_at_position = function(_world_x, _world_y)
+// Find the first worker building under a world-space point.
+find_worker_building_at_position = function(_world_x, _world_y)
 {
 	var _building_count = instance_number(o_v13buildings_parent);
 
@@ -269,8 +270,8 @@ find_resource_building_at_position = function(_world_x, _world_y)
 		var _building = instance_find(o_v13buildings_parent, _building_index);
 
 		if (instance_exists(_building)
-			&& variable_instance_exists(_building, "production_resource")
-			&& _building.production_resource != noone
+			&& variable_instance_exists(_building, "building_accepts_workers")
+			&& _building.building_accepts_workers
 			&& variable_instance_exists(_building, "worker_cultists")
 			&& array_length(_building.worker_cultists) < _building.worker_max
 			&& _world_x >= _building.bbox_left
@@ -285,8 +286,8 @@ find_resource_building_at_position = function(_world_x, _world_y)
 	return noone;
 };
 
-// Assign a day-form cultist to a resource building and snap them beside it.
-assign_cultist_to_resource_building = function(_cultist, _building)
+// Assign a day-form cultist to a worker building and snap them beside it.
+assign_cultist_to_worker_building = function(_cultist, _building)
 {
 	if (!instance_exists(_cultist) || !instance_exists(_building) || _cultist.object_index != o_cultist)
 	{
@@ -295,7 +296,9 @@ assign_cultist_to_resource_building = function(_cultist, _building)
 
 	clear_cultist_building_assignment(_cultist);
 
-	if (!variable_instance_exists(_building, "worker_cultists")
+	if (!variable_instance_exists(_building, "building_accepts_workers")
+		|| !_building.building_accepts_workers
+		|| !variable_instance_exists(_building, "worker_cultists")
 		|| array_length(_building.worker_cultists) >= _building.worker_max)
 	{
 		return false;
@@ -389,6 +392,7 @@ assign_current_cultist_demon = function()
 	_cultist.cultist_name = string_copy(_typed_name, 1, 16);
 	_cultist.demon_type = cultist_selected_demon_type;
 	_cultist.demon_ability = cultist_ability_roll(cultist_selected_demon_type);
+	cultist_day_health_apply(_cultist, true);
 
 	cultist_selection_index++;
 	keyboard_string = "";
@@ -428,13 +432,17 @@ transform_cultists_to_demons = function()
 		}
 
 		var _demon = instance_create_layer(_cultist.x, _cultist.y, "Instances", _demon_object);
+		var _cultist_hp = _cultist.hp;
+
 		_demon.cultist_name = _cultist.cultist_name;
 		_demon.cultist_points = _cultist.cultist_points;
 		_demon.demon_type = _cultist.demon_type;
 		_demon.demon_ability = _cultist.demon_ability;
 		_demon.current_exp = _cultist.current_exp;
 		_demon.current_lvl = _cultist.current_lvl;
+		_demon.pending_level_points = _cultist.pending_level_points;
 		cultist_stats_apply(_demon);
+		_demon.hp = clamp(_cultist_hp, 0, _demon.max_hp);
 
 		if (variable_instance_exists(_demon, "ability_cooldown"))
 		{
@@ -450,12 +458,83 @@ transform_cultists_to_demons = function()
 	global.cultists = _new_units;
 };
 
+cultist_levelup_find_next = function(_start_index)
+{
+	var _cultist_count = array_length(global.cultists);
+
+	for (var _cultist_index = max(0, _start_index); _cultist_index < _cultist_count; ++_cultist_index)
+	{
+		var _cultist = global.cultists[_cultist_index];
+
+		if (instance_exists(_cultist)
+			&& variable_instance_exists(_cultist, "pending_level_points")
+			&& _cultist.pending_level_points > 0)
+		{
+			return _cultist_index;
+		}
+	}
+
+	return -1;
+};
+
 open_cultist_levelup = function()
 {
+	var _next_levelup_index = cultist_levelup_find_next(0);
+
+	if (_next_levelup_index < 0)
+	{
+		return false;
+	}
+
 	cultist_levelup_open = true;
-	cultist_levelup_index = 0;
+	cultist_levelup_index = _next_levelup_index;
+	player_pause_active = false;
 	global.pause = true;
 	global.focus_window = FOCUS_WINDOW.CULTIST_LEVEL_UP;
+
+	return true;
+};
+
+award_cultist_night_exp = function()
+{
+	var _has_levelup = false;
+	var _cultist_count = array_length(global.cultists);
+
+	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+	{
+		var _cultist = global.cultists[_cultist_index];
+
+		if (cultist_exp_add(_cultist, BALANCE_CULTIST_NIGHT_EXP_REWARD))
+		{
+			_has_levelup = true;
+		}
+	}
+
+	if (_has_levelup)
+	{
+		open_cultist_levelup();
+	}
+};
+
+update_summoned_unit_night_life = function()
+{
+	var _friendly_count = instance_number(o_friendly_units);
+
+	for (var _friendly_index = _friendly_count - 1; _friendly_index >= 0; --_friendly_index)
+	{
+		var _friendly_unit = instance_find(o_friendly_units, _friendly_index);
+
+		if (instance_exists(_friendly_unit)
+			&& variable_instance_exists(_friendly_unit, "summon_nights_remaining"))
+		{
+			_friendly_unit.summon_nights_remaining--;
+
+			if (_friendly_unit.summon_nights_remaining <= 0)
+			{
+				instance_destroy(_friendly_unit);
+			}
+		}
+	}
 };
 
 add_cultist_level_point = function(_stat_index)
@@ -470,17 +549,28 @@ add_cultist_level_point = function(_stat_index)
 	if (instance_exists(_cultist) && variable_instance_exists(_cultist, "cultist_points"))
 	{
 		_cultist.cultist_points[_stat_index]++;
-		_cultist.current_lvl++;
+
+		if (variable_instance_exists(_cultist, "pending_level_points"))
+		{
+			_cultist.pending_level_points = max(_cultist.pending_level_points - 1, 0);
+		}
 
 		if (variable_instance_exists(_cultist, "demon_type") && _cultist.demon_type != DEMON_TYPE.NONE && _cultist.object_index != o_cultist)
 		{
+			var _cultist_hp = _cultist.hp;
+
 			cultist_stats_apply(_cultist);
+			_cultist.hp = clamp(_cultist_hp, 0, _cultist.max_hp);
+		}
+		else if (variable_instance_exists(_cultist, "demon_type") && _cultist.demon_type != DEMON_TYPE.NONE)
+		{
+			cultist_day_health_apply(_cultist, false);
 		}
 	}
 
-	cultist_levelup_index++;
+	cultist_levelup_index = cultist_levelup_find_next(cultist_levelup_index);
 
-	if (cultist_levelup_index >= array_length(global.cultists))
+	if (cultist_levelup_index < 0)
 	{
 		cultist_levelup_open = false;
 		global.pause = false;

@@ -61,20 +61,20 @@ function cultist_base_stats_get(_demon_type)
 		_stats.attack_radius = BALANCE_WARLOCK_ATTACK_RADIUS;
 		_stats.move_speed = BALANCE_WARLOCK_MOVE_SPEED;
 	}
-	else if (_demon_type == DEMON_TYPE.ZOMBIE)
+	else if (_demon_type == DEMON_TYPE.BRUTE)
 	{
-		_stats.hp = BALANCE_ZOMBIE_HP;
-		_stats.armor = BALANCE_ZOMBIE_ARMOR;
-		_stats.damage = BALANCE_ZOMBIE_DAMAGE;
-		_stats.aoe_radius = BALANCE_ZOMBIE_AOE_RADIUS;
-		_stats.crit_chance = BALANCE_ZOMBIE_CRIT_CHANCE;
-		_stats.attack_speed = BALANCE_ZOMBIE_ATTACK_SPEED;
-		_stats.abilities_cd_spd = BALANCE_ZOMBIE_ABILITIES_CD_SPD;
-		_stats.exp_effectiveness = BALANCE_ZOMBIE_EXP_EFFECTIVENESS;
-		_stats.magic_effectiveness = BALANCE_ZOMBIE_MAGIC_EFFECTIVENESS;
-		_stats.resistance = BALANCE_ZOMBIE_RESISTANCE;
-		_stats.attack_radius = BALANCE_ZOMBIE_ATTACK_RADIUS;
-		_stats.move_speed = BALANCE_ZOMBIE_MOVE_SPEED;
+		_stats.hp = BALANCE_BRUTE_HP;
+		_stats.armor = BALANCE_BRUTE_ARMOR;
+		_stats.damage = BALANCE_BRUTE_DAMAGE;
+		_stats.aoe_radius = BALANCE_BRUTE_AOE_RADIUS;
+		_stats.crit_chance = BALANCE_BRUTE_CRIT_CHANCE;
+		_stats.attack_speed = BALANCE_BRUTE_ATTACK_SPEED;
+		_stats.abilities_cd_spd = BALANCE_BRUTE_ABILITIES_CD_SPD;
+		_stats.exp_effectiveness = BALANCE_BRUTE_EXP_EFFECTIVENESS;
+		_stats.magic_effectiveness = BALANCE_BRUTE_MAGIC_EFFECTIVENESS;
+		_stats.resistance = BALANCE_BRUTE_RESISTANCE;
+		_stats.attack_radius = BALANCE_BRUTE_ATTACK_RADIUS;
+		_stats.move_speed = BALANCE_BRUTE_MOVE_SPEED;
 	}
 
 	return _stats;
@@ -107,6 +107,84 @@ function cultist_calculated_stats_get(_demon_type, _points)
 	};
 }
 
+function cultist_day_health_apply(_cultist, _heal_to_full)
+{
+	if (!instance_exists(_cultist)
+		|| !variable_instance_exists(_cultist, "demon_type")
+		|| _cultist.demon_type == DEMON_TYPE.NONE
+		|| !variable_instance_exists(_cultist, "cultist_points"))
+	{
+		return;
+	}
+
+	var _stats = cultist_calculated_stats_get(_cultist.demon_type, _cultist.cultist_points);
+	var _current_hp = _stats.hp;
+
+	if (!_heal_to_full && variable_instance_exists(_cultist, "hp"))
+	{
+		_current_hp = _cultist.hp;
+	}
+
+	_cultist.max_hp = _stats.hp;
+	_cultist.hp = clamp(_current_hp, 0, _cultist.max_hp);
+}
+
+function cultist_level_exp_required_get(_level)
+{
+	return BALANCE_CULTIST_LEVEL_EXP_BASE + (max(1, _level) - 1) * BALANCE_CULTIST_LEVEL_EXP_STEP;
+}
+
+function cultist_exp_add(_cultist, _exp_amount)
+{
+	if (!instance_exists(_cultist)
+		|| !variable_instance_exists(_cultist, "current_exp")
+		|| !variable_instance_exists(_cultist, "current_lvl"))
+	{
+		return false;
+	}
+
+	if (!variable_instance_exists(_cultist, "pending_level_points"))
+	{
+		_cultist.pending_level_points = 0;
+	}
+
+	var _leveled_up = false;
+	var _exp_multiplier = 1;
+
+	if (variable_instance_exists(_cultist, "exp_effectiveness"))
+	{
+		_exp_multiplier = _cultist.exp_effectiveness;
+	}
+	else if (variable_instance_exists(_cultist, "demon_type")
+		&& _cultist.demon_type != DEMON_TYPE.NONE
+		&& variable_instance_exists(_cultist, "cultist_points"))
+	{
+		var _stats = cultist_calculated_stats_get(_cultist.demon_type, _cultist.cultist_points);
+		_exp_multiplier = _stats.exp_effectiveness;
+	}
+
+	var _gained_exp = _exp_amount * max(0, _exp_multiplier);
+
+	_cultist.current_exp += _gained_exp;
+
+	for (var _levelup_guard = 0; _levelup_guard < 100; ++_levelup_guard)
+	{
+		var _required_exp = cultist_level_exp_required_get(_cultist.current_lvl);
+
+		if (_cultist.current_exp < _required_exp)
+		{
+			break;
+		}
+
+		_cultist.current_exp -= _required_exp;
+		_cultist.current_lvl++;
+		_cultist.pending_level_points++;
+		_leveled_up = true;
+	}
+
+	return _leveled_up;
+}
+
 function cultist_demon_name_get(_demon_type)
 {
 	if (_demon_type == DEMON_TYPE.IMP)
@@ -117,9 +195,9 @@ function cultist_demon_name_get(_demon_type)
 	{
 		return "Warlock";
 	}
-	else if (_demon_type == DEMON_TYPE.ZOMBIE)
+	else if (_demon_type == DEMON_TYPE.BRUTE)
 	{
-		return "Zombie";
+		return "Brute";
 	}
 
 	return "None";
@@ -135,7 +213,7 @@ function cultist_demon_description_get(_demon_type)
 	{
 		return "Ranged caster with magic orbs.";
 	}
-	else if (_demon_type == DEMON_TYPE.ZOMBIE)
+	else if (_demon_type == DEMON_TYPE.BRUTE)
 	{
 		return "Slow tank with area attacks.";
 	}
@@ -159,7 +237,7 @@ function cultist_demon_stats_text_get(_demon_type)
 		+ "\nCrit chance: " + string_format(_stats.crit_chance * 100, 0, 1) + "%"
 		+ "\nAttack speed: " + string(_stats.attack_speed)
 		+ "\nAbility Recharge: " + string(_stats.abilities_cd_spd)
-		+ "\nExp: " + string(_stats.exp_effectiveness)
+		+ "\nXP Gain: " + string(_stats.exp_effectiveness)
 		+ "\nMagic power: " + string(_stats.magic_effectiveness)
 		+ "\nResistance: " + string(_stats.resistance);
 
@@ -186,11 +264,11 @@ function cultist_demon_abilities_text_get(_demon_type)
 			+ "\n- Curse: -30% enemy armor for " + string(BALANCE_ABILITY_WARLOCK_CURSE_DURATION) + " sec every " + string(BALANCE_ABILITY_WARLOCK_CURSE_COOLDOWN) + " sec"
 			+ "\n- Summon Skeleton: 1 temporary skeleton every " + string(BALANCE_ABILITY_WARLOCK_SUMMON_SKELETON_COOLDOWN) + " sec";
 	}
-	else if (_demon_type == DEMON_TYPE.ZOMBIE)
+	else if (_demon_type == DEMON_TYPE.BRUTE)
 	{
 		return "Random ability:"
-			+ "\n- Poison Aura: nearby enemies take magic damage"
-			+ "\n- Mega Strike: next hit x" + string(BALANCE_ABILITY_ZOMBIE_MEGA_STRIKE_DAMAGE_MULTIPLIER) + " damage and x" + string(BALANCE_ABILITY_ZOMBIE_MEGA_STRIKE_AOE_MULTIPLIER) + " AOE every " + string(BALANCE_ABILITY_ZOMBIE_MEGA_STRIKE_COOLDOWN) + " sec";
+		+ "\n- Poison Aura: nearby enemies take magic damage"
+			+ "\n- Mega Strike: next hit x" + string(BALANCE_ABILITY_BRUTE_MEGA_STRIKE_DAMAGE_MULTIPLIER) + " damage and x" + string(BALANCE_ABILITY_BRUTE_MEGA_STRIKE_AOE_MULTIPLIER) + " AOE every " + string(BALANCE_ABILITY_BRUTE_MEGA_STRIKE_COOLDOWN) + " sec";
 	}
 
 	return "";
@@ -206,9 +284,9 @@ function cultist_demon_object_get(_demon_type)
 	{
 		return o_warlock;
 	}
-	else if (_demon_type == DEMON_TYPE.ZOMBIE)
+	else if (_demon_type == DEMON_TYPE.BRUTE)
 	{
-		return o_zombie;
+		return o_brute;
 	}
 
 	return noone;
@@ -235,14 +313,14 @@ function cultist_ability_roll(_demon_type)
 
 		return _warlock_abilities[irandom(array_length(_warlock_abilities) - 1)];
 	}
-	else if (_demon_type == DEMON_TYPE.ZOMBIE)
+	else if (_demon_type == DEMON_TYPE.BRUTE)
 	{
-		var _zombie_abilities = [
-			DEMON_ABILITY.ZOMBIE_POISON_AURA,
-			DEMON_ABILITY.ZOMBIE_MEGA_STRIKE
+		var _brute_abilities = [
+			DEMON_ABILITY.BRUTE_POISON_AURA,
+			DEMON_ABILITY.BRUTE_MEGA_STRIKE
 		];
 
-		return _zombie_abilities[irandom(array_length(_zombie_abilities) - 1)];
+		return _brute_abilities[irandom(array_length(_brute_abilities) - 1)];
 	}
 
 	return DEMON_ABILITY.NONE;
@@ -270,11 +348,11 @@ function cultist_ability_name_get(_ability)
 	{
 		return "Summon Skeleton";
 	}
-	else if (_ability == DEMON_ABILITY.ZOMBIE_POISON_AURA)
+	else if (_ability == DEMON_ABILITY.BRUTE_POISON_AURA)
 	{
 		return "Poison Aura";
 	}
-	else if (_ability == DEMON_ABILITY.ZOMBIE_MEGA_STRIKE)
+	else if (_ability == DEMON_ABILITY.BRUTE_MEGA_STRIKE)
 	{
 		return "Mega Strike";
 	}
@@ -304,13 +382,13 @@ function cultist_ability_description_get(_ability)
 	{
 		return "Summons a temporary skeleton for " + string(BALANCE_ABILITY_WARLOCK_SKELETON_LIFE_TIME) + " seconds.";
 	}
-	else if (_ability == DEMON_ABILITY.ZOMBIE_POISON_AURA)
+	else if (_ability == DEMON_ABILITY.BRUTE_POISON_AURA)
 	{
-		return "Periodically damages enemies around the zombie.";
+		return "Periodically damages enemies around the brute.";
 	}
-	else if (_ability == DEMON_ABILITY.ZOMBIE_MEGA_STRIKE)
+	else if (_ability == DEMON_ABILITY.BRUTE_MEGA_STRIKE)
 	{
-		return "Next attack deals x" + string(BALANCE_ABILITY_ZOMBIE_MEGA_STRIKE_DAMAGE_MULTIPLIER) + " damage with x" + string(BALANCE_ABILITY_ZOMBIE_MEGA_STRIKE_AOE_MULTIPLIER) + " AOE.";
+		return "Next attack deals x" + string(BALANCE_ABILITY_BRUTE_MEGA_STRIKE_DAMAGE_MULTIPLIER) + " damage with x" + string(BALANCE_ABILITY_BRUTE_MEGA_STRIKE_AOE_MULTIPLIER) + " AOE.";
 	}
 
 	return "";
@@ -318,14 +396,14 @@ function cultist_ability_description_get(_ability)
 
 function cultist_ability_cooldown_get(_ability)
 {
-	if (_ability == DEMON_ABILITY.IMP_FRENZY || _ability == DEMON_ABILITY.ZOMBIE_MEGA_STRIKE)
+	if (_ability == DEMON_ABILITY.IMP_FRENZY || _ability == DEMON_ABILITY.BRUTE_MEGA_STRIKE)
 	{
 		if (_ability == DEMON_ABILITY.IMP_FRENZY)
 		{
 			return BALANCE_ABILITY_IMP_FRENZY_COOLDOWN;
 		}
 
-		return BALANCE_ABILITY_ZOMBIE_MEGA_STRIKE_COOLDOWN;
+		return BALANCE_ABILITY_BRUTE_MEGA_STRIKE_COOLDOWN;
 	}
 	else if (_ability == DEMON_ABILITY.WARLOCK_CURSE)
 	{

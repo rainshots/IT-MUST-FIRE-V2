@@ -1,8 +1,8 @@
-/// @description Creates a floating resource gain popup at a world position.
+/// @description Creates a floating resource change popup at a world position.
 /// @param _x Popup spawn x position.
 /// @param _y Popup spawn y position.
 /// @param _resource_type Resource enum value.
-/// @param _amount Resource amount gained.
+/// @param _amount Resource amount changed.
 function resource_popup_create(_x, _y, _resource_type, _amount)
 {
 	var _resource_color = c_white;
@@ -26,7 +26,14 @@ function resource_popup_create(_x, _y, _resource_type, _amount)
 	}
 
 	var _popup = instance_create_layer(_x, _y, "Instances", o_resource_popup);
-	_popup.popup_text = "+" + string(_amount);
+	var _change_sign = "";
+
+	if (_amount > 0)
+	{
+		_change_sign = "+";
+	}
+
+	_popup.popup_text = _change_sign + string(_amount);
 	_popup.popup_color = _resource_color;
 	_popup.popup_icon = _resource_icon;
 

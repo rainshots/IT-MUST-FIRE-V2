@@ -1,5 +1,5 @@
-// Draw production bonus tooltip while hovering a resource building.
-if (production_resource == noone
+// Draw the building tooltip while hovering a worker building.
+if (!building_accepts_workers
 	|| global.focus_window != FOCUS_WINDOW.NOONE
 	|| !instance_exists(o_camera_controller))
 {
@@ -35,8 +35,6 @@ var _object_gui_y = ((y - _camera_y) / _camera_height) * _gui_height;
 var _tooltip_height = (production_tooltip_padding * 2) + (production_tooltip_line_height * 3);
 var _tooltip_x = clamp(_object_gui_x - (production_tooltip_width * 0.5), production_tooltip_padding, _gui_width - production_tooltip_width - production_tooltip_padding);
 var _tooltip_y = max(production_tooltip_padding, _object_gui_y - production_tooltip_offset_y - _tooltip_height);
-var _production_text = "Produces " + production_resource_name;
-var _bonus_text = "Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
 
 draw_set_alpha(0.86);
 draw_set_color(COLOR_HUD_BACKGROUND);
@@ -46,11 +44,11 @@ draw_set_alpha(1);
 draw_set_halign(fa_left);
 draw_set_valign(fa_top);
 draw_set_color(COLOR_HUD_TEXT);
-draw_text(_tooltip_x + production_tooltip_padding, _tooltip_y + production_tooltip_padding, "Production");
-draw_text(_tooltip_x + production_tooltip_padding, _tooltip_y + production_tooltip_padding + production_tooltip_line_height, _production_text);
+draw_text(_tooltip_x + production_tooltip_padding, _tooltip_y + production_tooltip_padding, building_tooltip_title);
+draw_text(_tooltip_x + production_tooltip_padding, _tooltip_y + production_tooltip_padding + production_tooltip_line_height, building_tooltip_description);
 
-draw_set_color(production_bonus_stat_color);
-draw_text(_tooltip_x + production_tooltip_padding, _tooltip_y + production_tooltip_padding + (production_tooltip_line_height * 2), _bonus_text);
+draw_set_color(building_tooltip_detail_color);
+draw_text(_tooltip_x + production_tooltip_padding, _tooltip_y + production_tooltip_padding + (production_tooltip_line_height * 2), building_tooltip_detail);
 
 // Restore default draw state.
 draw_set_halign(fa_left);

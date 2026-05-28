@@ -1,12 +1,13 @@
 {
   "$GMObject":"",
-  "%Name":"o_skeleton",
+  "%Name":"o_brute",
   "eventList":[
     {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":0,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
     {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":3,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
+    {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":8,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
   ],
   "managed":true,
-  "name":"o_skeleton",
+  "name":"o_brute",
   "overriddenProperties":[],
   "parent":{
     "name":"Friendly",
@@ -34,8 +35,8 @@
   "resourceVersion":"2.0",
   "solid":false,
   "spriteId":{
-    "name":"s_skeleton",
-    "path":"sprites/s_skeleton/s_skeleton.yy",
+    "name":"s_brute",
+    "path":"sprites/s_brute/s_brute.yy",
   },
   "spriteMaskId":null,
   "visible":true,

@@ -14,8 +14,18 @@ if (is_being_dragged)
 	draw_set_color(c_white);
 }
 
-// Draw unit sprite.
-draw_self();
+// Draw unit sprite with combat-only visual offset.
+draw_sprite_ext(
+	sprite_index,
+	image_index,
+	x + visual_attack_offset_x,
+	y + visual_attack_offset_y,
+	image_xscale,
+	image_yscale,
+	image_angle,
+	image_blend,
+	image_alpha
+);
 
 // Draw short attack feedback line.
 if (attack_feedback_timer > 0)
@@ -52,7 +62,7 @@ draw_set_color(c_black);
 draw_rectangle(_bar_x, _bar_y, _bar_x + bar_width, _bar_y + bar_height, false);
 
 draw_set_alpha(1);
-draw_set_color(c_lime);
+draw_set_color(COLOR_HEALTH_BAR);
 draw_rectangle(_bar_x, _bar_y, _bar_x + (bar_width * _hp_progress), _bar_y + bar_height, false);
 
 // Restore default draw state.

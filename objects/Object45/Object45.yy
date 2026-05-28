@@ -1,21 +1,15 @@
 {
   "$GMObject":"",
-  "%Name":"o_skeleton",
-  "eventList":[
-    {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":0,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
-    {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":3,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
-  ],
+  "%Name":"Object45",
+  "eventList":[],
   "managed":true,
-  "name":"o_skeleton",
+  "name":"Object45",
   "overriddenProperties":[],
   "parent":{
     "name":"Friendly",
     "path":"folders/Objects/Units/Friendly.yy",
   },
-  "parentObjectId":{
-    "name":"o_friendly_units",
-    "path":"objects/o_friendly_units/o_friendly_units.yy",
-  },
+  "parentObjectId":null,
   "persistent":false,
   "physicsAngularDamping":0.1,
   "physicsDensity":0.5,
@@ -33,10 +27,7 @@
   "resourceType":"GMObject",
   "resourceVersion":"2.0",
   "solid":false,
-  "spriteId":{
-    "name":"s_skeleton",
-    "path":"sprites/s_skeleton/s_skeleton.yy",
-  },
+  "spriteId":null,
   "spriteMaskId":null,
   "visible":true,
 }
