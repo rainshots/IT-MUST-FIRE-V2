@@ -32,7 +32,8 @@ for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_ind
 {
 	var _friendly_unit = instance_find(o_friendly_units, _friendly_index);
 
-	if (instance_exists(_friendly_unit))
+	if (instance_exists(_friendly_unit)
+		&& (!variable_instance_exists(_friendly_unit, "is_being_dragged") || !_friendly_unit.is_being_dragged))
 	{
 		var _distance_to_unit = point_distance(x, y, _friendly_unit.x, _friendly_unit.y);
 
@@ -56,10 +57,19 @@ if (reload_timer > 0)
 	exit;
 }
 
-if (variable_instance_exists(target_instance, "hp"))
+if (variable_instance_exists(target_instance, "hp")
+	&& (!variable_instance_exists(target_instance, "is_being_dragged") || !target_instance.is_being_dragged))
 {
-	target_instance.hp = max(target_instance.hp - damage, 0);
-	damage_popup_create(target_instance.x, target_instance.y, damage, target_instance.unit_faction);
+	if (variable_instance_exists(target_instance, "unit_damage_receive"))
+	{
+		target_instance.unit_damage_receive(damage, UNIT_FACTION.ENEMY);
+	}
+	else
+	{
+		target_instance.hp = max(target_instance.hp - damage, 0);
+		damage_popup_create(target_instance.x, target_instance.y, damage, target_instance.unit_faction);
+	}
+
 	call_nearby_friendly_units_for_help(target_instance);
 }
 

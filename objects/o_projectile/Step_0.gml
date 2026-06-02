@@ -114,11 +114,18 @@ if (_flight_progress >= 1)
 					}
 					else if (variable_instance_exists(id, "hp"))
 					{
-						hp -= other.damage_amount;
-
-						if (variable_instance_exists(id, "unit_faction"))
+						if (variable_instance_exists(id, "unit_damage_receive"))
 						{
-							damage_popup_create(x, y, other.damage_amount, unit_faction);
+							unit_damage_receive(other.damage_amount, UNIT_FACTION.NOONE);
+						}
+						else
+						{
+							hp -= other.damage_amount;
+
+							if (variable_instance_exists(id, "unit_faction"))
+							{
+								damage_popup_create(x, y, other.damage_amount, unit_faction);
+							}
 						}
 					}
 				}

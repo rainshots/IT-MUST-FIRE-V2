@@ -159,6 +159,7 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 
 	var _preview_object = cultist_demon_object_get(cultist_selected_demon_type);
 	var _preview_sprite = object_get_sprite(_preview_object);
+	var _preview_ability = cultist_starting_ability_get(_cultist, cultist_selected_demon_type);
 
 	if (_preview_sprite != -1)
 	{
@@ -172,6 +173,8 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 		draw_set_valign(fa_middle);
 		draw_set_color(COLOR_HUD_TEXT);
 		draw_text(_preview_x, _panel_y + 102, _preview_name);
+		draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+		draw_text(_preview_x, _panel_y + 128, "Ability: " + cultist_ability_name_get(_preview_ability));
 		draw_sprite_ext(_preview_sprite, _preview_frame, _preview_x, _preview_y, _preview_scale, _preview_scale, 0, c_white, 1);
 	}
 
@@ -237,6 +240,7 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 		var _hover_y = min(_mouse_y + 18, camera_view_height - _hover_height - 18);
 		var _hover_padding = 14;
 		var _ability_x = _hover_x + 285;
+		var _starting_ability = cultist_starting_ability_get(_cultist, _hovered_demon_type);
 
 		draw_set_halign(fa_left);
 		draw_set_valign(fa_top);
@@ -358,9 +362,9 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 		}
 
 		draw_set_color(COLOR_HUD_TEXT);
-		draw_text(_ability_x, _hover_y + 70, "Ability");
+		draw_text(_ability_x, _hover_y + 70, "Starting Ability");
 		draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
-		draw_text_ext(_ability_x, _hover_y + 94, cultist_demon_abilities_text_get(_hovered_demon_type), 16, _hover_width - 300);
+		draw_text_ext(_ability_x, _hover_y + 94, cultist_demon_owned_abilities_text_get(_hovered_demon_type, _starting_ability), 16, _hover_width - 300);
 	}
 
 	draw_set_halign(fa_left);
@@ -381,29 +385,61 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 	}
 
 	var _panel_width = cultist_panel_width;
-	var _panel_height = 580;
+	var _panel_height = 660;
 	var _panel_x = (camera_view_width - _panel_width) * 0.5;
 	var _panel_y = (camera_view_height - _panel_height) * 0.5;
 	var _button_width = 150;
 	var _button_height = 44;
 	var _button_gap = 18;
 	var _button_start_x = _panel_x + 92;
-	var _button_y = _panel_y + 470;
+	var _button_y = _panel_y + 550;
 	var _stat_names = ["Body", "Spirit", "Fervor"];
 	var _mouse_x = device_mouse_x_to_gui(0);
 	var _mouse_y = device_mouse_y_to_gui(0);
 	var _hovered_stat = -1;
+	var _hovered_ability_choice = -1;
+	var _reward_type = CULTIST_LEVEL_REWARD.ATTRIBUTE;
+
+	if (instance_exists(_cultist))
+	{
+		ensure_cultist_levelup_options(_cultist);
+		_reward_type = cultist_level_reward_type_get(_cultist);
+	}
 
 	// Detect button hover before drawing stats so bonuses can preview the next point.
-	for (var _hover_stat_index = 0; _hover_stat_index < CULTIST_STAT.COUNT; ++_hover_stat_index)
+	if (_reward_type == CULTIST_LEVEL_REWARD.ATTRIBUTE)
 	{
-		var _hover_button_x = _button_start_x + ((_button_width + _button_gap) * _hover_stat_index);
-		var _is_button_hovered = _mouse_x >= _hover_button_x && _mouse_x <= _hover_button_x + _button_width
-			&& _mouse_y >= _button_y && _mouse_y <= _button_y + _button_height;
-
-		if (_is_button_hovered)
+		for (var _hover_stat_index = 0; _hover_stat_index < CULTIST_STAT.COUNT; ++_hover_stat_index)
 		{
-			_hovered_stat = _hover_stat_index;
+			var _hover_button_x = _button_start_x + ((_button_width + _button_gap) * _hover_stat_index);
+			var _is_button_hovered = _mouse_x >= _hover_button_x && _mouse_x <= _hover_button_x + _button_width
+				&& _mouse_y >= _button_y && _mouse_y <= _button_y + _button_height;
+
+			if (_is_button_hovered)
+			{
+				_hovered_stat = _hover_stat_index;
+			}
+		}
+	}
+	else if (instance_exists(_cultist))
+	{
+		var _ability_options = _cultist.passive_choice_options;
+
+		if (_reward_type == CULTIST_LEVEL_REWARD.ACTIVE)
+		{
+			_ability_options = _cultist.active_choice_options;
+		}
+
+		for (var _hover_choice_index = 0; _hover_choice_index < array_length(_ability_options); ++_hover_choice_index)
+		{
+			var _hover_button_x = _button_start_x + ((_button_width + _button_gap) * _hover_choice_index);
+			var _is_button_hovered = _mouse_x >= _hover_button_x && _mouse_x <= _hover_button_x + _button_width
+				&& _mouse_y >= _button_y && _mouse_y <= _button_y + _button_height;
+
+			if (_is_button_hovered)
+			{
+				_hovered_ability_choice = _hover_choice_index;
+			}
 		}
 	}
 
@@ -433,6 +469,8 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 
 		var _cultist_level = 1;
 		var _pending_level_points = 0;
+		var _pending_passive_choices = 0;
+		var _pending_active_choices = 0;
 
 		if (variable_instance_exists(_cultist, "current_lvl"))
 		{
@@ -444,9 +482,30 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 			_pending_level_points = _cultist.pending_level_points;
 		}
 
+		if (variable_instance_exists(_cultist, "pending_passive_choices"))
+		{
+			_pending_passive_choices = _cultist.pending_passive_choices;
+		}
+
+		if (variable_instance_exists(_cultist, "pending_active_choices"))
+		{
+			_pending_active_choices = _cultist.pending_active_choices;
+		}
+
 		draw_text_transformed(_panel_x + (_panel_width * 0.5), _panel_y + 88, "LVL " + string(_cultist_level), 2, 2, 0);
 		draw_text(_panel_x + (_panel_width * 0.5), _panel_y + 132, _display_name);
-		draw_text(_panel_x + (_panel_width * 0.5), _panel_y + 158, "Attribute points: " + string(_pending_level_points));
+		if (_reward_type == CULTIST_LEVEL_REWARD.PASSIVE)
+		{
+			draw_text(_panel_x + (_panel_width * 0.5), _panel_y + 158, "Passive choices: " + string(_pending_passive_choices));
+		}
+		else if (_reward_type == CULTIST_LEVEL_REWARD.ACTIVE)
+		{
+			draw_text(_panel_x + (_panel_width * 0.5), _panel_y + 158, "Active choices: " + string(_pending_active_choices));
+		}
+		else
+		{
+			draw_text(_panel_x + (_panel_width * 0.5), _panel_y + 158, "Attribute points: " + string(_pending_level_points));
+		}
 
 		if (variable_instance_exists(_cultist, "demon_type") && _cultist.demon_type != DEMON_TYPE.NONE)
 		{
@@ -499,7 +558,6 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 
 			draw_set_color(COLOR_HUD_TEXT);
 			draw_text(_stats_left_x, _panel_y + 184, "Demon: " + cultist_demon_name_get(_cultist.demon_type));
-			draw_text(_stats_left_x, _panel_y + 206, "Ability: " + cultist_ability_name_get(_cultist.demon_ability));
 
 			// Draw current attribute points as compact square rows.
 			var _square_start_x = _stats_right_x + 72;
@@ -598,36 +656,130 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 				draw_set_color(COLOR_HUD_TEXT);
 				draw_text(_stats_right_x, _stats_y + (_line_height * 3), "Aoe radius: " + string(_demon_stats.aoe_radius));
 			}
+
+			// Draw owned passive and active abilities below the stat block.
+			var _passive_list_x = _stats_left_x;
+			var _active_list_x = _stats_right_x;
+			var _ability_list_y = _stats_y + (_line_height * 6) + 18;
+			var _ability_line_height = 18;
+			var _passive_line_index = 0;
+			var _active_line_index = 0;
+			var _passive_abilities = cultist_demon_passive_abilities_get(_cultist.demon_type);
+			var _has_passive = false;
+
+			cultist_active_abilities_ensure(_cultist);
+			draw_set_color(COLOR_CULTIST_SPIRIT);
+			draw_text(_passive_list_x, _ability_list_y, "Passive abilities");
+			_passive_line_index++;
+
+			for (var _passive_index = 0; _passive_index < array_length(_passive_abilities); ++_passive_index)
+			{
+				var _passive_ability = _passive_abilities[_passive_index];
+
+				if (cultist_passive_ability_has(_cultist, _passive_ability))
+				{
+					draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+					draw_text(_passive_list_x, _ability_list_y + (_ability_line_height * _passive_line_index), "- " + cultist_ability_name_get(_passive_ability));
+					_passive_line_index++;
+					_has_passive = true;
+				}
+			}
+
+			if (!_has_passive)
+			{
+				draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+				draw_text(_passive_list_x, _ability_list_y + (_ability_line_height * _passive_line_index), "- None");
+				_passive_line_index++;
+			}
+
+			draw_set_color(COLOR_CULTIST_FERVOR);
+			draw_text(_active_list_x, _ability_list_y, "Active abilities");
+			_active_line_index++;
+
+			for (var _active_index = 0; _active_index < array_length(_cultist.active_abilities); ++_active_index)
+			{
+				var _active_ability = _cultist.active_abilities[_active_index];
+
+				draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+				draw_text(_active_list_x, _ability_list_y + (_ability_line_height * _active_line_index), "- " + cultist_ability_name_get(_active_ability));
+				_active_line_index++;
+			}
 		}
 	}
 
 	draw_set_halign(fa_center);
 	draw_set_valign(fa_middle);
 	draw_set_color(COLOR_HUD_TEXT);
-	draw_text(_panel_x + (_panel_width * 0.5), _button_y - 28, "Choose one attribute point");
+	var _choice_header = "Choose one attribute point";
+
+	if (_reward_type == CULTIST_LEVEL_REWARD.PASSIVE)
+	{
+		_choice_header = "Choose one passive ability";
+	}
+	else if (_reward_type == CULTIST_LEVEL_REWARD.ACTIVE)
+	{
+		_choice_header = "Choose one active ability";
+	}
+
+	draw_text(_panel_x + (_panel_width * 0.5), _button_y - 28, _choice_header);
 
 	var _levelup_stat_colors = [COLOR_CULTIST_BODY, COLOR_CULTIST_SPIRIT, COLOR_CULTIST_FERVOR];
 
-	for (var _stat_index = 0; _stat_index < CULTIST_STAT.COUNT; ++_stat_index)
+	if (_reward_type == CULTIST_LEVEL_REWARD.ATTRIBUTE)
 	{
-		var _button_x = _button_start_x + ((_button_width + _button_gap) * _stat_index);
-		var _is_hovered = _mouse_x >= _button_x && _mouse_x <= _button_x + _button_width
-			&& _mouse_y >= _button_y && _mouse_y <= _button_y + _button_height;
-
-		if (_is_hovered)
+		for (var _stat_index = 0; _stat_index < CULTIST_STAT.COUNT; ++_stat_index)
 		{
-			_hovered_stat = _stat_index;
+			var _button_x = _button_start_x + ((_button_width + _button_gap) * _stat_index);
+			var _is_hovered = _mouse_x >= _button_x && _mouse_x <= _button_x + _button_width
+				&& _mouse_y >= _button_y && _mouse_y <= _button_y + _button_height;
+
+			if (_is_hovered)
+			{
+				_hovered_stat = _stat_index;
+			}
+
+			draw_set_halign(fa_center);
+			draw_set_valign(fa_middle);
+			draw_set_color(c_white);
+			draw_rectangle(_button_x, _button_y, _button_x + _button_width, _button_y + _button_height, true);
+			draw_set_color(_levelup_stat_colors[_stat_index]);
+			draw_text(_button_x + (_button_width * 0.5), _button_y + (_button_height * 0.5), _stat_names[_stat_index]);
+		}
+	}
+	else if (instance_exists(_cultist))
+	{
+		var _ability_options = _cultist.passive_choice_options;
+		var _ability_color = COLOR_CULTIST_SPIRIT;
+
+		if (_reward_type == CULTIST_LEVEL_REWARD.ACTIVE)
+		{
+			_ability_options = _cultist.active_choice_options;
+			_ability_color = COLOR_CULTIST_FERVOR;
 		}
 
-		draw_set_halign(fa_center);
-		draw_set_valign(fa_middle);
-		draw_set_color(c_white);
-		draw_rectangle(_button_x, _button_y, _button_x + _button_width, _button_y + _button_height, true);
-		draw_set_color(_levelup_stat_colors[_stat_index]);
-		draw_text(_button_x + (_button_width * 0.5), _button_y + (_button_height * 0.5), _stat_names[_stat_index]);
+		for (var _choice_index = 0; _choice_index < array_length(_ability_options); ++_choice_index)
+		{
+			var _button_x = _button_start_x + ((_button_width + _button_gap) * _choice_index);
+			var _ability = _ability_options[_choice_index];
+
+			draw_set_halign(fa_center);
+			draw_set_valign(fa_middle);
+			draw_set_color(c_white);
+			draw_rectangle(_button_x, _button_y, _button_x + _button_width, _button_y + _button_height, true);
+			draw_set_color(_ability_color);
+			draw_set_halign(fa_left);
+			draw_set_valign(fa_top);
+			draw_text_ext(
+				_button_x + 8,
+				_button_y + 10,
+				cultist_ability_name_get(_ability),
+				14,
+				_button_width - 16
+			);
+		}
 	}
 
-	if (_hovered_stat >= 0)
+	if (_reward_type == CULTIST_LEVEL_REWARD.ATTRIBUTE && _hovered_stat >= 0)
 	{
 		var _tooltip_width = 250;
 		var _tooltip_height = 136;
@@ -683,6 +835,36 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 		draw_set_color(COLOR_HUD_TEXT);
 		draw_text_ext(_tooltip_x + 12, _tooltip_y + 34, _tooltip_text, 18, _tooltip_width - 24);
 	}
+	else if (_reward_type != CULTIST_LEVEL_REWARD.ATTRIBUTE && _hovered_ability_choice >= 0 && instance_exists(_cultist))
+	{
+		var _ability_options = _cultist.passive_choice_options;
+
+		if (_reward_type == CULTIST_LEVEL_REWARD.ACTIVE)
+		{
+			_ability_options = _cultist.active_choice_options;
+		}
+
+		if (_hovered_ability_choice < array_length(_ability_options))
+		{
+			var _ability = _ability_options[_hovered_ability_choice];
+			var _tooltip_width = 300;
+			var _tooltip_height = 118;
+			var _tooltip_x = min(_mouse_x + 18, camera_view_width - _tooltip_width - 18);
+			var _tooltip_y = min(_mouse_y + 18, camera_view_height - _tooltip_height - 18);
+
+			draw_set_halign(fa_left);
+			draw_set_valign(fa_top);
+			draw_set_alpha(0.96);
+			draw_set_color(COLOR_HUD_BACKGROUND);
+			draw_rectangle(_tooltip_x, _tooltip_y, _tooltip_x + _tooltip_width, _tooltip_y + _tooltip_height, false);
+			draw_set_alpha(1);
+			draw_set_color(COLOR_CULTIST_FERVOR);
+			draw_rectangle(_tooltip_x, _tooltip_y, _tooltip_x + _tooltip_width, _tooltip_y + _tooltip_height, true);
+			draw_text(_tooltip_x + 12, _tooltip_y + 10, cultist_ability_name_get(_ability));
+			draw_set_color(COLOR_HUD_TEXT);
+			draw_text_ext(_tooltip_x + 12, _tooltip_y + 34, cultist_ability_description_get(_ability), 18, _tooltip_width - 24);
+		}
+	}
 
 	draw_set_halign(fa_left);
 	draw_set_valign(fa_top);
@@ -733,20 +915,20 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 
 	if (instance_exists(_hovered_cultist))
 	{
-		var _hover_width = 280;
-		var _hover_height = 430;
+		var _hover_width = min(430, camera_view_width - 36);
+		var _hover_height = 570;
 		var _hover_margin = 18;
 		var _hover_y_max = max(_hover_margin, camera_view_height - _hover_height - _hover_margin);
 		var _hover_x = _hover_margin;
 		var _hover_y = min(96, _hover_y_max);
 		var _hover_padding = 14;
+		var _ability_width = _hover_width - (_hover_padding * 2);
 		var _points = _hovered_cultist.cultist_points;
 		var _demon_type = _hovered_cultist.demon_type;
 		var _base_stats = cultist_base_stats_get(_demon_type);
 		var _demon_stats = cultist_calculated_stats_get(_demon_type, _points);
 		var _display_name = _hovered_cultist.cultist_name;
-		var _ability_text = "Ability: " + cultist_ability_name_get(_hovered_cultist.demon_ability);
-		var _ability_description = cultist_ability_description_get(_hovered_cultist.demon_ability);
+		var _abilities_text = cultist_owned_abilities_text_get(_hovered_cultist);
 		var _body_points = _points[CULTIST_STAT.BODY];
 		var _spirit_points = _points[CULTIST_STAT.SPIRIT];
 		var _fervor_points = _points[CULTIST_STAT.FERVOR];
@@ -789,14 +971,12 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 
 		draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
 		draw_text(_hover_x + _hover_padding, _hover_y + 78, "Demon: " + cultist_demon_name_get(_demon_type));
-		draw_text(_hover_x + _hover_padding, _hover_y + 98, _ability_text);
-		draw_text_ext(_hover_x + _hover_padding, _hover_y + 118, _ability_description, 16, _hover_width - (_hover_padding * 2));
 
 		var _attribute_names = ["Body", "Spirit", "Fervor"];
 		var _attribute_points = [_body_points, _spirit_points, _fervor_points];
 		var _attribute_colors = [COLOR_CULTIST_BODY, COLOR_CULTIST_SPIRIT, COLOR_CULTIST_FERVOR];
 		var _attribute_x = _hover_x + _hover_padding;
-		var _attribute_y = _hover_y + 184;
+		var _attribute_y = _hover_y + 112;
 		var _attribute_gap = 24;
 		var _box_size = 8;
 		var _box_gap = 4;
@@ -818,7 +998,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 		}
 
 		var _stats_x = _hover_x + _hover_padding;
-		var _stats_y = _hover_y + 266;
+		var _stats_y = _hover_y + 194;
 		var _line_height = 18;
 		var _stat_line_index = 0;
 		var _hp_text = "HP: " + string_format(_demon_stats.hp, 0, 1);
@@ -828,6 +1008,15 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 		var _magic_damage_bonus = _base_stats.magic_damage * (_spirit_points * 0.05);
 		var _crit_bonus = _base_stats.crit_chance * (_fervor_points * 0.05);
 		var _attack_speed_bonus = _base_stats.attack_speed * (_fervor_points * 0.07);
+		var _shown_attack_speed = _demon_stats.attack_speed;
+		var _has_demonic_infusion = variable_instance_exists(_hovered_cultist, "demonic_infusion_timer")
+			&& _hovered_cultist.demonic_infusion_timer > 0;
+
+		if (_has_demonic_infusion && variable_instance_exists(_hovered_cultist, "effective_attack_speed_get"))
+		{
+			_shown_attack_speed = _hovered_cultist.effective_attack_speed_get();
+		}
+
 		var _cooldown_bonus = _base_stats.abilities_cd_spd * (_fervor_points * 0.07);
 		var _exp_bonus = _base_stats.exp_effectiveness * (_spirit_points * 0.07);
 		var _magic_bonus = _base_stats.magic_effectiveness * (_spirit_points * 0.07);
@@ -875,11 +1064,18 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 		draw_text(_stats_x + string_width(_left_stat_text), _stats_y + (_line_height * _stat_line_index), " (+" + string_format(_crit_bonus * 100, 0, 1) + "%)");
 		_stat_line_index++;
 
-		_left_stat_text = "Attack speed: " + string_format(_demon_stats.attack_speed, 0, 2);
+		_left_stat_text = "Attack speed: " + string_format(_shown_attack_speed, 0, 2);
 		draw_set_color(COLOR_CULTIST_FERVOR);
 		draw_text(_stats_x, _stats_y + (_line_height * _stat_line_index), _left_stat_text);
 		draw_set_color(COLOR_HEALTH_BAR);
-		draw_text(_stats_x + string_width(_left_stat_text), _stats_y + (_line_height * _stat_line_index), " (+" + string_format(_attack_speed_bonus, 0, 2) + ")");
+		if (_has_demonic_infusion)
+		{
+			draw_text(_stats_x + string_width(_left_stat_text), _stats_y + (_line_height * _stat_line_index), " (Demonic Infusion)");
+		}
+		else
+		{
+			draw_text(_stats_x + string_width(_left_stat_text), _stats_y + (_line_height * _stat_line_index), " (+" + string_format(_attack_speed_bonus, 0, 2) + ")");
+		}
 		_stat_line_index++;
 
 		var _right_stat_text = "Ability rec: " + string_format(_demon_stats.abilities_cd_spd, 0, 2);
@@ -914,7 +1110,15 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 		{
 			draw_set_color(COLOR_HUD_TEXT);
 			draw_text(_stats_x, _stats_y + (_line_height * _stat_line_index), "Aoe radius: " + string(_demon_stats.aoe_radius));
+			_stat_line_index++;
 		}
+
+		// Draw the full ability list below the unit characteristics.
+		var _abilities_y = _stats_y + (_line_height * _stat_line_index) + 18;
+
+		draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+		draw_text(_hover_x + _hover_padding, _abilities_y, "Abilities");
+		draw_text_ext(_hover_x + _hover_padding, _abilities_y + 22, _abilities_text, 16, _ability_width);
 
 		draw_set_halign(fa_left);
 		draw_set_valign(fa_top);
@@ -963,7 +1167,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && instance_exists(o_camera_contro
 	if (instance_exists(_hovered_unit))
 	{
 		var _hover_width = 260;
-		var _hover_height = 168;
+		var _hover_height = 188;
 		var _hover_margin = 18;
 		var _hover_y_max = max(_hover_margin, camera_view_height - _hover_height - _hover_margin);
 		var _hover_x = _hover_margin;
@@ -972,6 +1176,13 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && instance_exists(o_camera_contro
 		var _unit_name = object_get_name(_hovered_unit.object_index);
 		var _damage_text = "Damage: " + string_format(_hovered_unit.damage, 0, 1);
 		var _attack_speed = room_speed / max(_hovered_unit.reload_time, 1);
+		var _has_demonic_infusion = variable_instance_exists(_hovered_unit, "demonic_infusion_timer")
+			&& _hovered_unit.demonic_infusion_timer > 0;
+
+		if (variable_instance_exists(_hovered_unit, "effective_attack_speed_get"))
+		{
+			_attack_speed = _hovered_unit.effective_attack_speed_get();
+		}
 
 		if (_hovered_unit.magic_damage > 0)
 		{
@@ -1004,10 +1215,19 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && instance_exists(o_camera_contro
 		draw_text(_hover_x + _hover_padding, _hover_y + 102, "Attack radius: " + string_format(_hovered_unit.attack_radius, 0, 0));
 		draw_text(_hover_x + _hover_padding, _hover_y + 122, "Move speed: " + string_format(_hovered_unit.move_speed, 0, 2));
 
+		var _extra_line_y = 142;
+
+		if (_has_demonic_infusion)
+		{
+			draw_set_color(COLOR_WARLOCK_DEMONIC_INFUSION);
+			draw_text(_hover_x + _hover_padding, _hover_y + _extra_line_y, "Demonic Infusion +" + string_format(BALANCE_WARLOCK_DEMONIC_INFUSION_ATTACK_SPEED_BONUS * 100, 0, 0) + "%");
+			_extra_line_y += 20;
+		}
+
 		if (variable_instance_exists(_hovered_unit, "summon_nights_remaining"))
 		{
 			draw_set_color(COLOR_HUD_SOULS);
-			draw_text(_hover_x + _hover_padding, _hover_y + 142, "Nights left: " + string(_hovered_unit.summon_nights_remaining));
+			draw_text(_hover_x + _hover_padding, _hover_y + _extra_line_y, "Nights left: " + string(_hovered_unit.summon_nights_remaining));
 		}
 
 		draw_set_halign(fa_left);

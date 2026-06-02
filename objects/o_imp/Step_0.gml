@@ -1,4 +1,4 @@
-// Run shared movement and combat first.
+// Run shared movement, combat, and status effects first.
 event_inherited();
 
 if (global.pause || hp <= 0)
@@ -6,83 +6,123 @@ if (global.pause || hp <= 0)
 	exit;
 }
 
-if (is_being_dragged)
+if (is_being_dragged || is_stunned)
 {
 	exit;
 }
 
-// Active frenzy doubles attack speed for a short burst.
-if (ability_active_timer > 0)
+// Active ability timers continue while the Imp can act.
+if (leap_visual_timer > 0)
 {
-	ability_active_timer--;
-	reload_time = max(base_reload_time * active_reload_multiplier, 1);
-	frenzy_particle_timer--;
+	leap_visual_timer--;
+}
 
-	if (demon_ability == DEMON_ABILITY.IMP_FRENZY && frenzy_particle_timer <= 0)
+if (demon_leap_timer > 0)
+{
+	demon_leap_timer--;
+}
+
+if (demon_leap_retry_timer > 0)
+{
+	demon_leap_retry_timer--;
+}
+
+if (sacrificial_rush_timer > 0)
+{
+	sacrificial_rush_timer--;
+}
+
+if (sacrificial_rush_retry_timer > 0)
+{
+	sacrificial_rush_retry_timer--;
+}
+
+if (sacrificial_rush_active_timer > 0)
+{
+	sacrificial_rush_active_timer--;
+}
+
+if (bloody_clone_timer > 0)
+{
+	bloody_clone_timer--;
+}
+
+if (bloody_clone_retry_timer > 0)
+{
+	bloody_clone_retry_timer--;
+}
+
+// Blood Frenzy stacks expire independently.
+for (var _stack_index = 0; _stack_index < array_length(blood_frenzy_stack_timers); ++_stack_index)
+{
+	if (blood_frenzy_stack_timers[_stack_index] > 0)
 	{
-		frenzy_particles_create(x, y);
-		frenzy_particle_timer = BALANCE_IMP_FRENZY_PARTICLE_INTERVAL;
+		blood_frenzy_stack_timers[_stack_index]--;
+	}
+}
+
+// Active Blood Frenzy emits blue smoke across the Imp body.
+if (imp_blood_frenzy_stack_count_get() > 0)
+{
+	blood_frenzy_particle_timer--;
+
+	if (blood_frenzy_particle_timer <= 0)
+	{
+		imp_blood_frenzy_particles_create();
+		blood_frenzy_particle_timer = BALANCE_IMP_BLOOD_FRENZY_SMOKE_INTERVAL;
 	}
 }
 else
 {
-	reload_time = base_reload_time;
-	active_reload_multiplier = 1;
-	frenzy_particle_timer = 0;
+	blood_frenzy_particle_timer = 0;
 }
 
-// Blood Rage is active while this Imp is below its HP threshold.
-var _blood_rage_should_be_active = demon_ability == DEMON_ABILITY.IMP_BLOOD_RAGE
-	&& hp < max_hp * BALANCE_ABILITY_IMP_BLOOD_RAGE_HP_THRESHOLD;
-
-if (_blood_rage_should_be_active)
+// Use only the active ability this Imp currently owns.
+if (cultist_active_ability_has(id, DEMON_ABILITY.IMP_DEMON_LEAP)
+	&& demon_leap_timer <= 0
+	&& demon_leap_retry_timer <= 0)
 {
-	if (!blood_rage_active)
+	if (imp_demon_leap_use())
 	{
-		ability_popup_create(x, y, demon_ability);
-		blood_rage_active = true;
+		demon_leap_timer = ability_cooldown_time_get(demon_leap_cooldown);
+
+		if (demon_leap_refund_pending)
+		{
+			demon_leap_timer *= 1 - BALANCE_IMP_DEMON_LEAP_REFUND_ON_KILL;
+			demon_leap_refund_pending = false;
+		}
 	}
-
-	blood_rage_particle_timer--;
-
-	if (blood_rage_particle_timer <= 0)
+	else
 	{
-		blood_rage_particles_create(x, y);
-		blood_rage_particle_timer = BALANCE_IMP_BLOOD_RAGE_PARTICLE_INTERVAL;
-	}
-}
-else
-{
-	blood_rage_active = false;
-	blood_rage_particle_timer = 0;
-}
-
-// Trigger the active frenzy ability when ready.
-if (demon_ability == DEMON_ABILITY.IMP_FRENZY)
-{
-	ability_timer--;
-
-	if (ability_timer <= 0)
-	{
-		ability_duration = BALANCE_ABILITY_IMP_FRENZY_DURATION * room_speed;
-		active_reload_multiplier = BALANCE_ABILITY_IMP_FRENZY_RELOAD_MULTIPLIER;
-		ability_active_timer = ability_duration;
-		ability_timer = max(ability_cooldown / abilities_cd_spd, 1);
-		ability_popup_create(x, y, demon_ability);
+		demon_leap_retry_timer = BALANCE_ABILITY_FAILED_RETRY_TIME * room_speed;
 	}
 }
-else if (demon_ability == DEMON_ABILITY.IMP_CANNON_ECHO && variable_global_exists("cannon_fire_version"))
+
+if (cultist_active_ability_has(id, DEMON_ABILITY.IMP_SACRIFICIAL_RUSH)
+	&& sacrificial_rush_timer <= 0
+	&& sacrificial_rush_active_timer <= 0
+	&& sacrificial_rush_retry_timer <= 0)
 {
-	if (tracked_cannon_fire_version < 0)
+	if (imp_sacrificial_rush_use())
 	{
-		tracked_cannon_fire_version = global.cannon_fire_version;
+		sacrificial_rush_timer = ability_cooldown_time_get(sacrificial_rush_cooldown);
 	}
-	else if (tracked_cannon_fire_version != global.cannon_fire_version)
+	else
 	{
-		tracked_cannon_fire_version = global.cannon_fire_version;
-		ability_duration = BALANCE_ABILITY_IMP_CANNON_ECHO_DURATION * room_speed;
-		active_reload_multiplier = BALANCE_ABILITY_IMP_CANNON_ECHO_RELOAD_MULTIPLIER;
-		ability_active_timer = ability_duration;
-		ability_popup_create(x, y, demon_ability);
+		sacrificial_rush_retry_timer = BALANCE_ABILITY_FAILED_RETRY_TIME * room_speed;
+	}
+}
+
+if (cultist_active_ability_has(id, DEMON_ABILITY.IMP_BLOODY_CLONE)
+	&& bloody_clone_timer <= 0
+	&& bloody_clone_retry_timer <= 0)
+{
+	if (imp_bloody_clone_use())
+	{
+		bloody_clone_timer = ability_cooldown_time_get(bloody_clone_cooldown);
+	}
+	else
+	{
+		bloody_clone_retry_timer = BALANCE_ABILITY_FAILED_RETRY_TIME * room_speed;
 	}
 }

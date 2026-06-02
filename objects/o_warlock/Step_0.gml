@@ -1,59 +1,110 @@
 // Run shared movement and combat first.
 event_inherited();
 
-if (global.pause || hp <= 0 || ability_cooldown <= 0)
+if (global.pause || hp <= 0)
 {
 	exit;
 }
 
-if (is_being_dragged)
+if (is_being_dragged || is_stunned)
 {
 	exit;
 }
 
-// Warlock active abilities run on cooldown.
-ability_timer--;
-
-if (ability_timer <= 0)
+// Curseweaver AOE circle fades after every third landed attack.
+if (curseweaver_circle_timer > 0)
 {
-	if (demon_ability == DEMON_ABILITY.WARLOCK_CURSE)
+	curseweaver_circle_timer--;
+}
+
+if (raise_lesser_demon_line_timer > 0)
+{
+	raise_lesser_demon_line_timer--;
+}
+
+if (hex_totem_line_timer > 0)
+{
+	hex_totem_line_timer--;
+}
+
+// Demonic Infusion refreshes nearby friendly attack speed while the passive is unlocked.
+if (has_warlock_demonic_infusion)
+{
+	warlock_demonic_infusion_update();
+}
+
+// Soul Chain visuals and active links are owned by the Warlock that created them.
+warlock_soul_chain_groups_update();
+
+// Use only the active ability this Warlock currently owns.
+if (raise_lesser_demon_timer > 0)
+{
+	raise_lesser_demon_timer--;
+}
+
+if (raise_lesser_demon_retry_timer > 0)
+{
+	raise_lesser_demon_retry_timer--;
+}
+
+if (cultist_active_ability_has(id, DEMON_ABILITY.WARLOCK_RAISE_LESSER_DEMON)
+	&& raise_lesser_demon_timer <= 0
+	&& raise_lesser_demon_retry_timer <= 0)
+{
+	if (warlock_raise_lesser_demon_use())
 	{
-		ability_popup_create(x, y, demon_ability);
-
-		var _enemy_list = ds_list_create();
-		var _enemy_count = collision_circle_list(x, y, ability_radius, o_enemy_units, false, true, _enemy_list, false);
-
-		for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
-		{
-			var _enemy = _enemy_list[| _enemy_index];
-
-			if (instance_exists(_enemy))
-			{
-				_enemy.armor_debuff_multiplier = BALANCE_ABILITY_WARLOCK_CURSE_ARMOR_MULTIPLIER;
-				_enemy.armor_debuff_timer = BALANCE_ABILITY_WARLOCK_CURSE_DURATION * room_speed;
-			}
-		}
-
-		ds_list_destroy(_enemy_list);
+		raise_lesser_demon_timer = ability_cooldown_time_get(raise_lesser_demon_cooldown);
 	}
-	else if (demon_ability == DEMON_ABILITY.WARLOCK_SUMMON_SKELETON)
+	else
 	{
-		ability_popup_create(x, y, demon_ability);
-
-		var _spawn_distance = BALANCE_ABILITY_WARLOCK_SKELETON_SPAWN_DISTANCE;
-		var _spawn_direction = random(360);
-		var _skeleton = instance_create_layer(
-			x + lengthdir_x(_spawn_distance, _spawn_direction),
-			y + lengthdir_y(_spawn_distance, _spawn_direction),
-			"Instances",
-			o_skeleton
-		);
-
-		_skeleton.max_hp = BALANCE_ABILITY_WARLOCK_SKELETON_HP;
-		_skeleton.hp = _skeleton.max_hp;
-		_skeleton.damage = BALANCE_ABILITY_WARLOCK_SKELETON_DAMAGE;
-		_skeleton.life_timer = BALANCE_ABILITY_WARLOCK_SKELETON_LIFE_TIME * room_speed;
+		raise_lesser_demon_retry_timer = BALANCE_ABILITY_FAILED_RETRY_TIME * room_speed;
 	}
+}
 
-	ability_timer = max(ability_cooldown / abilities_cd_spd, 1);
+if (soul_chain_cooldown_timer > 0)
+{
+	soul_chain_cooldown_timer--;
+}
+
+if (soul_chain_retry_timer > 0)
+{
+	soul_chain_retry_timer--;
+}
+
+if (cultist_active_ability_has(id, DEMON_ABILITY.WARLOCK_SOUL_CHAIN)
+	&& soul_chain_cooldown_timer <= 0
+	&& soul_chain_retry_timer <= 0)
+{
+	if (warlock_soul_chain_use())
+	{
+		soul_chain_cooldown_timer = ability_cooldown_time_get(soul_chain_cooldown);
+	}
+	else
+	{
+		soul_chain_retry_timer = BALANCE_ABILITY_FAILED_RETRY_TIME * room_speed;
+	}
+}
+
+if (hex_totem_timer > 0)
+{
+	hex_totem_timer--;
+}
+
+if (hex_totem_retry_timer > 0)
+{
+	hex_totem_retry_timer--;
+}
+
+if (cultist_active_ability_has(id, DEMON_ABILITY.WARLOCK_HEX_TOTEM)
+	&& hex_totem_timer <= 0
+	&& hex_totem_retry_timer <= 0)
+{
+	if (warlock_hex_totem_use())
+	{
+		hex_totem_timer = ability_cooldown_time_get(hex_totem_cooldown);
+	}
+	else
+	{
+		hex_totem_retry_timer = BALANCE_ABILITY_FAILED_RETRY_TIME * room_speed;
+	}
 }

@@ -1,4 +1,8 @@
 // Worker buildings run only while gameplay is active.
+missing_work_resource = noone;
+missing_work_resource_name = "";
+missing_work_resource_color = c_white;
+
 if (global.pause || !building_accepts_workers)
 {
 	exit;
@@ -56,6 +60,12 @@ if (object_index == o_meat_bath)
 		meat_bath_heal_pool += BALANCE_MEAT_BATH_FLESH_HEAL_AMOUNT;
 		resource_popup_create(x, y - production_bar_offset_y, RESOURCES.FLESH, -1);
 	}
+	else if (meat_bath_heal_pool <= 0)
+	{
+		missing_work_resource = RESOURCES.FLESH;
+		missing_work_resource_name = "Flesh";
+		missing_work_resource_color = COLOR_HUD_FLESH;
+	}
 
 	if (meat_bath_heal_pool <= 0)
 	{
@@ -98,6 +108,12 @@ if (object_index == o_ritual_circle)
 		global.resources[RESOURCES.SOULS]--;
 		ritual_circle_exp_pool += BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT;
 		resource_popup_create(x, y - production_bar_offset_y, RESOURCES.SOULS, -1);
+	}
+	else if (ritual_circle_exp_pool <= 0)
+	{
+		missing_work_resource = RESOURCES.SOULS;
+		missing_work_resource_name = "Souls";
+		missing_work_resource_color = COLOR_HUD_SOULS;
 	}
 
 	if (ritual_circle_exp_pool <= 0)
@@ -153,6 +169,9 @@ if (summon_unit_object != noone)
 
 	if (!summon_has_paid_cost)
 	{
+		missing_work_resource = RESOURCES.SOULS;
+		missing_work_resource_name = "Souls";
+		missing_work_resource_color = COLOR_HUD_SOULS;
 		exit;
 	}
 

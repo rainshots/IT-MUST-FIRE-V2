@@ -18,6 +18,17 @@ global.particle_system_effects = part_system_create();
 global.particle_type_blood = part_type_create();
 global.particle_type_frenzy = part_type_create();
 global.particle_type_blood_rage = part_type_create();
+global.particle_type_status_bleed = part_type_create();
+global.particle_type_status_web_red = part_type_create();
+global.particle_type_status_soul_mark = part_type_create();
+global.particle_type_status_curse = part_type_create();
+global.particle_type_status_stun = part_type_create();
+global.particle_type_imp_blood_frenzy_smoke = part_type_create();
+global.particle_type_brute_heal = part_type_create();
+global.particle_type_brute_rotten_aura = part_type_create();
+global.particle_type_brute_grave_slam_smoke = part_type_create();
+global.particle_type_brute_meat_explosion_smoke = part_type_create();
+global.particle_type_warlock_curseweaver_smoke = part_type_create();
 part_system_depth(global.particle_system_effects, BALANCE_PARTICLE_SYSTEM_TOP_DEPTH);
 part_system_automatic_update(global.particle_system_effects, true);
 part_system_automatic_draw(global.particle_system_effects, true);
@@ -80,6 +91,227 @@ part_type_speed(
 );
 part_type_direction(global.particle_type_blood_rage, 0, 359, 0, 0);
 part_type_life(global.particle_type_blood_rage, BALANCE_IMP_BLOOD_RAGE_PARTICLE_LIFE_MIN, BALANCE_IMP_BLOOD_RAGE_PARTICLE_LIFE_MAX);
+
+// Status particles use white sprites tinted by particle color.
+part_type_sprite(global.particle_type_status_bleed, s_bleed_particle, false, false, true);
+part_type_size(
+	global.particle_type_status_bleed,
+	BALANCE_STATUS_BLEED_PARTICLE_SIZE_MIN,
+	BALANCE_STATUS_BLEED_PARTICLE_SIZE_MAX,
+	-0.005,
+	0
+);
+part_type_color1(global.particle_type_status_bleed, COLOR_STATUS_NEGATIVE_RED);
+part_type_alpha2(global.particle_type_status_bleed, 0.9, 0);
+part_type_speed(
+	global.particle_type_status_bleed,
+	BALANCE_STATUS_PARTICLE_SPEED_MIN,
+	BALANCE_STATUS_PARTICLE_SPEED_MAX,
+	-0.01,
+	0
+);
+part_type_direction(global.particle_type_status_bleed, 250, 290, 0, 0);
+part_type_life(global.particle_type_status_bleed, BALANCE_STATUS_PARTICLE_LIFE_MIN, BALANCE_STATUS_PARTICLE_LIFE_MAX);
+
+part_type_sprite(global.particle_type_status_web_red, s_web_particle_01, false, false, true);
+part_type_size(
+	global.particle_type_status_web_red,
+	BALANCE_STATUS_PARTICLE_SIZE_MIN,
+	BALANCE_STATUS_PARTICLE_SIZE_MAX,
+	-0.005,
+	0
+);
+part_type_color1(global.particle_type_status_web_red, COLOR_STATUS_NEGATIVE_RED);
+part_type_alpha2(global.particle_type_status_web_red, 0.9, 0);
+part_type_speed(
+	global.particle_type_status_web_red,
+	BALANCE_STATUS_PARTICLE_SPEED_MIN,
+	BALANCE_STATUS_PARTICLE_SPEED_MAX,
+	-0.01,
+	0
+);
+part_type_direction(global.particle_type_status_web_red, 250, 290, 0, 0);
+part_type_life(global.particle_type_status_web_red, BALANCE_STATUS_PARTICLE_LIFE_MIN, BALANCE_STATUS_PARTICLE_LIFE_MAX);
+
+part_type_sprite(global.particle_type_status_soul_mark, s_sight_particle, false, false, true);
+part_type_size(
+	global.particle_type_status_soul_mark,
+	BALANCE_STATUS_SOUL_MARK_PARTICLE_SIZE_MIN,
+	BALANCE_STATUS_SOUL_MARK_PARTICLE_SIZE_MAX,
+	-0.005,
+	0
+);
+part_type_color1(global.particle_type_status_soul_mark, COLOR_STATUS_SOUL_MARK);
+part_type_alpha2(global.particle_type_status_soul_mark, 0.9, 0);
+part_type_speed(
+	global.particle_type_status_soul_mark,
+	BALANCE_STATUS_PARTICLE_SPEED_MIN,
+	BALANCE_STATUS_PARTICLE_SPEED_MAX,
+	-0.01,
+	0
+);
+part_type_direction(global.particle_type_status_soul_mark, 250, 290, 0, 0);
+part_type_life(global.particle_type_status_soul_mark, BALANCE_STATUS_PARTICLE_LIFE_MIN, BALANCE_STATUS_PARTICLE_LIFE_MAX);
+
+part_type_sprite(global.particle_type_status_curse, s_poison_particle, false, false, true);
+part_type_size(
+	global.particle_type_status_curse,
+	BALANCE_STATUS_CURSE_PARTICLE_SIZE_MIN,
+	BALANCE_STATUS_CURSE_PARTICLE_SIZE_MAX,
+	-0.005,
+	0
+);
+part_type_color1(global.particle_type_status_curse, COLOR_STATUS_CURSE);
+part_type_alpha2(global.particle_type_status_curse, 0.9, 0);
+part_type_speed(
+	global.particle_type_status_curse,
+	BALANCE_STATUS_PARTICLE_SPEED_MIN,
+	BALANCE_STATUS_PARTICLE_SPEED_MAX,
+	-0.01,
+	0
+);
+part_type_direction(global.particle_type_status_curse, 250, 290, 0, 0);
+part_type_life(global.particle_type_status_curse, BALANCE_STATUS_PARTICLE_LIFE_MIN, BALANCE_STATUS_PARTICLE_LIFE_MAX);
+
+part_type_sprite(global.particle_type_status_stun, s_stop_particle, false, false, true);
+part_type_size(
+	global.particle_type_status_stun,
+	BALANCE_STATUS_PARTICLE_SIZE_MIN,
+	BALANCE_STATUS_PARTICLE_SIZE_MAX,
+	-0.005,
+	0
+);
+part_type_color1(global.particle_type_status_stun, COLOR_STATUS_NEGATIVE_RED);
+part_type_alpha2(global.particle_type_status_stun, 0.9, 0);
+part_type_speed(
+	global.particle_type_status_stun,
+	BALANCE_STATUS_PARTICLE_SPEED_MIN,
+	BALANCE_STATUS_PARTICLE_SPEED_MAX,
+	-0.01,
+	0
+);
+part_type_direction(global.particle_type_status_stun, 250, 290, 0, 0);
+part_type_life(global.particle_type_status_stun, BALANCE_STATUS_PARTICLE_LIFE_MIN, BALANCE_STATUS_PARTICLE_LIFE_MAX);
+
+part_type_sprite(global.particle_type_imp_blood_frenzy_smoke, s_smoke_small_particle, false, false, true);
+part_type_size(
+	global.particle_type_imp_blood_frenzy_smoke,
+	BALANCE_BRUTE_ABILITY_PARTICLE_SIZE_MIN,
+	BALANCE_BRUTE_ABILITY_PARTICLE_SIZE_MAX,
+	-0.02,
+	0
+);
+part_type_color1(global.particle_type_imp_blood_frenzy_smoke, COLOR_IMP_BLOOD_FRENZY);
+part_type_alpha2(global.particle_type_imp_blood_frenzy_smoke, 0.75, 0);
+part_type_speed(
+	global.particle_type_imp_blood_frenzy_smoke,
+	BALANCE_BRUTE_PASSIVE_PARTICLE_SPEED_MIN,
+	BALANCE_BRUTE_PASSIVE_PARTICLE_SPEED_MAX,
+	-0.01,
+	0
+);
+part_type_direction(global.particle_type_imp_blood_frenzy_smoke, 0, 359, 0, 0);
+part_type_life(global.particle_type_imp_blood_frenzy_smoke, BALANCE_BRUTE_PASSIVE_PARTICLE_LIFE_MIN, BALANCE_BRUTE_PASSIVE_PARTICLE_LIFE_MAX);
+
+part_type_sprite(global.particle_type_brute_heal, s_heal_particle, false, false, true);
+part_type_size(
+	global.particle_type_brute_heal,
+	BALANCE_BRUTE_HEAL_PARTICLE_SIZE_MIN,
+	BALANCE_BRUTE_HEAL_PARTICLE_SIZE_MAX,
+	-0.006,
+	0
+);
+part_type_color1(global.particle_type_brute_heal, COLOR_STATUS_SOUL_MARK);
+part_type_alpha2(global.particle_type_brute_heal, 0.95, 0);
+part_type_speed(
+	global.particle_type_brute_heal,
+	BALANCE_BRUTE_PASSIVE_PARTICLE_SPEED_MIN,
+	BALANCE_BRUTE_PASSIVE_PARTICLE_SPEED_MAX,
+	-0.01,
+	0
+);
+part_type_direction(global.particle_type_brute_heal, 250, 290, 0, 0);
+part_type_life(global.particle_type_brute_heal, BALANCE_BRUTE_PASSIVE_PARTICLE_LIFE_MIN, BALANCE_BRUTE_PASSIVE_PARTICLE_LIFE_MAX);
+
+part_type_sprite(global.particle_type_brute_rotten_aura, s_smoke_small_particle, false, false, true);
+part_type_size(
+	global.particle_type_brute_rotten_aura,
+	BALANCE_BRUTE_ROTTEN_AURA_PARTICLE_SIZE_MIN,
+	BALANCE_BRUTE_ROTTEN_AURA_PARTICLE_SIZE_MAX,
+	-0.004,
+	0
+);
+part_type_color1(global.particle_type_brute_rotten_aura, COLOR_STATUS_SOUL_MARK);
+part_type_alpha2(global.particle_type_brute_rotten_aura, 0.45, 0);
+part_type_speed(
+	global.particle_type_brute_rotten_aura,
+	BALANCE_BRUTE_PASSIVE_PARTICLE_SPEED_MIN,
+	BALANCE_BRUTE_PASSIVE_PARTICLE_SPEED_MAX,
+	-0.008,
+	0
+);
+part_type_direction(global.particle_type_brute_rotten_aura, 0, 359, 0, 0);
+part_type_life(global.particle_type_brute_rotten_aura, BALANCE_BRUTE_PASSIVE_PARTICLE_LIFE_MIN, BALANCE_BRUTE_PASSIVE_PARTICLE_LIFE_MAX);
+
+part_type_sprite(global.particle_type_brute_grave_slam_smoke, s_smoke_small_particle, false, false, true);
+part_type_size(
+	global.particle_type_brute_grave_slam_smoke,
+	BALANCE_BRUTE_ABILITY_PARTICLE_SIZE_MIN,
+	BALANCE_BRUTE_ABILITY_PARTICLE_SIZE_MAX,
+	-0.02,
+	0
+);
+part_type_color1(global.particle_type_brute_grave_slam_smoke, COLOR_BRUTE_GRAVE_SLAM);
+part_type_alpha2(global.particle_type_brute_grave_slam_smoke, 0.65, 0);
+part_type_speed(
+	global.particle_type_brute_grave_slam_smoke,
+	BALANCE_BRUTE_PASSIVE_PARTICLE_SPEED_MIN,
+	BALANCE_BRUTE_PASSIVE_PARTICLE_SPEED_MAX,
+	-0.01,
+	0
+);
+part_type_direction(global.particle_type_brute_grave_slam_smoke, 0, 359, 0, 0);
+part_type_life(global.particle_type_brute_grave_slam_smoke, BALANCE_BRUTE_PASSIVE_PARTICLE_LIFE_MIN, BALANCE_BRUTE_PASSIVE_PARTICLE_LIFE_MAX);
+
+part_type_sprite(global.particle_type_brute_meat_explosion_smoke, s_smoke_small_particle, false, false, true);
+part_type_size(
+	global.particle_type_brute_meat_explosion_smoke,
+	BALANCE_BRUTE_ABILITY_PARTICLE_SIZE_MIN,
+	BALANCE_BRUTE_ABILITY_PARTICLE_SIZE_MAX,
+	-0.02,
+	0
+);
+part_type_color1(global.particle_type_brute_meat_explosion_smoke, COLOR_BRUTE_MEAT_EXPLOSION);
+part_type_alpha2(global.particle_type_brute_meat_explosion_smoke, 0.75, 0);
+part_type_speed(
+	global.particle_type_brute_meat_explosion_smoke,
+	BALANCE_BRUTE_PASSIVE_PARTICLE_SPEED_MIN,
+	BALANCE_BRUTE_PASSIVE_PARTICLE_SPEED_MAX,
+	-0.01,
+	0
+);
+part_type_direction(global.particle_type_brute_meat_explosion_smoke, 0, 359, 0, 0);
+part_type_life(global.particle_type_brute_meat_explosion_smoke, BALANCE_BRUTE_PASSIVE_PARTICLE_LIFE_MIN, BALANCE_BRUTE_PASSIVE_PARTICLE_LIFE_MAX);
+
+part_type_sprite(global.particle_type_warlock_curseweaver_smoke, s_smoke_small_particle, false, false, true);
+part_type_size(
+	global.particle_type_warlock_curseweaver_smoke,
+	BALANCE_WARLOCK_PASSIVE_PARTICLE_SIZE_MIN,
+	BALANCE_WARLOCK_PASSIVE_PARTICLE_SIZE_MAX,
+	-0.02,
+	0
+);
+part_type_color1(global.particle_type_warlock_curseweaver_smoke, COLOR_WARLOCK_CURSEWEAVER);
+part_type_alpha2(global.particle_type_warlock_curseweaver_smoke, 0.75, 0);
+part_type_speed(
+	global.particle_type_warlock_curseweaver_smoke,
+	BALANCE_BRUTE_PASSIVE_PARTICLE_SPEED_MIN,
+	BALANCE_BRUTE_PASSIVE_PARTICLE_SPEED_MAX,
+	-0.01,
+	0
+);
+part_type_direction(global.particle_type_warlock_curseweaver_smoke, 0, 359, 0, 0);
+part_type_life(global.particle_type_warlock_curseweaver_smoke, BALANCE_BRUTE_PASSIVE_PARTICLE_LIFE_MIN, BALANCE_BRUTE_PASSIVE_PARTICLE_LIFE_MAX);
 
 // Global cannon target selected through the target selection mode.
 global.cannon_target_exists = false;
@@ -192,6 +424,48 @@ global.cultist_drag_shadow_width = 46;
 global.cultist_drag_shadow_height = 14;
 global.dragged_cultist = noone;
 global.cultist_assignment_preview_building = noone;
+
+// Cannon wall helpers keep demon-form cultists outside the cannon safe zone.
+cannon_wall_is_active = function()
+{
+	return global.day_phase == DAY_PHASE.NIGHT && instance_exists(o_cannon);
+};
+
+unit_is_demon_form = function(_unit)
+{
+	return instance_exists(_unit)
+		&& variable_instance_exists(_unit, "demon_type")
+		&& _unit.demon_type != DEMON_TYPE.NONE
+		&& _unit.object_index != o_cultist;
+};
+
+cannon_wall_position_clamp = function(_world_x, _world_y)
+{
+	if (!instance_exists(o_cannon))
+	{
+		return [_world_x, _world_y];
+	}
+
+	var _cannon = instance_find(o_cannon, 0);
+	var _distance_to_cannon = point_distance(_world_x, _world_y, _cannon.x, _cannon.y);
+
+	if (_distance_to_cannon >= BALANCE_CANNON_WALL_RADIUS)
+	{
+		return [_world_x, _world_y];
+	}
+
+	var _direction_from_cannon = point_direction(_cannon.x, _cannon.y, _world_x, _world_y);
+
+	if (_distance_to_cannon <= 0)
+	{
+		_direction_from_cannon = 0;
+	}
+
+	return [
+		_cannon.x + lengthdir_x(BALANCE_CANNON_WALL_RADIUS, _direction_from_cannon),
+		_cannon.y + lengthdir_y(BALANCE_CANNON_WALL_RADIUS, _direction_from_cannon)
+	];
+};
 
 // Worker assignment helpers connect day-form cultists to production buildings.
 arrange_resource_building_workers = function(_building)
@@ -391,7 +665,8 @@ assign_current_cultist_demon = function()
 
 	_cultist.cultist_name = string_copy(_typed_name, 1, 16);
 	_cultist.demon_type = cultist_selected_demon_type;
-	_cultist.demon_ability = cultist_ability_roll(cultist_selected_demon_type);
+	_cultist.demon_ability = cultist_starting_ability_get(_cultist, cultist_selected_demon_type);
+	_cultist.active_abilities = [_cultist.demon_ability];
 	cultist_day_health_apply(_cultist, true);
 
 	cultist_selection_index++;
@@ -438,9 +713,24 @@ transform_cultists_to_demons = function()
 		_demon.cultist_points = _cultist.cultist_points;
 		_demon.demon_type = _cultist.demon_type;
 		_demon.demon_ability = _cultist.demon_ability;
+
 		_demon.current_exp = _cultist.current_exp;
 		_demon.current_lvl = _cultist.current_lvl;
 		_demon.pending_level_points = _cultist.pending_level_points;
+		_demon.pending_passive_choices = _cultist.pending_passive_choices;
+		_demon.pending_active_choices = _cultist.pending_active_choices;
+		_demon.passive_choice_options = _cultist.passive_choice_options;
+		_demon.active_choice_options = _cultist.active_choice_options;
+		_demon.active_abilities = _cultist.active_abilities;
+		_demon.has_imp_blood_frenzy = _cultist.has_imp_blood_frenzy;
+		_demon.has_imp_hellbleed = _cultist.has_imp_hellbleed;
+		_demon.has_imp_taste_of_fear = _cultist.has_imp_taste_of_fear;
+		_demon.has_brute_corpse_eater = _cultist.has_brute_corpse_eater;
+		_demon.has_brute_rotten_aura = _cultist.has_brute_rotten_aura;
+		_demon.has_brute_cursed_flesh = _cultist.has_brute_cursed_flesh;
+		_demon.has_warlock_soul_harvester = _cultist.has_warlock_soul_harvester;
+		_demon.has_warlock_curseweaver = _cultist.has_warlock_curseweaver;
+		_demon.has_warlock_demonic_infusion = _cultist.has_warlock_demonic_infusion;
 		cultist_stats_apply(_demon);
 		_demon.hp = clamp(_cultist_hp, 0, _demon.max_hp);
 
@@ -467,8 +757,9 @@ cultist_levelup_find_next = function(_start_index)
 		var _cultist = global.cultists[_cultist_index];
 
 		if (instance_exists(_cultist)
-			&& variable_instance_exists(_cultist, "pending_level_points")
-			&& _cultist.pending_level_points > 0)
+			&& ((variable_instance_exists(_cultist, "pending_level_points") && _cultist.pending_level_points > 0)
+				|| (variable_instance_exists(_cultist, "pending_passive_choices") && _cultist.pending_passive_choices > 0)
+				|| (variable_instance_exists(_cultist, "pending_active_choices") && _cultist.pending_active_choices > 0)))
 		{
 			return _cultist_index;
 		}
@@ -537,6 +828,14 @@ update_summoned_unit_night_life = function()
 	}
 };
 
+fade_out_morning_meat = function()
+{
+	with (o_meat)
+	{
+		fade_out_start();
+	}
+};
+
 add_cultist_level_point = function(_stat_index)
 {
 	if (cultist_levelup_index < 0 || cultist_levelup_index >= array_length(global.cultists))
@@ -566,6 +865,66 @@ add_cultist_level_point = function(_stat_index)
 		{
 			cultist_day_health_apply(_cultist, false);
 		}
+	}
+
+	cultist_levelup_index = cultist_levelup_find_next(cultist_levelup_index);
+
+	if (cultist_levelup_index < 0)
+	{
+		cultist_levelup_open = false;
+		global.pause = false;
+		global.focus_window = FOCUS_WINDOW.NOONE;
+	}
+};
+
+ensure_cultist_levelup_options = function(_cultist)
+{
+	if (!instance_exists(_cultist))
+	{
+		return;
+	}
+
+	var _reward_type = cultist_level_reward_type_get(_cultist);
+
+	if (_reward_type == CULTIST_LEVEL_REWARD.PASSIVE
+		&& (!variable_instance_exists(_cultist, "passive_choice_options")
+			|| array_length(_cultist.passive_choice_options) <= 0))
+	{
+		_cultist.passive_choice_options = cultist_ability_options_roll(_cultist, true);
+	}
+	else if (_reward_type == CULTIST_LEVEL_REWARD.ACTIVE
+		&& (!variable_instance_exists(_cultist, "active_choice_options")
+			|| array_length(_cultist.active_choice_options) <= 0))
+	{
+		_cultist.active_choice_options = cultist_ability_options_roll(_cultist, false);
+	}
+};
+
+add_cultist_level_ability = function(_ability)
+{
+	if (cultist_levelup_index < 0 || cultist_levelup_index >= array_length(global.cultists))
+	{
+		return;
+	}
+
+	var _cultist = global.cultists[cultist_levelup_index];
+
+	if (!instance_exists(_cultist))
+	{
+		return;
+	}
+
+	var _reward_type = cultist_level_reward_type_get(_cultist);
+
+	if (_reward_type == CULTIST_LEVEL_REWARD.PASSIVE && cultist_passive_ability_unlock(_cultist, _ability))
+	{
+		_cultist.pending_passive_choices = max(_cultist.pending_passive_choices - 1, 0);
+		_cultist.passive_choice_options = [];
+	}
+	else if (_reward_type == CULTIST_LEVEL_REWARD.ACTIVE && cultist_active_ability_unlock(_cultist, _ability))
+	{
+		_cultist.pending_active_choices = max(_cultist.pending_active_choices - 1, 0);
+		_cultist.active_choice_options = [];
 	}
 
 	cultist_levelup_index = cultist_levelup_find_next(cultist_levelup_index);

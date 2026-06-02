@@ -21,6 +21,11 @@ worker_stand_offset_y = 12;
 worker_stand_spacing = 36;
 y_sort_enabled = true;
 
+// Resource warning shown by assigned cultists when this building cannot work.
+missing_work_resource = noone;
+missing_work_resource_name = "";
+missing_work_resource_color = c_white;
+
 // Production bar visual settings.
 production_bar_width = 62;
 production_bar_height = 6;

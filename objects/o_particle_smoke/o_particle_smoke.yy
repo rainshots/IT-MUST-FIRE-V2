@@ -31,7 +31,10 @@
   "resourceType":"GMObject",
   "resourceVersion":"2.0",
   "solid":false,
-  "spriteId":null,
+  "spriteId":{
+    "name":"s_smoke_small_particle",
+    "path":"sprites/s_smoke_small_particle/s_smoke_small_particle.yy",
+  },
   "spriteMaskId":null,
   "visible":true,
 }

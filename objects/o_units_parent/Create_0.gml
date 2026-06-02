@@ -19,6 +19,9 @@ target_instance = noone;
 alert_target = noone;
 alert_target_timer = 0;
 alert_target_time = BALANCE_UNIT_ALERT_TARGET_TIME * room_speed;
+forced_attack_target = noone;
+forced_attack_target_timer = 0;
+is_being_hooked = false;
 
 // Rally command state is assigned by rally projectiles.
 rally_group_id = 0;
@@ -60,6 +63,7 @@ attack_lunge_distance = 6;
 attack_lunge_return_time_multiplier = 0.65;
 visual_attack_offset_x = 0;
 visual_attack_offset_y = 0;
+visual_offset_is_ability_controlled = false;
 
 // Optional combat modifiers used by cultist demon forms and debuffs.
 armor = 100;
@@ -69,9 +73,37 @@ crit_chance = 0;
 aoe_radius = 0;
 next_attack_damage_multiplier = 1;
 next_attack_radius_multiplier = 1;
+demonic_infusion_timer = 0;
+demonic_infusion_reload_multiplier = 1;
+// Soul Chain links damage between several enemies while the timer is active.
+soul_chain_id = noone;
+soul_chain_timer = 0;
+soul_chain_members = array_create(0);
+soul_chain_damage_share = 0;
 is_being_dragged = false;
 drag_drop_x = x;
 drag_drop_y = y;
+stun_timer = 0;
+stun_duration = 0;
+is_stunned = false;
+stun_label_offset_y = 58;
+stun_label_padding_x = 7;
+stun_label_padding_y = 3;
+stun_label_background_alpha = 0.82;
+stun_bar_width = 44;
+stun_bar_height = 4;
+stun_bar_gap = 4;
+
+// Status effects store one active slot per status type.
+status_effect_timers = array_create(STATUS_EFFECT.COUNT, 0);
+status_effect_durations = array_create(STATUS_EFFECT.COUNT, 0);
+status_effect_strengths = array_create(STATUS_EFFECT.COUNT, 0);
+status_effect_secondary_values = array_create(STATUS_EFFECT.COUNT, 0);
+status_effect_tick_timers = array_create(STATUS_EFFECT.COUNT, 0);
+status_effect_tick_intervals = array_create(STATUS_EFFECT.COUNT, room_speed);
+status_effect_source_factions = array_create(STATUS_EFFECT.COUNT, UNIT_FACTION.NOONE);
+status_effect_curse_extended = array_create(STATUS_EFFECT.COUNT, false);
+status_effect_particle_timers = array_create(STATUS_EFFECT.COUNT, 0);
 
 // Health bar visual settings.
 bar_width = 34;
@@ -106,21 +138,684 @@ face_world_x = function(_target_x)
 	}
 };
 
-find_nearest_target = function(_object_index, _max_distance)
+target_can_be_attacked = function(_target)
 {
-	var _nearest_target = instance_nearest(x, y, _object_index);
-
-	if (instance_exists(_nearest_target))
+	if (!instance_exists(_target))
 	{
-		var _target_distance = point_distance(x, y, _nearest_target.x, _nearest_target.y);
+		return false;
+	}
 
-		if (_target_distance <= _max_distance)
+	// Carried units are temporarily outside combat targeting and damage.
+	if (variable_instance_exists(_target, "is_being_dragged") && _target.is_being_dragged)
+	{
+		return false;
+	}
+
+	if (variable_instance_exists(_target, "hp") && _target.hp <= 0)
+	{
+		return false;
+	}
+
+	return true;
+};
+
+status_effect_is_negative = function(_status_type)
+{
+	return _status_type == STATUS_EFFECT.BLEED
+		|| _status_type == STATUS_EFFECT.FEAR
+		|| _status_type == STATUS_EFFECT.SOUL_MARK
+		|| _status_type == STATUS_EFFECT.CURSE
+		|| _status_type == STATUS_EFFECT.STUN;
+};
+
+status_effect_has = function(_status_type)
+{
+	return status_effect_timers[_status_type] > 0;
+};
+
+status_effect_apply = function(_status_type, _duration_seconds, _strength = 0, _secondary_value = 0, _tick_interval_seconds = 0, _source_faction = UNIT_FACTION.NOONE)
+{
+	var _duration_frames = max(1, _duration_seconds * room_speed);
+	var _effect_strength = _strength;
+	var _effect_secondary_value = _secondary_value;
+	var _effect_tick_interval_seconds = _tick_interval_seconds;
+	var _is_extended_by_curse = _status_type != STATUS_EFFECT.CURSE
+		&& status_effect_is_negative(_status_type)
+		&& status_effect_has(STATUS_EFFECT.CURSE);
+
+	if (_status_type == STATUS_EFFECT.BLEED)
+	{
+		if (_effect_strength <= 0)
 		{
-			return _nearest_target;
+			_effect_strength = BALANCE_STATUS_BLEED_DEFAULT_DAMAGE;
+		}
+
+		if (_effect_tick_interval_seconds <= 0)
+		{
+			_effect_tick_interval_seconds = BALANCE_STATUS_BLEED_DEFAULT_TICK_TIME;
+		}
+	}
+	else if (_status_type == STATUS_EFFECT.FEAR)
+	{
+		if (_effect_strength <= 0)
+		{
+			_effect_strength = BALANCE_STATUS_FEAR_DEFAULT_MOVE_SLOW;
+		}
+
+		if (_effect_secondary_value <= 0)
+		{
+			_effect_secondary_value = BALANCE_STATUS_FEAR_DEFAULT_ATTACK_SLOW;
+		}
+	}
+	else if (_status_type == STATUS_EFFECT.SOUL_MARK && _effect_strength <= 0)
+	{
+		_effect_strength = BALANCE_STATUS_SOUL_MARK_DEFAULT_CHANCE;
+	}
+
+	if (_is_extended_by_curse)
+	{
+		_duration_frames *= BALANCE_STATUS_CURSE_NEGATIVE_DURATION_MULTIPLIER;
+		status_effect_curse_extended[_status_type] = true;
+	}
+
+	// Re-applying the same status keeps the strongest parameters and longest remaining duration.
+	status_effect_timers[_status_type] = max(status_effect_timers[_status_type], _duration_frames);
+	status_effect_durations[_status_type] = max(status_effect_durations[_status_type], _duration_frames);
+	status_effect_strengths[_status_type] = max(status_effect_strengths[_status_type], _effect_strength);
+	status_effect_secondary_values[_status_type] = max(status_effect_secondary_values[_status_type], _effect_secondary_value);
+	status_effect_source_factions[_status_type] = _source_faction;
+
+	if (_effect_tick_interval_seconds > 0)
+	{
+		var _tick_interval_frames = max(1, _effect_tick_interval_seconds * room_speed);
+		status_effect_tick_intervals[_status_type] = min(status_effect_tick_intervals[_status_type], _tick_interval_frames);
+
+		if (status_effect_tick_timers[_status_type] <= 0)
+		{
+			status_effect_tick_timers[_status_type] = status_effect_tick_intervals[_status_type];
+		}
+		else
+		{
+			status_effect_tick_timers[_status_type] = min(
+				status_effect_tick_timers[_status_type],
+				status_effect_tick_intervals[_status_type]
+			);
 		}
 	}
 
+	if (_status_type == STATUS_EFFECT.STUN)
+	{
+		stun_timer = status_effect_timers[STATUS_EFFECT.STUN];
+		stun_duration = status_effect_durations[STATUS_EFFECT.STUN];
+		is_stunned = true;
+		target_instance = noone;
+		is_attacking_target = false;
+		is_walking = false;
+		visual_attack_offset_x = 0;
+		visual_attack_offset_y = 0;
+	}
+	else if (_status_type == STATUS_EFFECT.CURSE)
+	{
+		for (var _affected_status_type = 0; _affected_status_type < STATUS_EFFECT.COUNT; ++_affected_status_type)
+		{
+			var _should_extend_status = _affected_status_type != STATUS_EFFECT.CURSE
+				&& status_effect_is_negative(_affected_status_type)
+				&& status_effect_timers[_affected_status_type] > 0
+				&& !status_effect_curse_extended[_affected_status_type];
+
+			if (_should_extend_status)
+			{
+				status_effect_timers[_affected_status_type] *= BALANCE_STATUS_CURSE_NEGATIVE_DURATION_MULTIPLIER;
+				status_effect_durations[_affected_status_type] *= BALANCE_STATUS_CURSE_NEGATIVE_DURATION_MULTIPLIER;
+				status_effect_curse_extended[_affected_status_type] = true;
+			}
+		}
+	}
+};
+
+status_effect_clear = function(_status_type)
+{
+	status_effect_timers[_status_type] = 0;
+	status_effect_durations[_status_type] = 0;
+	status_effect_strengths[_status_type] = 0;
+	status_effect_secondary_values[_status_type] = 0;
+	status_effect_tick_timers[_status_type] = 0;
+	status_effect_tick_intervals[_status_type] = room_speed;
+	status_effect_source_factions[_status_type] = UNIT_FACTION.NOONE;
+	status_effect_curse_extended[_status_type] = false;
+};
+
+status_effect_movement_multiplier = function()
+{
+	if (!status_effect_has(STATUS_EFFECT.FEAR))
+	{
+		return 1;
+	}
+
+	var _slow_amount = clamp(status_effect_strengths[STATUS_EFFECT.FEAR], 0, 0.95);
+	return 1 - _slow_amount;
+};
+
+status_effect_attack_reload_multiplier = function()
+{
+	if (!status_effect_has(STATUS_EFFECT.FEAR))
+	{
+		return 1;
+	}
+
+	var _slow_amount = clamp(status_effect_secondary_values[STATUS_EFFECT.FEAR], 0, 0.95);
+	return 1 / max(0.05, 1 - _slow_amount);
+};
+
+demonic_infusion_reload_multiplier_get = function()
+{
+	if (demonic_infusion_timer > 0)
+	{
+		return demonic_infusion_reload_multiplier;
+	}
+
+	return 1;
+};
+
+unit_attack_reload_multiplier_get = function()
+{
+	var _reload_multiplier = status_effect_attack_reload_multiplier()
+		* demonic_infusion_reload_multiplier_get();
+
+	if (variable_instance_exists(id, "imp_blood_frenzy_reload_multiplier_get"))
+	{
+		_reload_multiplier *= imp_blood_frenzy_reload_multiplier_get();
+	}
+
+	if (variable_instance_exists(id, "imp_active_reload_multiplier_get"))
+	{
+		_reload_multiplier *= imp_active_reload_multiplier_get();
+	}
+
+	return _reload_multiplier;
+};
+
+ability_cooldown_time_get = function(_base_cooldown)
+{
+	return max(_base_cooldown / max(abilities_cd_spd, 0.01), 1);
+};
+
+unit_move_speed_multiplier_get = function()
+{
+	var _move_multiplier = status_effect_movement_multiplier();
+
+	if (variable_instance_exists(id, "imp_blood_frenzy_move_multiplier_get"))
+	{
+		_move_multiplier *= imp_blood_frenzy_move_multiplier_get();
+	}
+
+	return _move_multiplier;
+};
+
+unit_crit_chance_get = function()
+{
+	var _crit_chance = crit_chance;
+
+	if (variable_instance_exists(id, "imp_blood_frenzy_crit_bonus_get"))
+	{
+		_crit_chance += imp_blood_frenzy_crit_bonus_get();
+	}
+
+	return clamp(_crit_chance, 0, 1);
+};
+
+effective_attack_speed_get = function()
+{
+	var _effective_reload_time = reload_time
+		* unit_attack_reload_multiplier_get();
+
+	return room_speed / max(_effective_reload_time, 1);
+};
+
+status_effect_magic_damage_multiplier = function()
+{
+	if (status_effect_has(STATUS_EFFECT.CURSE))
+	{
+		return BALANCE_STATUS_CURSE_MAGIC_DAMAGE_MULTIPLIER;
+	}
+
+	return 1;
+};
+
+status_effect_particle_type_get = function(_status_type)
+{
+	if (!variable_global_exists("particle_system_effects") || global.particle_system_effects == noone)
+	{
+		return noone;
+	}
+
+	if (_status_type == STATUS_EFFECT.BLEED && variable_global_exists("particle_type_status_bleed"))
+	{
+		return global.particle_type_status_bleed;
+	}
+	else if (_status_type == STATUS_EFFECT.FEAR && variable_global_exists("particle_type_status_web_red"))
+	{
+		return global.particle_type_status_web_red;
+	}
+	else if (_status_type == STATUS_EFFECT.SOUL_MARK && variable_global_exists("particle_type_status_soul_mark"))
+	{
+		return global.particle_type_status_soul_mark;
+	}
+	else if (_status_type == STATUS_EFFECT.CURSE && variable_global_exists("particle_type_status_curse"))
+	{
+		return global.particle_type_status_curse;
+	}
+	else if (_status_type == STATUS_EFFECT.STUN && variable_global_exists("particle_type_status_stun"))
+	{
+		return global.particle_type_status_stun;
+	}
+
 	return noone;
+};
+
+unit_body_particle_position_get = function()
+{
+	var _particle_x = random_range(bbox_left, bbox_right);
+	var _particle_y = random_range(bbox_top, bbox_bottom);
+
+	if (_particle_x == 0 && _particle_y == 0)
+	{
+		_particle_x = x;
+		_particle_y = y - bar_offset_y;
+	}
+
+	return [_particle_x, _particle_y];
+};
+
+status_effect_particles_update = function()
+{
+	// Active statuses emit light sprite particles across the unit body.
+	for (var _status_type = 0; _status_type < STATUS_EFFECT.COUNT; ++_status_type)
+	{
+		if (!status_effect_has(_status_type))
+		{
+			status_effect_particle_timers[_status_type] = 0;
+			continue;
+		}
+
+		status_effect_particle_timers[_status_type]--;
+
+		if (status_effect_particle_timers[_status_type] > 0)
+		{
+			continue;
+		}
+
+		var _particle_type = status_effect_particle_type_get(_status_type);
+
+		if (_particle_type != noone)
+		{
+			var _particle_position = unit_body_particle_position_get();
+			part_particles_create(global.particle_system_effects, _particle_position[0], _particle_position[1], _particle_type, BALANCE_STATUS_PARTICLE_COUNT);
+		}
+
+		status_effect_particle_timers[_status_type] = BALANCE_STATUS_PARTICLE_INTERVAL;
+	}
+};
+
+status_effect_bleed_tick = function()
+{
+	if (!status_effect_has(STATUS_EFFECT.BLEED))
+	{
+		return;
+	}
+
+	status_effect_tick_timers[STATUS_EFFECT.BLEED]--;
+
+	if (status_effect_tick_timers[STATUS_EFFECT.BLEED] > 0)
+	{
+		return;
+	}
+
+	var _raw_bleed_damage = status_effect_strengths[STATUS_EFFECT.BLEED];
+
+	if (_raw_bleed_damage > 0)
+	{
+		var _bleed_damage = physical_damage_after_armor(_raw_bleed_damage, id);
+		unit_damage_receive(_bleed_damage, status_effect_source_factions[STATUS_EFFECT.BLEED]);
+	}
+
+	status_effect_tick_timers[STATUS_EFFECT.BLEED] = status_effect_tick_intervals[STATUS_EFFECT.BLEED];
+};
+
+status_effect_update = function()
+{
+	status_effect_particles_update();
+	status_effect_bleed_tick();
+
+	for (var _status_type = 0; _status_type < STATUS_EFFECT.COUNT; ++_status_type)
+	{
+		if (status_effect_timers[_status_type] <= 0)
+		{
+			continue;
+		}
+
+		status_effect_timers[_status_type]--;
+
+		if (status_effect_timers[_status_type] <= 0)
+		{
+			status_effect_clear(_status_type);
+		}
+	}
+
+	stun_timer = status_effect_timers[STATUS_EFFECT.STUN];
+	stun_duration = status_effect_durations[STATUS_EFFECT.STUN];
+	is_stunned = status_effect_has(STATUS_EFFECT.STUN);
+};
+
+status_effect_death_rewards_try = function()
+{
+	if (unit_faction != UNIT_FACTION.ENEMY || !status_effect_has(STATUS_EFFECT.SOUL_MARK))
+	{
+		return;
+	}
+
+	var _soul_chance = clamp(status_effect_strengths[STATUS_EFFECT.SOUL_MARK], 0, 1);
+
+	if (random(1) >= _soul_chance)
+	{
+		return;
+	}
+
+	var _soul_reward = 1;
+	global.resources[RESOURCES.SOULS] += _soul_reward;
+	resource_popup_create(x, y - bar_offset_y, RESOURCES.SOULS, _soul_reward);
+};
+
+soul_chain_clear = function()
+{
+	soul_chain_id = noone;
+	soul_chain_timer = 0;
+	soul_chain_members = array_create(0);
+	soul_chain_damage_share = 0;
+};
+
+soul_chain_apply = function(_chain_id, _members, _duration_seconds, _damage_share)
+{
+	soul_chain_id = _chain_id;
+	soul_chain_timer = max(1, _duration_seconds * room_speed);
+	soul_chain_members = _members;
+	soul_chain_damage_share = clamp(_damage_share, 0, 1);
+};
+
+soul_chain_update = function()
+{
+	if (soul_chain_timer <= 0)
+	{
+		return;
+	}
+
+	soul_chain_timer--;
+
+	if (soul_chain_timer <= 0)
+	{
+		soul_chain_clear();
+	}
+};
+
+soul_chain_death_curse_apply = function()
+{
+	if (soul_chain_id == noone || array_length(soul_chain_members) <= 1)
+	{
+		return;
+	}
+
+	for (var _member_index = 0; _member_index < array_length(soul_chain_members); ++_member_index)
+	{
+		var _member = soul_chain_members[_member_index];
+
+		if (target_can_be_attacked(_member)
+			&& _member != id
+			&& variable_instance_exists(_member, "soul_chain_id")
+			&& _member.soul_chain_id == soul_chain_id
+			&& variable_instance_exists(_member, "status_effect_apply"))
+		{
+			_member.status_effect_apply(
+				STATUS_EFFECT.CURSE,
+				BALANCE_WARLOCK_SOUL_CHAIN_DEATH_CURSE_TIME,
+				1,
+				0,
+				0,
+				UNIT_FACTION.FRIENDLY
+			);
+		}
+	}
+};
+
+unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true)
+{
+	if (hp <= 0 || _damage_amount <= 0)
+	{
+		return 0;
+	}
+
+	var _applied_damage = min(_damage_amount, hp);
+	hp = max(hp - _damage_amount, 0);
+	damage_popup_create(x, y, _applied_damage, unit_faction, _is_critical);
+
+	if (!_can_trigger_soul_chain
+		|| soul_chain_id == noone
+		|| soul_chain_damage_share <= 0
+		|| array_length(soul_chain_members) <= 1)
+	{
+		return _applied_damage;
+	}
+
+	var _chain_damage = _applied_damage * soul_chain_damage_share;
+
+	for (var _member_index = 0; _member_index < array_length(soul_chain_members); ++_member_index)
+	{
+		var _member = soul_chain_members[_member_index];
+
+		if (target_can_be_attacked(_member)
+			&& _member != id
+			&& variable_instance_exists(_member, "soul_chain_id")
+			&& _member.soul_chain_id == soul_chain_id)
+		{
+			if (variable_instance_exists(_member, "unit_damage_receive"))
+			{
+				_member.unit_damage_receive(_chain_damage, _source_faction, false, false);
+			}
+			else if (variable_instance_exists(_member, "hp"))
+			{
+				_member.hp = max(_member.hp - _chain_damage, 0);
+				damage_popup_create(_member.x, _member.y, _chain_damage, _member.unit_faction);
+			}
+		}
+	}
+
+	return _applied_damage;
+};
+
+brute_cursed_flesh_applies = function()
+{
+	if (unit_faction != UNIT_FACTION.ENEMY
+		|| !BALANCE_BRUTE_CURSED_FLESH_ENABLED
+		|| !status_effect_has(STATUS_EFFECT.CURSE)
+		|| !instance_exists(o_brute))
+	{
+		return false;
+	}
+
+	var _brute_count = instance_number(o_brute);
+
+	for (var _brute_index = 0; _brute_index < _brute_count; ++_brute_index)
+	{
+		var _brute = instance_find(o_brute, _brute_index);
+
+		if (instance_exists(_brute)
+			&& variable_instance_exists(_brute, "hp")
+			&& variable_instance_exists(_brute, "has_brute_cursed_flesh")
+			&& _brute.hp > 0
+			&& _brute.has_brute_cursed_flesh
+			&& point_distance(x, y, _brute.x, _brute.y) <= BALANCE_BRUTE_CURSED_FLESH_RADIUS)
+		{
+			return true;
+		}
+	}
+
+	return false;
+};
+
+unit_death_process = function()
+{
+	soul_chain_death_curse_apply();
+	status_effect_death_rewards_try();
+	meat_drop_try();
+	instance_destroy();
+};
+
+stun_apply = function(_duration_seconds)
+{
+	status_effect_apply(
+		STATUS_EFFECT.STUN,
+		_duration_seconds,
+		1,
+		0,
+		0,
+		UNIT_FACTION.NOONE
+	);
+};
+
+meat_drop_try = function()
+{
+	if (object_index == o_skeleton)
+	{
+		return;
+	}
+
+	var _drop_chance = BALANCE_MEAT_DROP_CHANCE;
+
+	if (brute_cursed_flesh_applies())
+	{
+		_drop_chance += BALANCE_BRUTE_CURSED_FLESH_MEAT_BONUS_CHANCE;
+	}
+
+	if (random(1) >= clamp(_drop_chance, 0, 1))
+	{
+		return;
+	}
+
+	instance_create_layer(x, y, "Instances", o_meat);
+};
+
+is_demon_form_unit = function()
+{
+	return variable_instance_exists(id, "demon_type")
+		&& demon_type != DEMON_TYPE.NONE
+		&& object_index != o_cultist;
+};
+
+is_summoned_unit = function()
+{
+	return variable_instance_exists(id, "summon_nights_remaining");
+};
+
+is_wall_blocked_friendly_unit = function()
+{
+	return is_demon_form_unit() || is_summoned_unit();
+};
+
+is_blocked_by_cannon_wall = function()
+{
+	return (unit_faction == UNIT_FACTION.ENEMY && global.day_phase == DAY_PHASE.NIGHT)
+		|| is_wall_blocked_friendly_unit();
+};
+
+cannon_wall_is_active = function()
+{
+	return instance_exists(o_cannon);
+};
+
+clamp_outside_cannon_wall = function()
+{
+	if (!cannon_wall_is_active() || !is_blocked_by_cannon_wall())
+	{
+		return;
+	}
+
+	var _cannon = instance_find(o_cannon, 0);
+	var _distance_to_cannon = point_distance(x, y, _cannon.x, _cannon.y);
+
+	if (_distance_to_cannon >= BALANCE_CANNON_WALL_RADIUS)
+	{
+		return;
+	}
+
+	var _direction_from_cannon = point_direction(_cannon.x, _cannon.y, x, y);
+
+	if (_distance_to_cannon <= 0)
+	{
+		_direction_from_cannon = 0;
+	}
+
+	x = _cannon.x + lengthdir_x(BALANCE_CANNON_WALL_RADIUS, _direction_from_cannon);
+	y = _cannon.y + lengthdir_y(BALANCE_CANNON_WALL_RADIUS, _direction_from_cannon);
+};
+
+target_is_inside_cannon_wall = function(_target)
+{
+	if (!cannon_wall_is_active() || !instance_exists(_target))
+	{
+		return false;
+	}
+
+	var _cannon = instance_find(o_cannon, 0);
+	return point_distance(_target.x, _target.y, _cannon.x, _cannon.y) < BALANCE_CANNON_WALL_RADIUS;
+};
+
+unit_special_behavior_update = function()
+{
+	return false;
+};
+
+unit_attack_landed = function(_target, _is_critical_hit = false, _target_was_killed = false)
+{
+};
+
+unit_damage_modifier_get = function(_target, _is_magic_damage)
+{
+	return 1;
+};
+
+find_nearest_target = function(_object_index, _max_distance)
+{
+	var _nearest_target = noone;
+	var _nearest_distance = _max_distance;
+	var _target_count = instance_number(_object_index);
+
+	// Pick the closest valid target and ignore units currently being carried.
+	for (var _target_index = 0; _target_index < _target_count; ++_target_index)
+	{
+		var _target = instance_find(_object_index, _target_index);
+
+		if (!target_can_be_attacked(_target))
+		{
+			continue;
+		}
+
+		if (unit_faction == UNIT_FACTION.ENEMY
+			&& _object_index == o_friendly_units
+			&& global.day_phase == DAY_PHASE.NIGHT
+			&& target_is_inside_cannon_wall(_target))
+		{
+			continue;
+		}
+
+		var _target_distance = point_distance(x, y, _target.x, _target.y);
+
+		if (_target_distance <= _nearest_distance)
+		{
+			_nearest_target = _target;
+			_nearest_distance = _target_distance;
+		}
+	}
+
+	return _nearest_target;
 };
 
 find_nearest_cannon_attacker = function()
@@ -131,29 +826,32 @@ find_nearest_cannon_attacker = function()
 	}
 
 	var _cannon = instance_find(o_cannon, 0);
-	var _nearby_enemies = ds_list_create();
-	var _enemy_count = collision_circle_list(_cannon.x, _cannon.y, cannon_attack_radius, o_enemy_units, false, true, _nearby_enemies, false);
 	var _nearest_attacker = noone;
 	var _nearest_distance = infinity;
+	var _enemy_count = instance_number(o_enemy_units);
 
-	// Pick the closest enemy that is close enough to attack the cannon.
+	// Pick the closest enemy that is actively attacking the cannon wall.
 	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
 	{
-		var _enemy = _nearby_enemies[| _enemy_index];
+		var _enemy = instance_find(o_enemy_units, _enemy_index);
 
-		if (instance_exists(_enemy) && _enemy.hp > 0)
+		if (!target_can_be_attacked(_enemy)
+			|| !variable_instance_exists(_enemy, "target_instance")
+			|| !variable_instance_exists(_enemy, "is_attacking_target")
+			|| !_enemy.is_attacking_target
+			|| _enemy.target_instance != _cannon)
 		{
-			var _enemy_distance = point_distance(x, y, _enemy.x, _enemy.y);
+			continue;
+		}
 
-			if (_enemy_distance < _nearest_distance)
-			{
-				_nearest_attacker = _enemy;
-				_nearest_distance = _enemy_distance;
-			}
+		var _enemy_distance = point_distance(x, y, _enemy.x, _enemy.y);
+
+		if (_enemy_distance < _nearest_distance)
+		{
+			_nearest_attacker = _enemy;
+			_nearest_distance = _enemy_distance;
 		}
 	}
-
-	ds_list_destroy(_nearby_enemies);
 
 	return _nearest_attacker;
 };
@@ -215,22 +913,24 @@ move_towards_target = function(_target)
 	if (instance_exists(_target))
 	{
 		var _target_direction = point_direction(x, y, _target.x, _target.y);
+		var _current_move_speed = move_speed * unit_move_speed_multiplier_get();
 
 		is_walking = true;
 		face_world_x(_target.x);
-		x += lengthdir_x(move_speed, _target_direction);
-		y += lengthdir_y(move_speed, _target_direction);
+		x += lengthdir_x(_current_move_speed, _target_direction);
+		y += lengthdir_y(_current_move_speed, _target_direction);
 	}
 };
 
 move_towards_world_point = function(_target_x, _target_y)
 {
 	var _target_direction = point_direction(x, y, _target_x, _target_y);
+	var _current_move_speed = move_speed * unit_move_speed_multiplier_get();
 
 	is_walking = true;
 	face_world_x(_target_x);
-	x += lengthdir_x(move_speed, _target_direction);
-	y += lengthdir_y(move_speed, _target_direction);
+	x += lengthdir_x(_current_move_speed, _target_direction);
+	y += lengthdir_y(_current_move_speed, _target_direction);
 };
 
 update_walk_sway = function()
@@ -269,6 +969,11 @@ start_attack_lunge = function(_target)
 
 update_attack_lunge = function()
 {
+	if (visual_offset_is_ability_controlled)
+	{
+		return;
+	}
+
 	var _return_time = max(1, reload_time * attack_lunge_return_time_multiplier);
 	var _return_amount = attack_lunge_distance / _return_time;
 	var _offset_distance = point_distance(0, 0, visual_attack_offset_x, visual_attack_offset_y);
@@ -424,7 +1129,7 @@ physical_damage_after_armor = function(_raw_damage, _target)
 
 attack_target = function(_target)
 {
-	if (!instance_exists(_target))
+	if (!target_can_be_attacked(_target))
 	{
 		return;
 	}
@@ -447,37 +1152,54 @@ attack_target = function(_target)
 
 	var _damage_amount = _base_attack_damage * next_attack_damage_multiplier;
 
-	if (variable_instance_exists(id, "demon_ability")
-		&& demon_ability == DEMON_ABILITY.IMP_BLOOD_RAGE
-		&& hp < max_hp * BALANCE_ABILITY_IMP_BLOOD_RAGE_HP_THRESHOLD)
+	if (variable_instance_exists(id, "unit_damage_modifier_get"))
 	{
-		_damage_amount *= BALANCE_ABILITY_IMP_BLOOD_RAGE_DAMAGE_MULTIPLIER;
+		_damage_amount *= unit_damage_modifier_get(_target, _is_magic_damage);
 	}
 
 	var _is_critical_hit = false;
+	var _current_crit_chance = unit_crit_chance_get();
 
-	if (crit_chance > 0 && random(1) < crit_chance)
+	if (_current_crit_chance > 0 && random(1) < _current_crit_chance)
 	{
 		_damage_amount *= 2;
 		_is_critical_hit = true;
 	}
 
 	var _raw_damage_amount = _damage_amount;
+	var _target_hp_before_hit = 0;
+
+	if (variable_instance_exists(_target, "hp"))
+	{
+		_target_hp_before_hit = _target.hp;
+	}
 
 	if (!_is_magic_damage)
 	{
 		_damage_amount = physical_damage_after_armor(_raw_damage_amount, _target);
 	}
+	else if (variable_instance_exists(_target, "status_effect_magic_damage_multiplier"))
+	{
+		_damage_amount *= _target.status_effect_magic_damage_multiplier();
+	}
 
 	if (variable_instance_exists(_target, "hp"))
 	{
-		_target.hp = max(_target.hp - _damage_amount, 0);
-		start_attack_lunge(_target);
-
-		if (variable_instance_exists(_target, "unit_faction"))
+		if (variable_instance_exists(_target, "unit_damage_receive"))
 		{
-			damage_popup_create(_target.x, _target.y, _damage_amount, _target.unit_faction, _is_critical_hit);
+			_target.unit_damage_receive(_damage_amount, unit_faction, _is_critical_hit);
 		}
+		else
+		{
+			_target.hp = max(_target.hp - _damage_amount, 0);
+
+			if (variable_instance_exists(_target, "unit_faction"))
+			{
+				damage_popup_create(_target.x, _target.y, _damage_amount, _target.unit_faction, _is_critical_hit);
+			}
+		}
+
+		start_attack_lunge(_target);
 	}
 
 	if (aoe_radius > 0)
@@ -497,7 +1219,7 @@ attack_target = function(_target)
 		{
 			var _aoe_target = _aoe_list[| _aoe_index];
 
-			if (instance_exists(_aoe_target) && _aoe_target != _target && variable_instance_exists(_aoe_target, "hp"))
+			if (target_can_be_attacked(_aoe_target) && _aoe_target != _target && variable_instance_exists(_aoe_target, "hp"))
 			{
 				var _aoe_damage_amount = _raw_damage_amount;
 
@@ -505,12 +1227,23 @@ attack_target = function(_target)
 				{
 					_aoe_damage_amount = physical_damage_after_armor(_raw_damage_amount, _aoe_target);
 				}
-
-				_aoe_target.hp = max(_aoe_target.hp - _aoe_damage_amount, 0);
-
-				if (variable_instance_exists(_aoe_target, "unit_faction"))
+				else if (variable_instance_exists(_aoe_target, "status_effect_magic_damage_multiplier"))
 				{
-					damage_popup_create(_aoe_target.x, _aoe_target.y, _aoe_damage_amount, _aoe_target.unit_faction);
+					_aoe_damage_amount *= _aoe_target.status_effect_magic_damage_multiplier();
+				}
+
+				if (variable_instance_exists(_aoe_target, "unit_damage_receive"))
+				{
+					_aoe_target.unit_damage_receive(_aoe_damage_amount, unit_faction);
+				}
+				else
+				{
+					_aoe_target.hp = max(_aoe_target.hp - _aoe_damage_amount, 0);
+
+					if (variable_instance_exists(_aoe_target, "unit_faction"))
+					{
+						damage_popup_create(_aoe_target.x, _aoe_target.y, _aoe_damage_amount, _aoe_target.unit_faction);
+					}
 				}
 			}
 		}
@@ -527,5 +1260,10 @@ attack_target = function(_target)
 	attack_feedback_target_y = _target.y;
 	attack_feedback_timer = attack_feedback_time;
 
-	reload_timer = reload_time;
+	var _target_was_killed = variable_instance_exists(_target, "hp")
+		&& _target_hp_before_hit > 0
+		&& _target.hp <= 0;
+
+	unit_attack_landed(_target, _is_critical_hit, _target_was_killed);
+	reload_timer = reload_time * unit_attack_reload_multiplier_get();
 };

@@ -1,30 +1,29 @@
+// Draw jump trajectory before the sprite while active ability movement is visible.
+if (leap_visual_timer > 0)
+{
+	var _leap_progress = 1 - clamp(leap_visual_timer / max(1, leap_visual_duration), 0, 1);
+	var _arc_lift = sin(_leap_progress * pi) * leap_visual_arc_height;
+	var _visual_x = lerp(leap_visual_start_x, leap_visual_end_x, _leap_progress);
+	var _visual_y = lerp(leap_visual_start_y, leap_visual_end_y, _leap_progress) - _arc_lift;
+
+	visual_attack_offset_x = _visual_x - x;
+	visual_attack_offset_y = _visual_y - y;
+
+	draw_set_color(COLOR_IMP_BLOOD_FRENZY);
+	draw_set_alpha(0.55);
+	draw_line_width(leap_visual_start_x, leap_visual_start_y - 16, leap_visual_end_x, leap_visual_end_y - 16, 2);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+}
+
 // Draw base combat visuals.
 event_inherited();
 
-// Draw a pulsing aura while Frenzy is active.
-if (demon_ability == DEMON_ABILITY.IMP_FRENZY && ability_active_timer > 0)
+if (leap_visual_timer <= 0)
 {
-	var _pulse = (sin(current_time * 0.02) + 1) * 0.5;
-	var _aura_radius = BALANCE_IMP_FRENZY_AURA_RADIUS + (_pulse * BALANCE_IMP_FRENZY_AURA_PULSE_AMOUNT);
-
-	draw_set_alpha(0.25 + (_pulse * 0.25));
-	draw_set_color(COLOR_IMP_FRENZY_AURA);
-	draw_circle(x, y, _aura_radius, false);
-	draw_set_alpha(0.85);
-	draw_circle(x, y, _aura_radius, true);
-}
-
-// Draw a red aura while Blood Rage is active.
-if (demon_ability == DEMON_ABILITY.IMP_BLOOD_RAGE && hp < max_hp * BALANCE_ABILITY_IMP_BLOOD_RAGE_HP_THRESHOLD)
-{
-	var _blood_pulse = (sin(current_time * 0.028) + 1) * 0.5;
-	var _blood_aura_radius = BALANCE_IMP_BLOOD_RAGE_AURA_RADIUS + (_blood_pulse * BALANCE_IMP_BLOOD_RAGE_AURA_PULSE_AMOUNT);
-
-	draw_set_alpha(0.22 + (_blood_pulse * 0.3));
-	draw_set_color(COLOR_IMP_BLOOD_RAGE_AURA);
-	draw_circle(x, y, _blood_aura_radius, false);
-	draw_set_alpha(0.9);
-	draw_circle(x, y, _blood_aura_radius, true);
+	visual_attack_offset_x = 0;
+	visual_attack_offset_y = 0;
+	visual_offset_is_ability_controlled = false;
 }
 
 // Draw the cultist name above the demon.
@@ -38,22 +37,84 @@ draw_set_valign(fa_middle);
 draw_set_color(COLOR_HUD_TEXT);
 draw_text(x, y - 42, cultist_name);
 
-// Draw active ability cooldown below the health bar.
-if (ability_cooldown > 0)
+// Draw compact Blood Frenzy stack bars below the health bar.
+var _stack_count = imp_blood_frenzy_stack_count_get();
+
+if (_stack_count > 0)
 {
-	var _bar_width = 34;
+	var _bar_width = 10;
 	var _bar_height = 3;
-	var _bar_x = x - (_bar_width * 0.5);
+	var _bar_gap = 2;
+	var _bar_total_width = (BALANCE_IMP_BLOOD_FRENZY_MAX_STACKS * _bar_width)
+		+ ((BALANCE_IMP_BLOOD_FRENZY_MAX_STACKS - 1) * _bar_gap);
+	var _bar_x = x - (_bar_total_width * 0.5);
 	var _bar_y = y + 32;
-	var _progress = 1 - clamp(ability_timer / max(ability_cooldown, 1), 0, 1);
+
+	for (var _stack_index = 0; _stack_index < BALANCE_IMP_BLOOD_FRENZY_MAX_STACKS; ++_stack_index)
+	{
+		var _current_bar_x = _bar_x + ((_bar_width + _bar_gap) * _stack_index);
+		var _progress = clamp(blood_frenzy_stack_timers[_stack_index] / max(1, BALANCE_IMP_BLOOD_FRENZY_DURATION * room_speed), 0, 1);
+
+		draw_set_alpha(0.75);
+		draw_set_color(COLOR_HUD_BACKGROUND);
+		draw_rectangle(_current_bar_x, _bar_y, _current_bar_x + _bar_width, _bar_y + _bar_height, false);
+
+		if (_progress > 0)
+		{
+			draw_set_alpha(1);
+			draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+			draw_rectangle(_current_bar_x, _bar_y, _current_bar_x + (_bar_width * _progress), _bar_y + _bar_height, false);
+		}
+	}
+}
+
+// Draw compact cooldown bar for the owned Imp active ability.
+var _cooldown_bar_width = 34;
+var _cooldown_bar_height = 3;
+var _cooldown_bar_gap = 2;
+var _cooldown_bar_x = x - (_cooldown_bar_width * 0.5);
+var _cooldown_bar_y = y + 40;
+var _cooldown_timers = [];
+var _cooldown_maxes = [];
+var _cooldown_colors = [];
+
+if (cultist_active_ability_has(id, DEMON_ABILITY.IMP_DEMON_LEAP))
+{
+	array_push(_cooldown_timers, demon_leap_timer);
+	array_push(_cooldown_maxes, ability_cooldown_time_get(demon_leap_cooldown));
+	array_push(_cooldown_colors, COLOR_IMP_BLOOD_FRENZY);
+}
+if (cultist_active_ability_has(id, DEMON_ABILITY.IMP_SACRIFICIAL_RUSH))
+{
+	array_push(_cooldown_timers, sacrificial_rush_timer);
+	array_push(_cooldown_maxes, ability_cooldown_time_get(sacrificial_rush_cooldown));
+	array_push(_cooldown_colors, COLOR_STATUS_NEGATIVE_RED);
+}
+if (cultist_active_ability_has(id, DEMON_ABILITY.IMP_BLOODY_CLONE))
+{
+	array_push(_cooldown_timers, bloody_clone_timer);
+	array_push(_cooldown_maxes, ability_cooldown_time_get(bloody_clone_cooldown));
+	array_push(_cooldown_colors, COLOR_PARTICLE_BLOOD);
+}
+
+for (var _cooldown_index = 0; _cooldown_index < array_length(_cooldown_timers); ++_cooldown_index)
+{
+	var _current_bar_y = _cooldown_bar_y + ((_cooldown_bar_height + _cooldown_bar_gap) * _cooldown_index);
+	var _cooldown_progress = 1 - clamp(_cooldown_timers[_cooldown_index] / max(1, _cooldown_maxes[_cooldown_index]), 0, 1);
 
 	draw_set_alpha(0.75);
 	draw_set_color(COLOR_HUD_BACKGROUND);
-	draw_rectangle(_bar_x, _bar_y, _bar_x + _bar_width, _bar_y + _bar_height, false);
+	draw_rectangle(_cooldown_bar_x, _current_bar_y, _cooldown_bar_x + _cooldown_bar_width, _current_bar_y + _cooldown_bar_height, false);
 
 	draw_set_alpha(1);
-	draw_set_color(COLOR_ABILITY_BAR);
-	draw_rectangle(_bar_x, _bar_y, _bar_x + (_bar_width * _progress), _bar_y + _bar_height, false);
+	draw_set_color(_cooldown_colors[_cooldown_index]);
+	draw_rectangle(
+		_cooldown_bar_x,
+		_current_bar_y,
+		_cooldown_bar_x + (_cooldown_bar_width * _cooldown_progress),
+		_current_bar_y + _cooldown_bar_height,
+		false
+	);
 }
 
 // Restore default draw state.

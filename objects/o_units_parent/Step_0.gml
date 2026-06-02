@@ -6,16 +6,39 @@ if (global.pause)
 
 // Visual attack offset returns even while the unit has no target this frame.
 update_attack_lunge();
+is_stunned = false;
 
 // Destroy dead units.
 if (hp <= 0)
 {
-	instance_destroy();
+	unit_death_process();
 	exit;
 }
 
-// Dragged cultists cannot move, attack, or progress abilities until released.
+// Dragged units cannot move, attack, or progress abilities until released.
 if (is_being_dragged)
+{
+	target_instance = noone;
+	is_attacking_target = false;
+	is_walking = false;
+	visual_attack_offset_x = 0;
+	visual_attack_offset_y = 0;
+	update_walk_sway();
+	exit;
+}
+
+// Status effects can damage, slow, mark, curse, or stun this unit.
+status_effect_update();
+soul_chain_update();
+
+if (hp <= 0)
+{
+	unit_death_process();
+	exit;
+}
+
+// Stunned units stay vulnerable but cannot move, attack, or progress timers.
+if (is_stunned)
 {
 	target_instance = noone;
 	is_attacking_target = false;
@@ -43,6 +66,17 @@ if (armor_debuff_timer > 0)
 	}
 }
 
+// Demonic Infusion is refreshed by nearby Warlocks.
+if (demonic_infusion_timer > 0)
+{
+	demonic_infusion_timer--;
+
+	if (demonic_infusion_timer <= 0)
+	{
+		demonic_infusion_reload_multiplier = 1;
+	}
+}
+
 // Forget shared threat after a short time.
 if (alert_target_timer > 0)
 {
@@ -59,6 +93,22 @@ else
 	alert_target = noone;
 }
 
+// Forced targets are used by taunts and pulls.
+if (forced_attack_target_timer > 0)
+{
+	forced_attack_target_timer--;
+
+	if (!target_can_be_attacked(forced_attack_target))
+	{
+		forced_attack_target = noone;
+		forced_attack_target_timer = 0;
+	}
+}
+else
+{
+	forced_attack_target = noone;
+}
+
 // Choose target by faction.
 target_instance = noone;
 is_attacking_target = false;
@@ -70,7 +120,14 @@ var _is_friendly_unit = (unit_faction == UNIT_FACTION.FRIENDLY);
 // Update lightweight separation vector before movement.
 update_separation_push();
 
-if (_is_enemy_unit)
+var _special_behavior_handled = unit_special_behavior_update();
+var _has_forced_target = target_can_be_attacked(forced_attack_target);
+
+if (!_special_behavior_handled && _has_forced_target)
+{
+	target_instance = forced_attack_target;
+}
+else if (!_special_behavior_handled && _is_enemy_unit)
 {
 	target_instance = find_nearest_target(o_friendly_units, target_detection_radius);
 
@@ -89,11 +146,19 @@ if (_is_enemy_unit)
 		target_instance = instance_find(o_cannon, 0);
 	}
 }
-else if (_is_friendly_unit)
+else if (!_special_behavior_handled && _is_friendly_unit)
 {
 	if (instance_exists(alert_target))
 	{
-		target_instance = alert_target;
+		if (target_can_be_attacked(alert_target))
+		{
+			target_instance = alert_target;
+		}
+		else
+		{
+			alert_target = noone;
+			alert_target_timer = 0;
+		}
 	}
 
 	if (!instance_exists(target_instance))
@@ -116,15 +181,20 @@ else if (_is_friendly_unit)
 		var _cannon = instance_find(o_cannon, 0);
 		var _distance_to_cannon = point_distance(x, y, _cannon.x, _cannon.y);
 
-		if (!rally_is_active && _distance_to_cannon > cannon_guard_radius)
+		if (!rally_is_active && !is_wall_blocked_friendly_unit() && _distance_to_cannon > cannon_guard_radius)
 		{
 			target_instance = _cannon;
 		}
 	}
 }
 
+if (!_special_behavior_handled && instance_exists(target_instance) && !target_can_be_attacked(target_instance))
+{
+	target_instance = noone;
+}
+
 // Move to target or attack it when close enough.
-if (instance_exists(target_instance))
+if (!_special_behavior_handled && instance_exists(target_instance))
 {
 	var _target_distance = point_distance(x, y, target_instance.x, target_instance.y);
 	var _current_attack_radius = attack_radius;
@@ -137,7 +207,7 @@ if (instance_exists(target_instance))
 	}
 	else if (_is_enemy_unit && target_instance.object_index == o_cannon)
 	{
-		_current_attack_radius = cannon_attack_radius;
+		_current_attack_radius = BALANCE_CANNON_WALL_RADIUS + attack_radius;
 	}
 
 	if (_target_distance <= _current_attack_radius)
@@ -157,7 +227,7 @@ if (instance_exists(target_instance))
 		move_towards_target(target_instance);
 	}
 }
-else if (_is_friendly_unit && rally_is_active)
+else if (!_special_behavior_handled && _is_friendly_unit && rally_is_active)
 {
 	if (rally_is_returning)
 	{
@@ -198,6 +268,9 @@ else if (_is_friendly_unit && rally_is_active)
 
 // Apply separation after main AI movement so units do not stack.
 apply_separation_push();
+
+// Cannon wall keeps blocked units outside the safe zone.
+clamp_outside_cannon_wall();
 
 // Add a simple sprite sway while the unit is walking.
 update_walk_sway();
