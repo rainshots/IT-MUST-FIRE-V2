@@ -93,6 +93,7 @@ if (_flight_progress >= 1)
 		{
 			var _is_valid_target = (
 				id != other.id
+				&& id != other.cultist_payload
 				&& object_index != o_projectile
 				&& object_index != o_particle_smoke
 				&& object_index != o_particle_explosion
@@ -102,7 +103,30 @@ if (_flight_progress >= 1)
 
 			if (_is_valid_target && point_distance(x, y, other.target_x, other.target_y) <= other.effect_radius)
 			{
-				if (variable_instance_exists(id, "on_projectile_hit"))
+				if (other.projectile_type == PROJECTILE_TYPE.CULTIST)
+				{
+					if (variable_instance_exists(id, "health"))
+					{
+						health -= other.damage_amount;
+					}
+					else if (variable_instance_exists(id, "hp"))
+					{
+						if (variable_instance_exists(id, "unit_damage_receive"))
+						{
+							unit_damage_receive(other.damage_amount, UNIT_FACTION.NOONE);
+						}
+						else
+						{
+							hp -= other.damage_amount;
+
+							if (variable_instance_exists(id, "unit_faction"))
+							{
+								damage_popup_create(x, y, other.damage_amount, unit_faction);
+							}
+						}
+					}
+				}
+				else if (variable_instance_exists(id, "on_projectile_hit"))
 				{
 					on_projectile_hit(other.projectile_type);
 				}
@@ -144,6 +168,64 @@ if (_flight_progress >= 1)
 				}
 			}
 		}
+	}
+
+	if (projectile_type == PROJECTILE_TYPE.CULTIST && instance_exists(cultist_payload))
+	{
+		var _cultist = cultist_payload;
+		var _demon_object = cultist_demon_object_get(_cultist.demon_type);
+
+		if (_demon_object != noone)
+		{
+			var _demon = instance_create_layer(target_x, target_y, "Instances", _demon_object);
+			var _cultist_hp = _cultist.hp;
+
+			_demon.cultist_name = _cultist.cultist_name;
+			_demon.cultist_points = _cultist.cultist_points;
+			_demon.demon_type = _cultist.demon_type;
+			_demon.demon_ability = _cultist.demon_ability;
+			_demon.cultist_starting_abilities = _cultist.cultist_starting_abilities;
+
+			_demon.current_exp = _cultist.current_exp;
+			_demon.current_lvl = _cultist.current_lvl;
+			_demon.pending_level_points = _cultist.pending_level_points;
+			_demon.pending_passive_choices = _cultist.pending_passive_choices;
+			_demon.pending_active_choices = _cultist.pending_active_choices;
+			_demon.passive_choice_options = _cultist.passive_choice_options;
+			_demon.active_choice_options = _cultist.active_choice_options;
+			_demon.active_abilities = _cultist.active_abilities;
+			_demon.has_imp_blood_frenzy = _cultist.has_imp_blood_frenzy;
+			_demon.has_imp_hellbleed = _cultist.has_imp_hellbleed;
+			_demon.has_imp_taste_of_fear = _cultist.has_imp_taste_of_fear;
+			_demon.has_brute_corpse_eater = _cultist.has_brute_corpse_eater;
+			_demon.has_brute_rotten_aura = _cultist.has_brute_rotten_aura;
+			_demon.has_brute_cursed_flesh = _cultist.has_brute_cursed_flesh;
+			_demon.has_warlock_soul_harvester = _cultist.has_warlock_soul_harvester;
+			_demon.has_warlock_curseweaver = _cultist.has_warlock_curseweaver;
+			_demon.has_warlock_demonic_infusion = _cultist.has_warlock_demonic_infusion;
+			cultist_stats_apply(_demon);
+			_demon.hp = clamp(_cultist_hp, 0, _demon.max_hp);
+
+			if (variable_instance_exists(_demon, "ability_cooldown"))
+			{
+				_demon.ability_cooldown = cultist_ability_cooldown_get(_demon.demon_ability) * room_speed;
+				_demon.ability_timer = _demon.ability_cooldown;
+				_demon.base_reload_time = _demon.reload_time;
+			}
+
+			var _cultist_count = array_length(global.cultists);
+
+			for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+			{
+				if (global.cultists[_cultist_index] == _cultist)
+				{
+					global.cultists[_cultist_index] = _demon;
+					break;
+				}
+			}
+		}
+
+		instance_destroy(_cultist);
 	}
 
 	instance_destroy();

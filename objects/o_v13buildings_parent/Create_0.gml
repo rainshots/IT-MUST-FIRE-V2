@@ -159,14 +159,18 @@ recalculate_production_speed_multiplier = function()
 	{
 		var _worker = worker_cultists[_worker_index];
 
-		if (!instance_exists(_worker) || _worker.object_index != o_cultist)
+		if (!instance_exists(_worker))
 		{
 			continue;
 		}
 
 		var _worker_speed_multiplier = 1;
 
-		if (production_bonus_stat != noone && variable_instance_exists(_worker, "cultist_points"))
+		if (_worker.object_index == o_pitling)
+		{
+			_worker_speed_multiplier = BALANCE_PITLING_WORK_SPEED_MULTIPLIER;
+		}
+		else if (production_bonus_stat != noone && variable_instance_exists(_worker, "cultist_points"))
 		{
 			var _stat_points = _worker.cultist_points[production_bonus_stat];
 			_worker_speed_multiplier += _stat_points * BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS;

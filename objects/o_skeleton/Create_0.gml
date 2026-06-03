@@ -12,5 +12,5 @@ move_speed = 1.35;
 // Skeleton health is drawn near the sprite pivot instead of above the head.
 bar_offset_y = -2;
 
-// Summoned skeletons survive until the next morning.
-summon_nights_remaining = 1;
+// Summoned skeletons survive long enough to regroup at the cannon during daytime.
+summon_nights_remaining = BALANCE_SKELETON_NIGHT_LIFE;

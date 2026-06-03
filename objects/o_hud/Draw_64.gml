@@ -73,7 +73,8 @@ if (variable_global_exists("day_phase"))
 	var _gui_width = display_get_gui_width();
 	var _phase_x = _gui_width - day_phase_margin_right - day_phase_item_width;
 	var _phase_y = hud_margin_y;
-	var _phase_text = "DAY: " + string(ceil(global.day_timer / room_speed));
+	var _time_left = ceil(global.day_timer / room_speed);
+	var _phase_text = "DAY: " + string(_time_left);
 
 	if (variable_global_exists("day_cycle_enabled") && !global.day_cycle_enabled)
 	{
@@ -81,7 +82,7 @@ if (variable_global_exists("day_phase"))
 	}
 	else if (global.day_phase == DAY_PHASE.NIGHT)
 	{
-		_phase_text = "NIGHT: " + string(global.night_attack_unit_count);
+		_phase_text = "NIGHT: " + string(_time_left);
 	}
 
 	draw_set_halign(fa_left);
@@ -131,6 +132,10 @@ if (variable_global_exists("cannon_projectile_queue"))
 		{
 			_projectile_color = COLOR_PROJECTILE_RALLY;
 		}
+		else if (_projectile_type == PROJECTILE_TYPE.CULTIST)
+		{
+			_projectile_color = COLOR_PROJECTILE_CULTIST;
+		}
 
 		if (_is_current_projectile)
 		{
@@ -163,7 +168,23 @@ if (variable_global_exists("cannon_projectile_queue"))
 		draw_circle(_slot_x + (_slot_width * 0.5), _slot_y + 22, _circle_radius, false);
 
 		draw_set_color(COLOR_HUD_TEXT);
-		draw_text(_slot_x + (_slot_width * 0.5), _slot_y + projectile_name_offset_y, projectile_names[_projectile_type]);
+		var _projectile_name = projectile_names[_projectile_type];
+
+		if (_projectile_type == PROJECTILE_TYPE.CULTIST
+			&& variable_global_exists("cannon_projectile_payload_queue")
+			&& _projectile_index < array_length(global.cannon_projectile_payload_queue))
+		{
+			var _cultist_payload = global.cannon_projectile_payload_queue[_projectile_index];
+
+			if (instance_exists(_cultist_payload)
+				&& variable_instance_exists(_cultist_payload, "cultist_name")
+				&& _cultist_payload.cultist_name != "")
+			{
+				_projectile_name = string_copy(_cultist_payload.cultist_name, 1, 10);
+			}
+		}
+
+		draw_text(_slot_x + (_slot_width * 0.5), _slot_y + projectile_name_offset_y, _projectile_name);
 	}
 
 	var _description_projectile_index = _hovered_projectile_index;
@@ -193,7 +214,23 @@ if (variable_global_exists("cannon_projectile_queue"))
 
 		draw_set_alpha(1);
 		draw_set_color(COLOR_HUD_TEXT);
-		draw_text(_description_x + 10, _description_y + 8, projectile_names[_description_type]);
+		var _description_name = projectile_names[_description_type];
+
+		if (_description_type == PROJECTILE_TYPE.CULTIST
+			&& variable_global_exists("cannon_projectile_payload_queue")
+			&& _description_projectile_index < array_length(global.cannon_projectile_payload_queue))
+		{
+			var _description_payload = global.cannon_projectile_payload_queue[_description_projectile_index];
+
+			if (instance_exists(_description_payload)
+				&& variable_instance_exists(_description_payload, "cultist_name")
+				&& _description_payload.cultist_name != "")
+			{
+				_description_name = _description_payload.cultist_name;
+			}
+		}
+
+		draw_text(_description_x + 10, _description_y + 8, _description_name);
 
 		draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
 		draw_text_ext(

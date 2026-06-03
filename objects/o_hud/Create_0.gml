@@ -58,14 +58,16 @@ projectile_description_height = 58;
 projectile_description_gap = 8;
 projectile_description_line_separation = 16;
 
-projectile_names = array_create(4, "");
+projectile_names = array_create(PROJECTILE_TYPE.CULTIST + 1, "");
 projectile_names[PROJECTILE_TYPE.DAMAGE] = "DAMAGE";
 projectile_names[PROJECTILE_TYPE.CORRUPTION] = "INFECTION";
 projectile_names[PROJECTILE_TYPE.SUMMON] = "SUMMON";
 projectile_names[PROJECTILE_TYPE.RALLY] = "RALLY";
+projectile_names[PROJECTILE_TYPE.CULTIST] = "CULTIST";
 
-projectile_descriptions = array_create(4, "");
+projectile_descriptions = array_create(PROJECTILE_TYPE.CULTIST + 1, "");
 projectile_descriptions[PROJECTILE_TYPE.DAMAGE] = "Damages units and buildings inside the impact area.";
 projectile_descriptions[PROJECTILE_TYPE.CORRUPTION] = "Infects ground cells and triggers corruption reactions.";
 projectile_descriptions[PROJECTILE_TYPE.SUMMON] = "Summons friendly forces through valid target reactions.";
 projectile_descriptions[PROJECTILE_TYPE.RALLY] = "Sends half of nearby friendly units to the impact point.";
+projectile_descriptions[PROJECTILE_TYPE.CULTIST] = "Launches a cultist into battle, dealing impact damage and spawning demon form.";

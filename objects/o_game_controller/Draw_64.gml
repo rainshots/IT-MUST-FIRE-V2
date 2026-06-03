@@ -35,6 +35,10 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 	{
 		_target_color = COLOR_PROJECTILE_RALLY;
 	}
+	else if (target_selection_projectile_type == PROJECTILE_TYPE.CULTIST)
+	{
+		_target_color = COLOR_PROJECTILE_CULTIST;
+	}
 
 	draw_set_color(_target_color);
 	draw_set_alpha(target_selection_alpha);
@@ -864,6 +868,155 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 			draw_set_color(COLOR_HUD_TEXT);
 			draw_text_ext(_tooltip_x + 12, _tooltip_y + 34, cultist_ability_description_get(_ability), 18, _tooltip_width - 24);
 		}
+	}
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+	exit;
+}
+
+// Draw building construction window.
+if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
+{
+	var _panel_x = (camera_view_width - building_window_width) * 0.5;
+	var _panel_y = (camera_view_height - building_window_height) * 0.5;
+	var _mouse_x = device_mouse_x_to_gui(0);
+	var _mouse_y = device_mouse_y_to_gui(0);
+	var _close_size = 34;
+	var _close_x = _panel_x + building_window_width - _close_size - 14;
+	var _close_y = _panel_y + 14;
+	var _grid_x = _panel_x + 44;
+	var _grid_y = _panel_y + 94;
+	var _choice_count = array_length(building_choices);
+	var _hovered_choice = -1;
+	var _has_enough_iron = global.resources[RESOURCES.IRON] >= BALANCE_BUILDING_IRON_COST;
+
+	draw_set_alpha(0.55);
+	draw_set_color(c_black);
+	draw_rectangle(0, 0, camera_view_width, camera_view_height, false);
+
+	draw_set_alpha(1);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_rectangle(_panel_x, _panel_y, _panel_x + building_window_width, _panel_y + building_window_height, false);
+	draw_set_color(c_white);
+	draw_rectangle(_panel_x, _panel_y, _panel_x + building_window_width, _panel_y + building_window_height, true);
+
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
+	draw_set_color(COLOR_HUD_TEXT);
+	draw_text(_panel_x + (building_window_width * 0.5), _panel_y + 36, "Construction");
+
+	draw_set_halign(fa_left);
+	draw_set_color(_has_enough_iron ? COLOR_HUD_PROJECTILE_DESCRIPTION : COLOR_PROJECTILE_DAMAGE);
+	draw_text(_panel_x + 44, _panel_y + 62, "All buildings cost " + string(BALANCE_BUILDING_IRON_COST) + " Iron");
+
+	draw_set_halign(fa_center);
+	draw_set_color(c_white);
+	draw_rectangle(_close_x, _close_y, _close_x + _close_size, _close_y + _close_size, true);
+	draw_text(_close_x + (_close_size * 0.5), _close_y + (_close_size * 0.5), "X");
+
+	for (var _choice_index = 0; _choice_index < _choice_count; ++_choice_index)
+	{
+		var _choice = building_choices[_choice_index];
+		var _column = _choice_index mod building_tile_columns;
+		var _row = _choice_index div building_tile_columns;
+		var _tile_x = _grid_x + ((building_tile_width + building_tile_gap) * _column);
+		var _tile_y = _grid_y + ((building_tile_height + building_tile_gap) * _row);
+		var _is_hovered = _mouse_x >= _tile_x
+			&& _mouse_x <= _tile_x + building_tile_width
+			&& _mouse_y >= _tile_y
+			&& _mouse_y <= _tile_y + building_tile_height;
+		var _sprite = _choice.building_sprite;
+		var _sprite_x = _tile_x + (building_tile_width * 0.5);
+		var _sprite_y = _tile_y + 48;
+		var _name_y = _tile_y + 104;
+		var _cost_y = _tile_y + 136;
+
+		if (_is_hovered)
+		{
+			_hovered_choice = _choice_index;
+		}
+
+		draw_set_alpha(0.82);
+		draw_set_color(c_black);
+		draw_rectangle(_tile_x, _tile_y, _tile_x + building_tile_width, _tile_y + building_tile_height, false);
+
+		draw_set_alpha(1);
+		draw_set_color(_is_hovered ? COLOR_HUD_IRON : c_white);
+		draw_rectangle(_tile_x, _tile_y, _tile_x + building_tile_width, _tile_y + building_tile_height, true);
+
+		if (sprite_exists(_sprite))
+		{
+			var _sprite_width = sprite_get_width(_sprite);
+			var _sprite_height = sprite_get_height(_sprite);
+			var _sprite_scale = building_tile_sprite_size / max(_sprite_width, _sprite_height);
+			var _sprite_draw_width = _sprite_width * _sprite_scale;
+			var _sprite_draw_height = _sprite_height * _sprite_scale;
+
+			draw_sprite_stretched_ext(
+				_sprite,
+				0,
+				_sprite_x - (_sprite_draw_width * 0.5),
+				_sprite_y - (_sprite_draw_height * 0.5),
+				_sprite_draw_width,
+				_sprite_draw_height,
+				c_white,
+				1
+			);
+		}
+
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_middle);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text(_sprite_x, _name_y, _choice.building_name);
+
+		if (sprite_exists(s_iron_icon))
+		{
+			draw_sprite_stretched_ext(
+				s_iron_icon,
+				0,
+				_sprite_x - 26,
+				_cost_y - (building_tile_cost_icon_size * 0.5),
+				building_tile_cost_icon_size,
+				building_tile_cost_icon_size,
+				c_white,
+				1
+			);
+		}
+
+		draw_set_color(_has_enough_iron ? COLOR_HUD_IRON : COLOR_PROJECTILE_DAMAGE);
+		draw_text(_sprite_x + 14, _cost_y, string(_choice.iron_cost));
+	}
+
+	if (_hovered_choice >= 0)
+	{
+		var _choice = building_choices[_hovered_choice];
+		var _tooltip_x = min(_mouse_x + 18, camera_view_width - building_tooltip_width - 18);
+		var _tooltip_y = min(_mouse_y + 18, camera_view_height - building_tooltip_height - 18);
+
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_alpha(0.96);
+		draw_set_color(COLOR_HUD_BACKGROUND);
+		draw_rectangle(_tooltip_x, _tooltip_y, _tooltip_x + building_tooltip_width, _tooltip_y + building_tooltip_height, false);
+		draw_set_alpha(1);
+		draw_set_color(COLOR_HUD_IRON);
+		draw_rectangle(_tooltip_x, _tooltip_y, _tooltip_x + building_tooltip_width, _tooltip_y + building_tooltip_height, true);
+
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text(_tooltip_x + building_tooltip_padding, _tooltip_y + building_tooltip_padding, _choice.building_name);
+		draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+		draw_text_ext(
+			_tooltip_x + building_tooltip_padding,
+			_tooltip_y + building_tooltip_padding + 28,
+			_choice.building_description,
+			18,
+			building_tooltip_width - (building_tooltip_padding * 2)
+		);
+		draw_set_color(_has_enough_iron ? COLOR_HUD_IRON : COLOR_PROJECTILE_DAMAGE);
+		draw_text(_tooltip_x + building_tooltip_padding, _tooltip_y + building_tooltip_height - 28, "Cost: " + string(_choice.iron_cost) + " Iron");
 	}
 
 	draw_set_halign(fa_left);

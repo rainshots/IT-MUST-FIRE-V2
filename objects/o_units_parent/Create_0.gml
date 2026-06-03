@@ -83,6 +83,10 @@ soul_chain_damage_share = 0;
 is_being_dragged = false;
 drag_drop_x = x;
 drag_drop_y = y;
+
+// Building work assignment lets valid friendly units stay at production buildings.
+assigned_building = noone;
+is_assigned_to_building = false;
 stun_timer = 0;
 stun_duration = 0;
 is_stunned = false;
@@ -717,7 +721,8 @@ is_summoned_unit = function()
 
 is_wall_blocked_friendly_unit = function()
 {
-	return is_demon_form_unit() || is_summoned_unit();
+	return is_demon_form_unit()
+		|| (is_summoned_unit() && global.day_phase == DAY_PHASE.NIGHT);
 };
 
 is_blocked_by_cannon_wall = function()

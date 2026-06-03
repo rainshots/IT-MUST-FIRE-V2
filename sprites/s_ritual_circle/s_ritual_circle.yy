@@ -2,8 +2,8 @@
   "$GMSprite":"v2",
   "%Name":"s_ritual_circle",
   "bboxMode":0,
-  "bbox_bottom":154,
-  "bbox_left":2,
+  "bbox_bottom":185,
+  "bbox_left":1,
   "bbox_right":190,
   "bbox_top":0,
   "collisionKind":1,
@@ -12,14 +12,14 @@
   "edgeFiltering":false,
   "For3D":false,
   "frames":[
-    {"$GMSpriteFrame":"v1","%Name":"da6d877d-b69c-479b-a3c0-501f1eb3d12a","name":"da6d877d-b69c-479b-a3c0-501f1eb3d12a","resourceType":"GMSpriteFrame","resourceVersion":"2.0",},
+    {"$GMSpriteFrame":"v1","%Name":"111605ae-925f-4f4f-a10f-2e13632c1b18","name":"111605ae-925f-4f4f-a10f-2e13632c1b18","resourceType":"GMSpriteFrame","resourceVersion":"2.0",},
   ],
   "gridX":0,
   "gridY":0,
-  "height":170,
+  "height":214,
   "HTile":false,
   "layers":[
-    {"$GMImageLayer":"","%Name":"283095fe-94e8-4ed4-aa86-57d95f7a3c06","blendMode":0,"displayName":"default","isLocked":false,"name":"283095fe-94e8-4ed4-aa86-57d95f7a3c06","opacity":100.0,"resourceType":"GMImageLayer","resourceVersion":"2.0","visible":true,},
+    {"$GMImageLayer":"","%Name":"88e4e85f-fd27-4f33-bc99-da8e65ed76fc","blendMode":0,"displayName":"default","isLocked":false,"name":"88e4e85f-fd27-4f33-bc99-da8e65ed76fc","opacity":100.0,"resourceType":"GMImageLayer","resourceVersion":"2.0","visible":true,},
   ],
   "name":"s_ritual_circle",
   "nineSlice":null,
@@ -69,8 +69,8 @@
     "tracks":[
       {"$GMSpriteFramesTrack":"","builtinName":0,"events":[],"inheritsTrackColour":true,"interpolation":1,"isCreationTrack":false,"keyframes":{"$KeyframeStore<SpriteFrameKeyframe>":"","Keyframes":[
             {"$Keyframe<SpriteFrameKeyframe>":"","Channels":{
-                "0":{"$SpriteFrameKeyframe":"","Id":{"name":"da6d877d-b69c-479b-a3c0-501f1eb3d12a","path":"sprites/s_ritual_circle/s_ritual_circle.yy",},"resourceType":"SpriteFrameKeyframe","resourceVersion":"2.0",},
-              },"Disabled":false,"id":"aff2be35-3d88-49e8-a9ff-b3e0c6bb1113","IsCreationKey":false,"Key":0.0,"Length":1.0,"resourceType":"Keyframe<SpriteFrameKeyframe>","resourceVersion":"2.0","Stretch":false,},
+                "0":{"$SpriteFrameKeyframe":"","Id":{"name":"111605ae-925f-4f4f-a10f-2e13632c1b18","path":"sprites/s_ritual_circle/s_ritual_circle.yy",},"resourceType":"SpriteFrameKeyframe","resourceVersion":"2.0",},
+              },"Disabled":false,"id":"deed9754-a6ef-4991-82fd-910bcf3617e9","IsCreationKey":false,"Key":0.0,"Length":1.0,"resourceType":"Keyframe<SpriteFrameKeyframe>","resourceVersion":"2.0","Stretch":false,},
           ],"resourceType":"KeyframeStore<SpriteFrameKeyframe>","resourceVersion":"2.0",},"modifiers":[],"name":"frames","resourceType":"GMSpriteFramesTrack","resourceVersion":"2.0","spriteId":null,"trackColour":0,"tracks":[],"traits":0,},
     ],
     "visibleRange":null,

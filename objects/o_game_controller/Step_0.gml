@@ -47,7 +47,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 		var _drop_world_y = _mouse_world_y + cultist_drag_drop_offset_y;
 		var _assignment_world_y = _mouse_world_y;
 
-		if (unit_is_demon_form(_dragged_cultist))
+		if (unit_is_blocked_by_cannon_wall(_dragged_cultist))
 		{
 			var _clamped_position = cannon_wall_position_clamp(_drag_world_x, _drop_world_y);
 
@@ -99,6 +99,8 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 			var _cultist = global.cultists[_cultist_index];
 
 			if (instance_exists(_cultist)
+				&& (!variable_instance_exists(_cultist, "cannon_loading") || !_cultist.cannon_loading)
+				&& (!variable_instance_exists(_cultist, "cannon_loaded") || !_cultist.cannon_loaded)
 				&& _mouse_world_x >= _cultist.bbox_left
 				&& _mouse_world_x <= _cultist.bbox_right
 				&& _mouse_world_y >= _cultist.bbox_top
@@ -114,6 +116,28 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 			}
 		}
 
+		var _pitling_count = instance_number(o_pitling);
+
+		for (var _pitling_index = 0; _pitling_index < _pitling_count; ++_pitling_index)
+		{
+			var _pitling = instance_find(o_pitling, _pitling_index);
+
+			if (instance_exists(_pitling)
+				&& _mouse_world_x >= _pitling.bbox_left
+				&& _mouse_world_x <= _pitling.bbox_right
+				&& _mouse_world_y >= _pitling.bbox_top
+				&& _mouse_world_y <= _pitling.bbox_bottom)
+			{
+				var _distance_to_pitling = point_distance(_mouse_world_x, _mouse_world_y, _pitling.x, _pitling.y);
+
+				if (_distance_to_pitling < _closest_distance)
+				{
+					_closest_distance = _distance_to_pitling;
+					_closest_cultist = _pitling;
+				}
+			}
+		}
+
 		if (instance_exists(_closest_cultist))
 		{
 			clear_cultist_building_assignment(_closest_cultist);
@@ -124,6 +148,15 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 			_closest_cultist.y = _mouse_world_y + cultist_drag_lift_offset_y;
 			_closest_cultist.drag_drop_x = _mouse_world_x;
 			_closest_cultist.drag_drop_y = _mouse_world_y + cultist_drag_drop_offset_y;
+		}
+		else
+		{
+			var _building_slot = find_building_slot_at_position(_mouse_world_x, _mouse_world_y);
+
+			if (instance_exists(_building_slot))
+			{
+				open_building_window(_building_slot);
+			}
 		}
 	}
 }
@@ -193,27 +226,31 @@ if (mouse_check_button_pressed(mb_right) && global.focus_window == FOCUS_WINDOW.
 	instance_create_layer(_mouse_world_x, _mouse_world_y, "Instances", o_meat);
 }
 
-// NumPad keys spawn new enemy types under the cursor for encounter testing.
-var _debug_spawn_enemy_object = noone;
+// NumPad keys spawn prototype units under the cursor for encounter testing.
+var _debug_spawn_unit_object = noone;
 
 if (keyboard_check_pressed(vk_numpad1))
 {
-	_debug_spawn_enemy_object = o_enemy_peasant;
+	_debug_spawn_unit_object = o_enemy_peasant;
 }
 else if (keyboard_check_pressed(vk_numpad2))
 {
-	_debug_spawn_enemy_object = o_enemy_knight;
+	_debug_spawn_unit_object = o_enemy_knight;
 }
 else if (keyboard_check_pressed(vk_numpad3))
 {
-	_debug_spawn_enemy_object = o_enemy_archer;
+	_debug_spawn_unit_object = o_enemy_archer;
 }
 else if (keyboard_check_pressed(vk_numpad4))
 {
-	_debug_spawn_enemy_object = o_enemy_mage;
+	_debug_spawn_unit_object = o_enemy_mage;
+}
+else if (keyboard_check_pressed(vk_numpad9))
+{
+	_debug_spawn_unit_object = o_pitling;
 }
 
-if (_debug_spawn_enemy_object != noone
+if (_debug_spawn_unit_object != noone
 	&& global.focus_window == FOCUS_WINDOW.NOONE
 	&& !global.pause
 	&& instance_exists(o_camera_controller))
@@ -228,7 +265,7 @@ if (_debug_spawn_enemy_object != noone
 	var _mouse_world_x = _camera_x + ((_mouse_gui_x / camera_view_width) * _camera_width);
 	var _mouse_world_y = _camera_y + ((_mouse_gui_y / camera_view_height) * _camera_height);
 
-	instance_create_layer(_mouse_world_x, _mouse_world_y, "Instances", _debug_spawn_enemy_object);
+	instance_create_layer(_mouse_world_x, _mouse_world_y, "Instances", _debug_spawn_unit_object);
 }
 
 // Mouse button 5 damages the topmost HP-bearing instance under the cursor for debugging.
@@ -339,19 +376,26 @@ if (mouse_check_button_pressed(_debug_exp_mouse_button)
 	}
 }
 
-// F2 enables infinite projectile testing with one projectile of every known type.
+// F2 adds prototype resources for fast construction testing.
 if (keyboard_check_pressed(vk_f2))
 {
-	var _cheat_projectile_count = array_length(global.cannon_projectile_drop_types);
+	global.resources[RESOURCES.FLESH] += BALANCE_DEBUG_RESOURCE_CHEAT_AMOUNT;
+	global.resources[RESOURCES.SOULS] += BALANCE_DEBUG_RESOURCE_CHEAT_AMOUNT;
+	global.resources[RESOURCES.IRON] += BALANCE_DEBUG_RESOURCE_CHEAT_AMOUNT;
+}
 
-	global.cannon_projectile_queue = array_create(_cheat_projectile_count);
-	global.cannon_projectile_cheat_enabled = true;
-	global.cannon_projectile_gain_timer = 0;
-	target_selection_projectile_type = global.cannon_projectile_drop_types[0];
-
-	for (var _cheat_projectile_index = 0; _cheat_projectile_index < _cheat_projectile_count; ++_cheat_projectile_index)
+// F8 skips the current day or night phase.
+if (keyboard_check_pressed(vk_f8)
+	&& global.day_cycle_enabled
+	&& global.focus_window == FOCUS_WINDOW.NOONE)
+{
+	if (global.day_phase == DAY_PHASE.DAY)
 	{
-		global.cannon_projectile_queue[_cheat_projectile_index] = global.cannon_projectile_drop_types[_cheat_projectile_index];
+		start_night_phase();
+	}
+	else
+	{
+		start_day_phase();
 	}
 }
 
@@ -371,6 +415,10 @@ if (keyboard_check_pressed(vk_escape))
 	{
 		settings_open = false;
 		global.focus_window = FOCUS_WINDOW.PAUSE_MENU;
+	}
+	else if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
+	{
+		close_building_window();
 	}
 	else if (global.focus_window == FOCUS_WINDOW.PAUSE_MENU)
 	{
@@ -427,80 +475,67 @@ if (!application_surface_ready && surface_exists(application_surface))
 	application_surface_ready = true;
 }
 
-// Update day and night cycle when the prototype allows it.
+// Update the timer-based day and night cycle.
 if (!global.pause && global.day_cycle_enabled)
 {
-	if (global.day_phase == DAY_PHASE.DAY)
+	global.day_timer--;
+
+	if (global.day_timer <= 0)
 	{
-		global.night_attack_unit_count = 0;
-		global.day_timer--;
-
-		if (global.day_timer <= 0)
+		if (global.day_phase == DAY_PHASE.DAY)
 		{
-			global.day_phase = DAY_PHASE.NIGHT;
-
-			with (o_garnizon)
-			{
-				if (is_activated)
-				{
-					release_owned_units();
-				}
-			}
-
-			var _released_enemy_count = instance_number(o_enemy_units);
-
-			for (var _enemy_index = 0; _enemy_index < _released_enemy_count; ++_enemy_index)
-			{
-				var _enemy = instance_find(o_enemy_units, _enemy_index);
-
-				if (instance_exists(_enemy)
-					&& variable_instance_exists(_enemy, "owner_garnizon")
-					&& instance_exists(_enemy.owner_garnizon)
-					&& _enemy.owner_garnizon.is_activated)
-				{
-					_enemy.unit_can_attack_cannon = true;
-					_enemy.is_night_attack_unit = true;
-					_enemy.guard_target = noone;
-					_enemy.owner_garnizon = noone;
-				}
-			}
+			start_night_phase();
 		}
-	}
-	else if (global.day_phase == DAY_PHASE.NIGHT)
-	{
-		var _night_unit_count = 0;
-		var _night_enemy_count = instance_number(o_enemy_units);
-
-		for (var _enemy_index = 0; _enemy_index < _night_enemy_count; ++_enemy_index)
+		else
 		{
-			var _enemy = instance_find(o_enemy_units, _enemy_index);
-
-			if (instance_exists(_enemy)
-				&& variable_instance_exists(_enemy, "is_night_attack_unit")
-				&& _enemy.is_night_attack_unit)
-			{
-				_night_unit_count++;
-			}
-		}
-
-		global.night_attack_unit_count = _night_unit_count;
-
-		if (_night_unit_count <= 0)
-		{
-			global.day_phase = DAY_PHASE.DAY;
-			global.day_timer = global.day_duration * room_speed;
-			global.night_attack_unit_count = 0;
-			fade_out_morning_meat();
-			update_summoned_unit_night_life();
-			award_cultist_night_exp();
+			start_day_phase();
 		}
 	}
 }
-else
+
+// Handle construction menu tile clicks.
+if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION && mouse_check_button_pressed(mb_left))
 {
-	global.day_phase = DAY_PHASE.DAY;
-	global.day_timer = global.day_duration * room_speed;
-	global.night_attack_unit_count = 0;
+	if (building_window_input_blocked)
+	{
+		building_window_input_blocked = false;
+	}
+	else
+	{
+		var _mouse_x = device_mouse_x_to_gui(0);
+		var _mouse_y = device_mouse_y_to_gui(0);
+		var _panel_x = (camera_view_width - building_window_width) * 0.5;
+		var _panel_y = (camera_view_height - building_window_height) * 0.5;
+		var _close_size = 34;
+		var _close_x = _panel_x + building_window_width - _close_size - 14;
+		var _close_y = _panel_y + 14;
+		var _grid_x = _panel_x + 44;
+		var _grid_y = _panel_y + 94;
+		var _choice_count = array_length(building_choices);
+
+		if (_mouse_x >= _close_x && _mouse_x <= _close_x + _close_size
+			&& _mouse_y >= _close_y && _mouse_y <= _close_y + _close_size)
+		{
+			close_building_window();
+		}
+		else
+		{
+			for (var _choice_index = 0; _choice_index < _choice_count; ++_choice_index)
+			{
+				var _column = _choice_index mod building_tile_columns;
+				var _row = _choice_index div building_tile_columns;
+				var _tile_x = _grid_x + ((building_tile_width + building_tile_gap) * _column);
+				var _tile_y = _grid_y + ((building_tile_height + building_tile_gap) * _row);
+
+				if (_mouse_x >= _tile_x && _mouse_x <= _tile_x + building_tile_width
+					&& _mouse_y >= _tile_y && _mouse_y <= _tile_y + building_tile_height)
+				{
+					construct_building_from_choice(building_choices[_choice_index]);
+					break;
+				}
+			}
+		}
+	}
 }
 
 // Handle cultist demon selection window.
@@ -650,6 +685,7 @@ if (!global.pause
 			}
 
 			array_push(global.cannon_projectile_queue, _new_projectile_type);
+			array_push(global.cannon_projectile_payload_queue, noone);
 			global.cannon_projectile_gain_timer = 0;
 		}
 	}
@@ -658,6 +694,9 @@ if (!global.pause
 		global.cannon_projectile_gain_timer = 0;
 	}
 }
+
+// Move night cultists into the cannon until they become queued projectiles.
+update_cultists_loading_into_cannon();
 
 // Start or update target selection mode from hotkeys when a queued projectile is ready.
 if (global.focus_window == FOCUS_WINDOW.NOONE
@@ -682,13 +721,25 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 		if (_selected_projectile_index >= 0)
 		{
 			var _selected_projectile_type = global.cannon_projectile_queue[_selected_projectile_index];
+			var _selected_projectile_payload = noone;
+
+			if (_selected_projectile_index < array_length(global.cannon_projectile_payload_queue))
+			{
+				_selected_projectile_payload = global.cannon_projectile_payload_queue[_selected_projectile_index];
+			}
 
 			for (var _queue_index = _selected_projectile_index; _queue_index > 0; --_queue_index)
 			{
 				global.cannon_projectile_queue[_queue_index] = global.cannon_projectile_queue[_queue_index - 1];
+
+				if (_queue_index < array_length(global.cannon_projectile_payload_queue))
+				{
+					global.cannon_projectile_payload_queue[_queue_index] = global.cannon_projectile_payload_queue[_queue_index - 1];
+				}
 			}
 
 			global.cannon_projectile_queue[0] = _selected_projectile_type;
+			global.cannon_projectile_payload_queue[0] = _selected_projectile_payload;
 			target_selection_projectile_type = _selected_projectile_type;
 			global.focus_window = FOCUS_WINDOW.TARGET_SELECTION;
 		}

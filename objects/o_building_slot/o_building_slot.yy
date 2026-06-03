@@ -1,17 +1,15 @@
 {
   "$GMObject":"",
-  "%Name":"o_cannon",
+  "%Name":"o_building_slot",
   "eventList":[
-    {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":0,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
-    {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":3,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
     {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":8,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
   ],
   "managed":true,
-  "name":"o_cannon",
+  "name":"o_building_slot",
   "overriddenProperties":[],
   "parent":{
-    "name":"Objects",
-    "path":"folders/Objects.yy",
+    "name":"buildings v13",
+    "path":"folders/Objects/buildings v13.yy",
   },
   "parentObjectId":null,
   "persistent":false,
@@ -32,8 +30,8 @@
   "resourceVersion":"2.0",
   "solid":false,
   "spriteId":{
-    "name":"s_cannon_awake",
-    "path":"sprites/s_cannon_awake/s_cannon_awake.yy",
+    "name":"s_building_slot",
+    "path":"sprites/s_building_slot/s_building_slot.yy",
   },
   "spriteMaskId":null,
   "visible":true,

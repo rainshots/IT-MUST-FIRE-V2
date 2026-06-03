@@ -4,6 +4,7 @@ start_y = y;
 target_x = x;
 target_y = y;
 projectile_type = PROJECTILE_TYPE.DAMAGE;
+cultist_payload = noone;
 
 // Explosion and effect settings.
 effect_radius = BALANCE_PROJECTILE_EFFECT_RADIUS;

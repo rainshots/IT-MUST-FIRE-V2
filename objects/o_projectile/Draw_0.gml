@@ -13,6 +13,10 @@ else if (projectile_type == PROJECTILE_TYPE.RALLY)
 {
 	_projectile_color = COLOR_PROJECTILE_RALLY;
 }
+else if (projectile_type == PROJECTILE_TYPE.CULTIST)
+{
+	_projectile_color = COLOR_PROJECTILE_CULTIST;
+}
 
 // Draw a round projectile.
 draw_set_color(_projectile_color);

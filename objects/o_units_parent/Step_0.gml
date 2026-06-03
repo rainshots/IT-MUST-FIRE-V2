@@ -27,6 +27,23 @@ if (is_being_dragged)
 	exit;
 }
 
+// Assigned friendly workers stay at buildings instead of running combat AI.
+if (is_assigned_to_building && instance_exists(assigned_building))
+{
+	target_instance = noone;
+	is_attacking_target = false;
+	is_walking = false;
+	visual_attack_offset_x = 0;
+	visual_attack_offset_y = 0;
+	update_walk_sway();
+	exit;
+}
+else if (is_assigned_to_building)
+{
+	assigned_building = noone;
+	is_assigned_to_building = false;
+}
+
 // Status effects can damage, slow, mark, curse, or stun this unit.
 status_effect_update();
 soul_chain_update();

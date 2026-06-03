@@ -54,3 +54,7 @@ drag_drop_y = y;
 // Building work assignment. The game controller updates these when dropped on a building.
 assigned_building = noone;
 is_assigned_to_building = false;
+
+// Cannon loading state is used at night before this cultist becomes a projectile.
+cannon_loading = false;
+cannon_loaded = false;

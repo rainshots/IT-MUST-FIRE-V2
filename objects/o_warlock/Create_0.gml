@@ -212,7 +212,7 @@ warlock_raise_lesser_demon_use = function()
 
 	if (instance_exists(_pitling) && variable_instance_exists(_pitling, "summon_nights_remaining"))
 	{
-		_pitling.summon_nights_remaining = 1;
+		_pitling.summon_nights_remaining = BALANCE_PITLING_NIGHT_LIFE;
 	}
 
 	if (variable_global_exists("particle_type_brute_rotten_aura"))

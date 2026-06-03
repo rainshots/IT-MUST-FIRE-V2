@@ -16,7 +16,7 @@ for (var _worker_index = 0; _worker_index < _worker_count; ++_worker_index)
 {
 	var _worker = worker_cultists[_worker_index];
 
-	if (instance_exists(_worker) && _worker.object_index == o_cultist)
+	if (instance_exists(_worker) && (_worker.object_index == o_cultist || _worker.object_index == o_pitling))
 	{
 		worker_cultists[_valid_worker_count] = _worker;
 		_valid_worker_count++;
@@ -30,6 +30,8 @@ if (_valid_worker_count <= 0)
 	production_speed_multiplier = 0;
 	exit;
 }
+
+recalculate_production_speed_multiplier();
 
 // Meat Bath converts Flesh into stored healing and applies it gradually.
 if (object_index == o_meat_bath)
@@ -72,7 +74,7 @@ if (object_index == o_meat_bath)
 		exit;
 	}
 
-	var _heal_step = BALANCE_MEAT_BATH_FLESH_HEAL_AMOUNT / max(1, BALANCE_MEAT_BATH_HEAL_TIME * room_speed);
+	var _heal_step = (BALANCE_MEAT_BATH_FLESH_HEAL_AMOUNT * production_speed_multiplier) / max(1, BALANCE_MEAT_BATH_HEAL_TIME * room_speed);
 
 	for (var _heal_worker_index = 0; _heal_worker_index < _valid_worker_count; ++_heal_worker_index)
 	{
@@ -103,6 +105,25 @@ if (object_index == o_meat_bath)
 // Ritual Circle converts Souls into base XP and applies it gradually.
 if (object_index == o_ritual_circle)
 {
+	var _exp_worker_exists = false;
+
+	for (var _valid_exp_worker_index = 0; _valid_exp_worker_index < _valid_worker_count; ++_valid_exp_worker_index)
+	{
+		var _valid_exp_worker = worker_cultists[_valid_exp_worker_index];
+
+		if (variable_instance_exists(_valid_exp_worker, "current_exp")
+			&& variable_instance_exists(_valid_exp_worker, "current_lvl"))
+		{
+			_exp_worker_exists = true;
+			break;
+		}
+	}
+
+	if (!_exp_worker_exists)
+	{
+		exit;
+	}
+
 	if (ritual_circle_exp_pool <= 0 && global.resources[RESOURCES.SOULS] > 0)
 	{
 		global.resources[RESOURCES.SOULS]--;
@@ -121,7 +142,7 @@ if (object_index == o_ritual_circle)
 		exit;
 	}
 
-	var _exp_step = BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT / max(1, BALANCE_RITUAL_CIRCLE_EXP_TIME * room_speed);
+	var _exp_step = (BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT * production_speed_multiplier) / max(1, BALANCE_RITUAL_CIRCLE_EXP_TIME * room_speed);
 
 	for (var _exp_worker_index = 0; _exp_worker_index < _valid_worker_count; ++_exp_worker_index)
 	{
@@ -158,8 +179,6 @@ if (object_index == o_ritual_circle)
 // Summoning buildings spend Souls to create temporary friendly units.
 if (summon_unit_object != noone)
 {
-	recalculate_production_speed_multiplier();
-
 	if (!summon_has_paid_cost && global.resources[RESOURCES.SOULS] >= BALANCE_SUMMON_BUILDING_SOUL_COST)
 	{
 		global.resources[RESOURCES.SOULS] -= BALANCE_SUMMON_BUILDING_SOUL_COST;
@@ -200,8 +219,6 @@ if (production_resource == noone)
 }
 
 // Use current room_speed so production duration stays stable if speed changes.
-recalculate_production_speed_multiplier();
-
 var _production_step = production_speed_multiplier / max(1, production_duration * room_speed);
 production_progress += _production_step;
 

@@ -12,10 +12,17 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 	{
 		var _projectile_queue_count = array_length(global.cannon_projectile_queue);
 		var _fired_projectile_count = volley_projectile_count;
+		var _projectile_payload = noone;
+
+		if (_projectile_queue_count > 0 && array_length(global.cannon_projectile_payload_queue) > 0)
+		{
+			_projectile_payload = global.cannon_projectile_payload_queue[0];
+		}
 
 		global.cannon_fire_version++;
 
-		if (target_projectile_type == PROJECTILE_TYPE.RALLY)
+		if (target_projectile_type == PROJECTILE_TYPE.RALLY
+			|| target_projectile_type == PROJECTILE_TYPE.CULTIST)
 		{
 			_fired_projectile_count = 1;
 		}
@@ -31,7 +38,8 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			var _projectile_y = y + projectile_spawn_offset_y;
 			var _projectile = instance_create_layer(_projectile_x, _projectile_y, projectile_layer_name, o_projectile);
 
-			if (target_projectile_type == PROJECTILE_TYPE.RALLY)
+			if (target_projectile_type == PROJECTILE_TYPE.RALLY
+				|| target_projectile_type == PROJECTILE_TYPE.CULTIST)
 			{
 				_spread_target_x = target_x;
 				_spread_target_y = target_y;
@@ -51,21 +59,40 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			_projectile.target_y = _spread_target_y;
 			_projectile.projectile_type = target_projectile_type;
 			_projectile.effect_radius = projectile_effect_radius;
+			_projectile.cultist_payload = _projectile_payload;
 			_projectile.launch_delay_timer = _launch_delay_seconds * room_speed;
 			_projectile.flight_time = _flight_time_seconds * room_speed;
+
+			if (target_projectile_type == PROJECTILE_TYPE.CULTIST)
+			{
+				_projectile.effect_radius = BALANCE_CULTIST_PROJECTILE_EFFECT_RADIUS;
+				_projectile.damage_amount = BALANCE_CULTIST_PROJECTILE_DAMAGE_AMOUNT;
+			}
 		}
 
 		// Remove the fired projectile from the front of the queue outside cheat testing.
 		if (_projectile_queue_count > 0 && !global.cannon_projectile_cheat_enabled)
 		{
 			var _updated_projectile_queue = array_create(_projectile_queue_count - 1);
+			var _updated_projectile_payload_queue = array_create(_projectile_queue_count - 1);
+			var _payload_queue_count = array_length(global.cannon_projectile_payload_queue);
 
 			for (var _queue_index = 1; _queue_index < _projectile_queue_count; ++_queue_index)
 			{
 				_updated_projectile_queue[_queue_index - 1] = global.cannon_projectile_queue[_queue_index];
+
+				if (_queue_index < _payload_queue_count)
+				{
+					_updated_projectile_payload_queue[_queue_index - 1] = global.cannon_projectile_payload_queue[_queue_index];
+				}
+				else
+				{
+					_updated_projectile_payload_queue[_queue_index - 1] = noone;
+				}
 			}
 
 			global.cannon_projectile_queue = _updated_projectile_queue;
+			global.cannon_projectile_payload_queue = _updated_projectile_payload_queue;
 		}
 	}
 }
