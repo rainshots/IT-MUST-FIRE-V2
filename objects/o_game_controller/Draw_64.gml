@@ -13,12 +13,93 @@ if (global.day_phase == DAY_PHASE.NIGHT)
 	draw_set_color(c_white);
 }
 
+// Draw daytime warning arrows for the planned night attack directions.
+if (global.day_phase == DAY_PHASE.DAY
+	&& night_attack_plan_exists
+	&& instance_exists(o_cannon)
+	&& instance_exists(o_camera_controller))
+{
+	var _camera_controller = instance_find(o_camera_controller, 0);
+	var _cannon = instance_find(o_cannon, 0);
+	var _camera_x = camera_get_view_x(_camera_controller.camera_id);
+	var _camera_y = camera_get_view_y(_camera_controller.camera_id);
+	var _camera_width = camera_get_view_width(_camera_controller.camera_id);
+	var _camera_height = camera_get_view_height(_camera_controller.camera_id);
+	var _direction_count = array_length(night_attack_directions);
+
+	for (var _direction_index = 0; _direction_index < _direction_count; ++_direction_index)
+	{
+		var _direction_data = night_attack_directions[_direction_index];
+		var _direction = _direction_data.direction;
+		var _outer_world_x = _cannon.x + lengthdir_x(BALANCE_NIGHT_ATTACK_WARNING_DISTANCE, _direction);
+		var _outer_world_y = _cannon.y + lengthdir_y(BALANCE_NIGHT_ATTACK_WARNING_DISTANCE, _direction);
+		var _inner_world_x = _outer_world_x + lengthdir_x(BALANCE_NIGHT_ATTACK_WARNING_ARROW_LENGTH, _direction + 180);
+		var _inner_world_y = _outer_world_y + lengthdir_y(BALANCE_NIGHT_ATTACK_WARNING_ARROW_LENGTH, _direction + 180);
+		var _outer_x = ((_outer_world_x - _camera_x) / _camera_width) * camera_view_width;
+		var _outer_y = ((_outer_world_y - _camera_y) / _camera_height) * camera_view_height;
+		var _inner_x = ((_inner_world_x - _camera_x) / _camera_width) * camera_view_width;
+		var _inner_y = ((_inner_world_y - _camera_y) / _camera_height) * camera_view_height;
+		var _arrow_angle = _direction + 180;
+
+		// Warning arrow sprite points from the attack direction toward the cannon.
+		var _arrow_sprite_width = max(1, sprite_get_width(s_attack_arrow));
+		var _arrow_scale = BALANCE_NIGHT_ATTACK_WARNING_ARROW_LENGTH / _arrow_sprite_width;
+		var _arrow_y_scale = _arrow_scale * 0.55;
+
+		draw_sprite_ext(s_attack_arrow, 0, _inner_x, _inner_y, _arrow_scale, _arrow_y_scale, _arrow_angle, c_white, 0.9);
+
+		var _enemy_objects = _direction_data.enemy_objects;
+		var _enemy_count = array_length(_enemy_objects);
+		var _unit_start_offset = -((_enemy_count - 1) * BALANCE_NIGHT_ATTACK_WARNING_UNIT_GAP) * 0.5;
+
+		for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+		{
+			var _enemy_object = _enemy_objects[_enemy_index];
+			var _enemy_sprite = object_get_sprite(_enemy_object);
+			var _unit_side_offset = _unit_start_offset + (_enemy_index * BALANCE_NIGHT_ATTACK_WARNING_UNIT_GAP);
+			var _unit_world_x = _outer_world_x + lengthdir_x(_unit_side_offset, _direction + 90);
+			var _unit_world_y = _outer_world_y + lengthdir_y(_unit_side_offset, _direction + 90);
+			var _unit_x = ((_unit_world_x - _camera_x) / _camera_width) * camera_view_width;
+			var _unit_y = ((_unit_world_y - _camera_y) / _camera_height) * camera_view_height;
+
+			draw_set_alpha(1);
+			draw_set_color(COLOR_ATTACK_WARNING_UNIT_BACKGROUND);
+			draw_circle(_unit_x, _unit_y, BALANCE_NIGHT_ATTACK_WARNING_UNIT_CIRCLE_RADIUS, false);
+			draw_set_color(c_white);
+			draw_circle(_unit_x, _unit_y, BALANCE_NIGHT_ATTACK_WARNING_UNIT_CIRCLE_RADIUS, true);
+
+			if (_enemy_sprite != -1)
+			{
+				var _sprite_width = sprite_get_width(_enemy_sprite);
+				var _sprite_height = sprite_get_height(_enemy_sprite);
+				var _sprite_size = max(_sprite_width, _sprite_height);
+				var _sprite_scale = (BALANCE_NIGHT_ATTACK_WARNING_UNIT_CIRCLE_RADIUS * 1.45) / max(1, _sprite_size);
+				var _sprite_frame = (current_time div 160) mod max(1, sprite_get_number(_enemy_sprite));
+				var _sprite_draw_x = _unit_x + ((sprite_get_xoffset(_enemy_sprite) - (_sprite_width * 0.5)) * _sprite_scale);
+				var _sprite_draw_y = _unit_y + ((sprite_get_yoffset(_enemy_sprite) - (_sprite_height * 0.5)) * _sprite_scale);
+
+				draw_sprite_ext(_enemy_sprite, _sprite_frame, _sprite_draw_x, _sprite_draw_y, _sprite_scale, _sprite_scale, 0, c_white, 1);
+			}
+		}
+	}
+
+	draw_set_alpha(1);
+	draw_set_color(c_white);
+}
+
 // Draw target selection radius under the cursor.
 if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_camera_controller))
 {
 	var _camera_controller = instance_find(o_camera_controller, 0);
 	var _mouse_x = device_mouse_x_to_gui(0);
 	var _mouse_y = device_mouse_y_to_gui(0);
+	var _camera_x = camera_get_view_x(_camera_controller.camera_id);
+	var _camera_y = camera_get_view_y(_camera_controller.camera_id);
+	var _camera_width = camera_get_view_width(_camera_controller.camera_id);
+	var _camera_height = camera_get_view_height(_camera_controller.camera_id);
+	var _mouse_world_x = _camera_x + ((_mouse_x / camera_view_width) * _camera_width);
+	var _mouse_world_y = _camera_y + ((_mouse_y / camera_view_height) * _camera_height);
+	var _cultist_target_is_revealed = true;
 	var _radius_scale = camera_view_width / _camera_controller.view_width;
 	var _draw_radius = target_selection_radius * _radius_scale;
 	var _target_color = COLOR_PROJECTILE_DAMAGE;
@@ -38,6 +119,12 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 	else if (target_selection_projectile_type == PROJECTILE_TYPE.CULTIST)
 	{
 		_target_color = COLOR_PROJECTILE_CULTIST;
+		_cultist_target_is_revealed = world_position_is_revealed_by_fog(_mouse_world_x, _mouse_world_y);
+
+		if (!_cultist_target_is_revealed)
+		{
+			_target_color = COLOR_STATUS_NEGATIVE_RED;
+		}
 	}
 
 	draw_set_color(_target_color);
@@ -45,6 +132,28 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 	draw_circle(_mouse_x, _mouse_y, _draw_radius, false);
 	draw_set_alpha(target_selection_outline_alpha);
 	draw_circle(_mouse_x, _mouse_y, _draw_radius, true);
+
+	if (target_selection_projectile_type == PROJECTILE_TYPE.CULTIST && !_cultist_target_is_revealed)
+	{
+		var _hint_text = "Aim at a revealed zone";
+		var _hint_padding_x = 10;
+		var _hint_padding_y = 6;
+		var _hint_x = min(_mouse_x + 18, camera_view_width - string_width(_hint_text) - (_hint_padding_x * 2) - 12);
+		var _hint_y = max(12, _mouse_y - 42);
+		var _hint_width = string_width(_hint_text) + (_hint_padding_x * 2);
+		var _hint_height = 26;
+
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_alpha(0.92);
+		draw_set_color(COLOR_HUD_BACKGROUND);
+		draw_rectangle(_hint_x, _hint_y, _hint_x + _hint_width, _hint_y + _hint_height, false);
+		draw_set_alpha(1);
+		draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+		draw_rectangle(_hint_x, _hint_y, _hint_x + _hint_width, _hint_y + _hint_height, true);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text(_hint_x + _hint_padding_x, _hint_y + _hint_padding_y, _hint_text);
+	}
 
 	draw_set_color(c_white);
 	draw_set_alpha(1);
@@ -54,7 +163,8 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 {
 	var _cultist = get_current_cultist();
-	var _panel_x = (camera_view_width - cultist_panel_width) * 0.5;
+	var _panel_width = cultist_demon_selection_panel_width;
+	var _panel_x = (camera_view_width - _panel_width) * 0.5;
 	var _panel_y = (camera_view_height - cultist_panel_height) * 0.5;
 	var _button_start_x = _panel_x + 70;
 	var _button_y = _panel_y + 360;
@@ -71,14 +181,14 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 
 	draw_set_alpha(1);
 	draw_set_color(COLOR_HUD_BACKGROUND);
-	draw_rectangle(_panel_x, _panel_y, _panel_x + cultist_panel_width, _panel_y + cultist_panel_height, false);
+	draw_rectangle(_panel_x, _panel_y, _panel_x + _panel_width, _panel_y + cultist_panel_height, false);
 	draw_set_color(c_white);
-	draw_rectangle(_panel_x, _panel_y, _panel_x + cultist_panel_width, _panel_y + cultist_panel_height, true);
+	draw_rectangle(_panel_x, _panel_y, _panel_x + _panel_width, _panel_y + cultist_panel_height, true);
 
 	draw_set_halign(fa_center);
 	draw_set_valign(fa_middle);
 	draw_set_color(COLOR_HUD_TEXT);
-	draw_text(_panel_x + (cultist_panel_width * 0.5), _panel_y + 34, "Choose Cultist Demon Form");
+	draw_text(_panel_x + (_panel_width * 0.5), _panel_y + 34, "Choose Cultist Demon Form");
 
 	if (instance_exists(_cultist))
 	{
@@ -167,9 +277,17 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 
 	if (_preview_sprite != -1)
 	{
-		var _preview_x = _panel_x + 585;
+		var _cultist_preview_sprite = -1;
+
+		if (instance_exists(_cultist))
+		{
+			_cultist_preview_sprite = _cultist.sprite_index;
+		}
+
+		var _cultist_preview_x = _panel_x + 530;
+		var _preview_x = _panel_x + 720;
 		var _preview_y = _panel_y + 332;
-		var _preview_scale = 2.3;
+		var _preview_scale = 2.2;
 		var _preview_frame_count = max(sprite_get_number(_preview_sprite), 1);
 		var _preview_frame = (current_time div 120) mod _preview_frame_count;
 
@@ -179,7 +297,36 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 		draw_text(_preview_x, _panel_y + 102, _preview_name);
 		draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
 		draw_text(_preview_x, _panel_y + 128, "Ability: " + cultist_ability_name_get(_preview_ability));
-		draw_sprite_ext(_preview_sprite, _preview_frame, _preview_x, _preview_y, _preview_scale, _preview_scale, 0, c_white, 1);
+
+		if (_cultist_preview_sprite != -1)
+		{
+			var _cultist_preview_scale = 0.67;
+			var _cultist_sprite_width = sprite_get_width(_cultist_preview_sprite);
+			var _cultist_sprite_height = sprite_get_height(_cultist_preview_sprite);
+			var _cultist_sprite_xoffset = sprite_get_xoffset(_cultist_preview_sprite);
+			var _cultist_sprite_yoffset = sprite_get_yoffset(_cultist_preview_sprite);
+			var _cultist_draw_x = _cultist_preview_x + ((_cultist_sprite_xoffset - (_cultist_sprite_width * 0.5)) * _cultist_preview_scale);
+			var _cultist_draw_y = _preview_y + ((_cultist_sprite_yoffset - _cultist_sprite_height) * _cultist_preview_scale);
+			var _cultist_frame_count = max(sprite_get_number(_cultist_preview_sprite), 1);
+			var _cultist_frame = (current_time div 160) mod _cultist_frame_count;
+
+			draw_sprite_ext(_cultist_preview_sprite, _cultist_frame, _cultist_draw_x, _cultist_draw_y, _cultist_preview_scale, _cultist_preview_scale, 0, c_white, 1);
+		}
+
+		var _preview_sprite_width = sprite_get_width(_preview_sprite);
+		var _preview_sprite_height = sprite_get_height(_preview_sprite);
+		var _preview_sprite_xoffset = sprite_get_xoffset(_preview_sprite);
+		var _preview_sprite_yoffset = sprite_get_yoffset(_preview_sprite);
+		var _preview_draw_x = _preview_x + ((_preview_sprite_xoffset - (_preview_sprite_width * 0.5)) * _preview_scale);
+		var _preview_draw_y = _preview_y + ((_preview_sprite_yoffset - _preview_sprite_height) * _preview_scale);
+
+		draw_sprite_ext(_preview_sprite, _preview_frame, _preview_draw_x, _preview_draw_y, _preview_scale, _preview_scale, 0, c_white, 1);
+
+		var _arrow_sprite_width = max(1, sprite_get_width(s_attack_arrow));
+		var _arrow_x = _preview_x - 70;
+		var _arrow_scale = 72 / _arrow_sprite_width;
+
+		draw_sprite_ext(s_attack_arrow, 0, _arrow_x, _preview_y - 50, _arrow_scale, _arrow_scale * 0.42, 0, c_white, 0.92);
 	}
 
 	var _button_count = array_length(cultist_selection_buttons);
@@ -224,7 +371,7 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 		}
 	}
 
-	var _confirm_x = _panel_x + cultist_panel_width - 210;
+	var _confirm_x = _panel_x + _panel_width - 210;
 	var _confirm_y = _panel_y + cultist_panel_height - 78;
 	var _confirm_width = 150;
 	var _confirm_height = 44;
@@ -398,6 +545,7 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 	var _button_start_x = _panel_x + 92;
 	var _button_y = _panel_y + 550;
 	var _stat_names = ["Body", "Spirit", "Fervor"];
+	var _attribute_stat_order = [CULTIST_STAT.BODY, CULTIST_STAT.FERVOR, CULTIST_STAT.SPIRIT];
 	var _mouse_x = device_mouse_x_to_gui(0);
 	var _mouse_y = device_mouse_y_to_gui(0);
 	var _hovered_stat = -1;
@@ -413,7 +561,9 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 	// Detect button hover before drawing stats so bonuses can preview the next point.
 	if (_reward_type == CULTIST_LEVEL_REWARD.ATTRIBUTE)
 	{
-		for (var _hover_stat_index = 0; _hover_stat_index < CULTIST_STAT.COUNT; ++_hover_stat_index)
+		var _attribute_stat_count = array_length(_attribute_stat_order);
+
+		for (var _hover_stat_index = 0; _hover_stat_index < _attribute_stat_count; ++_hover_stat_index)
 		{
 			var _hover_button_x = _button_start_x + ((_button_width + _button_gap) * _hover_stat_index);
 			var _is_button_hovered = _mouse_x >= _hover_button_x && _mouse_x <= _hover_button_x + _button_width
@@ -421,7 +571,7 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 
 			if (_is_button_hovered)
 			{
-				_hovered_stat = _hover_stat_index;
+				_hovered_stat = _attribute_stat_order[_hover_stat_index];
 			}
 		}
 	}
@@ -571,23 +721,25 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 			var _attribute_names = ["Body", "Spirit", "Fervor"];
 			var _attribute_points = [_body_points, _spirit_points, _fervor_points];
 			var _attribute_colors = [COLOR_CULTIST_BODY, COLOR_CULTIST_SPIRIT, COLOR_CULTIST_FERVOR];
+			var _attribute_count = array_length(_attribute_stat_order);
 
-			for (var _attribute_index = 0; _attribute_index < CULTIST_STAT.COUNT; ++_attribute_index)
+			for (var _attribute_index = 0; _attribute_index < _attribute_count; ++_attribute_index)
 			{
+				var _attribute_stat = _attribute_stat_order[_attribute_index];
 				var _row_y = _square_y + (_attribute_index * 18);
 
-				draw_set_color(_attribute_colors[_attribute_index]);
-				draw_text(_stats_right_x, _row_y - 3, _attribute_names[_attribute_index]);
+				draw_set_color(_attribute_colors[_attribute_stat]);
+				draw_text(_stats_right_x, _row_y - 3, _attribute_names[_attribute_stat]);
 
-				for (var _point_index = 0; _point_index < _attribute_points[_attribute_index]; ++_point_index)
+				for (var _point_index = 0; _point_index < _attribute_points[_attribute_stat]; ++_point_index)
 				{
 					var _square_x = _square_start_x + ((_square_size + _square_gap) * _point_index);
 					draw_rectangle(_square_x, _row_y, _square_x + _square_size, _row_y + _square_size, false);
 				}
 
-				if (_hovered_stat == _attribute_index)
+				if (_hovered_stat == _attribute_stat)
 				{
-					var _preview_square_x = _square_start_x + ((_square_size + _square_gap) * _attribute_points[_attribute_index]);
+					var _preview_square_x = _square_start_x + ((_square_size + _square_gap) * _attribute_points[_attribute_stat]);
 					draw_rectangle(_preview_square_x, _row_y, _preview_square_x + _square_size, _row_y + _square_size, true);
 				}
 			}
@@ -731,23 +883,26 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 
 	if (_reward_type == CULTIST_LEVEL_REWARD.ATTRIBUTE)
 	{
-		for (var _stat_index = 0; _stat_index < CULTIST_STAT.COUNT; ++_stat_index)
+		var _attribute_button_count = array_length(_attribute_stat_order);
+
+		for (var _stat_index = 0; _stat_index < _attribute_button_count; ++_stat_index)
 		{
+			var _button_stat = _attribute_stat_order[_stat_index];
 			var _button_x = _button_start_x + ((_button_width + _button_gap) * _stat_index);
 			var _is_hovered = _mouse_x >= _button_x && _mouse_x <= _button_x + _button_width
 				&& _mouse_y >= _button_y && _mouse_y <= _button_y + _button_height;
 
 			if (_is_hovered)
 			{
-				_hovered_stat = _stat_index;
+				_hovered_stat = _button_stat;
 			}
 
 			draw_set_halign(fa_center);
 			draw_set_valign(fa_middle);
 			draw_set_color(c_white);
 			draw_rectangle(_button_x, _button_y, _button_x + _button_width, _button_y + _button_height, true);
-			draw_set_color(_levelup_stat_colors[_stat_index]);
-			draw_text(_button_x + (_button_width * 0.5), _button_y + (_button_height * 0.5), _stat_names[_stat_index]);
+			draw_set_color(_levelup_stat_colors[_button_stat]);
+			draw_text(_button_x + (_button_width * 0.5), _button_y + (_button_height * 0.5), _stat_names[_button_stat]);
 		}
 	}
 	else if (instance_exists(_cultist))
@@ -1068,7 +1223,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 
 	if (instance_exists(_hovered_cultist))
 	{
-		var _hover_width = min(430, camera_view_width - 36);
+		var _hover_width = min(300, camera_view_width - 36);
 		var _hover_height = 570;
 		var _hover_margin = 18;
 		var _hover_y_max = max(_hover_margin, camera_view_height - _hover_height - _hover_margin);
@@ -1128,20 +1283,23 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 		var _attribute_names = ["Body", "Spirit", "Fervor"];
 		var _attribute_points = [_body_points, _spirit_points, _fervor_points];
 		var _attribute_colors = [COLOR_CULTIST_BODY, COLOR_CULTIST_SPIRIT, COLOR_CULTIST_FERVOR];
+		var _attribute_stat_order = [CULTIST_STAT.BODY, CULTIST_STAT.FERVOR, CULTIST_STAT.SPIRIT];
 		var _attribute_x = _hover_x + _hover_padding;
 		var _attribute_y = _hover_y + 112;
 		var _attribute_gap = 24;
 		var _box_size = 8;
 		var _box_gap = 4;
+		var _attribute_count = array_length(_attribute_stat_order);
 
-		for (var _attribute_index = 0; _attribute_index < CULTIST_STAT.COUNT; ++_attribute_index)
+		for (var _attribute_index = 0; _attribute_index < _attribute_count; ++_attribute_index)
 		{
+			var _attribute_stat = _attribute_stat_order[_attribute_index];
 			var _draw_y = _attribute_y + (_attribute_gap * _attribute_index);
 
-			draw_set_color(_attribute_colors[_attribute_index]);
-			draw_text(_attribute_x, _draw_y, _attribute_names[_attribute_index]);
+			draw_set_color(_attribute_colors[_attribute_stat]);
+			draw_text(_attribute_x, _draw_y, _attribute_names[_attribute_stat]);
 
-			for (var _point_index = 0; _point_index < _attribute_points[_attribute_index]; ++_point_index)
+			for (var _point_index = 0; _point_index < _attribute_points[_attribute_stat]; ++_point_index)
 			{
 				var _box_x = _attribute_x + 68 + ((_box_size + _box_gap) * _point_index);
 				var _box_y = _draw_y + 4;
@@ -1417,6 +1575,81 @@ if (player_pause_active && global.focus_window == FOCUS_WINDOW.NOONE)
 	draw_set_valign(fa_top);
 	draw_set_color(c_white);
 	draw_set_alpha(1);
+}
+
+// Draw pickup hand over the cursor when a draggable unit can be grabbed or is being dragged.
+if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultists"))
+{
+	var _should_draw_pickup_hand = instance_exists(global.dragged_cultist);
+
+	if (!_should_draw_pickup_hand
+		&& !global.pause
+		&& instance_exists(o_camera_controller))
+	{
+		var _camera_controller = instance_find(o_camera_controller, 0);
+		var _mouse_gui_x = device_mouse_x_to_gui(0);
+		var _mouse_gui_y = device_mouse_y_to_gui(0);
+		var _camera_x = camera_get_view_x(_camera_controller.camera_id);
+		var _camera_y = camera_get_view_y(_camera_controller.camera_id);
+		var _camera_width = camera_get_view_width(_camera_controller.camera_id);
+		var _camera_height = camera_get_view_height(_camera_controller.camera_id);
+		var _mouse_world_x = _camera_x + ((_mouse_gui_x / camera_view_width) * _camera_width);
+		var _mouse_world_y = _camera_y + ((_mouse_gui_y / camera_view_height) * _camera_height);
+		var _cultist_count = array_length(global.cultists);
+
+		for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+		{
+			var _cultist = global.cultists[_cultist_index];
+
+			if (instance_exists(_cultist)
+				&& (!variable_instance_exists(_cultist, "cannon_loading") || !_cultist.cannon_loading)
+				&& (!variable_instance_exists(_cultist, "cannon_loaded") || !_cultist.cannon_loaded)
+				&& _mouse_world_x >= _cultist.bbox_left
+				&& _mouse_world_x <= _cultist.bbox_right
+				&& _mouse_world_y >= _cultist.bbox_top
+				&& _mouse_world_y <= _cultist.bbox_bottom)
+			{
+				_should_draw_pickup_hand = true;
+				break;
+			}
+		}
+
+		if (!_should_draw_pickup_hand)
+		{
+			var _pitling_count = instance_number(o_pitling);
+
+			for (var _pitling_index = 0; _pitling_index < _pitling_count; ++_pitling_index)
+			{
+				var _pitling = instance_find(o_pitling, _pitling_index);
+
+				if (instance_exists(_pitling)
+					&& _mouse_world_x >= _pitling.bbox_left
+					&& _mouse_world_x <= _pitling.bbox_right
+					&& _mouse_world_y >= _pitling.bbox_top
+					&& _mouse_world_y <= _pitling.bbox_bottom)
+				{
+					_should_draw_pickup_hand = true;
+					break;
+				}
+			}
+		}
+	}
+
+	if (_should_draw_pickup_hand)
+	{
+		var _hand_x = device_mouse_x_to_gui(0);
+		var _hand_y = device_mouse_y_to_gui(0);
+		var _hand_scale = 0.33;
+
+		if (instance_exists(global.dragged_cultist))
+		{
+			_hand_y += cultist_drag_lift_offset_y - 60;
+		}
+
+		draw_set_alpha(1);
+		draw_set_color(c_white);
+		draw_sprite_ext(s_hand, 0, _hand_x, _hand_y, _hand_scale, _hand_scale, 0, c_white, 1);
+	}
 }
 
 // Draw nothing while the pause menu is closed.

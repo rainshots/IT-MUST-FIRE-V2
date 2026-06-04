@@ -25,8 +25,8 @@ projectile_spawn_offset_y = -20;
 projectile_layer_name = "Instances";
 
 // Cannon starts with corrupted ground around it.
-starting_corruption_radius_in_cells = 6;
-starting_corruption_radius = starting_corruption_radius_in_cells * 100;
-starting_corruption_amount = 1;
+starting_corruption_radius_in_cells = BALANCE_CANNON_STARTING_CORRUPTION_RADIUS_IN_CELLS;
+starting_corruption_radius = starting_corruption_radius_in_cells * BALANCE_GRID_CELL_SIZE;
+starting_corruption_amount = BALANCE_CANNON_STARTING_CORRUPTION_AMOUNT;
 
 corrupt_circle(x, y, starting_corruption_radius, starting_corruption_amount);

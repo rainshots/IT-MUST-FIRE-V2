@@ -397,14 +397,14 @@ building_choices = [
 		building_object: o_graveyardv13,
 		building_sprite: s_graveyard30,
 		building_name: "Graveyard",
-		building_description: "Summons Skeletons by spending Souls.",
+		building_description: "Summons Skeletons(they can fight 1 night) by spending Souls.",
 		iron_cost: BALANCE_BUILDING_IRON_COST
 	},
 	{
 		building_object: o_hell_pit,
 		building_sprite: s_hell_pit,
 		building_name: "Hell Pit",
-		building_description: "Summons Pitlings by spending Souls.",
+		building_description: "Summons Pitlings(they can fight and work) by spending Souls.",
 		iron_cost: BALANCE_BUILDING_IRON_COST
 	}
 ];
@@ -478,6 +478,7 @@ cultist_selection_button_width = 128;
 cultist_selection_button_height = 42;
 cultist_selection_button_gap = 14;
 cultist_panel_width = 720;
+cultist_demon_selection_panel_width = 900;
 cultist_panel_height = 520;
 cultist_levelup_open = false;
 cultist_levelup_index = 0;
@@ -487,6 +488,56 @@ global.cultist_drag_shadow_width = 46;
 global.cultist_drag_shadow_height = 14;
 global.dragged_cultist = noone;
 global.cultist_assignment_preview_building = noone;
+global.cultist_sprite_randomization_enabled = true;
+global.cultist_all_sprite_indices = [
+	s_cultist_01,
+	s_cultist_02,
+	s_cultist_03,
+	s_cultist_04
+];
+global.cultist_available_sprite_indices = global.cultist_all_sprite_indices;
+
+// Night attack state stores the planned directions shown during the next day.
+night_attack_night_index = 1;
+night_attack_plan_exists = false;
+night_attack_directions = [];
+night_attack_unit_pool = [
+	o_enemy_archer,
+	o_enemy_knight,
+	o_enemy_mage,
+	o_enemy_peasant
+];
+
+// Fog visibility helper is used by abilities that require a revealed target point.
+world_position_is_revealed_by_fog = function(_world_x, _world_y)
+{
+	if (!global.fog_of_war_visible || !instance_exists(o_fog_of_war))
+	{
+		return true;
+	}
+
+	var _fog_of_war = instance_find(o_fog_of_war, 0);
+
+	if (!variable_instance_exists(_fog_of_war, "fog_grid"))
+	{
+		return true;
+	}
+
+	var _cell_x = floor(_world_x / _fog_of_war.cell_size);
+	var _cell_y = floor(_world_y / _fog_of_war.cell_size);
+	var _is_inside_fog_grid = _cell_x >= 0
+		&& _cell_x < _fog_of_war.grid_width
+		&& _cell_y >= 0
+		&& _cell_y < _fog_of_war.grid_height;
+
+	if (!_is_inside_fog_grid)
+	{
+		return false;
+	}
+
+	var _fog_alpha = ds_grid_get(_fog_of_war.fog_grid, _cell_x, _cell_y);
+	return _fog_alpha <= _fog_of_war.revealed_alpha;
+};
 
 // Cannon wall helpers keep demon-form cultists outside the cannon safe zone.
 cannon_wall_is_active = function()
@@ -880,6 +931,7 @@ transform_cultists_to_demons = function()
 		clear_cultist_building_assignment(_cultist);
 		_demon.cultist_name = _cultist.cultist_name;
 		_demon.cultist_points = _cultist.cultist_points;
+		_demon.cultist_sprite_index = _cultist.cultist_sprite_index;
 		_demon.demon_type = _cultist.demon_type;
 		_demon.demon_ability = _cultist.demon_ability;
 		_demon.cultist_starting_abilities = _cultist.cultist_starting_abilities;
@@ -1092,11 +1144,11 @@ unload_cultist_projectiles_to_day = function()
 	clear_cannon_projectile_queues();
 };
 
-move_unit_to_cannon_inner = function(_unit, _unit_index, _unit_count)
+cannon_inner_position_get = function(_unit_index, _unit_count)
 {
-	if (!instance_exists(_unit) || !instance_exists(o_cannon))
+	if (!instance_exists(o_cannon))
 	{
-		return;
+		return [0, 0];
 	}
 
 	var _cannon = instance_find(o_cannon, 0);
@@ -1107,10 +1159,64 @@ move_unit_to_cannon_inner = function(_unit, _unit_index, _unit_count)
 	var _regroup_x = _cannon.x - (((_safe_column_count - 1) * BALANCE_DAY_CANNON_REGROUP_SPACING) * 0.5);
 	var _regroup_y = _cannon.y + BALANCE_DAY_CANNON_REGROUP_OFFSET_Y;
 
-	_unit.x = _regroup_x + (_column * BALANCE_DAY_CANNON_REGROUP_SPACING);
-	_unit.y = _regroup_y + ((_row - ((_row_count - 1) * 0.5)) * BALANCE_DAY_CANNON_REGROUP_SPACING);
+	return [
+		_regroup_x + (_column * BALANCE_DAY_CANNON_REGROUP_SPACING),
+		_regroup_y + ((_row - ((_row_count - 1) * 0.5)) * BALANCE_DAY_CANNON_REGROUP_SPACING)
+	];
+};
+
+move_unit_to_cannon_inner = function(_unit, _unit_index, _unit_count)
+{
+	if (!instance_exists(_unit) || !instance_exists(o_cannon))
+	{
+		return;
+	}
+
+	var _position = cannon_inner_position_get(_unit_index, _unit_count);
+
+	_unit.x = _position[0];
+	_unit.y = _position[1];
 	_unit.drag_drop_x = _unit.x;
 	_unit.drag_drop_y = _unit.y;
+};
+
+move_spawned_summoned_unit_to_cannon_inner = function(_unit)
+{
+	if (!instance_exists(_unit) || !instance_exists(o_cannon))
+	{
+		return;
+	}
+
+	var _friendly_count = instance_number(o_friendly_units);
+	var _summoned_count = 0;
+
+	for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_index)
+	{
+		var _friendly_unit = instance_find(o_friendly_units, _friendly_index);
+
+		if (instance_exists(_friendly_unit)
+			&& variable_instance_exists(_friendly_unit, "summon_nights_remaining"))
+		{
+			_summoned_count++;
+		}
+	}
+
+	var _unit_index = max(0, _summoned_count - 1);
+	var _position = cannon_inner_position_get(_unit_index, max(1, _summoned_count));
+
+	clear_cultist_building_assignment(_unit);
+
+	if (variable_instance_exists(_unit, "regroup_is_active"))
+	{
+		_unit.regroup_is_active = true;
+		_unit.regroup_target_x = _position[0];
+		_unit.regroup_target_y = _position[1];
+		_unit.rally_is_active = false;
+		_unit.rally_is_returning = false;
+		_unit.rally_has_arrived = false;
+		_unit.drag_drop_x = _position[0];
+		_unit.drag_drop_y = _position[1];
+	}
 };
 
 move_unit_outside_cannon_wall = function(_unit, _unit_index, _unit_count)
@@ -1230,13 +1336,21 @@ transform_demons_to_cultists = function()
 
 		clear_cultist_building_assignment(_unit);
 
+		global.cultist_sprite_randomization_enabled = false;
 		var _cultist = instance_create_layer(_unit.x, _unit.y, "Instances", o_cultist);
+		global.cultist_sprite_randomization_enabled = true;
 		var _unit_hp = _unit.hp;
 
 		_cultist.cultist_name = _unit.cultist_name;
 		_cultist.cultist_points = _unit.cultist_points;
 		_cultist.demon_type = _unit.demon_type;
 		_cultist.demon_ability = _unit.demon_ability;
+
+		if (variable_instance_exists(_unit, "cultist_sprite_index"))
+		{
+			_cultist.cultist_sprite_index = _unit.cultist_sprite_index;
+			_cultist.sprite_index = _unit.cultist_sprite_index;
+		}
 
 		if (variable_instance_exists(_unit, "cultist_starting_abilities"))
 		{
@@ -1350,12 +1464,401 @@ update_summoned_unit_night_life = function()
 	}
 };
 
+night_attack_total_difficulty_get = function()
+{
+	return BALANCE_NIGHT_ATTACK_DIFFICULTY_BASE
+		+ ((max(1, night_attack_night_index) - 1) * BALANCE_NIGHT_ATTACK_DIFFICULTY_INCREASE_PER_NIGHT);
+};
+
+night_attack_enemy_difficulty_get = function(_enemy_object)
+{
+	if (_enemy_object == o_enemy_peasant)
+	{
+		return BALANCE_ENEMY_PEASANT_DIFFICULTY;
+	}
+	else if (_enemy_object == o_enemy_archer)
+	{
+		return BALANCE_ENEMY_ARCHER_DIFFICULTY;
+	}
+	else if (_enemy_object == o_enemy_knight)
+	{
+		return BALANCE_ENEMY_KNIGHT_DIFFICULTY;
+	}
+	else if (_enemy_object == o_enemy_mage)
+	{
+		return BALANCE_ENEMY_MAGE_DIFFICULTY;
+	}
+
+	return 1;
+};
+
+night_attack_min_enemy_difficulty_get = function(_enemy_objects)
+{
+	var _enemy_count = array_length(_enemy_objects);
+	var _min_difficulty = infinity;
+
+	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	{
+		_min_difficulty = min(_min_difficulty, night_attack_enemy_difficulty_get(_enemy_objects[_enemy_index]));
+	}
+
+	return max(1, _min_difficulty);
+};
+
+night_attack_unit_pair_roll = function(_previous_pair)
+{
+	var _unit_count = array_length(night_attack_unit_pool);
+	var _first_index = irandom(_unit_count - 1);
+	var _second_index = irandom(_unit_count - 2);
+
+	if (_second_index >= _first_index)
+	{
+		_second_index++;
+	}
+
+	var _pair = [
+		night_attack_unit_pool[_first_index],
+		night_attack_unit_pool[_second_index]
+	];
+
+	if (array_length(_previous_pair) <= 0)
+	{
+		return _pair;
+	}
+
+	// Reroll a few times so both directions do not advertise the same unit set.
+	for (var _attempt_index = 0; _attempt_index < 20; ++_attempt_index)
+	{
+		var _has_same_pair = (_pair[0] == _previous_pair[0] && _pair[1] == _previous_pair[1])
+			|| (_pair[0] == _previous_pair[1] && _pair[1] == _previous_pair[0]);
+
+		if (!_has_same_pair)
+		{
+			break;
+		}
+
+		_first_index = irandom(_unit_count - 1);
+		_second_index = irandom(_unit_count - 2);
+
+		if (_second_index >= _first_index)
+		{
+			_second_index++;
+		}
+
+		_pair = [
+			night_attack_unit_pool[_first_index],
+			night_attack_unit_pool[_second_index]
+		];
+	}
+
+	return _pair;
+};
+
+night_attack_wave_count_get = function(_direction_difficulty, _enemy_objects)
+{
+	var _wave_count = max(1, BALANCE_NIGHT_ATTACK_WAVE_COUNT);
+	var _wave_difficulty = _direction_difficulty / _wave_count;
+	var _min_difficulty = night_attack_min_enemy_difficulty_get(_enemy_objects);
+	var _estimated_enemy_count = floor(_wave_difficulty / _min_difficulty);
+
+	if (_estimated_enemy_count < BALANCE_NIGHT_ATTACK_MIN_UNITS_PER_WAVE)
+	{
+		_wave_count = max(1, BALANCE_NIGHT_ATTACK_LOW_UNIT_WAVE_COUNT);
+	}
+
+	return _wave_count;
+};
+
+night_attack_wave_units_create = function(_enemy_objects, _wave_difficulty)
+{
+	var _wave_units = [];
+	var _spent_difficulty = 0;
+	var _enemy_count = array_length(_enemy_objects);
+	var _min_difficulty = night_attack_min_enemy_difficulty_get(_enemy_objects);
+
+	for (var _pick_index = 0; _pick_index < 200; ++_pick_index)
+	{
+		if (_spent_difficulty + _min_difficulty > _wave_difficulty)
+		{
+			break;
+		}
+
+		var _affordable_units = [];
+
+		for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+		{
+			var _enemy_object = _enemy_objects[_enemy_index];
+			var _enemy_difficulty = night_attack_enemy_difficulty_get(_enemy_object);
+
+			if (_spent_difficulty + _enemy_difficulty <= _wave_difficulty)
+			{
+				array_push(_affordable_units, _enemy_object);
+			}
+		}
+
+		if (array_length(_affordable_units) <= 0)
+		{
+			break;
+		}
+
+		var _picked_object = _affordable_units[irandom(array_length(_affordable_units) - 1)];
+
+		array_push(_wave_units, _picked_object);
+		_spent_difficulty += night_attack_enemy_difficulty_get(_picked_object);
+	}
+
+	// Always release at least one enemy when a tiny budget remains.
+	if (array_length(_wave_units) <= 0 && _wave_difficulty > 0)
+	{
+		var _cheapest_object = _enemy_objects[0];
+		var _cheapest_difficulty = night_attack_enemy_difficulty_get(_cheapest_object);
+
+		for (var _cheapest_index = 1; _cheapest_index < _enemy_count; ++_cheapest_index)
+		{
+			var _candidate_object = _enemy_objects[_cheapest_index];
+			var _candidate_difficulty = night_attack_enemy_difficulty_get(_candidate_object);
+
+			if (_candidate_difficulty < _cheapest_difficulty)
+			{
+				_cheapest_object = _candidate_object;
+				_cheapest_difficulty = _candidate_difficulty;
+			}
+		}
+
+		array_push(_wave_units, _cheapest_object);
+	}
+
+	return _wave_units;
+};
+
+night_attack_plan_create = function()
+{
+	var _direction_count = max(1, BALANCE_NIGHT_ATTACK_DIRECTION_COUNT);
+	var _total_difficulty = night_attack_total_difficulty_get();
+	var _direction_difficulty = min(
+		_total_difficulty / _direction_count,
+		BALANCE_NIGHT_ATTACK_DIRECTION_DIFFICULTY_MAX
+	);
+	var _first_direction = random(360);
+	var _second_direction_offset = random_range(
+		BALANCE_NIGHT_ATTACK_DIRECTION_MIN_ANGLE,
+		BALANCE_NIGHT_ATTACK_DIRECTION_MAX_ANGLE
+	);
+
+	if (choose(true, false))
+	{
+		_second_direction_offset = -_second_direction_offset;
+	}
+
+	var _directions = [_first_direction];
+
+	if (_direction_count > 1)
+	{
+		array_push(_directions, (_first_direction + _second_direction_offset + 360) mod 360);
+	}
+
+	night_attack_directions = [];
+
+	var _previous_pair = [];
+
+	for (var _direction_index = 0; _direction_index < _direction_count; ++_direction_index)
+	{
+		var _direction = _directions[_direction_index mod array_length(_directions)];
+		var _enemy_objects = night_attack_unit_pair_roll(_previous_pair);
+		var _wave_count = night_attack_wave_count_get(_direction_difficulty, _enemy_objects);
+
+		_previous_pair = _enemy_objects;
+
+		array_push(
+			night_attack_directions,
+			{
+				direction: _direction,
+				enemy_objects: _enemy_objects,
+				direction_difficulty: _direction_difficulty,
+				wave_count: _wave_count,
+				wave_difficulty: _direction_difficulty / _wave_count,
+				wave_index: 0,
+				wave_timer: 0,
+				spawn_timer: 0,
+				current_wave_units: [],
+				current_wave_spawn_index: 0
+			}
+		);
+	}
+
+	night_attack_plan_exists = true;
+};
+
+night_attack_direction_wave_start = function(_direction_index)
+{
+	var _direction_data = night_attack_directions[_direction_index];
+
+	_direction_data.current_wave_units = night_attack_wave_units_create(
+		_direction_data.enemy_objects,
+		_direction_data.wave_difficulty
+	);
+	_direction_data.current_wave_spawn_index = 0;
+	_direction_data.spawn_timer = 0;
+	night_attack_directions[_direction_index] = _direction_data;
+};
+
+night_attack_enemy_spawn = function(_direction_data, _enemy_object)
+{
+	if (!instance_exists(o_cannon))
+	{
+		return;
+	}
+
+	var _cannon = instance_find(o_cannon, 0);
+	var _spawn_x = _cannon.x + lengthdir_x(BALANCE_NIGHT_ATTACK_SPAWN_DISTANCE, _direction_data.direction);
+	var _spawn_y = _cannon.y + lengthdir_y(BALANCE_NIGHT_ATTACK_SPAWN_DISTANCE, _direction_data.direction);
+	var _side_offset = random_range(-BALANCE_NIGHT_ATTACK_SPAWN_SPREAD_RADIUS, BALANCE_NIGHT_ATTACK_SPAWN_SPREAD_RADIUS);
+	var _forward_offset = random_range(
+		-BALANCE_NIGHT_ATTACK_SPAWN_SPREAD_RADIUS * 0.25,
+		BALANCE_NIGHT_ATTACK_SPAWN_SPREAD_RADIUS * 0.25
+	);
+
+	_spawn_x += lengthdir_x(_side_offset, _direction_data.direction + 90)
+		+ lengthdir_x(_forward_offset, _direction_data.direction);
+	_spawn_y += lengthdir_y(_side_offset, _direction_data.direction + 90)
+		+ lengthdir_y(_forward_offset, _direction_data.direction);
+
+	var _enemy = instance_create_layer(_spawn_x, _spawn_y, "Instances", _enemy_object);
+
+	_enemy.unit_can_attack_cannon = true;
+	_enemy.is_night_attack_unit = true;
+	_enemy.owner_garnizon = noone;
+	_enemy.guard_target = noone;
+	global.night_attack_unit_count++;
+};
+
+night_attack_spawning_update = function()
+{
+	if (global.pause || global.day_phase != DAY_PHASE.NIGHT || !night_attack_plan_exists)
+	{
+		return;
+	}
+
+	var _direction_count = array_length(night_attack_directions);
+
+	for (var _direction_index = 0; _direction_index < _direction_count; ++_direction_index)
+	{
+		var _direction_data = night_attack_directions[_direction_index];
+
+		if (_direction_data.wave_index >= _direction_data.wave_count)
+		{
+			continue;
+		}
+
+		if (_direction_data.wave_timer > 0)
+		{
+			_direction_data.wave_timer--;
+			night_attack_directions[_direction_index] = _direction_data;
+			continue;
+		}
+
+		if (array_length(_direction_data.current_wave_units) <= 0)
+		{
+			night_attack_direction_wave_start(_direction_index);
+			_direction_data = night_attack_directions[_direction_index];
+		}
+
+		if (_direction_data.spawn_timer > 0)
+		{
+			_direction_data.spawn_timer--;
+			night_attack_directions[_direction_index] = _direction_data;
+			continue;
+		}
+
+		var _wave_unit_count = array_length(_direction_data.current_wave_units);
+
+		for (var _batch_index = 0; _batch_index < BALANCE_NIGHT_ATTACK_SPAWN_BATCH_COUNT; ++_batch_index)
+		{
+			if (_direction_data.current_wave_spawn_index >= _wave_unit_count)
+			{
+				break;
+			}
+
+			var _enemy_object = _direction_data.current_wave_units[_direction_data.current_wave_spawn_index];
+
+			night_attack_enemy_spawn(_direction_data, _enemy_object);
+			_direction_data.current_wave_spawn_index++;
+		}
+
+		if (_direction_data.current_wave_spawn_index >= _wave_unit_count)
+		{
+			_direction_data.wave_index++;
+			_direction_data.current_wave_units = [];
+			_direction_data.current_wave_spawn_index = 0;
+
+			if (_direction_data.wave_index < _direction_data.wave_count)
+			{
+				_direction_data.wave_timer = BALANCE_NIGHT_ATTACK_WAVE_INTERVAL * room_speed;
+			}
+		}
+
+		_direction_data.spawn_timer = BALANCE_NIGHT_ATTACK_UNIT_SPAWN_INTERVAL * room_speed;
+		night_attack_directions[_direction_index] = _direction_data;
+	}
+};
+
+night_attack_all_waves_spawned = function()
+{
+	if (!night_attack_plan_exists)
+	{
+		return false;
+	}
+
+	var _direction_count = array_length(night_attack_directions);
+
+	for (var _direction_index = 0; _direction_index < _direction_count; ++_direction_index)
+	{
+		var _direction_data = night_attack_directions[_direction_index];
+
+		if (_direction_data.wave_index < _direction_data.wave_count)
+		{
+			return false;
+		}
+	}
+
+	return true;
+};
+
+night_attack_alive_enemy_exists = function()
+{
+	var _enemy_count = instance_number(o_enemy_units);
+
+	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	{
+		var _enemy = instance_find(o_enemy_units, _enemy_index);
+
+		if (instance_exists(_enemy)
+			&& (!variable_instance_exists(_enemy, "hp") || _enemy.hp > 0))
+		{
+			return true;
+		}
+	}
+
+	return false;
+};
+
+night_attack_is_complete = function()
+{
+	return night_attack_all_waves_spawned()
+		&& !night_attack_alive_enemy_exists();
+};
+
 start_night_phase = function()
 {
 	clear_dragged_unit();
 	global.day_phase = DAY_PHASE.NIGHT;
 	global.day_timer = global.night_duration * room_speed;
 	global.night_attack_unit_count = 0;
+
+	if (!night_attack_plan_exists)
+	{
+		night_attack_plan_create();
+	}
 
 	start_cultists_loading_into_cannon();
 	move_summoned_units_outside_cannon_wall();
@@ -1393,6 +1896,7 @@ start_day_phase = function()
 	global.day_phase = DAY_PHASE.DAY;
 	global.day_timer = global.day_duration * room_speed;
 	global.night_attack_unit_count = 0;
+	night_attack_night_index++;
 
 	fade_out_morning_meat();
 	update_summoned_unit_night_life();
@@ -1400,6 +1904,7 @@ start_day_phase = function()
 	transform_demons_to_cultists();
 	move_cultists_to_cannon_inner();
 	move_summoned_units_to_cannon_inner();
+	night_attack_plan_create();
 	award_cultist_night_exp();
 };
 
@@ -1511,6 +2016,9 @@ add_cultist_level_ability = function(_ability)
 		global.focus_window = FOCUS_WINDOW.NOONE;
 	}
 };
+
+// The first daytime preview is available immediately when the room starts.
+night_attack_plan_create();
 
 // Window setup for a non-stretched 16:9 camera.
 window_set_size(base_view_width, base_view_height);

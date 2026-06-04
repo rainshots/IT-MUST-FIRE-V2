@@ -32,24 +32,36 @@ for (var _cell_x = 0; _cell_x < grid_width; ++_cell_x)
 
 		if (_corruption >= full_corruption_value)
 		{
-			var _left_cell = clamp(_cell_x - reveal_radius_in_cells, 0, grid_width - 1);
-			var _right_cell = clamp(_cell_x + reveal_radius_in_cells, 0, grid_width - 1);
-			var _top_cell = clamp(_cell_y - reveal_radius_in_cells, 0, grid_height - 1);
-			var _bottom_cell = clamp(_cell_y + reveal_radius_in_cells, 0, grid_height - 1);
+			fog_circle_reveal(_cell_x, _cell_y, reveal_radius_in_cells);
+		}
+	}
+}
 
-			for (var _reveal_cell_x = _left_cell; _reveal_cell_x <= _right_cell; ++_reveal_cell_x)
+// Combat demons reveal nearby fog during the night.
+if (global.day_phase == DAY_PHASE.NIGHT && demon_reveal_radius_in_cells > 0)
+{
+	var _friendly_count = instance_number(o_friendly_units);
+
+	for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_index)
+	{
+		var _friendly_unit = instance_find(o_friendly_units, _friendly_index);
+		var _is_combat_demon = instance_exists(_friendly_unit)
+			&& variable_instance_exists(_friendly_unit, "demon_type")
+			&& _friendly_unit.demon_type != DEMON_TYPE.NONE
+			&& (!variable_instance_exists(_friendly_unit, "hp") || _friendly_unit.hp > 0);
+
+		if (_is_combat_demon)
+		{
+			var _demon_cell_x = floor(_friendly_unit.x / cell_size);
+			var _demon_cell_y = floor(_friendly_unit.y / cell_size);
+			var _is_inside_grid = _demon_cell_x >= 0
+				&& _demon_cell_x < grid_width
+				&& _demon_cell_y >= 0
+				&& _demon_cell_y < grid_height;
+
+			if (_is_inside_grid)
 			{
-				for (var _reveal_cell_y = _top_cell; _reveal_cell_y <= _bottom_cell; ++_reveal_cell_y)
-				{
-					var _distance_x = _reveal_cell_x - _cell_x;
-					var _distance_y = _reveal_cell_y - _cell_y;
-					var _cell_distance = point_distance(0, 0, _distance_x, _distance_y);
-
-					if (_cell_distance <= reveal_radius_in_cells)
-					{
-						ds_grid_set(fog_grid, _reveal_cell_x, _reveal_cell_y, revealed_alpha);
-					}
-				}
+				fog_circle_reveal(_demon_cell_x, _demon_cell_y, demon_reveal_radius_in_cells);
 			}
 		}
 	}

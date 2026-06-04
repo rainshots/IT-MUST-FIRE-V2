@@ -475,21 +475,21 @@ if (!application_surface_ready && surface_exists(application_surface))
 	application_surface_ready = true;
 }
 
-// Update the timer-based day and night cycle.
+// Update the day timer and let night end only after the attack is cleared.
 if (!global.pause && global.day_cycle_enabled)
 {
-	global.day_timer--;
-
-	if (global.day_timer <= 0)
+	if (global.day_phase == DAY_PHASE.DAY)
 	{
-		if (global.day_phase == DAY_PHASE.DAY)
+		global.day_timer--;
+
+		if (global.day_timer <= 0)
 		{
 			start_night_phase();
 		}
-		else
-		{
-			start_day_phase();
-		}
+	}
+	else if (global.day_phase == DAY_PHASE.NIGHT)
+	{
+		global.day_timer = max(global.day_timer - 1, 0);
 	}
 }
 
@@ -543,7 +543,8 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION && mouse_check_b
 {
 	var _mouse_x = device_mouse_x_to_gui(0);
 	var _mouse_y = device_mouse_y_to_gui(0);
-	var _panel_x = (camera_view_width - cultist_panel_width) * 0.5;
+	var _panel_width = cultist_demon_selection_panel_width;
+	var _panel_x = (camera_view_width - _panel_width) * 0.5;
 	var _panel_y = (camera_view_height - cultist_panel_height) * 0.5;
 	var _button_start_x = _panel_x + 70;
 	var _button_y = _panel_y + 360;
@@ -561,7 +562,7 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION && mouse_check_b
 		}
 	}
 
-	var _confirm_x = _panel_x + cultist_panel_width - 210;
+	var _confirm_x = _panel_x + _panel_width - 210;
 	var _confirm_y = _panel_y + cultist_panel_height - 78;
 	var _confirm_width = 150;
 	var _confirm_height = 44;
@@ -596,7 +597,8 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP && mouse_check_button_p
 	{
 		ensure_cultist_levelup_options(_cultist);
 		var _reward_type = cultist_level_reward_type_get(_cultist);
-		var _button_count = CULTIST_STAT.COUNT;
+		var _attribute_stat_order = [CULTIST_STAT.BODY, CULTIST_STAT.FERVOR, CULTIST_STAT.SPIRIT];
+		var _button_count = array_length(_attribute_stat_order);
 
 		if (_reward_type == CULTIST_LEVEL_REWARD.PASSIVE)
 		{
@@ -616,7 +618,7 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP && mouse_check_button_p
 			{
 				if (_reward_type == CULTIST_LEVEL_REWARD.ATTRIBUTE)
 				{
-					add_cultist_level_point(_choice_index);
+					add_cultist_level_point(_attribute_stat_order[_choice_index]);
 				}
 				else if (_reward_type == CULTIST_LEVEL_REWARD.PASSIVE)
 				{
@@ -698,6 +700,18 @@ if (!global.pause
 // Move night cultists into the cannon until they become queued projectiles.
 update_cultists_loading_into_cannon();
 
+// Release planned night attack waves while the night phase is active.
+night_attack_spawning_update();
+
+// Morning starts once every planned enemy has spawned and no enemies remain alive.
+if (!global.pause
+	&& global.day_cycle_enabled
+	&& global.day_phase == DAY_PHASE.NIGHT
+	&& night_attack_is_complete())
+{
+	start_day_phase();
+}
+
 // Start or update target selection mode from hotkeys when a queued projectile is ready.
 if (global.focus_window == FOCUS_WINDOW.NOONE
 	|| (global.cannon_projectile_cheat_enabled && global.focus_window == FOCUS_WINDOW.TARGET_SELECTION))
@@ -774,14 +788,27 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && mouse_check_button_p
 		var _camera_y = camera_get_view_y(_camera_controller.camera_id);
 		var _view_width = camera_get_view_width(_camera_controller.camera_id);
 		var _view_height = camera_get_view_height(_camera_controller.camera_id);
+		var _target_world_x = _camera_x + ((_mouse_x / camera_view_width) * _view_width);
+		var _target_world_y = _camera_y + ((_mouse_y / camera_view_height) * _view_height);
 
 		target_selection_projectile_type = global.cannon_projectile_queue[0];
-		global.cannon_target_exists = true;
-		global.cannon_target_x = _camera_x + ((_mouse_x / camera_view_width) * _view_width);
-		global.cannon_target_y = _camera_y + ((_mouse_y / camera_view_height) * _view_height);
-		global.cannon_target_projectile_type = target_selection_projectile_type;
-		global.cannon_target_version++;
-		global.focus_window = FOCUS_WINDOW.NOONE;
+		var _target_can_be_confirmed = true;
+
+		if (target_selection_projectile_type == PROJECTILE_TYPE.CULTIST
+			&& !world_position_is_revealed_by_fog(_target_world_x, _target_world_y))
+		{
+			_target_can_be_confirmed = false;
+		}
+
+		if (_target_can_be_confirmed)
+		{
+			global.cannon_target_exists = true;
+			global.cannon_target_x = _target_world_x;
+			global.cannon_target_y = _target_world_y;
+			global.cannon_target_projectile_type = target_selection_projectile_type;
+			global.cannon_target_version++;
+			global.focus_window = FOCUS_WINDOW.NOONE;
+		}
 	}
 }
 

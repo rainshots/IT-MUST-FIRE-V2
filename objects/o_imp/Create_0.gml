@@ -2,8 +2,8 @@
 event_inherited();
 
 // Demon sprites are scaled up for readability.
-image_xscale = 1;
-image_yscale = 1;
+image_xscale = 1.5;
+image_yscale = 1.5;
 
 // Default possession data is replaced by the controller when transformed.
 cultist_name = "Imp";

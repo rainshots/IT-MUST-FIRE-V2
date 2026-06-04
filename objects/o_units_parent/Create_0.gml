@@ -34,6 +34,12 @@ rally_is_active = false;
 rally_is_returning = false;
 rally_has_arrived = false;
 
+// Regroup movement sends newly spawned friendly summons toward the cannon day area.
+regroup_is_active = false;
+regroup_target_x = x;
+regroup_target_y = y;
+regroup_arrive_radius = BALANCE_PROJECTILE_RALLY_ARRIVE_RADIUS;
+
 // Optional guard behavior is used by spawned defenders.
 owner_garnizon = noone;
 guard_target = noone;
@@ -353,7 +359,42 @@ unit_move_speed_multiplier_get = function()
 		_move_multiplier *= imp_blood_frenzy_move_multiplier_get();
 	}
 
+	if (unit_faction == UNIT_FACTION.ENEMY && unit_is_hidden_by_fog())
+	{
+		_move_multiplier *= BALANCE_ENEMY_HIDDEN_MOVE_SPEED_MULTIPLIER;
+	}
+
 	return _move_multiplier;
+};
+
+unit_is_hidden_by_fog = function()
+{
+	if (!global.fog_of_war_visible || !instance_exists(o_fog_of_war))
+	{
+		return false;
+	}
+
+	var _fog_of_war = instance_find(o_fog_of_war, 0);
+
+	if (!variable_instance_exists(_fog_of_war, "fog_grid"))
+	{
+		return false;
+	}
+
+	var _cell_x = floor(x / _fog_of_war.cell_size);
+	var _cell_y = floor(y / _fog_of_war.cell_size);
+	var _is_inside_fog_grid = _cell_x >= 0
+		&& _cell_x < _fog_of_war.grid_width
+		&& _cell_y >= 0
+		&& _cell_y < _fog_of_war.grid_height;
+
+	if (!_is_inside_fog_grid)
+	{
+		return false;
+	}
+
+	var _fog_alpha = ds_grid_get(_fog_of_war.fog_grid, _cell_x, _cell_y);
+	return _fog_alpha >= _fog_of_war.hidden_alpha;
 };
 
 unit_crit_chance_get = function()

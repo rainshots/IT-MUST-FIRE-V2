@@ -31,8 +31,8 @@
   "resourceVersion":"2.0",
   "solid":false,
   "spriteId":{
-    "name":"s_cultist01",
-    "path":"sprites/s_cultist01/s_cultist01.yy",
+    "name":"s_cultist_01",
+    "path":"sprites/s_cultist_01/s_cultist_01.yy",
   },
   "spriteMaskId":null,
   "visible":true,

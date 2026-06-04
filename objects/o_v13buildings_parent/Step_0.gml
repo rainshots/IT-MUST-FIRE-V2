@@ -204,7 +204,17 @@ if (summon_unit_object != noone)
 		var _spawn_x = x + lengthdir_x(_spawn_distance, _spawn_direction);
 		var _spawn_y = y + lengthdir_y(_spawn_distance, _spawn_direction);
 
-		instance_create_layer(_spawn_x, _spawn_y, "Instances", summon_unit_object);
+		var _summoned_unit = instance_create_layer(_spawn_x, _spawn_y, "Instances", summon_unit_object);
+
+		if (instance_exists(o_game_controller))
+		{
+			var _game_controller = instance_find(o_game_controller, 0);
+
+			if (variable_instance_exists(_game_controller, "move_spawned_summoned_unit_to_cannon_inner"))
+			{
+				_game_controller.move_spawned_summoned_unit_to_cannon_inner(_summoned_unit);
+			}
+		}
 
 		summon_progress -= 1;
 		summon_has_paid_cost = false;

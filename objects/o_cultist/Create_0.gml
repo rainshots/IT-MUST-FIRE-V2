@@ -3,6 +3,50 @@ cultist_name = "";
 demon_type = DEMON_TYPE.NONE;
 demon_ability = DEMON_ABILITY.NONE;
 
+image_xscale = 0.7;
+image_yscale = image_xscale;
+// Day-form cultists use a random available cultist sprite variant.
+var _should_pick_random_cultist_sprite = !variable_global_exists("cultist_sprite_randomization_enabled")
+	|| global.cultist_sprite_randomization_enabled;
+
+if (_should_pick_random_cultist_sprite)
+{
+	// Draw from a shared pool so cultist sprites do not repeat until every variant was used.
+	if (!variable_global_exists("cultist_all_sprite_indices")
+		|| array_length(global.cultist_all_sprite_indices) <= 0)
+	{
+		global.cultist_all_sprite_indices = [s_cultist_01, s_cultist_02, s_cultist_03, s_cultist_04];
+	}
+
+	if (!variable_global_exists("cultist_available_sprite_indices")
+		|| array_length(global.cultist_available_sprite_indices) <= 0)
+	{
+		global.cultist_available_sprite_indices = global.cultist_all_sprite_indices;
+	}
+
+	var _available_cultist_sprite_count = array_length(global.cultist_available_sprite_indices);
+
+	if (_available_cultist_sprite_count > 0)
+	{
+		var _selected_sprite_pool_index = irandom(_available_cultist_sprite_count - 1);
+		sprite_index = global.cultist_available_sprite_indices[_selected_sprite_pool_index];
+
+		var _remaining_cultist_sprites = [];
+
+		for (var _pool_index = 0; _pool_index < _available_cultist_sprite_count; ++_pool_index)
+		{
+			if (_pool_index != _selected_sprite_pool_index)
+			{
+				array_push(_remaining_cultist_sprites, global.cultist_available_sprite_indices[_pool_index]);
+			}
+		}
+
+		global.cultist_available_sprite_indices = _remaining_cultist_sprites;
+	}
+}
+
+cultist_sprite_index = sprite_index;
+
 // Starting active abilities are rolled before demon selection so the player can preview them.
 cultist_starting_abilities = array_create(DEMON_TYPE.BRUTE + 1, DEMON_ABILITY.NONE);
 cultist_starting_abilities[DEMON_TYPE.IMP] = cultist_ability_roll(DEMON_TYPE.IMP);

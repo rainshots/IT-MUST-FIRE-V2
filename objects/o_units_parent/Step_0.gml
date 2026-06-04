@@ -198,7 +198,7 @@ else if (!_special_behavior_handled && _is_friendly_unit)
 		var _cannon = instance_find(o_cannon, 0);
 		var _distance_to_cannon = point_distance(x, y, _cannon.x, _cannon.y);
 
-		if (!rally_is_active && !is_wall_blocked_friendly_unit() && _distance_to_cannon > cannon_guard_radius)
+		if (!regroup_is_active && !rally_is_active && !is_wall_blocked_friendly_unit() && _distance_to_cannon > cannon_guard_radius)
 		{
 			target_instance = _cannon;
 		}
@@ -242,6 +242,21 @@ if (!_special_behavior_handled && instance_exists(target_instance))
 	else
 	{
 		move_towards_target(target_instance);
+	}
+}
+else if (!_special_behavior_handled && _is_friendly_unit && regroup_is_active)
+{
+	var _regroup_distance = point_distance(x, y, regroup_target_x, regroup_target_y);
+
+	if (_regroup_distance <= regroup_arrive_radius)
+	{
+		regroup_is_active = false;
+		drag_drop_x = x;
+		drag_drop_y = y;
+	}
+	else
+	{
+		move_towards_world_point(regroup_target_x, regroup_target_y);
 	}
 }
 else if (!_special_behavior_handled && _is_friendly_unit && rally_is_active)

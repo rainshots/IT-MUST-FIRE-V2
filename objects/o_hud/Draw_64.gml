@@ -82,7 +82,7 @@ if (variable_global_exists("day_phase"))
 	}
 	else if (global.day_phase == DAY_PHASE.NIGHT)
 	{
-		_phase_text = "NIGHT: " + string(_time_left);
+		_phase_text = "NIGHT";
 	}
 
 	draw_set_halign(fa_left);
@@ -96,14 +96,18 @@ if (variable_global_exists("day_phase"))
 	draw_text(_phase_x + day_phase_text_padding, _phase_y + (day_phase_item_height * 0.5), _phase_text);
 }
 
-// Draw queued cannon projectiles in the bottom-left HUD.
+// Draw queued cannon projectiles at the bottom center of the HUD.
 if (variable_global_exists("cannon_projectile_queue"))
 {
 	var _projectile_queue_count = array_length(global.cannon_projectile_queue);
 	var _projectile_mouse_x = device_mouse_x_to_gui(0);
 	var _projectile_mouse_y = device_mouse_y_to_gui(0);
+	var _gui_width = display_get_gui_width();
 	var _gui_height = display_get_gui_height();
-	var _projectile_base_y = _gui_height - projectile_queue_margin_bottom - projectile_slot_height;
+	var _projectile_base_y = _gui_height - projectile_queue_margin_bottom - projectile_slot_height - projectile_name_offset_y;
+	var _projectile_total_width = (projectile_slot_width * _projectile_queue_count)
+		+ (projectile_slot_gap * max(0, _projectile_queue_count - 1));
+	var _projectile_start_x = (_gui_width - _projectile_total_width) * 0.5;
 	var _hovered_projectile_index = -1;
 
 	draw_set_halign(fa_center);
@@ -112,7 +116,7 @@ if (variable_global_exists("cannon_projectile_queue"))
 	for (var _projectile_index = 0; _projectile_index < _projectile_queue_count; ++_projectile_index)
 	{
 		var _projectile_type = global.cannon_projectile_queue[_projectile_index];
-		var _slot_x = projectile_queue_margin_x + ((projectile_slot_width + projectile_slot_gap) * _projectile_index);
+		var _slot_x = _projectile_start_x + ((projectile_slot_width + projectile_slot_gap) * _projectile_index);
 		var _slot_y = _projectile_base_y;
 		var _slot_width = projectile_slot_width;
 		var _slot_height = projectile_slot_background_height;
@@ -185,6 +189,16 @@ if (variable_global_exists("cannon_projectile_queue"))
 		}
 
 		draw_text(_slot_x + (_slot_width * 0.5), _slot_y + projectile_name_offset_y, _projectile_name);
+
+		if (_is_current_projectile)
+		{
+			draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+			draw_text(
+				_slot_x + (_slot_width * 0.5),
+				_slot_y + _slot_height + projectile_aim_prompt_gap,
+				projectile_aim_prompt_text
+			);
+		}
 	}
 
 	var _description_projectile_index = _hovered_projectile_index;
@@ -197,7 +211,7 @@ if (variable_global_exists("cannon_projectile_queue"))
 	if (_description_projectile_index >= 0)
 	{
 		var _description_type = global.cannon_projectile_queue[_description_projectile_index];
-		var _description_x = projectile_queue_margin_x;
+		var _description_x = (_gui_width - projectile_description_width) * 0.5;
 		var _description_y = _projectile_base_y - projectile_description_height - projectile_description_gap;
 
 		draw_set_halign(fa_left);

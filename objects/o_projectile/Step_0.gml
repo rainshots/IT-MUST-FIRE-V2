@@ -182,6 +182,13 @@ if (_flight_progress >= 1)
 
 			_demon.cultist_name = _cultist.cultist_name;
 			_demon.cultist_points = _cultist.cultist_points;
+			_demon.cultist_sprite_index = _cultist.sprite_index;
+
+			if (variable_instance_exists(_cultist, "cultist_sprite_index"))
+			{
+				_demon.cultist_sprite_index = _cultist.cultist_sprite_index;
+			}
+
 			_demon.demon_type = _cultist.demon_type;
 			_demon.demon_ability = _cultist.demon_ability;
 			_demon.cultist_starting_abilities = _cultist.cultist_starting_abilities;

@@ -42,8 +42,7 @@ corruption_update_interval = 0.25 * room_speed;
 corruption_update_timer = corruption_update_interval;
 corruption_display_color = COLOR_HUD_CORRUPTION;
 
-// Projectile queue display in the bottom-left corner.
-projectile_queue_margin_x = 18;
+// Projectile queue display at the bottom center of the HUD.
 projectile_queue_margin_bottom = 18;
 projectile_slot_width = 86;
 projectile_slot_height = 74;
@@ -53,6 +52,8 @@ projectile_circle_radius = 13;
 projectile_current_circle_radius = 17;
 projectile_current_scale_padding = 5;
 projectile_name_offset_y = 40;
+projectile_aim_prompt_gap = 6;
+projectile_aim_prompt_text = "Press 1 to aim";
 projectile_description_width = 330;
 projectile_description_height = 58;
 projectile_description_gap = 8;
