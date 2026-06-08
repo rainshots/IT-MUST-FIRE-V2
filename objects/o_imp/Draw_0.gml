@@ -1,10 +1,44 @@
+// Draw Crimson Guillotine ascent before the vertical strike lands.
+if (crimson_guillotine_strike_timer > 0)
+{
+	var _guillotine_elapsed = crimson_guillotine_strike_duration - crimson_guillotine_strike_timer;
+	var _ascent_progress = clamp(_guillotine_elapsed / max(1, crimson_guillotine_ascent_duration), 0, 1);
+	var _visual_x = crimson_guillotine_start_x;
+	var _visual_y = lerp(crimson_guillotine_start_y, crimson_guillotine_apex_y, _ascent_progress);
+
+	visual_attack_offset_x = _visual_x - x;
+	visual_attack_offset_y = _visual_y - y;
+	visual_offset_is_ability_controlled = true;
+
+	draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+	draw_set_alpha(0.65);
+	draw_line_width(crimson_guillotine_start_x, crimson_guillotine_start_y - 12, crimson_guillotine_start_x, _visual_y - 12, 3);
+
+	if (instance_exists(crimson_guillotine_target))
+	{
+		var _guillotine_level = max(1, imp_ability_level_get(DEMON_ABILITY.IMP_CRIMSON_GUILLOTINE));
+		var _aoe_radius = imp_crimson_guillotine_aoe_radius_get(_guillotine_level);
+
+		draw_set_alpha(0.28);
+		draw_circle(crimson_guillotine_target.x, crimson_guillotine_target.y, _aoe_radius, false);
+	}
+
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+}
 // Draw jump trajectory before the sprite while active ability movement is visible.
-if (leap_visual_timer > 0)
+else if (leap_visual_timer > 0)
 {
 	var _leap_progress = 1 - clamp(leap_visual_timer / max(1, leap_visual_duration), 0, 1);
-	var _arc_lift = sin(_leap_progress * pi) * leap_visual_arc_height;
+	var _arc_lift = 0;
 	var _visual_x = lerp(leap_visual_start_x, leap_visual_end_x, _leap_progress);
 	var _visual_y = lerp(leap_visual_start_y, leap_visual_end_y, _leap_progress) - _arc_lift;
+
+	if (leap_visual_start_x != leap_visual_end_x)
+	{
+		_arc_lift = sin(_leap_progress * pi) * leap_visual_arc_height;
+		_visual_y -= _arc_lift;
+	}
 
 	visual_attack_offset_x = _visual_x - x;
 	visual_attack_offset_y = _visual_y - y;
@@ -16,10 +50,24 @@ if (leap_visual_timer > 0)
 	draw_set_alpha(1);
 }
 
+// Draw active blood pools before unit visuals.
+for (var _pool_index = 0; _pool_index < array_length(blood_pool_data); ++_pool_index)
+{
+	var _pool = blood_pool_data[_pool_index];
+	var _pool_progress = clamp(_pool.timer / max(1, BALANCE_IMP_DEMON_LEAP_BLOOD_POOL_TIME * room_speed), 0, 1);
+
+	draw_set_alpha(0.28 * _pool_progress);
+	draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+	draw_circle(_pool.x, _pool.y, BALANCE_IMP_DEMON_LEAP_BLOOD_POOL_RADIUS, false);
+}
+
+draw_set_alpha(1);
+draw_set_color(c_white);
+
 // Draw base combat visuals.
 event_inherited();
 
-if (leap_visual_timer <= 0)
+if (leap_visual_timer <= 0 && crimson_guillotine_strike_timer <= 0)
 {
 	visual_attack_offset_x = 0;
 	visual_attack_offset_y = 0;
@@ -37,7 +85,45 @@ draw_set_valign(fa_middle);
 draw_set_color(COLOR_HUD_TEXT);
 draw_text(x, y - 42, cultist_name);
 
-// Draw compact Blood Frenzy stack bars below the health bar.
+// Draw Frenzy Echo phantom while the hit flash is active.
+if (frenzy_echo_visual_timer > 0)
+{
+	var _phantom_alpha = clamp(frenzy_echo_visual_timer / 12, 0, 1) * 0.55;
+
+	draw_set_alpha(_phantom_alpha);
+	draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+	draw_sprite_ext(sprite_index, image_index, frenzy_echo_visual_x, frenzy_echo_visual_y, image_xscale, image_yscale, 0, COLOR_STATUS_NEGATIVE_RED, _phantom_alpha);
+	draw_line_width(
+		frenzy_echo_visual_x,
+		frenzy_echo_visual_y - 12,
+		frenzy_echo_visual_x + lengthdir_x(34, frenzy_echo_visual_direction),
+		frenzy_echo_visual_y + lengthdir_y(34, frenzy_echo_visual_direction) - 12,
+		3
+	);
+	draw_set_alpha(1);
+}
+
+// Draw rotating Blood Blades around the Imp.
+if (imp_blood_blades_level_get() > 0)
+{
+	var _blade_count = imp_blood_blades_count_get();
+	var _blade_radius = imp_blood_blades_radius_get();
+
+	for (var _blade_index = 0; _blade_index < _blade_count; ++_blade_index)
+	{
+		var _blade_direction = blood_blades_angle + ((360 / _blade_count) * _blade_index);
+		var _blade_x = x + lengthdir_x(_blade_radius, _blade_direction);
+		var _blade_y = y + lengthdir_y(_blade_radius, _blade_direction);
+
+		draw_set_alpha(0.95);
+		draw_sprite_ext(s_blood_knife, 0, _blade_x, _blade_y, 1, 1, _blade_direction, c_white, 0.95);
+	}
+}
+
+draw_set_alpha(1);
+draw_set_color(c_white);
+
+// Draw compact Blood Hunger stack bars below the health bar.
 var _stack_count = imp_blood_frenzy_stack_count_get();
 
 if (_stack_count > 0)
@@ -84,10 +170,10 @@ if (cultist_active_ability_has(id, DEMON_ABILITY.IMP_DEMON_LEAP))
 	array_push(_cooldown_maxes, ability_cooldown_time_get(demon_leap_cooldown));
 	array_push(_cooldown_colors, COLOR_IMP_BLOOD_FRENZY);
 }
-if (cultist_active_ability_has(id, DEMON_ABILITY.IMP_SACRIFICIAL_RUSH))
+if (cultist_active_ability_has(id, DEMON_ABILITY.IMP_CRIMSON_GUILLOTINE))
 {
-	array_push(_cooldown_timers, sacrificial_rush_timer);
-	array_push(_cooldown_maxes, ability_cooldown_time_get(sacrificial_rush_cooldown));
+	array_push(_cooldown_timers, crimson_guillotine_timer);
+	array_push(_cooldown_maxes, ability_cooldown_time_get(crimson_guillotine_cooldown));
 	array_push(_cooldown_colors, COLOR_STATUS_NEGATIVE_RED);
 }
 if (cultist_active_ability_has(id, DEMON_ABILITY.IMP_BLOODY_CLONE))

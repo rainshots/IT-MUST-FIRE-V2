@@ -1,4 +1,4 @@
-// Pause freezes totem lifetime and curse ticks.
+// Pause freezes totem lifetime and damage ticks.
 if (global.pause)
 {
 	exit;
@@ -8,30 +8,36 @@ life_timer--;
 
 if (life_timer <= 0)
 {
+	hex_totem_explode();
 	instance_destroy();
 	exit;
 }
 
-// Curse nearby enemies on a periodic pulse.
-if (curse_tick_timer > 0)
+// Beam attacks repeatedly hit one or two nearest enemies.
+if (beam_timer > 0)
 {
-	curse_tick_timer--;
+	beam_timer--;
 }
 
-if (curse_tick_timer <= 0)
+if (beam_timer <= 0)
 {
-	hex_totem_curse_nearby_enemies();
-	curse_tick_timer = BALANCE_WARLOCK_HEX_TOTEM_TICK_TIME * room_speed;
+	hex_totem_beam_fire();
+	beam_timer = BALANCE_WARLOCK_HEX_TOTEM_BEAM_TIME * room_speed;
 }
 
-// Nearby meat extends the temporary totem lifetime.
-if (meat_check_timer > 0)
+if (beam_line_timer > 0)
 {
-	meat_check_timer--;
+	beam_line_timer--;
 }
 
-if (meat_check_timer <= 0)
+// Level 3 adds a cursed damage zone around the totem.
+if (zone_damage_timer > 0)
 {
-	hex_totem_meat_absorb_try();
-	meat_check_timer = BALANCE_WARLOCK_HEX_TOTEM_MEAT_CHECK_TIME * room_speed;
+	zone_damage_timer--;
+}
+
+if (zone_damage_timer <= 0)
+{
+	hex_totem_zone_damage_apply();
+	zone_damage_timer = BALANCE_WARLOCK_DEMONIC_INFUSION_TICK_TIME * room_speed;
 }

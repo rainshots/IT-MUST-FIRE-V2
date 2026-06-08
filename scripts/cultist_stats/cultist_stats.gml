@@ -134,6 +134,49 @@ function cultist_level_exp_required_get(_level)
 	return BALANCE_CULTIST_LEVEL_EXP_BASE + (max(1, _level) - 1) * BALANCE_CULTIST_LEVEL_EXP_STEP;
 }
 
+function cultist_demon_level_scale_get(_level)
+{
+	var _level_bonus_count = max(0, _level - 1);
+	var _level_scale = 1 + (_level_bonus_count * BALANCE_CULTIST_DEMON_LEVEL_SCALE_BONUS);
+
+	return min(_level_scale, BALANCE_CULTIST_DEMON_LEVEL_SCALE_MAX);
+}
+
+function cultist_demon_scale_apply(_demon)
+{
+	if (!instance_exists(_demon)
+		|| _demon.object_index == o_cultist
+		|| !variable_instance_exists(_demon, "demon_type")
+		|| _demon.demon_type == DEMON_TYPE.NONE
+		|| !variable_instance_exists(_demon, "current_lvl"))
+	{
+		return;
+	}
+
+	if (!variable_instance_exists(_demon, "demon_base_image_xscale"))
+	{
+		_demon.demon_base_image_xscale = abs(_demon.image_xscale);
+		_demon.demon_base_image_yscale = abs(_demon.image_yscale);
+	}
+
+	var _level_scale = cultist_demon_level_scale_get(_demon.current_lvl);
+	var _x_direction = sign(_demon.image_xscale);
+	var _y_direction = sign(_demon.image_yscale);
+
+	if (_x_direction == 0)
+	{
+		_x_direction = 1;
+	}
+
+	if (_y_direction == 0)
+	{
+		_y_direction = 1;
+	}
+
+	_demon.image_xscale = _x_direction * _demon.demon_base_image_xscale * _level_scale;
+	_demon.image_yscale = _y_direction * _demon.demon_base_image_yscale * _level_scale;
+}
+
 function cultist_exp_add(_cultist, _exp_amount)
 {
 	if (!instance_exists(_cultist)
@@ -156,6 +199,11 @@ function cultist_exp_add(_cultist, _exp_amount)
 	if (!variable_instance_exists(_cultist, "pending_active_choices"))
 	{
 		_cultist.pending_active_choices = 0;
+	}
+
+	if (!variable_instance_exists(_cultist, "pending_ability_upgrade_choices"))
+	{
+		_cultist.pending_ability_upgrade_choices = 0;
 	}
 
 	var _leveled_up = false;
@@ -188,6 +236,8 @@ function cultist_exp_add(_cultist, _exp_amount)
 
 		_cultist.current_exp -= _required_exp;
 		_cultist.current_lvl++;
+		cultist_demon_scale_apply(_cultist);
+		_cultist.pending_level_points += BALANCE_CULTIST_ATTRIBUTE_POINTS_PER_LEVEL;
 
 		if (_cultist.current_lvl == BALANCE_CULTIST_PASSIVE_CHOICE_LEVEL_1
 			|| _cultist.current_lvl == BALANCE_CULTIST_PASSIVE_CHOICE_LEVEL_2)
@@ -198,9 +248,9 @@ function cultist_exp_add(_cultist, _exp_amount)
 		{
 			_cultist.pending_active_choices++;
 		}
-		else
+		else if (_cultist.current_lvl >= 4 && array_length(cultist_ability_upgrade_options_roll(_cultist)) > 0)
 		{
-			_cultist.pending_level_points++;
+			_cultist.pending_ability_upgrade_choices++;
 		}
 
 		_leveled_up = true;
@@ -223,6 +273,18 @@ function cultist_level_reward_type_get(_cultist)
 		&& _cultist.pending_active_choices > 0)
 	{
 		return CULTIST_LEVEL_REWARD.ACTIVE;
+	}
+
+	if (instance_exists(_cultist)
+		&& variable_instance_exists(_cultist, "pending_ability_upgrade_choices")
+		&& _cultist.pending_ability_upgrade_choices > 0)
+	{
+		if (array_length(cultist_ability_upgrade_options_roll(_cultist)) > 0)
+		{
+			return CULTIST_LEVEL_REWARD.ABILITY_UPGRADE;
+		}
+
+		_cultist.pending_ability_upgrade_choices = 0;
 	}
 
 	return CULTIST_LEVEL_REWARD.ATTRIBUTE;
@@ -297,35 +359,35 @@ function cultist_demon_abilities_text_get(_demon_type)
 	if (_demon_type == DEMON_TYPE.IMP)
 	{
 		return "Passive abilities:"
-			+ "\n- Blood Frenzy: kills give stacking speed and crit for " + string(BALANCE_IMP_BLOOD_FRENZY_DURATION) + " sec"
-			+ "\n- Hellbleed: critical hits apply Bleed for " + string(BALANCE_IMP_HELLBLEED_DURATION) + " sec"
-			+ "\n- Taste of Fear: +" + string((BALANCE_IMP_TASTE_OF_FEAR_DAMAGE_MULTIPLIER - 1) * 100) + "% damage against disabled enemies"
+			+ "\n- Blood Blades: rotating blood knives damage enemies they pass through"
+			+ "\n- Frenzy Echo: repeated attacks create phantom Imp strikes"
+			+ "\n- Blood Hunger: kills grant short attack speed bursts"
 			+ "\nActive abilities:"
 			+ "\n- Demon Leap: jumps to the lowest HP enemy and crits"
-			+ "\n- Sacrificial Rush: spends HP for speed and crit"
-			+ "\n- Bloody Clone: leaves a short-lived copy and jumps away";
+			+ "\n- Bloody Clone: creates temporary Imp copies"
+			+ "\n- Crimson Guillotine: crashes down onto the highest HP enemy";
 	}
 	else if (_demon_type == DEMON_TYPE.WARLOCK)
 	{
 		return "Passive abilities:"
-			+ "\n- Soul Harvester: attacks apply Soul Mark for " + string(BALANCE_WARLOCK_SOUL_HARVESTER_MARK_TIME) + " sec"
-			+ "\n- Curseweaver: every " + string(BALANCE_WARLOCK_CURSEWEAVER_ATTACKS_REQUIRED) + "rd attack curses enemies near the target"
-			+ "\n- Demonic Infusion: nearby allies gain +" + string(BALANCE_WARLOCK_DEMONIC_INFUSION_ATTACK_SPEED_BONUS * 100) + "% attack speed"
+			+ "\n- Demonic Infusion: heals nearby allies and later speeds their attacks"
+			+ "\n- Soul Engine: gathers nearby enemy souls and fires homing skulls"
+			+ "\n- Familiar: summons demonic familiars that attack nearby enemies"
 			+ "\nActive abilities:"
-			+ "\n- Raise Lesser Demon: spends nearby meat to summon a Pitling"
+			+ "\n- Summon Skeletons: creates temporary skeletons near Warlock"
 			+ "\n- Soul Chain: links enemies and shares damage"
-			+ "\n- Hex Totem: creates a temporary curse totem";
+			+ "\n- Hex Totem: creates a temporary beam totem";
 	}
 	else if (_demon_type == DEMON_TYPE.BRUTE)
 	{
 		return "Passive abilities:"
-			+ "\n- Corpse Eater: eats nearby meat to heal " + string(BALANCE_BRUTE_CORPSE_EATER_HEAL_MAX_HP_SHARE * 100) + "% HP"
+			+ "\n- Corpse Eater: eats nearby corpses to heal " + string(BALANCE_BRUTE_CORPSE_EATER_HEAL_MAX_HP_SHARE * 100) + "% HP"
 			+ "\n- Rotten Aura: nearby enemies take constant magic damage"
-			+ "\n- Cursed Flesh: cursed enemies near Brute drop meat more often"
+			+ "\n- Blood Anvil: nearby demon active abilities recharge Brute actives"
 			+ "\nActive abilities:"
 			+ "\n- Grave Slam: AOE damage and stun"
-			+ "\n- Meat Hook: pulls the highest HP enemy"
-			+ "\n- Devour: executes low HP enemies";
+			+ "\n- Butcher Chains: pulls the farthest enemies"
+			+ "\n- Corpse Armor: covers Brute in bones and meat";
 	}
 
 	return "";
@@ -336,17 +398,17 @@ function cultist_demon_passive_abilities_get(_demon_type)
 	if (_demon_type == DEMON_TYPE.IMP)
 	{
 		return [
-			DEMON_ABILITY.IMP_FRENZY,
-			DEMON_ABILITY.IMP_BLOOD_RAGE,
-			DEMON_ABILITY.IMP_CANNON_ECHO
+			DEMON_ABILITY.IMP_BLOOD_BLADES,
+			DEMON_ABILITY.IMP_FRENZY_ECHO,
+			DEMON_ABILITY.IMP_BLOOD_HUNGER
 		];
 	}
 	else if (_demon_type == DEMON_TYPE.WARLOCK)
 	{
 		return [
-			DEMON_ABILITY.WARLOCK_SOUL_HARVESTER,
-			DEMON_ABILITY.WARLOCK_CURSEWEAVER,
-			DEMON_ABILITY.WARLOCK_DEMONIC_INFUSION
+			DEMON_ABILITY.WARLOCK_DEMONIC_INFUSION,
+			DEMON_ABILITY.WARLOCK_SOUL_ENGINE,
+			DEMON_ABILITY.WARLOCK_FAMILIAR
 		];
 	}
 	else if (_demon_type == DEMON_TYPE.BRUTE)
@@ -354,7 +416,7 @@ function cultist_demon_passive_abilities_get(_demon_type)
 		return [
 			DEMON_ABILITY.BRUTE_CORPSE_EATER,
 			DEMON_ABILITY.BRUTE_ROTTEN_AURA,
-			DEMON_ABILITY.BRUTE_CURSED_FLESH
+			DEMON_ABILITY.BRUTE_BLOOD_ANVIL
 		];
 	}
 
@@ -367,8 +429,8 @@ function cultist_demon_active_abilities_get(_demon_type)
 	{
 		return [
 			DEMON_ABILITY.IMP_DEMON_LEAP,
-			DEMON_ABILITY.IMP_SACRIFICIAL_RUSH,
-			DEMON_ABILITY.IMP_BLOODY_CLONE
+			DEMON_ABILITY.IMP_BLOODY_CLONE,
+			DEMON_ABILITY.IMP_CRIMSON_GUILLOTINE
 		];
 	}
 	else if (_demon_type == DEMON_TYPE.WARLOCK)
@@ -383,8 +445,8 @@ function cultist_demon_active_abilities_get(_demon_type)
 	{
 		return [
 			DEMON_ABILITY.BRUTE_GRAVE_SLAM,
-			DEMON_ABILITY.BRUTE_MEAT_HOOK,
-			DEMON_ABILITY.BRUTE_DEVOUR
+			DEMON_ABILITY.BRUTE_BUTCHER_CHAINS,
+			DEMON_ABILITY.BRUTE_CORPSE_ARMOR
 		];
 	}
 
@@ -410,6 +472,70 @@ function cultist_active_abilities_ensure(_cultist)
 	}
 }
 
+function cultist_ability_levels_ensure(_cultist)
+{
+	if (!instance_exists(_cultist))
+	{
+		return;
+	}
+
+	if (!variable_instance_exists(_cultist, "ability_levels"))
+	{
+		_cultist.ability_levels = array_create(DEMON_ABILITY.COUNT, 0);
+	}
+	else if (array_length(_cultist.ability_levels) < DEMON_ABILITY.COUNT)
+	{
+		var _old_levels = _cultist.ability_levels;
+		_cultist.ability_levels = array_create(DEMON_ABILITY.COUNT, 0);
+
+		for (var _ability_index = 0; _ability_index < array_length(_old_levels); ++_ability_index)
+		{
+			_cultist.ability_levels[_ability_index] = _old_levels[_ability_index];
+		}
+	}
+}
+
+function cultist_ability_level_get(_cultist, _ability)
+{
+	if (!instance_exists(_cultist)
+		|| _ability <= DEMON_ABILITY.NONE
+		|| _ability >= DEMON_ABILITY.COUNT)
+	{
+		return 0;
+	}
+
+	cultist_ability_levels_ensure(_cultist);
+
+	return _cultist.ability_levels[_ability];
+}
+
+function cultist_ability_level_set(_cultist, _ability, _level)
+{
+	if (!instance_exists(_cultist)
+		|| _ability <= DEMON_ABILITY.NONE
+		|| _ability >= DEMON_ABILITY.COUNT)
+	{
+		return false;
+	}
+
+	cultist_ability_levels_ensure(_cultist);
+	_cultist.ability_levels[_ability] = clamp(_level, 0, 4);
+
+	return true;
+}
+
+function cultist_ability_level_add(_cultist, _ability)
+{
+	var _current_level = cultist_ability_level_get(_cultist, _ability);
+
+	if (_current_level >= 4)
+	{
+		return false;
+	}
+
+	return cultist_ability_level_set(_cultist, _ability, _current_level + 1);
+}
+
 function cultist_active_ability_has(_cultist, _ability)
 {
 	if (!instance_exists(_cultist) || _ability == DEMON_ABILITY.NONE)
@@ -423,6 +549,11 @@ function cultist_active_ability_has(_cultist, _ability)
 	{
 		if (_cultist.active_abilities[_ability_index] == _ability)
 		{
+			if (cultist_ability_level_get(_cultist, _ability) <= 0)
+			{
+				cultist_ability_level_set(_cultist, _ability, 1);
+			}
+
 			return true;
 		}
 	}
@@ -437,19 +568,14 @@ function cultist_passive_ability_has(_cultist, _ability)
 		return false;
 	}
 
-	if (_ability == DEMON_ABILITY.IMP_FRENZY)
+	if (_ability == DEMON_ABILITY.IMP_BLOOD_BLADES
+		|| _ability == DEMON_ABILITY.IMP_FRENZY_ECHO
+		|| _ability == DEMON_ABILITY.IMP_BLOOD_HUNGER)
 	{
-		return variable_instance_exists(_cultist, "has_imp_blood_frenzy") && _cultist.has_imp_blood_frenzy;
+		return cultist_ability_level_get(_cultist, _ability) > 0;
 	}
-	else if (_ability == DEMON_ABILITY.IMP_BLOOD_RAGE)
-	{
-		return variable_instance_exists(_cultist, "has_imp_hellbleed") && _cultist.has_imp_hellbleed;
-	}
-	else if (_ability == DEMON_ABILITY.IMP_CANNON_ECHO)
-	{
-		return variable_instance_exists(_cultist, "has_imp_taste_of_fear") && _cultist.has_imp_taste_of_fear;
-	}
-	else if (_ability == DEMON_ABILITY.BRUTE_CORPSE_EATER)
+
+	if (_ability == DEMON_ABILITY.BRUTE_CORPSE_EATER)
 	{
 		return variable_instance_exists(_cultist, "has_brute_corpse_eater") && _cultist.has_brute_corpse_eater;
 	}
@@ -457,21 +583,15 @@ function cultist_passive_ability_has(_cultist, _ability)
 	{
 		return variable_instance_exists(_cultist, "has_brute_rotten_aura") && _cultist.has_brute_rotten_aura;
 	}
-	else if (_ability == DEMON_ABILITY.BRUTE_CURSED_FLESH)
+	else if (_ability == DEMON_ABILITY.BRUTE_BLOOD_ANVIL)
 	{
-		return variable_instance_exists(_cultist, "has_brute_cursed_flesh") && _cultist.has_brute_cursed_flesh;
+		return cultist_ability_level_get(_cultist, _ability) > 0;
 	}
-	else if (_ability == DEMON_ABILITY.WARLOCK_SOUL_HARVESTER)
+	else if (_ability == DEMON_ABILITY.WARLOCK_DEMONIC_INFUSION
+		|| _ability == DEMON_ABILITY.WARLOCK_SOUL_ENGINE
+		|| _ability == DEMON_ABILITY.WARLOCK_FAMILIAR)
 	{
-		return variable_instance_exists(_cultist, "has_warlock_soul_harvester") && _cultist.has_warlock_soul_harvester;
-	}
-	else if (_ability == DEMON_ABILITY.WARLOCK_CURSEWEAVER)
-	{
-		return variable_instance_exists(_cultist, "has_warlock_curseweaver") && _cultist.has_warlock_curseweaver;
-	}
-	else if (_ability == DEMON_ABILITY.WARLOCK_DEMONIC_INFUSION)
-	{
-		return variable_instance_exists(_cultist, "has_warlock_demonic_infusion") && _cultist.has_warlock_demonic_infusion;
+		return cultist_ability_level_get(_cultist, _ability) > 0;
 	}
 
 	return false;
@@ -521,6 +641,54 @@ function cultist_ability_options_roll(_cultist, _is_passive)
 	return _options;
 }
 
+function cultist_ability_upgrade_options_roll(_cultist)
+{
+	if (!instance_exists(_cultist) || !variable_instance_exists(_cultist, "demon_type"))
+	{
+		return [];
+	}
+
+	var _upgrade_candidates = [];
+	var _passive_abilities = cultist_demon_passive_abilities_get(_cultist.demon_type);
+	var _active_abilities = cultist_demon_active_abilities_get(_cultist.demon_type);
+
+	cultist_active_abilities_ensure(_cultist);
+
+	for (var _passive_index = 0; _passive_index < array_length(_passive_abilities); ++_passive_index)
+	{
+		var _passive_ability = _passive_abilities[_passive_index];
+
+		if (cultist_passive_ability_has(_cultist, _passive_ability)
+			&& cultist_ability_level_get(_cultist, _passive_ability) < 4)
+		{
+			array_push(_upgrade_candidates, _passive_ability);
+		}
+	}
+
+	for (var _active_index = 0; _active_index < array_length(_cultist.active_abilities); ++_active_index)
+	{
+		var _active_ability = _cultist.active_abilities[_active_index];
+
+		if (_active_ability != DEMON_ABILITY.NONE
+			&& cultist_ability_level_get(_cultist, _active_ability) < 4)
+		{
+			array_push(_upgrade_candidates, _active_ability);
+		}
+	}
+
+	var _options = [];
+	var _option_count = min(2, array_length(_upgrade_candidates));
+
+	for (var _option_index = 0; _option_index < _option_count; ++_option_index)
+	{
+		var _roll_index = irandom(array_length(_upgrade_candidates) - 1);
+		array_push(_options, _upgrade_candidates[_roll_index]);
+		array_delete(_upgrade_candidates, _roll_index, 1);
+	}
+
+	return _options;
+}
+
 function cultist_passive_ability_unlock(_cultist, _ability)
 {
 	if (!instance_exists(_cultist))
@@ -528,17 +696,11 @@ function cultist_passive_ability_unlock(_cultist, _ability)
 		return false;
 	}
 
-	if (_ability == DEMON_ABILITY.IMP_FRENZY)
+	if (_ability == DEMON_ABILITY.IMP_BLOOD_BLADES
+		|| _ability == DEMON_ABILITY.IMP_FRENZY_ECHO
+		|| _ability == DEMON_ABILITY.IMP_BLOOD_HUNGER)
 	{
-		_cultist.has_imp_blood_frenzy = true;
-	}
-	else if (_ability == DEMON_ABILITY.IMP_BLOOD_RAGE)
-	{
-		_cultist.has_imp_hellbleed = true;
-	}
-	else if (_ability == DEMON_ABILITY.IMP_CANNON_ECHO)
-	{
-		_cultist.has_imp_taste_of_fear = true;
+		return cultist_ability_level_add(_cultist, _ability);
 	}
 	else if (_ability == DEMON_ABILITY.BRUTE_CORPSE_EATER)
 	{
@@ -548,25 +710,25 @@ function cultist_passive_ability_unlock(_cultist, _ability)
 	{
 		_cultist.has_brute_rotten_aura = true;
 	}
-	else if (_ability == DEMON_ABILITY.BRUTE_CURSED_FLESH)
+	else if (_ability == DEMON_ABILITY.BRUTE_BLOOD_ANVIL)
 	{
-		_cultist.has_brute_cursed_flesh = true;
+		_cultist.has_brute_blood_anvil = true;
+		return cultist_ability_level_add(_cultist, _ability);
 	}
-	else if (_ability == DEMON_ABILITY.WARLOCK_SOUL_HARVESTER)
+	else if (_ability == DEMON_ABILITY.WARLOCK_DEMONIC_INFUSION
+		|| _ability == DEMON_ABILITY.WARLOCK_SOUL_ENGINE
+		|| _ability == DEMON_ABILITY.WARLOCK_FAMILIAR)
 	{
-		_cultist.has_warlock_soul_harvester = true;
-	}
-	else if (_ability == DEMON_ABILITY.WARLOCK_CURSEWEAVER)
-	{
-		_cultist.has_warlock_curseweaver = true;
-	}
-	else if (_ability == DEMON_ABILITY.WARLOCK_DEMONIC_INFUSION)
-	{
-		_cultist.has_warlock_demonic_infusion = true;
+		return cultist_ability_level_add(_cultist, _ability);
 	}
 	else
 	{
 		return false;
+	}
+
+	if (cultist_ability_level_get(_cultist, _ability) <= 0)
+	{
+		cultist_ability_level_set(_cultist, _ability, 1);
 	}
 
 	return true;
@@ -581,7 +743,9 @@ function cultist_active_ability_unlock(_cultist, _ability)
 		return false;
 	}
 
+	cultist_active_abilities_ensure(_cultist);
 	array_push(_cultist.active_abilities, _ability);
+	cultist_ability_level_add(_cultist, _ability);
 
 	if (variable_instance_exists(_cultist, "demon_ability") && _cultist.demon_ability == DEMON_ABILITY.NONE)
 	{
@@ -665,7 +829,14 @@ function cultist_starting_ability_get(_cultist, _demon_type)
 		return _cultist.cultist_starting_abilities[_demon_type];
 	}
 
-	return cultist_ability_roll(_demon_type);
+	var _active_abilities = cultist_demon_active_abilities_get(_demon_type);
+
+	if (array_length(_active_abilities) <= 0)
+	{
+		return DEMON_ABILITY.NONE;
+	}
+
+	return _active_abilities[0];
 }
 
 function cultist_demon_object_get(_demon_type)
@@ -692,8 +863,8 @@ function cultist_ability_roll(_demon_type)
 	{
 		var _imp_abilities = [
 			DEMON_ABILITY.IMP_DEMON_LEAP,
-			DEMON_ABILITY.IMP_SACRIFICIAL_RUSH,
-			DEMON_ABILITY.IMP_BLOODY_CLONE
+			DEMON_ABILITY.IMP_BLOODY_CLONE,
+			DEMON_ABILITY.IMP_CRIMSON_GUILLOTINE
 		];
 
 		return _imp_abilities[irandom(array_length(_imp_abilities) - 1)];
@@ -712,8 +883,8 @@ function cultist_ability_roll(_demon_type)
 	{
 		var _brute_abilities = [
 			DEMON_ABILITY.BRUTE_GRAVE_SLAM,
-			DEMON_ABILITY.BRUTE_MEAT_HOOK,
-			DEMON_ABILITY.BRUTE_DEVOUR
+			DEMON_ABILITY.BRUTE_BUTCHER_CHAINS,
+			DEMON_ABILITY.BRUTE_CORPSE_ARMOR
 		];
 
 		return _brute_abilities[irandom(array_length(_brute_abilities) - 1)];
@@ -724,25 +895,25 @@ function cultist_ability_roll(_demon_type)
 
 function cultist_ability_name_get(_ability)
 {
-	if (_ability == DEMON_ABILITY.IMP_FRENZY)
+	if (_ability == DEMON_ABILITY.IMP_BLOOD_BLADES)
 	{
-		return "Blood Frenzy";
+		return "Blood Blades";
 	}
-	else if (_ability == DEMON_ABILITY.IMP_BLOOD_RAGE)
+	else if (_ability == DEMON_ABILITY.IMP_FRENZY_ECHO)
 	{
-		return "Hellbleed";
+		return "Frenzy Echo";
 	}
-	else if (_ability == DEMON_ABILITY.IMP_CANNON_ECHO)
+	else if (_ability == DEMON_ABILITY.IMP_BLOOD_HUNGER)
 	{
-		return "Taste of Fear";
+		return "Blood Hunger";
 	}
 	else if (_ability == DEMON_ABILITY.IMP_DEMON_LEAP)
 	{
 		return "Demon Leap";
 	}
-	else if (_ability == DEMON_ABILITY.IMP_SACRIFICIAL_RUSH)
+	else if (_ability == DEMON_ABILITY.IMP_CRIMSON_GUILLOTINE)
 	{
-		return "Sacrificial Rush";
+		return "Crimson Guillotine";
 	}
 	else if (_ability == DEMON_ABILITY.IMP_BLOODY_CLONE)
 	{
@@ -756,29 +927,29 @@ function cultist_ability_name_get(_ability)
 	{
 		return "Rotten Aura";
 	}
-	else if (_ability == DEMON_ABILITY.BRUTE_CURSED_FLESH)
+	else if (_ability == DEMON_ABILITY.BRUTE_BLOOD_ANVIL)
 	{
-		return "Cursed Flesh";
+		return "Blood Anvil";
 	}
 	else if (_ability == DEMON_ABILITY.BRUTE_GRAVE_SLAM)
 	{
 		return "Grave Slam";
 	}
-	else if (_ability == DEMON_ABILITY.BRUTE_MEAT_HOOK)
+	else if (_ability == DEMON_ABILITY.BRUTE_BUTCHER_CHAINS)
 	{
-		return "Meat Hook";
+		return "Butcher Chains";
 	}
-	else if (_ability == DEMON_ABILITY.BRUTE_DEVOUR)
+	else if (_ability == DEMON_ABILITY.BRUTE_CORPSE_ARMOR)
 	{
-		return "Devour";
+		return "Corpse Armor";
 	}
-	else if (_ability == DEMON_ABILITY.WARLOCK_SOUL_HARVESTER)
+	else if (_ability == DEMON_ABILITY.WARLOCK_SOUL_ENGINE)
 	{
-		return "Soul Harvester";
+		return "Soul Engine";
 	}
-	else if (_ability == DEMON_ABILITY.WARLOCK_CURSEWEAVER)
+	else if (_ability == DEMON_ABILITY.WARLOCK_FAMILIAR)
 	{
-		return "Curseweaver";
+		return "Familiar";
 	}
 	else if (_ability == DEMON_ABILITY.WARLOCK_DEMONIC_INFUSION)
 	{
@@ -786,7 +957,7 @@ function cultist_ability_name_get(_ability)
 	}
 	else if (_ability == DEMON_ABILITY.WARLOCK_RAISE_LESSER_DEMON)
 	{
-		return "Raise Lesser Demon";
+		return "Summon Skeletons";
 	}
 	else if (_ability == DEMON_ABILITY.WARLOCK_SOUL_CHAIN)
 	{
@@ -802,69 +973,69 @@ function cultist_ability_name_get(_ability)
 
 function cultist_ability_description_get(_ability)
 {
-	if (_ability == DEMON_ABILITY.IMP_FRENZY)
+	if (_ability == DEMON_ABILITY.IMP_BLOOD_BLADES)
 	{
-		return "Kills give stacking attack speed, move speed, and crit chance.";
+		return "Three rotating blood knives damage enemies they pass through.";
 	}
-	else if (_ability == DEMON_ABILITY.IMP_BLOOD_RAGE)
+	else if (_ability == DEMON_ABILITY.IMP_FRENZY_ECHO)
 	{
-		return "Critical hits apply Bleed.";
+		return "Every fourth attack creates a phantom Imp strike.";
 	}
-	else if (_ability == DEMON_ABILITY.IMP_CANNON_ECHO)
+	else if (_ability == DEMON_ABILITY.IMP_BLOOD_HUNGER)
 	{
-		return "Deals more damage to enemies with negative status effects.";
+		return "Kills give a short attack speed burst.";
 	}
 	else if (_ability == DEMON_ABILITY.IMP_DEMON_LEAP)
 	{
 		return "Jumps to the lowest HP enemy and lands a critical hit.";
 	}
-	else if (_ability == DEMON_ABILITY.IMP_SACRIFICIAL_RUSH)
+	else if (_ability == DEMON_ABILITY.IMP_CRIMSON_GUILLOTINE)
 	{
-		return "Spends HP for attack speed and crit chance, then heals on kills.";
+		return "Crashes onto the highest HP enemy, splashing nearby enemies with AOE damage and knockback.";
 	}
 	else if (_ability == DEMON_ABILITY.IMP_BLOODY_CLONE)
 	{
-		return "Leaves a short-lived copy and jumps to the farthest enemy.";
+		return "Creates a temporary Imp copy that attacks enemies.";
 	}
 	else if (_ability == DEMON_ABILITY.BRUTE_CORPSE_EATER)
 	{
-		return "Eats nearby meat to restore health.";
+		return "Eats nearby non-skeleton corpses to restore health.";
 	}
 	else if (_ability == DEMON_ABILITY.BRUTE_ROTTEN_AURA)
 	{
 		return "Nearby enemies take constant magic damage.";
 	}
-	else if (_ability == DEMON_ABILITY.BRUTE_CURSED_FLESH)
+	else if (_ability == DEMON_ABILITY.BRUTE_BLOOD_ANVIL)
 	{
-		return "Cursed enemies near Brute drop meat more often.";
+		return "Nearby demon active abilities recharge Brute active abilities.";
 	}
 	else if (_ability == DEMON_ABILITY.BRUTE_GRAVE_SLAM)
 	{
 		return "Damages and stuns enemies around the Brute.";
 	}
-	else if (_ability == DEMON_ABILITY.BRUTE_MEAT_HOOK)
+	else if (_ability == DEMON_ABILITY.BRUTE_BUTCHER_CHAINS)
 	{
-		return "Pulls the highest HP enemy and forces it to attack the Brute.";
+		return "Pulls the farthest enemies, damaging and stunning them.";
 	}
-	else if (_ability == DEMON_ABILITY.BRUTE_DEVOUR)
+	else if (_ability == DEMON_ABILITY.BRUTE_CORPSE_ARMOR)
 	{
-		return "Executes a nearby low HP enemy and creates meat.";
+		return "Covers Brute in bones and meat, increasing armor for a short time.";
 	}
-	else if (_ability == DEMON_ABILITY.WARLOCK_SOUL_HARVESTER)
+	else if (_ability == DEMON_ABILITY.WARLOCK_SOUL_ENGINE)
 	{
-		return "Attacks apply Soul Mark.";
+		return "Nearby enemy deaths send souls to Warlock. Three souls fire a homing skull.";
 	}
-	else if (_ability == DEMON_ABILITY.WARLOCK_CURSEWEAVER)
+	else if (_ability == DEMON_ABILITY.WARLOCK_FAMILIAR)
 	{
-		return "Every third attack curses enemies near the target.";
+		return "Summons a demonic familiar that flies nearby and attacks enemies.";
 	}
 	else if (_ability == DEMON_ABILITY.WARLOCK_DEMONIC_INFUSION)
 	{
-		return "Nearby allies gain attack speed.";
+		return "Heals nearby allies once per second.";
 	}
 	else if (_ability == DEMON_ABILITY.WARLOCK_RAISE_LESSER_DEMON)
 	{
-		return "Consumes nearby meat to summon a Pitling.";
+		return "Consumes corpses to create temporary skeletons.";
 	}
 	else if (_ability == DEMON_ABILITY.WARLOCK_SOUL_CHAIN)
 	{
@@ -872,14 +1043,332 @@ function cultist_ability_description_get(_ability)
 	}
 	else if (_ability == DEMON_ABILITY.WARLOCK_HEX_TOTEM)
 	{
-		return "Places a temporary totem that repeatedly applies Curse.";
+		return "Places a temporary totem that attacks enemies with purple beams.";
 	}
 
 	return "";
 }
 
+function cultist_ability_upgrade_description_get(_ability, _target_level)
+{
+	if (_target_level <= 1)
+	{
+		return cultist_ability_description_get(_ability);
+	}
+
+	if (_ability == DEMON_ABILITY.IMP_BLOOD_BLADES)
+	{
+		if (_target_level == 2)
+		{
+			return "Blades increase from 3 to 6 and rotate on a larger radius.";
+		}
+		else if (_target_level == 3)
+		{
+			return "On hit, a blade launches 2 smaller blood blades into nearby enemies.";
+		}
+		else if (_target_level == 4)
+		{
+			return "On kill, blades spin 50% faster for 2 seconds.";
+		}
+	}
+	else if (_ability == DEMON_ABILITY.IMP_FRENZY_ECHO)
+	{
+		if (_target_level == 2)
+		{
+			return "Phantom strikes trigger every 3 attacks instead of every 4.";
+		}
+		else if (_target_level == 3)
+		{
+			return "Phantom strikes hit a small sector instead of a single target.";
+		}
+		else if (_target_level == 4)
+		{
+			return "After a kill, Imp enters Frenzy for 3 seconds: every attack creates a phantom strike.";
+		}
+	}
+	else if (_ability == DEMON_ABILITY.IMP_BLOOD_HUNGER)
+	{
+		if (_target_level == 2)
+		{
+			return "Attack speed bonus stacks up to 3 times. More stacks create more red smoke.";
+		}
+		else if (_target_level == 3)
+		{
+			return "At maximum Blood Hunger stacks, kills dash Imp to a nearby new target.";
+		}
+		else if (_target_level == 4)
+		{
+			return "At maximum stacks, kills create a small blood explosion around the target.";
+		}
+	}
+	else if (_ability == DEMON_ABILITY.IMP_DEMON_LEAP)
+	{
+		if (_target_level == 2)
+		{
+			return "If the leap kills its target, Imp immediately leaps to one more target.";
+		}
+		else if (_target_level == 3)
+		{
+			return "Each leap leaves a blood pool that damages enemies standing in it.";
+		}
+		else if (_target_level == 4)
+		{
+			return "Imp performs up to 4 chained leaps, even if targets survive.";
+		}
+	}
+	else if (_ability == DEMON_ABILITY.IMP_BLOODY_CLONE)
+	{
+		if (_target_level == 2)
+		{
+			return "Clone lifetime increases to 6 seconds and clone damage becomes 100% of Imp damage.";
+		}
+		else if (_target_level == 3)
+		{
+			return "When the clone dies, it explodes in blood, damaging enemies in a 100px radius.";
+		}
+		else if (_target_level == 4)
+		{
+			return "Imp creates 2 clones instead of 1.";
+		}
+	}
+	else if (_ability == DEMON_ABILITY.IMP_CRIMSON_GUILLOTINE)
+	{
+		if (_target_level == 2)
+		{
+			return "AOE enemies are stunned after Crimson Guillotine damage.";
+		}
+		else if (_target_level == 3)
+		{
+			return "AOE radius and AOE damage are doubled.";
+		}
+		else if (_target_level == 4)
+		{
+			return "If any enemy dies from Crimson Guillotine, Imp instantly repeats it once.";
+		}
+	}
+	else if (_ability == DEMON_ABILITY.BRUTE_CORPSE_EATER)
+	{
+		if (_target_level == 2)
+		{
+			return "Healing increases from 4% to 6% of max HP.";
+		}
+		else if (_target_level == 3)
+		{
+			return "Cooldown becomes 3 seconds instead of 5 seconds.";
+		}
+		else if (_target_level == 4)
+		{
+			return "When Brute eats a corpse, allied demons within 200px heal 3% max HP.";
+		}
+	}
+	else if (_ability == DEMON_ABILITY.BRUTE_ROTTEN_AURA)
+	{
+		if (_target_level == 2)
+		{
+			return "Aura radius increases from 150px to 220px.";
+		}
+		else if (_target_level == 3)
+		{
+			return "Enemies inside the aura gain Fear: 20% slower movement and attacks.";
+		}
+		else if (_target_level == 4)
+		{
+			return "Enemies inside the aura take 50% more critical hit damage.";
+		}
+	}
+	else if (_ability == DEMON_ABILITY.BRUTE_BLOOD_ANVIL)
+	{
+		if (_target_level == 2)
+		{
+			return "Nearby demon active abilities recharge Brute active abilities by 8% instead of 5%.";
+		}
+		else if (_target_level == 3)
+		{
+			return "Trigger radius increases from 250px to 400px.";
+		}
+		else if (_target_level == 4)
+		{
+			return "Other demons within 400px also recharge active abilities by 5%.";
+		}
+	}
+	else if (_ability == DEMON_ABILITY.BRUTE_GRAVE_SLAM)
+	{
+		if (_target_level == 2)
+		{
+			return "AOE radius is multiplied by 1.5.";
+		}
+		else if (_target_level == 3)
+		{
+			return "Bone spikes deal 50% additional damage in the slam area.";
+		}
+		else if (_target_level == 4)
+		{
+			return "Enemies killed by Grave Slam explode, dealing 50% Brute damage in AOE.";
+		}
+	}
+	else if (_ability == DEMON_ABILITY.BRUTE_BUTCHER_CHAINS)
+	{
+		if (_target_level == 2)
+		{
+			return "Hook range increases from 600px to 900px.";
+		}
+		else if (_target_level == 3)
+		{
+			return "Target count increases from 4 to 6.";
+		}
+		else if (_target_level == 4)
+		{
+			return "If the first hook wave kills an enemy, Brute releases a second wave.";
+		}
+	}
+	else if (_ability == DEMON_ABILITY.BRUTE_CORPSE_ARMOR)
+	{
+		if (_target_level == 2)
+		{
+			return "Shield duration increases by 3 seconds.";
+		}
+		else if (_target_level == 3)
+		{
+			return "Melee attackers take damage while Brute has the shield.";
+		}
+		else if (_target_level == 4)
+		{
+			return "Allied demons within 250px also gain a 5 second, +20 armor shield.";
+		}
+	}
+	else if (_ability == DEMON_ABILITY.WARLOCK_DEMONIC_INFUSION)
+	{
+		if (_target_level == 2)
+		{
+			return "Aura radius increases from 250px to 500px.";
+		}
+		else if (_target_level == 3)
+		{
+			return "Allied units in the aura recharge attacks 15% faster.";
+		}
+		else if (_target_level == 4)
+		{
+			return "Healing becomes 1% max HP per second and attack recharge bonus becomes 20%.";
+		}
+	}
+	else if (_ability == DEMON_ABILITY.WARLOCK_SOUL_ENGINE)
+	{
+		if (_target_level == 2)
+		{
+			return "Soul Engine fires after 2 collected souls instead of 3.";
+		}
+		else if (_target_level == 3)
+		{
+			return "Homing skulls explode on hit, dealing AOE magic damage.";
+		}
+		else if (_target_level == 4)
+		{
+			return "Soul Engine fires after each collected soul.";
+		}
+	}
+	else if (_ability == DEMON_ABILITY.WARLOCK_FAMILIAR)
+	{
+		if (_target_level == 2)
+		{
+			return "Warlock gains a second familiar.";
+		}
+		else if (_target_level == 3)
+		{
+			return "Familiar damage increases by 50%.";
+		}
+		else if (_target_level == 4)
+		{
+			return "Warlock gains a third familiar.";
+		}
+	}
+	else if (_ability == DEMON_ABILITY.WARLOCK_RAISE_LESSER_DEMON)
+	{
+		if (_target_level == 2)
+		{
+			return "Summons 4 skeletons instead of 2.";
+		}
+		else if (_target_level == 3)
+		{
+			return "Skeletons explode on death, dealing AOE damage.";
+		}
+		else if (_target_level == 4)
+		{
+			return "Skeletons have a 25% chance to create another skeleton on death.";
+		}
+	}
+	else if (_ability == DEMON_ABILITY.WARLOCK_SOUL_CHAIN)
+	{
+		if (_target_level == 2)
+		{
+			return "Soul Chain can link up to 6 enemies.";
+		}
+		else if (_target_level == 3)
+		{
+			return "When a chained enemy dies, the other chained enemies are stunned for 3 seconds.";
+		}
+		else if (_target_level == 4)
+		{
+			return "When a chained enemy dies, the other chained enemies take Warlock magic damage.";
+		}
+	}
+	else if (_ability == DEMON_ABILITY.WARLOCK_HEX_TOTEM)
+	{
+		if (_target_level == 2)
+		{
+			return "Totem beams hit 2 enemies per shot.";
+		}
+		else if (_target_level == 3)
+		{
+			return "Totem gains a 300px cursed zone that deals periodic magic damage.";
+		}
+		else if (_target_level == 4)
+		{
+			return "When the totem disappears, it explodes in a visible 200px area.";
+		}
+	}
+
+	return "Improves " + cultist_ability_name_get(_ability) + " to level " + string(_target_level) + ".";
+}
+
 function cultist_ability_cooldown_get(_ability)
 {
+	if (_ability == DEMON_ABILITY.IMP_DEMON_LEAP)
+	{
+		return BALANCE_IMP_DEMON_LEAP_COOLDOWN;
+	}
+	else if (_ability == DEMON_ABILITY.IMP_BLOODY_CLONE)
+	{
+		return BALANCE_IMP_BLOODY_CLONE_COOLDOWN;
+	}
+	else if (_ability == DEMON_ABILITY.IMP_CRIMSON_GUILLOTINE)
+	{
+		return BALANCE_IMP_CRIMSON_GUILLOTINE_COOLDOWN;
+	}
+	else if (_ability == DEMON_ABILITY.WARLOCK_RAISE_LESSER_DEMON)
+	{
+		return BALANCE_WARLOCK_RAISE_LESSER_DEMON_COOLDOWN;
+	}
+	else if (_ability == DEMON_ABILITY.WARLOCK_SOUL_CHAIN)
+	{
+		return BALANCE_WARLOCK_SOUL_CHAIN_COOLDOWN;
+	}
+	else if (_ability == DEMON_ABILITY.WARLOCK_HEX_TOTEM)
+	{
+		return BALANCE_WARLOCK_HEX_TOTEM_COOLDOWN;
+	}
+	else if (_ability == DEMON_ABILITY.BRUTE_GRAVE_SLAM)
+	{
+		return BALANCE_BRUTE_GRAVE_SLAM_COOLDOWN;
+	}
+	else if (_ability == DEMON_ABILITY.BRUTE_BUTCHER_CHAINS)
+	{
+		return BALANCE_BRUTE_BUTCHER_CHAINS_COOLDOWN;
+	}
+	else if (_ability == DEMON_ABILITY.BRUTE_CORPSE_ARMOR)
+	{
+		return BALANCE_BRUTE_CORPSE_ARMOR_COOLDOWN;
+	}
+
 	return 0;
 }
 

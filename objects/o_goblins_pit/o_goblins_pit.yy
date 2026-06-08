@@ -1,15 +1,18 @@
 {
   "$GMObject":"",
-  "%Name":"Object45",
+  "%Name":"o_goblins_pit",
   "eventList":[],
   "managed":true,
-  "name":"Object45",
+  "name":"o_goblins_pit",
   "overriddenProperties":[],
   "parent":{
-    "name":"Friendly",
-    "path":"folders/Objects/Units/Friendly.yy",
+    "name":"buildings v13",
+    "path":"folders/Objects/buildings v13.yy",
   },
-  "parentObjectId":null,
+  "parentObjectId":{
+    "name":"o_v13buildings_parent",
+    "path":"objects/o_v13buildings_parent/o_v13buildings_parent.yy",
+  },
   "persistent":false,
   "physicsAngularDamping":0.1,
   "physicsDensity":0.5,
@@ -27,7 +30,10 @@
   "resourceType":"GMObject",
   "resourceVersion":"2.0",
   "solid":false,
-  "spriteId":null,
+  "spriteId":{
+    "name":"s_goblins_pit",
+    "path":"sprites/s_goblins_pit/s_goblins_pit.yy",
+  },
   "spriteMaskId":null,
   "visible":true,
 }

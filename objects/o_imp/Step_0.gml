@@ -27,19 +27,29 @@ if (demon_leap_retry_timer > 0)
 	demon_leap_retry_timer--;
 }
 
-if (sacrificial_rush_timer > 0)
+if (crimson_guillotine_timer > 0)
 {
-	sacrificial_rush_timer--;
+	crimson_guillotine_timer--;
 }
 
-if (sacrificial_rush_retry_timer > 0)
+if (crimson_guillotine_retry_timer > 0)
 {
-	sacrificial_rush_retry_timer--;
+	crimson_guillotine_retry_timer--;
 }
 
-if (sacrificial_rush_active_timer > 0)
+if (crimson_guillotine_strike_timer > 0)
 {
-	sacrificial_rush_active_timer--;
+	crimson_guillotine_strike_timer--;
+
+	if (crimson_guillotine_strike_timer <= 0)
+	{
+		imp_crimson_guillotine_strike();
+	}
+}
+
+if (crimson_guillotine_strike_timer > 0)
+{
+	exit;
 }
 
 if (bloody_clone_timer > 0)
@@ -52,7 +62,12 @@ if (bloody_clone_retry_timer > 0)
 	bloody_clone_retry_timer--;
 }
 
-// Blood Frenzy stacks expire independently.
+if (blood_hunger_frenzy_timer > 0)
+{
+	blood_hunger_frenzy_timer--;
+}
+
+// Blood Hunger stacks expire independently.
 for (var _stack_index = 0; _stack_index < array_length(blood_frenzy_stack_timers); ++_stack_index)
 {
 	if (blood_frenzy_stack_timers[_stack_index] > 0)
@@ -61,7 +76,7 @@ for (var _stack_index = 0; _stack_index < array_length(blood_frenzy_stack_timers
 	}
 }
 
-// Active Blood Frenzy emits blue smoke across the Imp body.
+// Active Blood Hunger emits red smoke across the Imp body.
 if (imp_blood_frenzy_stack_count_get() > 0)
 {
 	blood_frenzy_particle_timer--;
@@ -75,6 +90,14 @@ if (imp_blood_frenzy_stack_count_get() > 0)
 else
 {
 	blood_frenzy_particle_timer = 0;
+}
+
+imp_blood_pool_update();
+imp_blood_blades_update();
+
+if (frenzy_echo_visual_timer > 0)
+{
+	frenzy_echo_visual_timer--;
 }
 
 // Use only the active ability this Imp currently owns.
@@ -98,18 +121,18 @@ if (cultist_active_ability_has(id, DEMON_ABILITY.IMP_DEMON_LEAP)
 	}
 }
 
-if (cultist_active_ability_has(id, DEMON_ABILITY.IMP_SACRIFICIAL_RUSH)
-	&& sacrificial_rush_timer <= 0
-	&& sacrificial_rush_active_timer <= 0
-	&& sacrificial_rush_retry_timer <= 0)
+if (cultist_active_ability_has(id, DEMON_ABILITY.IMP_CRIMSON_GUILLOTINE)
+	&& crimson_guillotine_timer <= 0
+	&& crimson_guillotine_strike_timer <= 0
+	&& crimson_guillotine_retry_timer <= 0)
 {
-	if (imp_sacrificial_rush_use())
+	if (imp_crimson_guillotine_use())
 	{
-		sacrificial_rush_timer = ability_cooldown_time_get(sacrificial_rush_cooldown);
+		crimson_guillotine_timer = ability_cooldown_time_get(crimson_guillotine_cooldown);
 	}
 	else
 	{
-		sacrificial_rush_retry_timer = BALANCE_ABILITY_FAILED_RETRY_TIME * room_speed;
+		crimson_guillotine_retry_timer = BALANCE_ABILITY_FAILED_RETRY_TIME * room_speed;
 	}
 }
 

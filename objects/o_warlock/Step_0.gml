@@ -11,12 +11,6 @@ if (is_being_dragged || is_stunned)
 	exit;
 }
 
-// Curseweaver AOE circle fades after every third landed attack.
-if (curseweaver_circle_timer > 0)
-{
-	curseweaver_circle_timer--;
-}
-
 if (raise_lesser_demon_line_timer > 0)
 {
 	raise_lesser_demon_line_timer--;
@@ -27,16 +21,15 @@ if (hex_totem_line_timer > 0)
 	hex_totem_line_timer--;
 }
 
-// Demonic Infusion refreshes nearby friendly attack speed while the passive is unlocked.
-if (has_warlock_demonic_infusion)
-{
-	warlock_demonic_infusion_update();
-}
+// Passive abilities update their lightweight visuals and effects.
+warlock_demonic_infusion_update();
+warlock_soul_engine_update();
+warlock_familiar_update();
 
 // Soul Chain visuals and active links are owned by the Warlock that created them.
 warlock_soul_chain_groups_update();
 
-// Use only the active ability this Warlock currently owns.
+// Use only the active abilities this Warlock currently owns.
 if (raise_lesser_demon_timer > 0)
 {
 	raise_lesser_demon_timer--;

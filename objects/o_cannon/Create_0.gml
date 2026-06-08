@@ -1,8 +1,13 @@
 // Cannon target selected by the player.
-max_hp = 300;
+max_hp = 600 * BALANCE_COMBAT_VALUE_SCALE;
 hp = max_hp;
 global.cannon_fire_version = 0;
 y_sort_enabled = true;
+
+// Cannon accepts any number of daytime corpse haulers.
+building_accepts_workers = true;
+worker_cultists = [];
+worker_max = 1000000;
 
 // Cannon health bar visual settings.
 bar_width = 84;

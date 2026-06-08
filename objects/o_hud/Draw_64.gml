@@ -96,6 +96,45 @@ if (variable_global_exists("day_phase"))
 	draw_text(_phase_x + day_phase_text_padding, _phase_y + (day_phase_item_height * 0.5), _phase_text);
 }
 
+// Draw cannon satiety in the top-center HUD.
+if (global.focus_window == FOCUS_WINDOW.NOONE
+	&& variable_global_exists("cannon_satiety")
+	&& variable_global_exists("cannon_satiety_max"))
+{
+	var _gui_width = display_get_gui_width();
+	var _satiety_x = (_gui_width - cannon_satiety_width) * 0.5;
+	var _satiety_y = hud_margin_y + resource_item_height + resource_item_gap;
+	var _satiety_progress = clamp(global.cannon_satiety / max(1, global.cannon_satiety_max), 0, 1);
+	var _satiety_text_x = _satiety_x + cannon_satiety_padding_x;
+	var _satiety_text_y = _satiety_y + (cannon_satiety_height * 0.5);
+	var _satiety_bar_x = _satiety_x + cannon_satiety_width - cannon_satiety_padding_x - cannon_satiety_bar_width;
+	var _satiety_bar_y = _satiety_y + ((cannon_satiety_height - cannon_satiety_bar_height) * 0.5);
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_middle);
+	draw_set_alpha(0.72);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_rectangle(_satiety_x, _satiety_y, _satiety_x + cannon_satiety_width, _satiety_y + cannon_satiety_height, false);
+
+	draw_set_alpha(1);
+	draw_set_color(COLOR_HUD_TEXT);
+	draw_text(_satiety_text_x, _satiety_text_y, cannon_satiety_label);
+
+	draw_set_alpha(0.75);
+	draw_set_color(c_black);
+	draw_rectangle(_satiety_bar_x, _satiety_bar_y, _satiety_bar_x + cannon_satiety_bar_width, _satiety_bar_y + cannon_satiety_bar_height, false);
+
+	draw_set_alpha(1);
+	draw_set_color(COLOR_PROJECTILE_CORRUPTION);
+	draw_rectangle(
+		_satiety_bar_x,
+		_satiety_bar_y,
+		_satiety_bar_x + (cannon_satiety_bar_width * _satiety_progress),
+		_satiety_bar_y + cannon_satiety_bar_height,
+		false
+	);
+}
+
 // Draw queued cannon projectiles at the bottom center of the HUD.
 if (variable_global_exists("cannon_projectile_queue"))
 {
@@ -109,6 +148,95 @@ if (variable_global_exists("cannon_projectile_queue"))
 		+ (projectile_slot_gap * max(0, _projectile_queue_count - 1));
 	var _projectile_start_x = (_gui_width - _projectile_total_width) * 0.5;
 	var _hovered_projectile_index = -1;
+	var _projectile_payload_data = array_create(_projectile_queue_count, noone);
+	var _deploy_preview_units = array_create(0);
+	var _deploy_preview_cursor = 0;
+	var _remaining_cultist_projectile_count = 0;
+
+	// Build compact cultist projectile payload previews from the current queue.
+	for (var _preview_queue_index = 0; _preview_queue_index < _projectile_queue_count; ++_preview_queue_index)
+	{
+		if (global.cannon_projectile_queue[_preview_queue_index] == PROJECTILE_TYPE.CULTIST)
+		{
+			_remaining_cultist_projectile_count++;
+		}
+	}
+
+	if (_remaining_cultist_projectile_count > 0)
+	{
+		var _friendly_count = instance_number(o_friendly_units);
+
+		for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_index)
+		{
+			var _friendly_unit = instance_find(o_friendly_units, _friendly_index);
+
+			if (!instance_exists(_friendly_unit)
+				|| !variable_instance_exists(_friendly_unit, "summon_nights_remaining")
+				|| !variable_instance_exists(_friendly_unit, "cultist_projectile_deploy_assigned")
+				|| _friendly_unit.cultist_projectile_deploy_assigned
+				|| (_friendly_unit.object_index != o_skeleton && _friendly_unit.object_index != o_pitling))
+			{
+				continue;
+			}
+
+			array_push(_deploy_preview_units, _friendly_unit.object_index);
+		}
+	}
+
+	for (var _preview_projectile_index = 0; _preview_projectile_index < _projectile_queue_count; ++_preview_projectile_index)
+	{
+		if (global.cannon_projectile_queue[_preview_projectile_index] != PROJECTILE_TYPE.CULTIST)
+		{
+			continue;
+		}
+
+		var _preview_demon_sprite = noone;
+
+		if (variable_global_exists("cannon_projectile_payload_queue")
+			&& _preview_projectile_index < array_length(global.cannon_projectile_payload_queue))
+		{
+			var _preview_cultist_payload = global.cannon_projectile_payload_queue[_preview_projectile_index];
+
+			if (instance_exists(_preview_cultist_payload)
+				&& variable_instance_exists(_preview_cultist_payload, "demon_type"))
+			{
+				var _preview_demon_object = cultist_demon_object_get(_preview_cultist_payload.demon_type);
+
+				if (_preview_demon_object != noone)
+				{
+					_preview_demon_sprite = object_get_sprite(_preview_demon_object);
+				}
+			}
+		}
+
+		var _remaining_deploy_count = array_length(_deploy_preview_units) - _deploy_preview_cursor;
+		var _take_count = min(_remaining_deploy_count, ceil(_remaining_deploy_count / max(1, _remaining_cultist_projectile_count)));
+		var _skeleton_count = 0;
+		var _pitling_count = 0;
+
+		for (var _take_index = 0; _take_index < _take_count; ++_take_index)
+		{
+			var _preview_unit_object = _deploy_preview_units[_deploy_preview_cursor + _take_index];
+
+			if (_preview_unit_object == o_skeleton)
+			{
+				_skeleton_count++;
+			}
+			else if (_preview_unit_object == o_pitling)
+			{
+				_pitling_count++;
+			}
+		}
+
+		_deploy_preview_cursor += _take_count;
+		_remaining_cultist_projectile_count--;
+
+		_projectile_payload_data[_preview_projectile_index] = {
+			demon_sprite: _preview_demon_sprite,
+			pitling_count: _pitling_count,
+			skeleton_count: _skeleton_count
+		};
+	}
 
 	draw_set_halign(fa_center);
 	draw_set_valign(fa_middle);
@@ -139,6 +267,10 @@ if (variable_global_exists("cannon_projectile_queue"))
 		else if (_projectile_type == PROJECTILE_TYPE.CULTIST)
 		{
 			_projectile_color = COLOR_PROJECTILE_CULTIST;
+		}
+		else if (_projectile_type == PROJECTILE_TYPE.FEAST)
+		{
+			_projectile_color = COLOR_PROJECTILE_CORRUPTION;
 		}
 
 		if (_is_current_projectile)
@@ -189,6 +321,100 @@ if (variable_global_exists("cannon_projectile_queue"))
 		}
 
 		draw_text(_slot_x + (_slot_width * 0.5), _slot_y + projectile_name_offset_y, _projectile_name);
+
+		if (_projectile_payload_data[_projectile_index] != noone)
+		{
+			var _payload_data = _projectile_payload_data[_projectile_index];
+			var _payload_icon_y = _slot_y + projectile_payload_offset_y;
+			var _payload_center_x = _slot_x + (_slot_width * 0.5);
+			var _payload_width = projectile_payload_icon_size;
+
+			if (_payload_data.pitling_count > 0)
+			{
+				_payload_width += projectile_payload_icon_gap
+					+ string_width(string(_payload_data.pitling_count))
+					+ projectile_payload_count_gap
+					+ projectile_payload_icon_size;
+			}
+
+			if (_payload_data.skeleton_count > 0)
+			{
+				_payload_width += projectile_payload_icon_gap
+					+ string_width(string(_payload_data.skeleton_count))
+					+ projectile_payload_count_gap
+					+ projectile_payload_icon_size;
+			}
+
+			var _payload_draw_x = _payload_center_x - (_payload_width * 0.5);
+
+			draw_set_halign(fa_left);
+			draw_set_valign(fa_middle);
+
+			if (_payload_data.demon_sprite != noone && sprite_exists(_payload_data.demon_sprite))
+			{
+				draw_sprite_stretched_ext(
+					_payload_data.demon_sprite,
+					0,
+					_payload_draw_x,
+					_payload_icon_y - (projectile_payload_icon_size * 0.5),
+					projectile_payload_icon_size,
+					projectile_payload_icon_size,
+					c_white,
+					1
+				);
+			}
+
+			_payload_draw_x += projectile_payload_icon_size;
+
+			if (_payload_data.pitling_count > 0)
+			{
+				_payload_draw_x += projectile_payload_icon_gap;
+				draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+				draw_text(_payload_draw_x, _payload_icon_y, string(_payload_data.pitling_count));
+				_payload_draw_x += string_width(string(_payload_data.pitling_count)) + projectile_payload_count_gap;
+
+				if (sprite_exists(s_demon))
+				{
+					draw_sprite_stretched_ext(
+						s_demon,
+						0,
+						_payload_draw_x,
+						_payload_icon_y - (projectile_payload_icon_size * 0.5),
+						projectile_payload_icon_size,
+						projectile_payload_icon_size,
+						c_white,
+						1
+					);
+				}
+
+				_payload_draw_x += projectile_payload_icon_size;
+			}
+
+			if (_payload_data.skeleton_count > 0)
+			{
+				_payload_draw_x += projectile_payload_icon_gap;
+				draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+				draw_text(_payload_draw_x, _payload_icon_y, string(_payload_data.skeleton_count));
+				_payload_draw_x += string_width(string(_payload_data.skeleton_count)) + projectile_payload_count_gap;
+
+				if (sprite_exists(s_skeleton))
+				{
+					draw_sprite_stretched_ext(
+						s_skeleton,
+						0,
+						_payload_draw_x,
+						_payload_icon_y - (projectile_payload_icon_size * 0.5),
+						projectile_payload_icon_size,
+						projectile_payload_icon_size,
+						c_white,
+						1
+					);
+				}
+			}
+
+			draw_set_halign(fa_center);
+			draw_set_valign(fa_middle);
+		}
 
 		if (_is_current_projectile)
 		{

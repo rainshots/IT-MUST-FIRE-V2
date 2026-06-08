@@ -41,6 +41,48 @@ if (_flight_progress >= 1)
 	{
 		corrupt_circle(target_x, target_y, effect_radius, ground_corruption_amount);
 	}
+	else if (projectile_type == PROJECTILE_TYPE.CULTIST)
+	{
+		corrupt_circle(target_x, target_y, ground_corruption_radius, ground_corruption_amount);
+	}
+	else if (projectile_type == PROJECTILE_TYPE.FEAST)
+	{
+		corrupt_circle(target_x, target_y, ground_corruption_radius, ground_corruption_amount);
+
+		var _enemy_list = ds_list_create();
+		var _enemy_count = collision_circle_list(
+			target_x,
+			target_y,
+			effect_radius,
+			o_enemy_units,
+			false,
+			true,
+			_enemy_list,
+			false
+		);
+
+		for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+		{
+			var _enemy = _enemy_list[| _enemy_index];
+
+			if (!instance_exists(_enemy))
+			{
+				continue;
+			}
+
+			if (variable_instance_exists(_enemy, "unit_damage_receive"))
+			{
+				_enemy.unit_damage_receive(damage_amount, UNIT_FACTION.NOONE);
+			}
+			else if (variable_instance_exists(_enemy, "hp"))
+			{
+				_enemy.hp = max(_enemy.hp - damage_amount, 0);
+				damage_popup_create(_enemy.x, _enemy.y, damage_amount, UNIT_FACTION.ENEMY);
+			}
+		}
+
+		ds_list_destroy(_enemy_list);
+	}
 	else if (projectile_type == PROJECTILE_TYPE.RALLY)
 	{
 		if (instance_exists(o_cannon))
@@ -87,7 +129,7 @@ if (_flight_progress >= 1)
 		}
 	}
 
-	if (projectile_type != PROJECTILE_TYPE.RALLY)
+	if (projectile_type != PROJECTILE_TYPE.RALLY && projectile_type != PROJECTILE_TYPE.FEAST)
 	{
 		with (all)
 		{
@@ -170,6 +212,47 @@ if (_flight_progress >= 1)
 		}
 	}
 
+	if (projectile_type == PROJECTILE_TYPE.CULTIST)
+	{
+		var _deploy_unit_count = array_length(cultist_deploy_units);
+
+		for (var _deploy_index = 0; _deploy_index < _deploy_unit_count; ++_deploy_index)
+		{
+			var _deploy_unit = cultist_deploy_units[_deploy_index];
+
+			if (!instance_exists(_deploy_unit))
+			{
+				continue;
+			}
+
+			var _deploy_direction = 360 * (_deploy_index / max(1, _deploy_unit_count));
+			var _deploy_ring = (_deploy_index mod 3) / 2;
+			var _deploy_distance = BALANCE_CULTIST_PROJECTILE_SUMMON_DEPLOY_RADIUS * lerp(0.35, 1, _deploy_ring);
+			var _deploy_x = target_x + lengthdir_x(_deploy_distance, _deploy_direction);
+			var _deploy_y = target_y + lengthdir_y(_deploy_distance, _deploy_direction);
+
+			if (instance_exists(o_game_controller))
+			{
+				var _game_controller = instance_find(o_game_controller, 0);
+				_game_controller.clear_cultist_building_assignment(_deploy_unit);
+			}
+
+			_deploy_unit.x = _deploy_x;
+			_deploy_unit.y = _deploy_y;
+			_deploy_unit.drag_drop_x = _deploy_x;
+			_deploy_unit.drag_drop_y = _deploy_y;
+			_deploy_unit.cultist_projectile_deploy_assigned = false;
+			_deploy_unit.cultist_projectile_deploy_waiting = false;
+			_deploy_unit.visible = true;
+			_deploy_unit.target_instance = noone;
+			_deploy_unit.alert_target = noone;
+			_deploy_unit.regroup_is_active = false;
+			_deploy_unit.rally_is_active = false;
+			_deploy_unit.rally_is_returning = false;
+			_deploy_unit.rally_has_arrived = false;
+		}
+	}
+
 	if (projectile_type == PROJECTILE_TYPE.CULTIST && instance_exists(cultist_payload))
 	{
 		var _cultist = cultist_payload;
@@ -195,18 +278,19 @@ if (_flight_progress >= 1)
 
 			_demon.current_exp = _cultist.current_exp;
 			_demon.current_lvl = _cultist.current_lvl;
+			cultist_demon_scale_apply(_demon);
 			_demon.pending_level_points = _cultist.pending_level_points;
 			_demon.pending_passive_choices = _cultist.pending_passive_choices;
 			_demon.pending_active_choices = _cultist.pending_active_choices;
+			_demon.pending_ability_upgrade_choices = _cultist.pending_ability_upgrade_choices;
 			_demon.passive_choice_options = _cultist.passive_choice_options;
 			_demon.active_choice_options = _cultist.active_choice_options;
+			_demon.ability_upgrade_choice_options = _cultist.ability_upgrade_choice_options;
 			_demon.active_abilities = _cultist.active_abilities;
-			_demon.has_imp_blood_frenzy = _cultist.has_imp_blood_frenzy;
-			_demon.has_imp_hellbleed = _cultist.has_imp_hellbleed;
-			_demon.has_imp_taste_of_fear = _cultist.has_imp_taste_of_fear;
+			_demon.ability_levels = _cultist.ability_levels;
 			_demon.has_brute_corpse_eater = _cultist.has_brute_corpse_eater;
 			_demon.has_brute_rotten_aura = _cultist.has_brute_rotten_aura;
-			_demon.has_brute_cursed_flesh = _cultist.has_brute_cursed_flesh;
+			_demon.has_brute_blood_anvil = _cultist.has_brute_blood_anvil;
 			_demon.has_warlock_soul_harvester = _cultist.has_warlock_soul_harvester;
 			_demon.has_warlock_curseweaver = _cultist.has_warlock_curseweaver;
 			_demon.has_warlock_demonic_infusion = _cultist.has_warlock_demonic_infusion;

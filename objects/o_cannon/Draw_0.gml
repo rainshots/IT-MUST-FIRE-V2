@@ -1,6 +1,23 @@
 // Draw cannon sprite.
 draw_self();
 
+// Highlight the cannon when a dragged unit can be assigned here.
+if (variable_global_exists("cultist_assignment_preview_building")
+	&& global.cultist_assignment_preview_building == id)
+{
+	var _preview_padding = 8;
+
+	draw_set_alpha(0.22);
+	draw_set_color(COLOR_PROJECTILE_SUMMON);
+	draw_rectangle(
+		bbox_left - _preview_padding,
+		bbox_top - _preview_padding,
+		bbox_right + _preview_padding,
+		bbox_bottom + _preview_padding,
+		false
+	);
+}
+
 // Draw cannon health bar above the sprite.
 var _bar_x = x - (bar_width * 0.5);
 var _bar_y = y - bar_offset_y;

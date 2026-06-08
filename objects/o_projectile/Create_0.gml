@@ -5,12 +5,14 @@ target_x = x;
 target_y = y;
 projectile_type = PROJECTILE_TYPE.DAMAGE;
 cultist_payload = noone;
+cultist_deploy_units = [];
 
 // Explosion and effect settings.
 effect_radius = BALANCE_PROJECTILE_EFFECT_RADIUS;
 damage_amount = BALANCE_PROJECTILE_DAMAGE_AMOUNT;
 corruption_amount = 1;
 ground_corruption_amount = BALANCE_PROJECTILE_GROUND_CORRUPTION_AMOUNT;
+ground_corruption_radius = effect_radius;
 smoke_particle_count = 22;
 particle_layer_name = "Instances";
 

@@ -2,8 +2,8 @@
 event_inherited();
 
 // Demon sprites are scaled up for readability.
-image_xscale = 1.5;
-image_yscale = 1.5;
+image_xscale = 1.15;
+image_yscale = 1.15;
 
 // Default possession data is replaced by the controller when transformed.
 cultist_name = "Brute";
@@ -15,50 +15,114 @@ current_lvl = 1;
 pending_level_points = 0;
 pending_passive_choices = 0;
 pending_active_choices = 0;
+pending_ability_upgrade_choices = 0;
 passive_choice_options = [];
 active_choice_options = [];
+ability_upgrade_choice_options = [];
 active_abilities = [];
+ability_levels = array_create(DEMON_ABILITY.COUNT, 0);
 
-// Passive abilities start locked and can be enabled by future progression.
+// Passive abilities start locked and are enabled by cultist progression.
 has_brute_corpse_eater = false;
 has_brute_rotten_aura = false;
-has_brute_cursed_flesh = false;
+has_brute_blood_anvil = false;
 
 // Demon combat stats are derived from base stats and cultist attributes.
 cultist_stats_apply(id);
 
-// Corpse Eater makes injured Brutes seek nearby meat and consume it.
+// Corpse Eater seeks non-skeleton corpse snapshots and consumes them for healing.
 corpse_eater_search_radius = BALANCE_BRUTE_CORPSE_EATER_SEARCH_RADIUS;
 corpse_eater_eat_radius = BALANCE_BRUTE_CORPSE_EATER_EAT_RADIUS;
 corpse_eater_cooldown_timer = 0;
+corpse_eater_target_corpse_id = noone;
 
-// Rotten Aura applies periodic magic damage around the Brute.
-rotten_aura_radius = BALANCE_BRUTE_ROTTEN_AURA_RADIUS;
+// Rotten Aura applies periodic magic damage and later Fear around the Brute.
 rotten_aura_tick_timer = irandom(max(1, floor(BALANCE_BRUTE_ROTTEN_AURA_TICK_TIME * room_speed)) - 1);
 rotten_aura_particle_timer = irandom(max(1, floor(BALANCE_BRUTE_ROTTEN_AURA_PARTICLE_INTERVAL)) - 1);
 
-// Brute active abilities keep independent cooldown state for future unlocks.
+// Brute active abilities keep independent cooldown state.
 grave_slam_cooldown = BALANCE_BRUTE_GRAVE_SLAM_COOLDOWN * room_speed;
 grave_slam_timer = 0;
 grave_slam_retry_timer = 0;
-meat_hook_cooldown = BALANCE_BRUTE_MEAT_HOOK_COOLDOWN * room_speed;
-meat_hook_timer = 0;
-meat_hook_retry_timer = 0;
-devour_cooldown = BALANCE_BRUTE_DEVOUR_COOLDOWN * room_speed;
-devour_timer = 0;
-devour_retry_timer = 0;
+butcher_chains_cooldown = BALANCE_BRUTE_BUTCHER_CHAINS_COOLDOWN * room_speed;
+butcher_chains_timer = 0;
+butcher_chains_retry_timer = 0;
+corpse_armor_cooldown = BALANCE_BRUTE_CORPSE_ARMOR_COOLDOWN * room_speed;
+corpse_armor_ability_timer = 0;
+corpse_armor_retry_timer = 0;
+
+// Ability visuals use fading circles and one hook line per pulled target.
 grave_slam_circle_timer = 0;
 grave_slam_circle_duration = BALANCE_BRUTE_GRAVE_SLAM_CIRCLE_FADE_TIME * room_speed;
 grave_slam_circle_x = x;
 grave_slam_circle_y = y;
 grave_slam_circle_radius = BALANCE_BRUTE_GRAVE_SLAM_RADIUS;
+grave_slam_spike_visuals = [];
 meat_explosion_circle_timer = 0;
 meat_explosion_circle_duration = BALANCE_BRUTE_GRAVE_SLAM_CIRCLE_FADE_TIME * room_speed;
 meat_explosion_circle_x = x;
 meat_explosion_circle_y = y;
 meat_explosion_circle_radius = BALANCE_BRUTE_MEAT_EXPLOSION_RADIUS;
-hook_target = noone;
+hook_targets = [];
 hook_line_active = false;
+butcher_chains_second_wave_pending = false;
+
+brute_ability_level_get = function(_ability)
+{
+	return cultist_ability_level_get(id, _ability);
+};
+
+brute_rotten_aura_radius_get = function()
+{
+	if (brute_ability_level_get(DEMON_ABILITY.BRUTE_ROTTEN_AURA) >= 2)
+	{
+		return BALANCE_BRUTE_ROTTEN_AURA_RADIUS_LEVEL_2;
+	}
+
+	return BALANCE_BRUTE_ROTTEN_AURA_RADIUS;
+};
+
+brute_grave_slam_radius_get = function()
+{
+	var _radius = BALANCE_BRUTE_GRAVE_SLAM_RADIUS;
+
+	if (brute_ability_level_get(DEMON_ABILITY.BRUTE_GRAVE_SLAM) >= 2)
+	{
+		_radius *= BALANCE_BRUTE_GRAVE_SLAM_RADIUS_LEVEL_2_MULTIPLIER;
+	}
+
+	return _radius;
+};
+
+brute_chains_search_radius_get = function()
+{
+	if (brute_ability_level_get(DEMON_ABILITY.BRUTE_BUTCHER_CHAINS) >= 2)
+	{
+		return BALANCE_BRUTE_BUTCHER_CHAINS_SEARCH_RADIUS_LEVEL_2;
+	}
+
+	return BALANCE_BRUTE_BUTCHER_CHAINS_SEARCH_RADIUS;
+};
+
+brute_chains_target_count_get = function()
+{
+	if (brute_ability_level_get(DEMON_ABILITY.BRUTE_BUTCHER_CHAINS) >= 3)
+	{
+		return BALANCE_BRUTE_BUTCHER_CHAINS_TARGET_COUNT_LEVEL_3;
+	}
+
+	return BALANCE_BRUTE_BUTCHER_CHAINS_TARGET_COUNT;
+};
+
+brute_corpse_armor_duration_get = function()
+{
+	if (brute_ability_level_get(DEMON_ABILITY.BRUTE_CORPSE_ARMOR) >= 2)
+	{
+		return BALANCE_BRUTE_CORPSE_ARMOR_DURATION_LEVEL_2;
+	}
+
+	return BALANCE_BRUTE_CORPSE_ARMOR_DURATION;
+};
 
 brute_heal_particles_create = function()
 {
@@ -91,9 +155,11 @@ brute_rotten_aura_particles_update = function()
 		return;
 	}
 
+	var _aura_radius = brute_rotten_aura_radius_get();
+
 	for (var _particle_index = 0; _particle_index < BALANCE_BRUTE_ROTTEN_AURA_PARTICLE_COUNT; ++_particle_index)
 	{
-		var _particle_distance = sqrt(random(1)) * rotten_aura_radius;
+		var _particle_distance = sqrt(random(1)) * _aura_radius;
 		var _particle_direction = random(360);
 		var _particle_x = x + lengthdir_x(_particle_distance, _particle_direction);
 		var _particle_y = y + lengthdir_y(_particle_distance, _particle_direction);
@@ -139,53 +205,108 @@ brute_aoe_circle_show = function(_circle_x, _circle_y, _circle_radius, _is_meat_
 	grave_slam_circle_timer = grave_slam_circle_duration;
 };
 
-brute_damage_enemy_in_aoe = function(_center_x, _center_y, _radius, _damage_amount, _stun_time)
+brute_grave_slam_spikes_create = function(_center_x, _center_y, _radius)
 {
-	var _enemy_list = ds_list_create();
-	var _enemy_count = collision_circle_list(_center_x, _center_y, _radius, o_enemy_units, false, true, _enemy_list, false);
-
-	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
-	{
-		var _enemy = _enemy_list[| _enemy_index];
-
-		if (!target_can_be_attacked(_enemy) || !variable_instance_exists(_enemy, "hp"))
-		{
-			continue;
-		}
-
-		var _final_damage = physical_damage_after_armor(_damage_amount, _enemy);
-
-		if (variable_instance_exists(_enemy, "unit_damage_receive"))
-		{
-			_enemy.unit_damage_receive(_final_damage, unit_faction);
-		}
-		else
-		{
-			_enemy.hp = max(_enemy.hp - _final_damage, 0);
-			damage_popup_create(_enemy.x, _enemy.y, _final_damage, _enemy.unit_faction);
-		}
-
-		if (_stun_time > 0 && variable_instance_exists(_enemy, "stun_apply"))
-		{
-			_enemy.stun_apply(_stun_time);
-		}
-	}
-
-	ds_list_destroy(_enemy_list);
-};
-
-brute_meat_explosion_create = function(_meat)
-{
-	if (!instance_exists(_meat))
+	if (!sprite_exists(s_spike))
 	{
 		return;
 	}
 
-	var _explosion_x = _meat.x;
-	var _explosion_y = _meat.y;
+	for (var _spike_index = 0; _spike_index < BALANCE_BRUTE_GRAVE_SLAM_SPIKE_VISUAL_COUNT; ++_spike_index)
+	{
+		var _spike_distance = sqrt(random(1)) * _radius;
+		var _spike_direction = random(360);
+		var _spike_x = _center_x + lengthdir_x(_spike_distance, _spike_direction);
+		var _spike_y = _center_y + lengthdir_y(_spike_distance, _spike_direction);
+		var _spike_scale = random_range(
+			BALANCE_BRUTE_GRAVE_SLAM_SPIKE_VISUAL_SCALE_MIN,
+			BALANCE_BRUTE_GRAVE_SLAM_SPIKE_VISUAL_SCALE_MAX
+		);
+
+		array_push(
+			grave_slam_spike_visuals,
+			{
+				x: _spike_x,
+				y: _spike_y,
+				angle: _spike_direction + 90,
+				scale: _spike_scale,
+				timer: BALANCE_BRUTE_GRAVE_SLAM_SPIKE_VISUAL_TIME * room_speed,
+				duration: BALANCE_BRUTE_GRAVE_SLAM_SPIKE_VISUAL_TIME * room_speed
+			}
+		);
+	}
+};
+
+brute_damage_enemy = function(_enemy, _damage_amount, _stun_time, _knockback_x, _knockback_y)
+{
+	if (!target_can_be_attacked(_enemy) || !variable_instance_exists(_enemy, "hp"))
+	{
+		return false;
+	}
+
+	var _enemy_hp_before_hit = _enemy.hp;
+	var _final_damage = physical_damage_after_armor(_damage_amount, _enemy);
+
+	if (variable_instance_exists(_enemy, "unit_damage_receive"))
+	{
+		_enemy.unit_damage_receive(_final_damage, unit_faction);
+	}
+	else
+	{
+		_enemy.hp = max(_enemy.hp - _final_damage, 0);
+		damage_popup_create(_enemy.x, _enemy.y, _final_damage, _enemy.unit_faction);
+	}
+
+	var _enemy_was_killed = _enemy_hp_before_hit > 0 && _enemy.hp <= 0;
+
+	if (!_enemy_was_killed && _stun_time > 0 && variable_instance_exists(_enemy, "stun_apply"))
+	{
+		_enemy.stun_apply(_stun_time);
+	}
+
+	if (!_enemy_was_killed && (_knockback_x != 0 || _knockback_y != 0))
+	{
+		_enemy.x += _knockback_x;
+		_enemy.y += _knockback_y;
+	}
+
+	return _enemy_was_killed;
+};
+
+brute_damage_enemy_in_aoe = function(_center_x, _center_y, _radius, _damage_amount, _stun_time, _knockback_distance)
+{
+	var _enemy_list = ds_list_create();
+	var _enemy_count = collision_circle_list(_center_x, _center_y, _radius, o_enemy_units, false, true, _enemy_list, false);
+	var _killed_positions = [];
+
+	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	{
+		var _enemy = _enemy_list[| _enemy_index];
+		var _knockback_x = 0;
+		var _knockback_y = 0;
+
+		if (_knockback_distance > 0 && instance_exists(_enemy))
+		{
+			var _knockback_direction = point_direction(_center_x, _center_y, _enemy.x, _enemy.y);
+			_knockback_x = lengthdir_x(_knockback_distance, _knockback_direction);
+			_knockback_y = lengthdir_y(_knockback_distance, _knockback_direction);
+		}
+
+		if (brute_damage_enemy(_enemy, _damage_amount, _stun_time, _knockback_x, _knockback_y))
+		{
+			array_push(_killed_positions, [_enemy.x, _enemy.y]);
+		}
+	}
+
+	ds_list_destroy(_enemy_list);
+	return _killed_positions;
+};
+
+brute_meat_explosion_create = function(_explosion_x, _explosion_y)
+{
 	var _explosion_damage = damage * BALANCE_BRUTE_MEAT_EXPLOSION_DAMAGE_MULTIPLIER;
 
-	brute_damage_enemy_in_aoe(_explosion_x, _explosion_y, BALANCE_BRUTE_MEAT_EXPLOSION_RADIUS, _explosion_damage, 0);
+	brute_damage_enemy_in_aoe(_explosion_x, _explosion_y, BALANCE_BRUTE_MEAT_EXPLOSION_RADIUS, _explosion_damage, 0, 0);
 	brute_aoe_circle_show(_explosion_x, _explosion_y, BALANCE_BRUTE_MEAT_EXPLOSION_RADIUS, true);
 
 	if (variable_global_exists("particle_type_brute_meat_explosion_smoke"))
@@ -198,72 +319,143 @@ brute_meat_explosion_create = function(_meat)
 			BALANCE_BRUTE_MEAT_EXPLOSION_SMOKE_COUNT
 		);
 	}
-
-	with (_meat)
-	{
-		instance_destroy();
-	}
 };
 
-brute_nearest_meat_find = function()
+brute_nearest_corpse_find = function()
 {
-	if (!instance_exists(o_meat))
+	if (!instance_exists(o_game_controller))
 	{
 		return noone;
 	}
 
-	var _nearest_meat = noone;
-	var _nearest_distance = corpse_eater_search_radius;
-	var _meat_count = instance_number(o_meat);
+	var _game_controller = instance_find(o_game_controller, 0);
 
-	for (var _meat_index = 0; _meat_index < _meat_count; ++_meat_index)
+	if (!variable_instance_exists(_game_controller, "corpse_draw_data"))
 	{
-		var _meat = instance_find(o_meat, _meat_index);
+		return noone;
+	}
 
-		if (!instance_exists(_meat)
-			|| (variable_instance_exists(_meat, "is_fading_out") && _meat.is_fading_out))
+	var _corpse_count = array_length(_game_controller.corpse_draw_data);
+	var _nearest_corpse = noone;
+	var _nearest_distance = corpse_eater_search_radius;
+
+	for (var _corpse_index = 0; _corpse_index < _corpse_count; ++_corpse_index)
+	{
+		var _corpse = _game_controller.corpse_draw_data[_corpse_index];
+		var _corpse_is_skeleton = variable_struct_exists(_corpse, "source_object_index")
+			&& _corpse.source_object_index == o_skeleton;
+		var _corpse_is_reserved = variable_struct_exists(_corpse, "reserved_by")
+			&& instance_exists(_corpse.reserved_by);
+
+		if (_corpse_is_skeleton || _corpse_is_reserved)
 		{
 			continue;
 		}
 
-		var _meat_distance = point_distance(x, y, _meat.x, _meat.y);
+		var _corpse_distance = point_distance(x, y, _corpse.x, _corpse.y);
 
-		if (_meat_distance <= _nearest_distance)
+		if (_corpse_distance <= _nearest_distance)
 		{
-			_nearest_meat = _meat;
-			_nearest_distance = _meat_distance;
+			_nearest_corpse = _corpse;
+			_nearest_distance = _corpse_distance;
 		}
 	}
 
-	return _nearest_meat;
+	return _nearest_corpse;
+};
+
+brute_corpse_consume = function(_corpse)
+{
+	if (!is_struct(_corpse) || !instance_exists(o_game_controller))
+	{
+		return false;
+	}
+
+	var _game_controller = instance_find(o_game_controller, 0);
+
+	if (!variable_instance_exists(_game_controller, "corpse_reserved_take"))
+	{
+		return false;
+	}
+
+	var _consumed_corpse = _game_controller.corpse_reserved_take(_corpse.corpse_id, id);
+
+	if (!is_struct(_consumed_corpse))
+	{
+		return false;
+	}
+
+	// Leave an eaten corpse behind as a skeleton corpse so it cannot be eaten again.
+	_consumed_corpse.source_object_index = o_skeleton;
+	_consumed_corpse.reserved_by = noone;
+
+	if (sprite_exists(s_skeleton))
+	{
+		_consumed_corpse.sprite_index = s_skeleton;
+		_consumed_corpse.image_index = 0;
+		_consumed_corpse.image_blend = c_white;
+		_consumed_corpse.image_alpha = 1;
+	}
+
+	if (variable_instance_exists(_game_controller, "corpse_draw_data"))
+	{
+		array_push(_game_controller.corpse_draw_data, _consumed_corpse);
+	}
+
+	var _corpse_eater_level = brute_ability_level_get(DEMON_ABILITY.BRUTE_CORPSE_EATER);
+	var _heal_share = BALANCE_BRUTE_CORPSE_EATER_HEAL_MAX_HP_SHARE;
+
+	if (_corpse_eater_level >= 2)
+	{
+		_heal_share = BALANCE_BRUTE_CORPSE_EATER_HEAL_MAX_HP_SHARE_LEVEL_2;
+	}
+
+	hp = min(hp + (max_hp * _heal_share), max_hp);
+	brute_heal_particles_create();
+
+	if (_corpse_eater_level >= 4)
+	{
+		var _ally_count = instance_number(o_friendly_units);
+
+		for (var _ally_index = 0; _ally_index < _ally_count; ++_ally_index)
+		{
+			var _ally = instance_find(o_friendly_units, _ally_index);
+
+			if (instance_exists(_ally)
+				&& _ally != id
+				&& variable_instance_exists(_ally, "demon_type")
+				&& _ally.demon_type != DEMON_TYPE.NONE
+				&& variable_instance_exists(_ally, "hp")
+				&& variable_instance_exists(_ally, "max_hp")
+				&& point_distance(x, y, _ally.x, _ally.y) <= BALANCE_BRUTE_CORPSE_EATER_ALLY_RADIUS)
+			{
+				_ally.hp = min(_ally.hp + (_ally.max_hp * BALANCE_BRUTE_CORPSE_EATER_ALLY_HEAL_MAX_HP_SHARE), _ally.max_hp);
+			}
+		}
+	}
+
+	var _cooldown_seconds = BALANCE_BRUTE_CORPSE_EATER_COOLDOWN;
+
+	if (_corpse_eater_level >= 3)
+	{
+		_cooldown_seconds = BALANCE_BRUTE_CORPSE_EATER_COOLDOWN_LEVEL_3;
+	}
+
+	corpse_eater_cooldown_timer = _cooldown_seconds * room_speed;
+	is_walking = false;
+
+	return true;
 };
 
 brute_has_grave_slam_target = function()
 {
+	var _radius = brute_grave_slam_radius_get();
 	var _enemy_list = ds_list_create();
-	var _enemy_count = collision_circle_list(x, y, BALANCE_BRUTE_GRAVE_SLAM_RADIUS, o_enemy_units, false, true, _enemy_list, false);
+	var _enemy_count = collision_circle_list(x, y, _radius, o_enemy_units, false, true, _enemy_list, false);
 	var _has_target = _enemy_count > 0;
 	ds_list_destroy(_enemy_list);
 
-	if (_has_target)
-	{
-		return true;
-	}
-
-	var _meat_count = instance_number(o_meat);
-
-	for (var _meat_index = 0; _meat_index < _meat_count; ++_meat_index)
-	{
-		var _meat = instance_find(o_meat, _meat_index);
-
-		if (instance_exists(_meat)
-			&& point_distance(x, y, _meat.x, _meat.y) <= BALANCE_BRUTE_GRAVE_SLAM_RADIUS)
-		{
-			return true;
-		}
-	}
-
-	return false;
+	return _has_target;
 };
 
 brute_grave_slam_use = function()
@@ -273,22 +465,35 @@ brute_grave_slam_use = function()
 		return false;
 	}
 
+	var _grave_slam_level = max(1, brute_ability_level_get(DEMON_ABILITY.BRUTE_GRAVE_SLAM));
+	var _slam_radius = brute_grave_slam_radius_get();
+	var _slam_damage = damage * BALANCE_BRUTE_GRAVE_SLAM_DAMAGE_MULTIPLIER;
+
+	if (_grave_slam_level >= 3)
+	{
+		_slam_damage += damage * BALANCE_BRUTE_GRAVE_SLAM_SPIKE_DAMAGE_MULTIPLIER;
+	}
+
 	ability_popup_create(x, y, DEMON_ABILITY.BRUTE_GRAVE_SLAM);
-	brute_damage_enemy_in_aoe(
+	demon_active_ability_used_notify(DEMON_ABILITY.BRUTE_GRAVE_SLAM);
+
+	var _killed_positions = brute_damage_enemy_in_aoe(
 		x,
 		y,
-		BALANCE_BRUTE_GRAVE_SLAM_RADIUS,
-		damage * BALANCE_BRUTE_GRAVE_SLAM_DAMAGE_MULTIPLIER,
-		BALANCE_BRUTE_GRAVE_SLAM_STUN_TIME
+		_slam_radius,
+		_slam_damage,
+		BALANCE_BRUTE_GRAVE_SLAM_STUN_TIME,
+		BALANCE_BRUTE_GRAVE_SLAM_KNOCKBACK_DISTANCE
 	);
-	brute_aoe_circle_show(x, y, BALANCE_BRUTE_GRAVE_SLAM_RADIUS, false);
+
+	brute_aoe_circle_show(x, y, _slam_radius, false);
 
 	if (variable_global_exists("particle_type_brute_grave_slam_smoke"))
 	{
 		brute_smoke_burst_create(
 			x,
 			y,
-			BALANCE_BRUTE_GRAVE_SLAM_RADIUS,
+			_slam_radius,
 			global.particle_type_brute_grave_slam_smoke,
 			BALANCE_BRUTE_GRAVE_SLAM_SMOKE_COUNT
 		);
@@ -301,62 +506,134 @@ brute_grave_slam_use = function()
 		var _meat = instance_find(o_meat, _meat_index);
 
 		if (instance_exists(_meat)
-			&& point_distance(x, y, _meat.x, _meat.y) <= BALANCE_BRUTE_GRAVE_SLAM_RADIUS)
+			&& point_distance(x, y, _meat.x, _meat.y) <= _slam_radius)
 		{
-			brute_meat_explosion_create(_meat);
+			brute_meat_explosion_create(_meat.x, _meat.y);
+
+			with (_meat)
+			{
+				instance_destroy();
+			}
+		}
+	}
+
+	if (_grave_slam_level >= 3)
+	{
+		brute_grave_slam_spikes_create(x, y, _slam_radius);
+	}
+
+	if (_grave_slam_level >= 4)
+	{
+		for (var _kill_index = 0; _kill_index < array_length(_killed_positions); ++_kill_index)
+		{
+			brute_meat_explosion_create(_killed_positions[_kill_index][0], _killed_positions[_kill_index][1]);
 		}
 	}
 
 	return true;
 };
 
-brute_hook_target_find = function()
+brute_chains_target_was_selected = function(_target, _selected_targets)
 {
-	var _best_target = noone;
-	var _best_hp = -1;
-	var _enemy_count = instance_number(o_enemy_units);
-
-	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	for (var _target_index = 0; _target_index < array_length(_selected_targets); ++_target_index)
 	{
-		var _enemy = instance_find(o_enemy_units, _enemy_index);
-
-		if (!target_can_be_attacked(_enemy)
-			|| !variable_instance_exists(_enemy, "hp")
-			|| !variable_instance_exists(_enemy, "max_hp")
-			|| (variable_instance_exists(_enemy, "is_being_hooked") && _enemy.is_being_hooked)
-			|| point_distance(x, y, _enemy.x, _enemy.y) > BALANCE_BRUTE_MEAT_HOOK_SEARCH_RADIUS)
+		if (_selected_targets[_target_index] == _target)
 		{
-			continue;
-		}
-
-		if (_enemy.hp > _best_hp)
-		{
-			_best_target = _enemy;
-			_best_hp = _enemy.hp;
+			return true;
 		}
 	}
 
-	return _best_target;
+	return false;
 };
 
-brute_hook_start = function()
+brute_chains_targets_find = function()
 {
-	var _hook_target = brute_hook_target_find();
+	var _selected_targets = [];
+	var _search_radius = brute_chains_search_radius_get();
+	var _target_count = brute_chains_target_count_get();
 
-	if (!instance_exists(_hook_target))
+	for (var _selection_index = 0; _selection_index < _target_count; ++_selection_index)
+	{
+		var _best_target = noone;
+		var _best_distance = -1;
+		var _enemy_count = instance_number(o_enemy_units);
+
+		for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+		{
+			var _enemy = instance_find(o_enemy_units, _enemy_index);
+
+			if (!target_can_be_attacked(_enemy)
+				|| (variable_instance_exists(_enemy, "is_being_hooked") && _enemy.is_being_hooked)
+				|| brute_chains_target_was_selected(_enemy, _selected_targets))
+			{
+				continue;
+			}
+
+			var _enemy_distance = point_distance(x, y, _enemy.x, _enemy.y);
+
+			if (_enemy_distance <= _search_radius && _enemy_distance > _best_distance)
+			{
+				_best_target = _enemy;
+				_best_distance = _enemy_distance;
+			}
+		}
+
+		if (!instance_exists(_best_target))
+		{
+			break;
+		}
+
+		array_push(_selected_targets, _best_target);
+	}
+
+	return _selected_targets;
+};
+
+brute_chains_wave_start = function(_is_second_wave)
+{
+	var _targets = brute_chains_targets_find();
+
+	if (array_length(_targets) <= 0)
 	{
 		return false;
 	}
 
-	ability_popup_create(x, y, DEMON_ABILITY.BRUTE_MEAT_HOOK);
-	hook_target = _hook_target;
-	hook_line_active = true;
-	hook_target.is_being_hooked = true;
-	target_instance = hook_target;
+	ability_popup_create(x, y, DEMON_ABILITY.BRUTE_BUTCHER_CHAINS);
 
-	if (variable_instance_exists(hook_target, "stun_apply"))
+	if (!_is_second_wave)
 	{
-		hook_target.stun_apply(BALANCE_BRUTE_MEAT_HOOK_STUN_TIME);
+		demon_active_ability_used_notify(DEMON_ABILITY.BRUTE_BUTCHER_CHAINS);
+	}
+
+	hook_targets = _targets;
+	hook_line_active = true;
+
+	for (var _target_index = 0; _target_index < array_length(hook_targets); ++_target_index)
+	{
+		var _target = hook_targets[_target_index];
+
+		if (!instance_exists(_target))
+		{
+			continue;
+		}
+
+		var _target_was_killed = brute_damage_enemy(
+			_target,
+			damage * BALANCE_BRUTE_BUTCHER_CHAINS_DAMAGE_MULTIPLIER,
+			BALANCE_BRUTE_BUTCHER_CHAINS_STUN_TIME,
+			0,
+			0
+		);
+
+		if (!_target_was_killed)
+		{
+			_target.is_being_hooked = true;
+			_target.target_instance = id;
+		}
+		else if (!_is_second_wave && brute_ability_level_get(DEMON_ABILITY.BRUTE_BUTCHER_CHAINS) >= 4)
+		{
+			butcher_chains_second_wave_pending = true;
+		}
 	}
 
 	return true;
@@ -364,88 +641,201 @@ brute_hook_start = function()
 
 brute_hook_update = function()
 {
-	if (!instance_exists(hook_target))
+	if (array_length(hook_targets) <= 0)
 	{
-		hook_target = noone;
 		hook_line_active = false;
+
+		if (butcher_chains_second_wave_pending)
+		{
+			butcher_chains_second_wave_pending = false;
+			brute_chains_wave_start(true);
+		}
+
 		return;
 	}
 
-	if (!target_can_be_attacked(hook_target))
+	var _write_index = 0;
+
+	for (var _target_index = 0; _target_index < array_length(hook_targets); ++_target_index)
 	{
-		hook_target.is_being_hooked = false;
-		hook_target = noone;
-		hook_line_active = false;
-		return;
-	}
+		var _target = hook_targets[_target_index];
 
-	var _distance_to_brute = point_distance(hook_target.x, hook_target.y, x, y);
-
-	if (_distance_to_brute <= BALANCE_BRUTE_MEAT_HOOK_RELEASE_RADIUS)
-	{
-		hook_target.is_being_hooked = false;
-		hook_target.forced_attack_target = id;
-		hook_target.forced_attack_target_timer = BALANCE_BRUTE_MEAT_HOOK_FORCED_ATTACK_TIME * room_speed;
-		hook_target.target_instance = id;
-		target_instance = hook_target;
-		hook_target = noone;
-		hook_line_active = false;
-		return;
-	}
-
-	var _pull_direction = point_direction(hook_target.x, hook_target.y, x, y);
-	var _pull_distance = min(BALANCE_BRUTE_MEAT_HOOK_PULL_SPEED, _distance_to_brute);
-	hook_target.x += lengthdir_x(_pull_distance, _pull_direction);
-	hook_target.y += lengthdir_y(_pull_distance, _pull_direction);
-};
-
-brute_devour_target_find = function()
-{
-	var _best_target = noone;
-	var _best_hp = -1;
-	var _enemy_count = instance_number(o_enemy_units);
-
-	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
-	{
-		var _enemy = instance_find(o_enemy_units, _enemy_index);
-
-		if (!target_can_be_attacked(_enemy)
-			|| !variable_instance_exists(_enemy, "hp")
-			|| !variable_instance_exists(_enemy, "max_hp")
-			|| _enemy.hp >= _enemy.max_hp * BALANCE_BRUTE_DEVOUR_HP_THRESHOLD
-			|| point_distance(x, y, _enemy.x, _enemy.y) > BALANCE_BRUTE_DEVOUR_RADIUS)
+		if (!target_can_be_attacked(_target))
 		{
 			continue;
 		}
 
-		if (_enemy.hp > _best_hp)
+		var _distance_to_brute = point_distance(_target.x, _target.y, x, y);
+
+		if (_distance_to_brute <= BALANCE_BRUTE_BUTCHER_CHAINS_RELEASE_RADIUS)
 		{
-			_best_target = _enemy;
-			_best_hp = _enemy.hp;
+			_target.is_being_hooked = false;
+			_target.forced_attack_target = id;
+			_target.forced_attack_target_timer = BALANCE_BRUTE_BUTCHER_CHAINS_FORCED_ATTACK_TIME * room_speed;
+			_target.target_instance = id;
+			continue;
 		}
+
+		var _pull_direction = point_direction(_target.x, _target.y, x, y);
+		var _pull_distance = min(BALANCE_BRUTE_BUTCHER_CHAINS_PULL_SPEED, _distance_to_brute);
+		_target.x += lengthdir_x(_pull_distance, _pull_direction);
+		_target.y += lengthdir_y(_pull_distance, _pull_direction);
+		hook_targets[_write_index] = _target;
+		_write_index++;
 	}
 
-	return _best_target;
+	array_resize(hook_targets, _write_index);
+	hook_line_active = _write_index > 0;
 };
 
-brute_devour_use = function()
+brute_corpse_armor_apply = function(_target, _duration_seconds, _armor_bonus, _retaliation_damage)
 {
-	var _devour_target = brute_devour_target_find();
+	if (!instance_exists(_target)
+		|| !variable_instance_exists(_target, "armor")
+		|| !variable_instance_exists(_target, "corpse_armor_timer"))
+	{
+		return;
+	}
 
-	if (!instance_exists(_devour_target))
+	if (_target.corpse_armor_timer > 0)
+	{
+		_target.armor -= _target.corpse_armor_bonus;
+	}
+
+	_target.corpse_armor_bonus = _armor_bonus;
+	_target.corpse_armor_timer = _duration_seconds * room_speed;
+	_target.corpse_armor_retaliation_damage = _retaliation_damage;
+	_target.armor += _armor_bonus;
+};
+
+brute_corpse_armor_use = function()
+{
+	if (corpse_armor_timer > 0)
 	{
 		return false;
 	}
 
-	ability_popup_create(x, y, DEMON_ABILITY.BRUTE_DEVOUR);
-	instance_create_layer(_devour_target.x, _devour_target.y, "Instances", o_meat);
+	var _corpse_armor_level = max(1, brute_ability_level_get(DEMON_ABILITY.BRUTE_CORPSE_ARMOR));
+	var _retaliation_damage = 0;
 
-	with (_devour_target)
+	if (_corpse_armor_level >= 3)
 	{
-		instance_destroy();
+		_retaliation_damage = damage * BALANCE_BRUTE_CORPSE_ARMOR_RETALIATION_DAMAGE_MULTIPLIER;
 	}
 
+	brute_corpse_armor_apply(
+		id,
+		brute_corpse_armor_duration_get(),
+		BALANCE_BRUTE_CORPSE_ARMOR_BONUS,
+		_retaliation_damage
+	);
+
+	if (_corpse_armor_level >= 4)
+	{
+		var _ally_count = instance_number(o_friendly_units);
+
+		for (var _ally_index = 0; _ally_index < _ally_count; ++_ally_index)
+		{
+			var _ally = instance_find(o_friendly_units, _ally_index);
+
+			if (instance_exists(_ally)
+				&& _ally != id
+				&& variable_instance_exists(_ally, "demon_type")
+				&& _ally.demon_type != DEMON_TYPE.NONE
+				&& point_distance(x, y, _ally.x, _ally.y) <= BALANCE_BRUTE_CORPSE_ARMOR_ALLY_RADIUS)
+			{
+				brute_corpse_armor_apply(
+					_ally,
+					BALANCE_BRUTE_CORPSE_ARMOR_ALLY_DURATION,
+					BALANCE_BRUTE_CORPSE_ARMOR_ALLY_BONUS,
+					0
+				);
+			}
+		}
+	}
+
+	if (variable_global_exists("particle_type_brute_meat_explosion_smoke"))
+	{
+		brute_smoke_burst_create(x, y, 40, global.particle_type_brute_meat_explosion_smoke, 10);
+	}
+
+	ability_popup_create(x, y, DEMON_ABILITY.BRUTE_CORPSE_ARMOR);
+	demon_active_ability_used_notify(DEMON_ABILITY.BRUTE_CORPSE_ARMOR);
+
 	return true;
+};
+
+brute_blood_anvil_active_recharge = function(_recharge_share)
+{
+	var _recharge_amount = 0;
+
+	if (cultist_active_ability_has(id, DEMON_ABILITY.BRUTE_GRAVE_SLAM))
+	{
+		_recharge_amount = ability_cooldown_time_get(grave_slam_cooldown) * _recharge_share;
+		grave_slam_timer = max(grave_slam_timer - _recharge_amount, 0);
+	}
+
+	if (cultist_active_ability_has(id, DEMON_ABILITY.BRUTE_BUTCHER_CHAINS))
+	{
+		_recharge_amount = ability_cooldown_time_get(butcher_chains_cooldown) * _recharge_share;
+		butcher_chains_timer = max(butcher_chains_timer - _recharge_amount, 0);
+	}
+
+	if (cultist_active_ability_has(id, DEMON_ABILITY.BRUTE_CORPSE_ARMOR))
+	{
+		_recharge_amount = ability_cooldown_time_get(corpse_armor_cooldown) * _recharge_share;
+		corpse_armor_ability_timer = max(corpse_armor_ability_timer - _recharge_amount, 0);
+	}
+};
+
+brute_blood_anvil_trigger = function(_source_demon)
+{
+	var _blood_anvil_level = brute_ability_level_get(DEMON_ABILITY.BRUTE_BLOOD_ANVIL);
+
+	if (_blood_anvil_level <= 0 || !instance_exists(_source_demon))
+	{
+		return;
+	}
+
+	var _trigger_radius = BALANCE_BRUTE_BLOOD_ANVIL_RADIUS;
+	var _recharge_share = BALANCE_BRUTE_BLOOD_ANVIL_RECHARGE_SHARE;
+
+	if (_blood_anvil_level >= 2)
+	{
+		_recharge_share = BALANCE_BRUTE_BLOOD_ANVIL_RECHARGE_SHARE_LEVEL_2;
+	}
+
+	if (_blood_anvil_level >= 3)
+	{
+		_trigger_radius = BALANCE_BRUTE_BLOOD_ANVIL_RADIUS_LEVEL_3;
+	}
+
+	if (point_distance(x, y, _source_demon.x, _source_demon.y) > _trigger_radius)
+	{
+		return;
+	}
+
+	brute_blood_anvil_active_recharge(_recharge_share);
+
+	if (_blood_anvil_level >= 4)
+	{
+		var _ally_count = instance_number(o_friendly_units);
+
+		for (var _ally_index = 0; _ally_index < _ally_count; ++_ally_index)
+		{
+			var _ally = instance_find(o_friendly_units, _ally_index);
+
+			if (instance_exists(_ally)
+				&& _ally != id
+				&& variable_instance_exists(_ally, "demon_type")
+				&& _ally.demon_type != DEMON_TYPE.NONE
+				&& point_distance(x, y, _ally.x, _ally.y) <= BALANCE_BRUTE_BLOOD_ANVIL_RADIUS_LEVEL_3
+				&& variable_instance_exists(_ally, "brute_blood_anvil_active_recharge"))
+			{
+				_ally.brute_blood_anvil_active_recharge(BALANCE_BRUTE_BLOOD_ANVIL_ALLY_RECHARGE_SHARE);
+			}
+		}
+	}
 };
 
 brute_corpse_eater_update = function()
@@ -465,9 +855,9 @@ brute_corpse_eater_update = function()
 		return false;
 	}
 
-	var _meat = brute_nearest_meat_find();
+	var _corpse = brute_nearest_corpse_find();
 
-	if (!instance_exists(_meat))
+	if (!is_struct(_corpse))
 	{
 		return false;
 	}
@@ -475,27 +865,15 @@ brute_corpse_eater_update = function()
 	target_instance = noone;
 	is_attacking_target = false;
 
-	var _meat_distance = point_distance(x, y, _meat.x, _meat.y);
+	var _corpse_distance = point_distance(x, y, _corpse.x, _corpse.y);
 
-	if (_meat_distance > corpse_eater_eat_radius)
+	if (_corpse_distance > corpse_eater_eat_radius)
 	{
-		move_towards_target(_meat);
+		move_towards_world_point(_corpse.x, _corpse.y);
 		return true;
 	}
 
-	var _heal_amount = max_hp * BALANCE_BRUTE_CORPSE_EATER_HEAL_MAX_HP_SHARE;
-	hp = min(hp + _heal_amount, max_hp);
-	brute_heal_particles_create();
-
-	with (_meat)
-	{
-		instance_destroy();
-	}
-
-	corpse_eater_cooldown_timer = BALANCE_BRUTE_CORPSE_EATER_COOLDOWN * room_speed;
-	is_walking = false;
-
-	return true;
+	return brute_corpse_consume(_corpse);
 };
 
 unit_special_behavior_update = function()

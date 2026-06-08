@@ -2,7 +2,7 @@
 event_inherited();
 
 // Iron mine durability.
-max_hp = 100;
+max_hp = 100 * BALANCE_COMBAT_VALUE_SCALE;
 hp = max_hp;
 max_corruption = 100;
 corruption = 0;

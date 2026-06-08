@@ -144,3 +144,38 @@ corrupt_circle = function(_center_x, _center_y, _radius, _corruption)
 		}
 	}
 };
+
+// Checks whether a world-space circle touches at least one fully corrupted cell.
+circle_has_full_corruption = function(_center_x, _center_y, _radius)
+{
+	var _safe_radius = max(_radius, 1);
+	var _center_cell_x = clamp(floor(_center_x / cell_size), 0, grid_width - 1);
+	var _center_cell_y = clamp(floor(_center_y / cell_size), 0, grid_height - 1);
+	var _left_cell = clamp(floor((_center_x - _safe_radius) / cell_size), 0, grid_width - 1);
+	var _right_cell = clamp(floor((_center_x + _safe_radius) / cell_size), 0, grid_width - 1);
+	var _top_cell = clamp(floor((_center_y - _safe_radius) / cell_size), 0, grid_height - 1);
+	var _bottom_cell = clamp(floor((_center_y + _safe_radius) / cell_size), 0, grid_height - 1);
+
+	for (var _cell_x = _left_cell; _cell_x <= _right_cell; ++_cell_x)
+	{
+		for (var _cell_y = _top_cell; _cell_y <= _bottom_cell; ++_cell_y)
+		{
+			var _cell_center_x = (_cell_x * cell_size) + (cell_size * 0.5);
+			var _cell_center_y = (_cell_y * cell_size) + (cell_size * 0.5);
+			var _cell_distance = point_distance(_center_x, _center_y, _cell_center_x, _cell_center_y);
+			var _is_center_cell = (_cell_x == _center_cell_x && _cell_y == _center_cell_y);
+
+			if (_cell_distance <= _safe_radius || _is_center_cell)
+			{
+				var _corruption = ds_grid_get(corruption_grid, _cell_x, _cell_y);
+
+				if (_corruption >= full_corruption_value)
+				{
+					return true;
+				}
+			}
+		}
+	}
+
+	return false;
+};

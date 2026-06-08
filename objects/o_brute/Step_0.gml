@@ -19,6 +19,22 @@ if (grave_slam_circle_timer > 0)
 	grave_slam_circle_timer--;
 }
 
+// Level 4 Grave Slam spike visuals fade out independently.
+for (var _spike_index = array_length(grave_slam_spike_visuals) - 1; _spike_index >= 0; --_spike_index)
+{
+	var _spike = grave_slam_spike_visuals[_spike_index];
+	_spike.timer--;
+
+	if (_spike.timer <= 0)
+	{
+		array_delete(grave_slam_spike_visuals, _spike_index, 1);
+	}
+	else
+	{
+		grave_slam_spike_visuals[_spike_index] = _spike;
+	}
+}
+
 if (meat_explosion_circle_timer > 0)
 {
 	meat_explosion_circle_timer--;
@@ -31,8 +47,10 @@ if (has_brute_rotten_aura && BALANCE_BRUTE_ROTTEN_AURA_ENABLED)
 
 	if (rotten_aura_tick_timer <= 0)
 	{
+		var _aura_level = brute_ability_level_get(DEMON_ABILITY.BRUTE_ROTTEN_AURA);
+		var _aura_radius = brute_rotten_aura_radius_get();
 		var _enemy_list = ds_list_create();
-		var _enemy_count = collision_circle_list(x, y, rotten_aura_radius, o_enemy_units, false, true, _enemy_list, false);
+		var _enemy_count = collision_circle_list(x, y, _aura_radius, o_enemy_units, false, true, _enemy_list, false);
 		var _base_aura_damage = BALANCE_BRUTE_ROTTEN_AURA_DAMAGE * magic_effectiveness;
 
 		for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
@@ -44,21 +62,26 @@ if (has_brute_rotten_aura && BALANCE_BRUTE_ROTTEN_AURA_ENABLED)
 				continue;
 			}
 
-			var _aura_damage = _base_aura_damage;
-
-			if (variable_instance_exists(_enemy, "status_effect_has") && _enemy.status_effect_has(STATUS_EFFECT.CURSE))
-			{
-				_aura_damage *= BALANCE_BRUTE_ROTTEN_AURA_CURSE_MULTIPLIER;
-			}
-
 			if (variable_instance_exists(_enemy, "unit_damage_receive"))
 			{
-				_enemy.unit_damage_receive(_aura_damage, unit_faction);
+				_enemy.unit_damage_receive(_base_aura_damage, unit_faction);
 			}
 			else
 			{
-				_enemy.hp = max(_enemy.hp - _aura_damage, 0);
-				damage_popup_create(_enemy.x, _enemy.y, _aura_damage, _enemy.unit_faction);
+				_enemy.hp = max(_enemy.hp - _base_aura_damage, 0);
+				damage_popup_create(_enemy.x, _enemy.y, _base_aura_damage, _enemy.unit_faction);
+			}
+
+			if (_aura_level >= 3 && variable_instance_exists(_enemy, "status_effect_apply"))
+			{
+				_enemy.status_effect_apply(
+					STATUS_EFFECT.FEAR,
+					BALANCE_BRUTE_ROTTEN_AURA_FEAR_REFRESH_TIME,
+					BALANCE_BRUTE_ROTTEN_AURA_FEAR_MOVE_SLOW,
+					BALANCE_BRUTE_ROTTEN_AURA_FEAR_ATTACK_SLOW,
+					0,
+					unit_faction
+				);
 			}
 		}
 
@@ -98,51 +121,51 @@ if (cultist_active_ability_has(id, DEMON_ABILITY.BRUTE_GRAVE_SLAM)
 	}
 }
 
-if (meat_hook_timer > 0)
+if (butcher_chains_timer > 0)
 {
-	meat_hook_timer--;
+	butcher_chains_timer--;
 }
 
-if (meat_hook_retry_timer > 0)
+if (butcher_chains_retry_timer > 0)
 {
-	meat_hook_retry_timer--;
+	butcher_chains_retry_timer--;
 }
 
-if (cultist_active_ability_has(id, DEMON_ABILITY.BRUTE_MEAT_HOOK)
-	&& meat_hook_timer <= 0
-	&& meat_hook_retry_timer <= 0
-	&& !instance_exists(hook_target))
+if (cultist_active_ability_has(id, DEMON_ABILITY.BRUTE_BUTCHER_CHAINS)
+	&& butcher_chains_timer <= 0
+	&& butcher_chains_retry_timer <= 0
+	&& array_length(hook_targets) <= 0)
 {
-	if (brute_hook_start())
+	if (brute_chains_wave_start(false))
 	{
-		meat_hook_timer = ability_cooldown_time_get(meat_hook_cooldown);
+		butcher_chains_timer = ability_cooldown_time_get(butcher_chains_cooldown);
 	}
 	else
 	{
-		meat_hook_retry_timer = BALANCE_ABILITY_FAILED_RETRY_TIME * room_speed;
+		butcher_chains_retry_timer = BALANCE_ABILITY_FAILED_RETRY_TIME * room_speed;
 	}
 }
 
-if (devour_timer > 0)
+if (corpse_armor_ability_timer > 0)
 {
-	devour_timer--;
+	corpse_armor_ability_timer--;
 }
 
-if (devour_retry_timer > 0)
+if (corpse_armor_retry_timer > 0)
 {
-	devour_retry_timer--;
+	corpse_armor_retry_timer--;
 }
 
-if (cultist_active_ability_has(id, DEMON_ABILITY.BRUTE_DEVOUR)
-	&& devour_timer <= 0
-	&& devour_retry_timer <= 0)
+if (cultist_active_ability_has(id, DEMON_ABILITY.BRUTE_CORPSE_ARMOR)
+	&& corpse_armor_ability_timer <= 0
+	&& corpse_armor_retry_timer <= 0)
 {
-	if (brute_devour_use())
+	if (brute_corpse_armor_use())
 	{
-		devour_timer = ability_cooldown_time_get(devour_cooldown);
+		corpse_armor_ability_timer = ability_cooldown_time_get(corpse_armor_cooldown);
 	}
 	else
 	{
-		devour_retry_timer = BALANCE_ABILITY_FAILED_RETRY_TIME * room_speed;
+		corpse_armor_retry_timer = BALANCE_ABILITY_FAILED_RETRY_TIME * room_speed;
 	}
 }

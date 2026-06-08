@@ -2,8 +2,8 @@
 event_inherited();
 
 // Demon sprites are scaled up for readability.
-image_xscale = 1.5;
-image_yscale = 1.5;
+image_xscale = 1.2;
+image_yscale = image_xscale;
 
 // Default possession data is replaced by the controller when transformed.
 cultist_name = "Warlock";
@@ -15,11 +15,14 @@ current_lvl = 1;
 pending_level_points = 0;
 pending_passive_choices = 0;
 pending_active_choices = 0;
+pending_ability_upgrade_choices = 0;
 passive_choice_options = [];
 active_choice_options = [];
+ability_upgrade_choice_options = [];
 active_abilities = [];
+ability_levels = array_create(DEMON_ABILITY.COUNT, 0);
 
-// Passive abilities start locked and can be enabled by future progression.
+// Deprecated passive flags are kept only for old transform copy code.
 has_warlock_soul_harvester = false;
 has_warlock_curseweaver = false;
 has_warlock_demonic_infusion = false;
@@ -28,15 +31,15 @@ has_warlock_demonic_infusion = false;
 cultist_stats_apply(id);
 
 // Warlock passive state.
-curseweaver_attack_count = 0;
-curseweaver_circle_timer = 0;
-curseweaver_circle_duration = BALANCE_WARLOCK_CURSEWEAVER_CIRCLE_FADE_TIME * room_speed;
-curseweaver_circle_x = x;
-curseweaver_circle_y = y;
-curseweaver_circle_radius = BALANCE_WARLOCK_CURSEWEAVER_RADIUS;
 demonic_infusion_radius = BALANCE_WARLOCK_DEMONIC_INFUSION_RADIUS;
+demonic_infusion_heal_timer = 0;
+soul_engine_souls_collected = 0;
+soul_engine_souls = [];
+soul_engine_skulls = [];
+familiar_sprite_index = s_familiar;
+familiar_data = [];
 
-// Warlock active abilities keep independent cooldown state for future unlocks.
+// Warlock active abilities keep independent cooldown state.
 raise_lesser_demon_cooldown = BALANCE_WARLOCK_RAISE_LESSER_DEMON_COOLDOWN * room_speed;
 raise_lesser_demon_timer = 0;
 raise_lesser_demon_retry_timer = 0;
@@ -54,26 +57,93 @@ hex_totem_line_timer = 0;
 hex_totem_line_duration = BALANCE_WARLOCK_HEX_TOTEM_LINE_TIME * room_speed;
 hex_totem_line_x = x;
 hex_totem_line_y = y;
-soul_chain_groups = array_create(0);
+soul_chain_groups = [];
 
-warlock_curseweaver_smoke_create = function(_burst_x, _burst_y)
+brute_blood_anvil_active_recharge = function(_recharge_share)
 {
-	if (!variable_global_exists("particle_system_effects")
-		|| !variable_global_exists("particle_type_warlock_curseweaver_smoke")
-		|| global.particle_system_effects == noone
-		|| global.particle_type_warlock_curseweaver_smoke == noone)
+	var _recharge_amount = 0;
+
+	if (cultist_active_ability_has(id, DEMON_ABILITY.WARLOCK_RAISE_LESSER_DEMON))
 	{
-		return;
+		_recharge_amount = ability_cooldown_time_get(raise_lesser_demon_cooldown) * _recharge_share;
+		raise_lesser_demon_timer = max(raise_lesser_demon_timer - _recharge_amount, 0);
 	}
 
-	for (var _particle_index = 0; _particle_index < BALANCE_WARLOCK_CURSEWEAVER_SMOKE_COUNT; ++_particle_index)
+	if (cultist_active_ability_has(id, DEMON_ABILITY.WARLOCK_SOUL_CHAIN))
 	{
-		var _particle_distance = sqrt(random(1)) * BALANCE_WARLOCK_CURSEWEAVER_RADIUS;
-		var _particle_direction = random(360);
-		var _particle_x = _burst_x + lengthdir_x(_particle_distance, _particle_direction);
-		var _particle_y = _burst_y + lengthdir_y(_particle_distance, _particle_direction);
-		part_particles_create(global.particle_system_effects, _particle_x, _particle_y, global.particle_type_warlock_curseweaver_smoke, 1);
+		_recharge_amount = ability_cooldown_time_get(soul_chain_cooldown) * _recharge_share;
+		soul_chain_cooldown_timer = max(soul_chain_cooldown_timer - _recharge_amount, 0);
 	}
+
+	if (cultist_active_ability_has(id, DEMON_ABILITY.WARLOCK_HEX_TOTEM))
+	{
+		_recharge_amount = ability_cooldown_time_get(hex_totem_cooldown) * _recharge_share;
+		hex_totem_timer = max(hex_totem_timer - _recharge_amount, 0);
+	}
+};
+
+warlock_ability_level_get = function(_ability)
+{
+	return cultist_ability_level_get(id, _ability);
+};
+
+warlock_magic_damage_value_get = function(_multiplier)
+{
+	return max(1, magic_damage * _multiplier);
+};
+
+warlock_magic_damage_apply = function(_target, _damage_amount)
+{
+	if (!target_can_be_attacked(_target) || _damage_amount <= 0)
+	{
+		return false;
+	}
+
+	var _final_damage = _damage_amount;
+
+	if (variable_instance_exists(_target, "status_effect_magic_damage_multiplier"))
+	{
+		_final_damage *= _target.status_effect_magic_damage_multiplier();
+	}
+
+	if (variable_instance_exists(_target, "unit_damage_receive"))
+	{
+		_target.unit_damage_receive(_final_damage, unit_faction);
+	}
+	else if (variable_instance_exists(_target, "hp"))
+	{
+		_target.hp = max(_target.hp - _final_damage, 0);
+		damage_popup_create(_target.x, _target.y, _final_damage, _target.unit_faction);
+	}
+
+	return true;
+};
+
+warlock_enemy_nearest_find = function(_origin_x, _origin_y, _search_radius)
+{
+	var _nearest_enemy = noone;
+	var _nearest_distance = _search_radius;
+	var _enemy_count = instance_number(o_enemy_units);
+
+	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	{
+		var _enemy = instance_find(o_enemy_units, _enemy_index);
+
+		if (!target_can_be_attacked(_enemy))
+		{
+			continue;
+		}
+
+		var _enemy_distance = point_distance(_origin_x, _origin_y, _enemy.x, _enemy.y);
+
+		if (_enemy_distance <= _nearest_distance)
+		{
+			_nearest_enemy = _enemy;
+			_nearest_distance = _enemy_distance;
+		}
+	}
+
+	return _nearest_enemy;
 };
 
 warlock_smoke_burst_create = function(_burst_x, _burst_y, _burst_radius, _particle_type, _particle_count)
@@ -95,53 +165,59 @@ warlock_smoke_burst_create = function(_burst_x, _burst_y, _burst_radius, _partic
 	}
 };
 
-warlock_curseweaver_apply = function(_target)
+warlock_demonic_infusion_update = function()
 {
-	if (!instance_exists(_target))
+	var _level = warlock_ability_level_get(DEMON_ABILITY.WARLOCK_DEMONIC_INFUSION);
+
+	if (_level <= 0)
 	{
 		return;
 	}
 
-	curseweaver_circle_x = _target.x;
-	curseweaver_circle_y = _target.y;
-	curseweaver_circle_timer = curseweaver_circle_duration;
-	warlock_curseweaver_smoke_create(_target.x, _target.y);
+	demonic_infusion_radius = BALANCE_WARLOCK_DEMONIC_INFUSION_RADIUS;
 
-	var _enemy_list = ds_list_create();
-	var _enemy_count = collision_circle_list(_target.x, _target.y, BALANCE_WARLOCK_CURSEWEAVER_RADIUS, o_enemy_units, false, true, _enemy_list, false);
-
-	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	if (_level >= 2)
 	{
-		var _enemy = _enemy_list[| _enemy_index];
-
-		if (target_can_be_attacked(_enemy) && variable_instance_exists(_enemy, "status_effect_apply"))
-		{
-			_enemy.status_effect_apply(
-				STATUS_EFFECT.CURSE,
-				BALANCE_WARLOCK_CURSEWEAVER_CURSE_TIME,
-				1,
-				0,
-				0,
-				unit_faction
-			);
-		}
+		demonic_infusion_radius = BALANCE_WARLOCK_DEMONIC_INFUSION_RADIUS_LEVEL_2;
 	}
 
-	ds_list_destroy(_enemy_list);
-};
+	demonic_infusion_heal_timer--;
 
-warlock_demonic_infusion_update = function()
-{
+	if (demonic_infusion_heal_timer <= 0)
+	{
+		demonic_infusion_heal_timer = BALANCE_WARLOCK_DEMONIC_INFUSION_TICK_TIME * room_speed;
+	}
+
+	var _should_heal = demonic_infusion_heal_timer == BALANCE_WARLOCK_DEMONIC_INFUSION_TICK_TIME * room_speed;
+	var _heal_share = BALANCE_WARLOCK_DEMONIC_INFUSION_HEAL_SHARE;
+	var _attack_speed_bonus = BALANCE_WARLOCK_DEMONIC_INFUSION_ATTACK_SPEED_BONUS;
+
+	if (_level >= 4)
+	{
+		_heal_share = BALANCE_WARLOCK_DEMONIC_INFUSION_HEAL_SHARE_LEVEL_4;
+		_attack_speed_bonus = BALANCE_WARLOCK_DEMONIC_INFUSION_ATTACK_SPEED_BONUS_LEVEL_4;
+	}
+
+	var _reload_multiplier = 1 / (1 + _attack_speed_bonus);
+	var _refresh_time = BALANCE_WARLOCK_DEMONIC_INFUSION_REFRESH_TIME * room_speed;
 	var _friendly_list = ds_list_create();
 	var _friendly_count = collision_circle_list(x, y, demonic_infusion_radius, o_friendly_units, false, true, _friendly_list, false);
-	var _reload_multiplier = 1 / (1 + BALANCE_WARLOCK_DEMONIC_INFUSION_ATTACK_SPEED_BONUS);
-	var _refresh_time = BALANCE_WARLOCK_DEMONIC_INFUSION_REFRESH_TIME * room_speed;
 
 	for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_index)
 	{
 		var _friendly = _friendly_list[| _friendly_index];
 
-		if (instance_exists(_friendly)
+		if (!instance_exists(_friendly) || !variable_instance_exists(_friendly, "hp") || !variable_instance_exists(_friendly, "max_hp"))
+		{
+			continue;
+		}
+
+		if (_should_heal && _friendly.hp > 0 && _friendly.hp < _friendly.max_hp)
+		{
+			_friendly.hp = min(_friendly.hp + (_friendly.max_hp * _heal_share), _friendly.max_hp);
+		}
+
+		if (_level >= 3
 			&& _friendly != id
 			&& variable_instance_exists(_friendly, "demonic_infusion_timer")
 			&& variable_instance_exists(_friendly, "demonic_infusion_reload_multiplier"))
@@ -159,77 +235,348 @@ warlock_demonic_infusion_update = function()
 	ds_list_destroy(_friendly_list);
 };
 
-warlock_nearest_meat_find = function(_search_radius)
+warlock_soul_engine_required_souls_get = function()
 {
-	if (!instance_exists(o_meat))
+	var _level = warlock_ability_level_get(DEMON_ABILITY.WARLOCK_SOUL_ENGINE);
+
+	if (_level >= 4)
 	{
-		return noone;
+		return BALANCE_WARLOCK_SOUL_ENGINE_SOULS_REQUIRED_LEVEL_4;
+	}
+	else if (_level >= 2)
+	{
+		return BALANCE_WARLOCK_SOUL_ENGINE_SOULS_REQUIRED_LEVEL_2;
 	}
 
-	var _nearest_meat = noone;
-	var _nearest_distance = _search_radius;
-	var _meat_count = instance_number(o_meat);
-
-	for (var _meat_index = 0; _meat_index < _meat_count; ++_meat_index)
-	{
-		var _meat = instance_find(o_meat, _meat_index);
-
-		if (!instance_exists(_meat)
-			|| (variable_instance_exists(_meat, "is_fading_out") && _meat.is_fading_out))
-		{
-			continue;
-		}
-
-		var _meat_distance = point_distance(x, y, _meat.x, _meat.y);
-
-		if (_meat_distance <= _nearest_distance)
-		{
-			_nearest_meat = _meat;
-			_nearest_distance = _meat_distance;
-		}
-	}
-
-	return _nearest_meat;
+	return BALANCE_WARLOCK_SOUL_ENGINE_SOULS_REQUIRED;
 };
 
-warlock_raise_lesser_demon_use = function()
+warlock_soul_engine_enemy_death_notify = function(_death_x, _death_y)
 {
-	var _meat = warlock_nearest_meat_find(BALANCE_WARLOCK_RAISE_LESSER_DEMON_MEAT_RADIUS);
+	if (warlock_ability_level_get(DEMON_ABILITY.WARLOCK_SOUL_ENGINE) <= 0
+		|| hp <= 0
+		|| point_distance(x, y, _death_x, _death_y) > BALANCE_WARLOCK_SOUL_ENGINE_RADIUS)
+	{
+		return;
+	}
 
-	if (!instance_exists(_meat))
+	array_push(soul_engine_souls, {
+		x: _death_x,
+		y: _death_y,
+		size: random_range(BALANCE_WARLOCK_PASSIVE_PARTICLE_SIZE_MIN, BALANCE_WARLOCK_PASSIVE_PARTICLE_SIZE_MAX)
+	});
+};
+
+warlock_soul_engine_skull_fire = function()
+{
+	var _target = warlock_enemy_nearest_find(x, y, BALANCE_WARLOCK_SOUL_ENGINE_RADIUS);
+
+	if (!instance_exists(_target))
 	{
 		return false;
 	}
 
-	var _spawn_x = _meat.x;
-	var _spawn_y = _meat.y;
+	array_push(soul_engine_skulls, {
+		x: x,
+		y: y - 12,
+		target: _target,
+		level: warlock_ability_level_get(DEMON_ABILITY.WARLOCK_SOUL_ENGINE)
+	});
+
+	return true;
+};
+
+warlock_soul_engine_souls_update = function()
+{
+	var _write_index = 0;
+
+	for (var _soul_index = 0; _soul_index < array_length(soul_engine_souls); ++_soul_index)
+	{
+		var _soul = soul_engine_souls[_soul_index];
+		var _distance = point_distance(_soul.x, _soul.y, x, y);
+
+		if (_distance <= BALANCE_WARLOCK_SOUL_ENGINE_SOUL_SPEED)
+		{
+			soul_engine_souls_collected++;
+
+			if (soul_engine_souls_collected >= warlock_soul_engine_required_souls_get())
+			{
+				if (warlock_soul_engine_skull_fire())
+				{
+					soul_engine_souls_collected = 0;
+				}
+			}
+
+			continue;
+		}
+
+		var _direction = point_direction(_soul.x, _soul.y, x, y);
+		_soul.x += lengthdir_x(BALANCE_WARLOCK_SOUL_ENGINE_SOUL_SPEED, _direction);
+		_soul.y += lengthdir_y(BALANCE_WARLOCK_SOUL_ENGINE_SOUL_SPEED, _direction);
+		soul_engine_souls[_write_index] = _soul;
+		_write_index++;
+	}
+
+	array_resize(soul_engine_souls, _write_index);
+};
+
+warlock_soul_engine_skulls_update = function()
+{
+	var _write_index = 0;
+
+	for (var _skull_index = 0; _skull_index < array_length(soul_engine_skulls); ++_skull_index)
+	{
+		var _skull = soul_engine_skulls[_skull_index];
+
+		if (!target_can_be_attacked(_skull.target))
+		{
+			_skull.target = warlock_enemy_nearest_find(_skull.x, _skull.y, BALANCE_WARLOCK_SOUL_ENGINE_RADIUS);
+		}
+
+		if (!instance_exists(_skull.target))
+		{
+			continue;
+		}
+
+		var _distance = point_distance(_skull.x, _skull.y, _skull.target.x, _skull.target.y);
+
+		if (_distance <= BALANCE_WARLOCK_SOUL_ENGINE_SKULL_HIT_RADIUS)
+		{
+			warlock_magic_damage_apply(_skull.target, warlock_magic_damage_value_get(BALANCE_WARLOCK_SOUL_ENGINE_SKULL_DAMAGE_MULTIPLIER));
+
+			if (_skull.level >= 3)
+			{
+				var _enemy_list = ds_list_create();
+				var _enemy_count = collision_circle_list(
+					_skull.target.x,
+					_skull.target.y,
+					BALANCE_WARLOCK_SOUL_ENGINE_SKULL_AOE_RADIUS,
+					o_enemy_units,
+					false,
+					true,
+					_enemy_list,
+					false
+				);
+
+				for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+				{
+					var _enemy = _enemy_list[| _enemy_index];
+
+					if (_enemy != _skull.target)
+					{
+						warlock_magic_damage_apply(_enemy, warlock_magic_damage_value_get(BALANCE_WARLOCK_SOUL_ENGINE_SKULL_AOE_DAMAGE_MULTIPLIER));
+					}
+				}
+
+				ds_list_destroy(_enemy_list);
+			}
+
+			continue;
+		}
+
+		var _direction = point_direction(_skull.x, _skull.y, _skull.target.x, _skull.target.y);
+		_skull.x += lengthdir_x(BALANCE_WARLOCK_SOUL_ENGINE_SKULL_SPEED, _direction);
+		_skull.y += lengthdir_y(BALANCE_WARLOCK_SOUL_ENGINE_SKULL_SPEED, _direction);
+		soul_engine_skulls[_write_index] = _skull;
+		_write_index++;
+	}
+
+	array_resize(soul_engine_skulls, _write_index);
+};
+
+warlock_soul_engine_update = function()
+{
+	if (warlock_ability_level_get(DEMON_ABILITY.WARLOCK_SOUL_ENGINE) <= 0)
+	{
+		soul_engine_souls = [];
+		soul_engine_skulls = [];
+		soul_engine_souls_collected = 0;
+		return;
+	}
+
+	warlock_soul_engine_souls_update();
+	warlock_soul_engine_skulls_update();
+};
+
+warlock_familiar_target_find = function(_familiar_x, _familiar_y)
+{
+	return warlock_enemy_nearest_find(_familiar_x, _familiar_y, BALANCE_WARLOCK_FAMILIAR_ATTACK_RADIUS);
+};
+
+warlock_familiar_count_get = function()
+{
+	var _level = warlock_ability_level_get(DEMON_ABILITY.WARLOCK_FAMILIAR);
+
+	if (_level >= 4)
+	{
+		return 3;
+	}
+	else if (_level >= 2)
+	{
+		return 2;
+	}
+	else if (_level >= 1)
+	{
+		return 1;
+	}
+
+	return 0;
+};
+
+warlock_familiar_update = function()
+{
+	var _target_count = warlock_familiar_count_get();
+
+	var _familiar_missing_count = _target_count - array_length(familiar_data);
+
+	for (var _missing_index = 0; _missing_index < _familiar_missing_count; ++_missing_index)
+	{
+		array_push(familiar_data, {
+			angle: random(360),
+			x: x,
+			y: y,
+			attack_timer: random(room_speed),
+			attack_line_timer: 0,
+			attack_line_x: x,
+			attack_line_y: y
+		});
+	}
+
+	if (array_length(familiar_data) > _target_count)
+	{
+		array_resize(familiar_data, _target_count);
+	}
+
+	var _level = warlock_ability_level_get(DEMON_ABILITY.WARLOCK_FAMILIAR);
+	var _damage_multiplier = BALANCE_WARLOCK_FAMILIAR_DAMAGE_MULTIPLIER;
+
+	if (_level >= 3)
+	{
+		_damage_multiplier *= BALANCE_WARLOCK_FAMILIAR_DAMAGE_LEVEL_3_MULTIPLIER;
+	}
+
+	for (var _familiar_index = 0; _familiar_index < array_length(familiar_data); ++_familiar_index)
+	{
+		var _familiar = familiar_data[_familiar_index];
+		var _angle_offset = 360 / max(1, _target_count);
+
+		_familiar.angle += BALANCE_WARLOCK_FAMILIAR_ORBIT_SPEED;
+		_familiar.x = x + lengthdir_x(BALANCE_WARLOCK_FAMILIAR_ORBIT_RADIUS, _familiar.angle + (_angle_offset * _familiar_index));
+		_familiar.y = y + lengthdir_y(BALANCE_WARLOCK_FAMILIAR_ORBIT_RADIUS * 0.65, _familiar.angle + (_angle_offset * _familiar_index));
+
+		if (_familiar.attack_timer > 0)
+		{
+			_familiar.attack_timer--;
+		}
+
+		if (_familiar.attack_line_timer > 0)
+		{
+			_familiar.attack_line_timer--;
+		}
+
+		if (_familiar.attack_timer <= 0)
+		{
+			var _target = warlock_familiar_target_find(_familiar.x, _familiar.y);
+
+			if (instance_exists(_target))
+			{
+				warlock_magic_damage_apply(_target, warlock_magic_damage_value_get(_damage_multiplier));
+				_familiar.attack_line_x = _target.x;
+				_familiar.attack_line_y = _target.y;
+				_familiar.attack_line_timer = 0.15 * room_speed;
+			}
+
+			_familiar.attack_timer = BALANCE_WARLOCK_FAMILIAR_ATTACK_TIME * room_speed;
+		}
+
+		familiar_data[_familiar_index] = _familiar;
+	}
+};
+
+warlock_skeleton_configure = function(_skeleton, _level)
+{
+	if (!instance_exists(_skeleton))
+	{
+		return;
+	}
+
+	_skeleton.max_hp = max(1, max_hp * BALANCE_WARLOCK_SUMMON_SKELETONS_HP_SHARE);
+	_skeleton.hp = _skeleton.max_hp;
+	_skeleton.damage = BALANCE_WARLOCK_SUMMON_SKELETONS_DAMAGE;
+	_skeleton.magic_damage = 0;
+	_skeleton.summon_nights_remaining = BALANCE_SKELETON_NIGHT_LIFE;
+	_skeleton.warlock_skeleton_explosion_enabled = _level >= 3;
+	_skeleton.warlock_skeleton_explosion_damage = BALANCE_WARLOCK_SUMMON_SKELETONS_EXPLOSION_DAMAGE;
+	_skeleton.warlock_skeleton_respawn_chance = 0;
+	_skeleton.warlock_skeleton_dies_at_morning = true;
+
+	if (_level >= 4)
+	{
+		_skeleton.warlock_skeleton_respawn_chance = BALANCE_WARLOCK_SUMMON_SKELETONS_RESPAWN_CHANCE;
+	}
+};
+
+warlock_raise_lesser_demon_use = function()
+{
+	if (!instance_exists(o_game_controller))
+	{
+		return false;
+	}
+
+	var _game_controller = instance_find(o_game_controller, 0);
+
+	if (!variable_instance_exists(_game_controller, "corpse_nearest_take"))
+	{
+		return false;
+	}
+
+	var _level = max(1, warlock_ability_level_get(DEMON_ABILITY.WARLOCK_RAISE_LESSER_DEMON));
+	var _skeleton_count = BALANCE_WARLOCK_SUMMON_SKELETONS_COUNT;
+	var _summoned_count = 0;
+
+	if (_level >= 2)
+	{
+		_skeleton_count = BALANCE_WARLOCK_SUMMON_SKELETONS_COUNT_LEVEL_2;
+	}
+
+	for (var _skeleton_index = 0; _skeleton_index < _skeleton_count; ++_skeleton_index)
+	{
+		var _corpse = _game_controller.corpse_nearest_take(x, y);
+
+		if (!is_struct(_corpse))
+		{
+			break;
+		}
+
+		var _spawn_x = _corpse.x;
+		var _spawn_y = _corpse.y;
+		var _skeleton = instance_create_layer(_spawn_x, _spawn_y, "Instances", o_skeleton);
+
+		warlock_skeleton_configure(_skeleton, _level);
+		raise_lesser_demon_line_x = _spawn_x;
+		raise_lesser_demon_line_y = _spawn_y;
+		raise_lesser_demon_line_timer = raise_lesser_demon_line_duration;
+		_summoned_count++;
+
+		if (variable_global_exists("particle_type_brute_rotten_aura"))
+		{
+			warlock_smoke_burst_create(
+				_spawn_x,
+				_spawn_y,
+				BALANCE_WARLOCK_RAISE_LESSER_DEMON_SMOKE_RADIUS,
+				global.particle_type_brute_rotten_aura,
+				BALANCE_WARLOCK_RAISE_LESSER_DEMON_SMOKE_COUNT
+			);
+		}
+	}
+
+	if (_summoned_count <= 0)
+	{
+		return false;
+	}
 
 	ability_popup_create(x, y, DEMON_ABILITY.WARLOCK_RAISE_LESSER_DEMON);
-	raise_lesser_demon_line_x = _spawn_x;
-	raise_lesser_demon_line_y = _spawn_y;
-	raise_lesser_demon_line_timer = raise_lesser_demon_line_duration;
-	var _pitling = instance_create_layer(_spawn_x, _spawn_y, "Instances", o_pitling);
-
-	if (instance_exists(_pitling) && variable_instance_exists(_pitling, "summon_nights_remaining"))
-	{
-		_pitling.summon_nights_remaining = BALANCE_PITLING_NIGHT_LIFE;
-	}
-
-	if (variable_global_exists("particle_type_brute_rotten_aura"))
-	{
-		warlock_smoke_burst_create(
-			_spawn_x,
-			_spawn_y,
-			BALANCE_WARLOCK_RAISE_LESSER_DEMON_SMOKE_RADIUS,
-			global.particle_type_brute_rotten_aura,
-			BALANCE_WARLOCK_RAISE_LESSER_DEMON_SMOKE_COUNT
-		);
-	}
-
-	with (_meat)
-	{
-		instance_destroy();
-	}
+	demon_active_ability_used_notify(DEMON_ABILITY.WARLOCK_RAISE_LESSER_DEMON);
 
 	return true;
 };
@@ -255,12 +602,23 @@ warlock_enemy_can_be_chained = function(_enemy)
 		&& variable_instance_exists(_enemy, "soul_chain_apply");
 };
 
+warlock_soul_chain_max_targets_get = function()
+{
+	if (warlock_ability_level_get(DEMON_ABILITY.WARLOCK_SOUL_CHAIN) >= 2)
+	{
+		return BALANCE_WARLOCK_SOUL_CHAIN_MAX_TARGETS_LEVEL_2;
+	}
+
+	return BALANCE_WARLOCK_SOUL_CHAIN_MAX_TARGETS;
+};
+
 warlock_soul_chain_members_near_get = function(_center_enemy)
 {
-	var _members = array_create(0);
+	var _members = [];
 	var _enemy_count = instance_number(o_enemy_units);
+	var _max_targets = warlock_soul_chain_max_targets_get();
 
-	for (var _member_slot = 0; _member_slot < BALANCE_WARLOCK_SOUL_CHAIN_MAX_TARGETS; ++_member_slot)
+	for (var _member_slot = 0; _member_slot < _max_targets; ++_member_slot)
 	{
 		var _nearest_enemy = noone;
 		var _nearest_distance = BALANCE_WARLOCK_SOUL_CHAIN_GROUP_RADIUS;
@@ -296,10 +654,11 @@ warlock_soul_chain_members_near_get = function(_center_enemy)
 
 warlock_soul_chain_members_find = function()
 {
-	var _best_members = array_create(0);
+	var _best_members = [];
 	var _best_count = 0;
 	var _best_distance = infinity;
 	var _enemy_count = instance_number(o_enemy_units);
+	var _max_targets = warlock_soul_chain_max_targets_get();
 
 	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
 	{
@@ -324,7 +683,7 @@ warlock_soul_chain_members_find = function()
 			_best_distance = _distance_to_warlock;
 		}
 
-		if (_best_count >= BALANCE_WARLOCK_SOUL_CHAIN_MAX_TARGETS)
+		if (_best_count >= _max_targets)
 		{
 			break;
 		}
@@ -332,7 +691,7 @@ warlock_soul_chain_members_find = function()
 
 	if (_best_count < BALANCE_WARLOCK_SOUL_CHAIN_MIN_TARGETS)
 	{
-		return array_create(0);
+		return [];
 	}
 
 	return _best_members;
@@ -347,15 +706,26 @@ warlock_soul_chain_use = function()
 		return false;
 	}
 
-	// Use a small global counter instead of instance id math to avoid malformed ids.
 	if (!variable_global_exists("soul_chain_next_id"))
 	{
 		global.soul_chain_next_id = 1;
 	}
 
+	var _level = warlock_ability_level_get(DEMON_ABILITY.WARLOCK_SOUL_CHAIN);
 	var _chain_id = global.soul_chain_next_id;
+	var _death_stun_time = 0;
+	var _death_damage = 0;
 	global.soul_chain_next_id++;
-	var _duration_frames = BALANCE_WARLOCK_SOUL_CHAIN_DURATION * room_speed;
+
+	if (_level >= 3)
+	{
+		_death_stun_time = BALANCE_WARLOCK_SOUL_CHAIN_DEATH_STUN_TIME;
+	}
+
+	if (_level >= 4)
+	{
+		_death_damage = warlock_magic_damage_value_get(BALANCE_WARLOCK_SOUL_CHAIN_DEATH_DAMAGE_MULTIPLIER);
+	}
 
 	for (var _member_index = 0; _member_index < array_length(_members); ++_member_index)
 	{
@@ -364,15 +734,18 @@ warlock_soul_chain_use = function()
 			_chain_id,
 			_members,
 			BALANCE_WARLOCK_SOUL_CHAIN_DURATION,
-			BALANCE_WARLOCK_SOUL_CHAIN_DAMAGE_SHARE
+			BALANCE_WARLOCK_SOUL_CHAIN_DAMAGE_SHARE,
+			_death_stun_time,
+			_death_damage
 		);
 	}
 
 	ability_popup_create(x, y, DEMON_ABILITY.WARLOCK_SOUL_CHAIN);
+	demon_active_ability_used_notify(DEMON_ABILITY.WARLOCK_SOUL_CHAIN);
 	array_push(soul_chain_groups, {
 		chain_id: _chain_id,
 		members: _members,
-		timer: _duration_frames
+		timer: BALANCE_WARLOCK_SOUL_CHAIN_DURATION * room_speed
 	});
 
 	return true;
@@ -436,26 +809,7 @@ warlock_soul_chain_groups_update = function()
 
 warlock_hex_totem_enemy_find = function()
 {
-	var _enemy_candidates = array_create(0);
-	var _enemy_count = instance_number(o_enemy_units);
-
-	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
-	{
-		var _enemy = instance_find(o_enemy_units, _enemy_index);
-
-		if (target_can_be_attacked(_enemy)
-			&& point_distance(x, y, _enemy.x, _enemy.y) <= BALANCE_WARLOCK_HEX_TOTEM_SEARCH_RADIUS)
-		{
-			array_push(_enemy_candidates, _enemy);
-		}
-	}
-
-	if (array_length(_enemy_candidates) <= 0)
-	{
-		return noone;
-	}
-
-	return _enemy_candidates[irandom(array_length(_enemy_candidates) - 1)];
+	return warlock_enemy_nearest_find(x, y, BALANCE_WARLOCK_HEX_TOTEM_SEARCH_RADIUS);
 };
 
 warlock_hex_totem_use = function()
@@ -477,10 +831,13 @@ warlock_hex_totem_use = function()
 	var _totem = instance_create_layer(_totem_x, _totem_y, "Instances", o_hex_totem);
 
 	ability_popup_create(x, y, DEMON_ABILITY.WARLOCK_HEX_TOTEM);
+	demon_active_ability_used_notify(DEMON_ABILITY.WARLOCK_HEX_TOTEM);
 
 	if (instance_exists(_totem))
 	{
 		_totem.owner_warlock = id;
+		_totem.owner_magic_damage = magic_damage;
+		_totem.ability_level = max(1, warlock_ability_level_get(DEMON_ABILITY.WARLOCK_HEX_TOTEM));
 	}
 
 	hex_totem_line_x = _totem_x;
@@ -503,35 +860,5 @@ warlock_hex_totem_use = function()
 
 unit_attack_landed = function(_target, _is_critical_hit = false, _target_was_killed = false)
 {
-	if (!instance_exists(_target)
-		|| (variable_instance_exists(_target, "is_being_dragged") && _target.is_being_dragged)
-		|| !variable_instance_exists(_target, "status_effect_apply"))
-	{
-		return;
-	}
-
-	if (has_warlock_soul_harvester)
-	{
-		_target.status_effect_apply(
-			STATUS_EFFECT.SOUL_MARK,
-			BALANCE_WARLOCK_SOUL_HARVESTER_MARK_TIME,
-			BALANCE_STATUS_SOUL_MARK_DEFAULT_CHANCE,
-			0,
-			0,
-			unit_faction
-		);
-	}
-
-	if (!has_warlock_curseweaver)
-	{
-		return;
-	}
-
-	curseweaver_attack_count++;
-
-	if (curseweaver_attack_count >= BALANCE_WARLOCK_CURSEWEAVER_ATTACKS_REQUIRED)
-	{
-		curseweaver_attack_count = 0;
-		warlock_curseweaver_apply(_target);
-	}
+	// New Warlock abilities are driven by aura updates and enemy death hooks.
 };

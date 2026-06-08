@@ -47,11 +47,11 @@ if (_should_pick_random_cultist_sprite)
 
 cultist_sprite_index = sprite_index;
 
-// Starting active abilities are rolled before demon selection so the player can preview them.
+// Starting active abilities use a stable default until the player chooses one.
 cultist_starting_abilities = array_create(DEMON_TYPE.BRUTE + 1, DEMON_ABILITY.NONE);
-cultist_starting_abilities[DEMON_TYPE.IMP] = cultist_ability_roll(DEMON_TYPE.IMP);
-cultist_starting_abilities[DEMON_TYPE.WARLOCK] = cultist_ability_roll(DEMON_TYPE.WARLOCK);
-cultist_starting_abilities[DEMON_TYPE.BRUTE] = cultist_ability_roll(DEMON_TYPE.BRUTE);
+cultist_starting_abilities[DEMON_TYPE.IMP] = cultist_starting_ability_get(noone, DEMON_TYPE.IMP);
+cultist_starting_abilities[DEMON_TYPE.WARLOCK] = cultist_starting_ability_get(noone, DEMON_TYPE.WARLOCK);
+cultist_starting_abilities[DEMON_TYPE.BRUTE] = cultist_starting_ability_get(noone, DEMON_TYPE.BRUTE);
 
 // Core character attributes. These persist through demon form changes.
 cultist_points = cultist_points_roll();
@@ -60,24 +60,24 @@ current_lvl = 1;
 pending_level_points = 0;
 pending_passive_choices = 0;
 pending_active_choices = 0;
+pending_ability_upgrade_choices = 0;
 passive_choice_options = [];
 active_choice_options = [];
+ability_upgrade_choice_options = [];
 active_abilities = [];
+ability_levels = array_create(DEMON_ABILITY.COUNT, 0);
 y_sort_enabled = true;
 
 // Passive unlock flags are shared with demon forms and start disabled.
-has_imp_blood_frenzy = false;
-has_imp_hellbleed = false;
-has_imp_taste_of_fear = false;
 has_brute_corpse_eater = false;
 has_brute_rotten_aura = false;
-has_brute_cursed_flesh = false;
+has_brute_blood_anvil = false;
 has_warlock_soul_harvester = false;
 has_warlock_curseweaver = false;
 has_warlock_demonic_infusion = false;
 
 // Day-form health is synced with the chosen demon form after selection.
-max_hp = 1;
+max_hp = 1 * BALANCE_COMBAT_VALUE_SCALE;
 hp = max_hp;
 
 // Visual settings for the day form labels and shared health bar style.
@@ -98,6 +98,16 @@ drag_drop_y = y;
 // Building work assignment. The game controller updates these when dropped on a building.
 assigned_building = noone;
 is_assigned_to_building = false;
+
+// Cannon corpse hauling state is controlled by o_game_controller during the day.
+carried_corpse = noone;
+reserved_corpse_id = noone;
+cannon_no_corpse_warning_active = false;
+cannon_no_corpse_warning_text = "There are no available corpses";
+cannon_no_corpse_warning_offset_y = 34;
+cannon_no_corpse_warning_padding_x = 6;
+cannon_no_corpse_warning_padding_y = 3;
+cannon_no_corpse_warning_background_alpha = 0.82;
 
 // Cannon loading state is used at night before this cultist becomes a projectile.
 cannon_loading = false;

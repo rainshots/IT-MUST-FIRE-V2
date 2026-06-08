@@ -25,6 +25,14 @@ y_sort_enabled = true;
 missing_work_resource = noone;
 missing_work_resource_name = "";
 missing_work_resource_color = c_white;
+building_warning_text = "";
+building_warning_color = COLOR_STATUS_NEGATIVE_RED;
+building_warning_timer = 0;
+building_warning_time = 0.35 * room_speed;
+building_warning_offset_y = 148;
+building_warning_padding_x = 7;
+building_warning_padding_y = 4;
+building_warning_background_alpha = 0.84;
 
 // Production bar visual settings.
 production_bar_width = 62;
@@ -46,12 +54,26 @@ building_tooltip_title = "";
 building_tooltip_description = "";
 building_tooltip_detail = "";
 building_tooltip_detail_color = COLOR_HUD_TEXT;
+upgrade_prompt_text = "G - UPGRADE";
+upgrade_prompt_offset_y = 24;
+upgrade_prompt_padding_x = 7;
+upgrade_prompt_padding_y = 4;
+upgrade_prompt_background_alpha = 0.78;
+building_upgrade_flags = [false, false];
+building_upgrade_names = ["", ""];
+building_upgrade_descriptions = ["", ""];
+building_upgrade_costs = [BALANCE_BUILDING_UPGRADE_IRON_COST, BALANCE_BUILDING_UPGRADE_IRON_COST];
+building_has_upgrades = false;
+secondary_effect_progress = 0;
 
 // Meat Bath stores paid healing here so one Flesh restores a fixed amount over time.
 meat_bath_heal_pool = 0;
 
 // Ritual Circle stores paid base XP here before applying XP Gain to workers.
 ritual_circle_exp_pool = 0;
+
+// Workshop stores paid repair here before applying it to the cannon wall.
+workshop_repair_pool = 0;
 
 // Configure the first resource production buildings by object type.
 if (object_index == o_slaughter_table)
@@ -68,6 +90,11 @@ if (object_index == o_slaughter_table)
 	building_tooltip_description = "Produces Flesh";
 	building_tooltip_detail = "Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
 	building_tooltip_detail_color = production_bonus_stat_color;
+	building_has_upgrades = true;
+	building_upgrade_names[0] = "Faster Butchery";
+	building_upgrade_descriptions[0] = "+0.5x Flesh production while staffed.";
+	building_upgrade_names[1] = "Blood Poultice";
+	building_upgrade_descriptions[1] = "Slowly heals workers for free.";
 }
 else if (object_index == o_quarry)
 {
@@ -83,6 +110,11 @@ else if (object_index == o_quarry)
 	building_tooltip_description = "Produces Iron";
 	building_tooltip_detail = "Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
 	building_tooltip_detail_color = production_bonus_stat_color;
+	building_has_upgrades = true;
+	building_upgrade_names[0] = "Reinforced Tools";
+	building_upgrade_descriptions[0] = "+0.5x Iron production while staffed.";
+	building_upgrade_names[1] = "Stone Stockpile";
+	building_upgrade_descriptions[1] = "Slowly repairs the wall for free.";
 }
 else if (object_index == o_souls_well)
 {
@@ -98,6 +130,11 @@ else if (object_index == o_souls_well)
 	building_tooltip_description = "Produces Souls";
 	building_tooltip_detail = "Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
 	building_tooltip_detail_color = production_bonus_stat_color;
+	building_has_upgrades = true;
+	building_upgrade_names[0] = "Deeper Echo";
+	building_upgrade_descriptions[0] = "+0.5x Souls production while staffed.";
+	building_upgrade_names[1] = "Bone Whisper";
+	building_upgrade_descriptions[1] = "Slowly summons Skeletons for free.";
 }
 else if (object_index == o_meat_bath)
 {
@@ -118,6 +155,19 @@ else if (object_index == o_ritual_circle)
 	building_tooltip_description = "Gives assigned cultists XP";
 	building_tooltip_detail = "Uses 1 Soul for " + string(BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT) + " XP";
 	building_tooltip_detail_color = COLOR_HUD_SOULS;
+}
+else if (object_index == o_workshop)
+{
+	building_accepts_workers = true;
+	production_resource_icon = s_iron_icon;
+	production_resource_color = COLOR_HUD_IRON;
+	production_bonus_stat = CULTIST_STAT.BODY;
+	production_bonus_stat_name = "BODY";
+	production_bonus_stat_color = COLOR_CULTIST_BODY;
+	building_tooltip_title = "Repair";
+	building_tooltip_description = "Repairs the cannon wall";
+	building_tooltip_detail = "Uses 1 Iron for " + string(BALANCE_WORKSHOP_IRON_REPAIR_AMOUNT) + " HP. Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
+	building_tooltip_detail_color = production_bonus_stat_color;
 }
 else if (object_index == o_graveyardv13)
 {
@@ -149,6 +199,18 @@ else if (object_index == o_hell_pit)
 	building_tooltip_detail = "Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
 	building_tooltip_detail_color = production_bonus_stat_color;
 }
+else if (object_index == o_goblins_pit)
+{
+	building_accepts_workers = true;
+	production_resource_icon = s_soul_icon;
+	production_resource_color = COLOR_HUD_SOULS;
+	summon_unit_object = o_goblin;
+	summon_duration = BALANCE_GOBLINS_PIT_GOBLIN_PRODUCTION_TIME;
+	building_tooltip_title = "Summoning";
+	building_tooltip_description = "Summons Goblins";
+	building_tooltip_detail = "Adds +" + string(BALANCE_GOBLINS_PER_PIT_LIMIT) + " Goblin limit. Goblins work +" + string(BALANCE_GOBLIN_WORK_SPEED_MULTIPLIER) + "x";
+	building_tooltip_detail_color = COLOR_HUD_IRON;
+}
 
 recalculate_production_speed_multiplier = function()
 {
@@ -166,9 +228,9 @@ recalculate_production_speed_multiplier = function()
 
 		var _worker_speed_multiplier = 1;
 
-		if (_worker.object_index == o_pitling)
+		if (variable_instance_exists(_worker, "worker_speed_multiplier"))
 		{
-			_worker_speed_multiplier = BALANCE_PITLING_WORK_SPEED_MULTIPLIER;
+			_worker_speed_multiplier = _worker.worker_speed_multiplier;
 		}
 		else if (production_bonus_stat != noone && variable_instance_exists(_worker, "cultist_points"))
 		{
@@ -179,5 +241,61 @@ recalculate_production_speed_multiplier = function()
 		_total_speed_multiplier += _worker_speed_multiplier;
 	}
 
+	if (building_upgrade_flags[0] && _total_speed_multiplier > 0)
+	{
+		_total_speed_multiplier += BALANCE_RESOURCE_BUILDING_SPEED_UPGRADE_BONUS;
+	}
+
 	production_speed_multiplier = _total_speed_multiplier * BALANCE_RESOURCE_BUILDING_PRODUCTION_SPEED_MULTIPLIER;
+};
+
+building_upgrade_can_buy = function(_upgrade_index)
+{
+	return building_has_upgrades
+		&& _upgrade_index >= 0
+		&& _upgrade_index < array_length(building_upgrade_flags)
+		&& !building_upgrade_flags[_upgrade_index]
+		&& global.resources[RESOURCES.IRON] >= building_upgrade_costs[_upgrade_index];
+};
+
+building_upgrade_buy = function(_upgrade_index)
+{
+	if (!building_upgrade_can_buy(_upgrade_index))
+	{
+		if (_upgrade_index >= 0 && _upgrade_index < array_length(building_upgrade_costs))
+		{
+			building_warning_show("Need " + string(building_upgrade_costs[_upgrade_index]) + " Iron", COLOR_STATUS_NEGATIVE_RED);
+		}
+
+		return false;
+	}
+
+	var _upgrade_cost = building_upgrade_costs[_upgrade_index];
+	global.resources[RESOURCES.IRON] -= _upgrade_cost;
+	resource_popup_create(x, y - production_bar_offset_y, RESOURCES.IRON, -_upgrade_cost);
+	building_upgrade_flags[_upgrade_index] = true;
+	recalculate_production_speed_multiplier();
+	return true;
+};
+
+goblins_pit_goblin_limit_get = function()
+{
+	return instance_number(o_goblins_pit) * BALANCE_GOBLINS_PER_PIT_LIMIT;
+};
+
+goblins_pit_goblin_count_get = function()
+{
+	return instance_number(o_goblin);
+};
+
+goblins_pit_can_summon_goblin = function()
+{
+	return goblins_pit_goblin_count_get() < goblins_pit_goblin_limit_get();
+};
+
+building_warning_show = function(_text, _color)
+{
+	building_warning_text = _text;
+	building_warning_color = _color;
+	building_warning_timer = building_warning_time;
 };

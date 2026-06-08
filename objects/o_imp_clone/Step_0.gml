@@ -1,8 +1,15 @@
 // Run shared movement and combat first.
 event_inherited();
 
-if (global.pause || hp <= 0)
+if (global.pause)
 {
+	exit;
+}
+
+if (hp <= 0)
+{
+	clone_blood_explosion();
+	instance_destroy();
 	exit;
 }
 
@@ -11,11 +18,12 @@ life_timer--;
 
 if (life_timer <= 0)
 {
+	clone_blood_explosion();
 	instance_destroy();
 	exit;
 }
 
-var _fade_time = max(1, BALANCE_IMP_BLOODY_CLONE_LIFE_TIME * room_speed * clone_fade_start_share);
+var _fade_time = max(1, clone_max_life_timer * clone_fade_start_share);
 
 if (life_timer < _fade_time)
 {

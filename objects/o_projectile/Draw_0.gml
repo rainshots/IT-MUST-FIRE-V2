@@ -17,6 +17,10 @@ else if (projectile_type == PROJECTILE_TYPE.CULTIST)
 {
 	_projectile_color = COLOR_PROJECTILE_CULTIST;
 }
+else if (projectile_type == PROJECTILE_TYPE.FEAST)
+{
+	_projectile_color = COLOR_PROJECTILE_CORRUPTION;
+}
 
 // Draw a round projectile.
 draw_set_color(_projectile_color);

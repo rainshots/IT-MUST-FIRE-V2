@@ -15,6 +15,14 @@ day_phase_item_height = 34;
 day_phase_margin_right = 18;
 day_phase_text_padding = 14;
 
+// Cannon satiety is filled by hauling corpses to the cannon.
+cannon_satiety_width = 260;
+cannon_satiety_height = 34;
+cannon_satiety_bar_width = 156;
+cannon_satiety_bar_height = 8;
+cannon_satiety_padding_x = 14;
+cannon_satiety_label = "SATIETY";
+
 // Resource display order from left to right in the top-left corner.
 resource_order = [
 	RESOURCES.FLESH,
@@ -52,6 +60,10 @@ projectile_circle_radius = 13;
 projectile_current_circle_radius = 17;
 projectile_current_scale_padding = 5;
 projectile_name_offset_y = 40;
+projectile_payload_offset_y = 56;
+projectile_payload_icon_size = 14;
+projectile_payload_icon_gap = 4;
+projectile_payload_count_gap = 2;
 projectile_aim_prompt_gap = 6;
 projectile_aim_prompt_text = "Press 1 to aim";
 projectile_description_width = 330;
@@ -59,16 +71,18 @@ projectile_description_height = 58;
 projectile_description_gap = 8;
 projectile_description_line_separation = 16;
 
-projectile_names = array_create(PROJECTILE_TYPE.CULTIST + 1, "");
+projectile_names = array_create(PROJECTILE_TYPE.FEAST + 1, "");
 projectile_names[PROJECTILE_TYPE.DAMAGE] = "DAMAGE";
 projectile_names[PROJECTILE_TYPE.CORRUPTION] = "INFECTION";
 projectile_names[PROJECTILE_TYPE.SUMMON] = "SUMMON";
 projectile_names[PROJECTILE_TYPE.RALLY] = "RALLY";
 projectile_names[PROJECTILE_TYPE.CULTIST] = "CULTIST";
+projectile_names[PROJECTILE_TYPE.FEAST] = "FEAST";
 
-projectile_descriptions = array_create(PROJECTILE_TYPE.CULTIST + 1, "");
+projectile_descriptions = array_create(PROJECTILE_TYPE.FEAST + 1, "");
 projectile_descriptions[PROJECTILE_TYPE.DAMAGE] = "Damages units and buildings inside the impact area.";
 projectile_descriptions[PROJECTILE_TYPE.CORRUPTION] = "Infects ground cells and triggers corruption reactions.";
 projectile_descriptions[PROJECTILE_TYPE.SUMMON] = "Summons friendly forces through valid target reactions.";
 projectile_descriptions[PROJECTILE_TYPE.RALLY] = "Sends half of nearby friendly units to the impact point.";
 projectile_descriptions[PROJECTILE_TYPE.CULTIST] = "Launches a cultist into battle, dealing impact damage and spawning demon form.";
+projectile_descriptions[PROJECTILE_TYPE.FEAST] = "Fires 20 infection shells over a wide area and heavily damages enemies inside.";

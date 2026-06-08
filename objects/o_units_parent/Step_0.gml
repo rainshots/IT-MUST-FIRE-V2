@@ -15,6 +15,19 @@ if (hp <= 0)
 	exit;
 }
 
+// Units reserved for cultist projectiles wait hidden until the impact deploys them.
+if (cultist_projectile_deploy_assigned || cultist_projectile_deploy_waiting)
+{
+	target_instance = noone;
+	alert_target = noone;
+	is_attacking_target = false;
+	is_walking = false;
+	visual_attack_offset_x = 0;
+	visual_attack_offset_y = 0;
+	update_walk_sway();
+	exit;
+}
+
 // Dragged units cannot move, attack, or progress abilities until released.
 if (is_being_dragged)
 {
@@ -72,6 +85,12 @@ if (attack_feedback_timer > 0)
 	attack_feedback_timer--;
 }
 
+// Soul Chain death effects leave a short visual pulse.
+if (soul_chain_death_flash_timer > 0)
+{
+	soul_chain_death_flash_timer--;
+}
+
 // Update temporary armor debuffs.
 if (armor_debuff_timer > 0)
 {
@@ -91,6 +110,19 @@ if (demonic_infusion_timer > 0)
 	if (demonic_infusion_timer <= 0)
 	{
 		demonic_infusion_reload_multiplier = 1;
+	}
+}
+
+// Corpse Armor adds temporary armor and cleans up the bonus when it expires.
+if (corpse_armor_timer > 0)
+{
+	corpse_armor_timer--;
+
+	if (corpse_armor_timer <= 0)
+	{
+		armor -= corpse_armor_bonus;
+		corpse_armor_bonus = 0;
+		corpse_armor_retaliation_damage = 0;
 	}
 }
 
@@ -133,6 +165,7 @@ is_walking = false;
 
 var _is_enemy_unit = (unit_faction == UNIT_FACTION.ENEMY);
 var _is_friendly_unit = (unit_faction == UNIT_FACTION.FRIENDLY);
+var _friendly_follow_target = noone;
 
 // Update lightweight separation vector before movement.
 update_separation_push();
@@ -188,9 +221,21 @@ else if (!_special_behavior_handled && _is_friendly_unit)
 		target_instance = find_nearest_enemy_object(vision_radius);
 	}
 
+	if (!instance_exists(target_instance)
+		&& global.day_phase == DAY_PHASE.NIGHT
+		&& !regroup_is_active
+		&& !rally_is_active
+		&& (object_index == o_skeleton || object_index == o_pitling))
+	{
+		_friendly_follow_target = find_nearest_visible_cultist();
+	}
+
 	if (!instance_exists(target_instance))
 	{
-		target_instance = find_nearest_cannon_attacker();
+		if (!instance_exists(_friendly_follow_target))
+		{
+			target_instance = find_nearest_cannon_attacker();
+		}
 	}
 
 	if (!instance_exists(target_instance) && instance_exists(o_cannon))
@@ -198,7 +243,11 @@ else if (!_special_behavior_handled && _is_friendly_unit)
 		var _cannon = instance_find(o_cannon, 0);
 		var _distance_to_cannon = point_distance(x, y, _cannon.x, _cannon.y);
 
-		if (!regroup_is_active && !rally_is_active && !is_wall_blocked_friendly_unit() && _distance_to_cannon > cannon_guard_radius)
+		if (!instance_exists(_friendly_follow_target)
+			&& !regroup_is_active
+			&& !rally_is_active
+			&& !is_wall_blocked_friendly_unit()
+			&& _distance_to_cannon > cannon_guard_radius)
 		{
 			target_instance = _cannon;
 		}
@@ -242,6 +291,19 @@ if (!_special_behavior_handled && instance_exists(target_instance))
 	else
 	{
 		move_towards_target(target_instance);
+	}
+}
+else if (!_special_behavior_handled && _is_friendly_unit && instance_exists(_friendly_follow_target))
+{
+	var _follow_distance = point_distance(x, y, _friendly_follow_target.x, _friendly_follow_target.y);
+
+	if (_follow_distance > regroup_arrive_radius)
+	{
+		move_towards_world_point(_friendly_follow_target.x, _friendly_follow_target.y);
+	}
+	else
+	{
+		face_world_x(_friendly_follow_target.x);
 	}
 }
 else if (!_special_behavior_handled && _is_friendly_unit && regroup_is_active)

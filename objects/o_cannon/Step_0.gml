@@ -13,10 +13,24 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 		var _projectile_queue_count = array_length(global.cannon_projectile_queue);
 		var _fired_projectile_count = volley_projectile_count;
 		var _projectile_payload = noone;
+		var _remaining_cultist_projectile_count = 0;
 
 		if (_projectile_queue_count > 0 && array_length(global.cannon_projectile_payload_queue) > 0)
 		{
 			_projectile_payload = global.cannon_projectile_payload_queue[0];
+		}
+
+		if (target_projectile_type == PROJECTILE_TYPE.CULTIST)
+		{
+			for (var _cultist_queue_index = 0; _cultist_queue_index < _projectile_queue_count; ++_cultist_queue_index)
+			{
+				if (global.cannon_projectile_queue[_cultist_queue_index] != PROJECTILE_TYPE.CULTIST)
+				{
+					break;
+				}
+
+				_remaining_cultist_projectile_count++;
+			}
 		}
 
 		global.cannon_fire_version++;
@@ -26,11 +40,22 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 		{
 			_fired_projectile_count = 1;
 		}
+		else if (target_projectile_type == PROJECTILE_TYPE.FEAST)
+		{
+			_fired_projectile_count = BALANCE_CANNON_FEAST_PROJECTILE_COUNT;
+		}
 
 		for (var _projectile_index = 0; _projectile_index < _fired_projectile_count; ++_projectile_index)
 		{
 			var _spread_direction = random(360);
-			var _spread_distance = sqrt(random(1)) * volley_spread_radius;
+			var _spread_radius = volley_spread_radius;
+
+			if (target_projectile_type == PROJECTILE_TYPE.FEAST)
+			{
+				_spread_radius = BALANCE_CANNON_FEAST_RADIUS;
+			}
+
+			var _spread_distance = sqrt(random(1)) * _spread_radius;
 			var _spread_target_x = target_x + lengthdir_x(_spread_distance, _spread_direction);
 			var _spread_target_y = target_y + lengthdir_y(_spread_distance, _spread_direction);
 			var _launch_delay_seconds = random_range(volley_launch_delay_min, volley_launch_delay_max);
@@ -44,6 +69,10 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 				_spread_target_x = target_x;
 				_spread_target_y = target_y;
 				_launch_delay_seconds = 0;
+			}
+			else if (target_projectile_type == PROJECTILE_TYPE.FEAST)
+			{
+				_launch_delay_seconds = random(BALANCE_CANNON_FEAST_PROJECTILE_LAUNCH_TIME);
 			}
 
 			var _projectile_distance = point_distance(_projectile_x, _projectile_y, _spread_target_x, _spread_target_y);
@@ -67,6 +96,21 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			{
 				_projectile.effect_radius = BALANCE_CULTIST_PROJECTILE_EFFECT_RADIUS;
 				_projectile.damage_amount = BALANCE_CULTIST_PROJECTILE_DAMAGE_AMOUNT;
+				_projectile.ground_corruption_amount = BALANCE_CULTIST_PROJECTILE_CORRUPTION_AMOUNT;
+				_projectile.ground_corruption_radius = BALANCE_CULTIST_PROJECTILE_CORRUPTION_RADIUS;
+
+				if (instance_exists(o_game_controller))
+				{
+					var _game_controller = instance_find(o_game_controller, 0);
+					_projectile.cultist_deploy_units = _game_controller.cultist_projectile_deploy_units_take(_remaining_cultist_projectile_count);
+				}
+			}
+			else if (target_projectile_type == PROJECTILE_TYPE.FEAST)
+			{
+				_projectile.effect_radius = BALANCE_CANNON_FEAST_PROJECTILE_VISUAL_RADIUS;
+				_projectile.damage_amount = BALANCE_CANNON_FEAST_DAMAGE_AMOUNT;
+				_projectile.ground_corruption_amount = BALANCE_CANNON_FEAST_CORRUPTION_AMOUNT;
+				_projectile.ground_corruption_radius = BALANCE_CANNON_FEAST_PROJECTILE_CORRUPTION_RADIUS;
 			}
 		}
 

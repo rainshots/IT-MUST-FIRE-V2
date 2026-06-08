@@ -3,6 +3,11 @@ missing_work_resource = noone;
 missing_work_resource_name = "";
 missing_work_resource_color = c_white;
 
+if (building_warning_timer > 0)
+{
+	building_warning_timer = max(0, building_warning_timer - 1);
+}
+
 if (global.pause || !building_accepts_workers)
 {
 	exit;
@@ -16,7 +21,9 @@ for (var _worker_index = 0; _worker_index < _worker_count; ++_worker_index)
 {
 	var _worker = worker_cultists[_worker_index];
 
-	if (instance_exists(_worker) && (_worker.object_index == o_cultist || _worker.object_index == o_pitling))
+	if (instance_exists(_worker)
+		&& (_worker.object_index == o_cultist
+			|| variable_instance_exists(_worker, "worker_speed_multiplier")))
 	{
 		worker_cultists[_valid_worker_count] = _worker;
 		_valid_worker_count++;
@@ -32,6 +39,67 @@ if (_valid_worker_count <= 0)
 }
 
 recalculate_production_speed_multiplier();
+
+// Resource building upgrades add free secondary work at a fraction of specialist buildings.
+if (building_upgrade_flags[1])
+{
+	if (object_index == o_slaughter_table)
+	{
+		var _heal_step = (BALANCE_MEAT_BATH_FLESH_HEAL_AMOUNT * production_speed_multiplier * BALANCE_SLAUGHTER_TABLE_HEAL_UPGRADE_MULTIPLIER) / max(1, BALANCE_MEAT_BATH_HEAL_TIME * room_speed);
+
+		for (var _heal_worker_index = 0; _heal_worker_index < _valid_worker_count; ++_heal_worker_index)
+		{
+			var _heal_worker = worker_cultists[_heal_worker_index];
+
+			if (!variable_instance_exists(_heal_worker, "hp")
+				|| !variable_instance_exists(_heal_worker, "max_hp")
+				|| _heal_worker.hp >= _heal_worker.max_hp)
+			{
+				continue;
+			}
+
+			_heal_worker.hp = min(_heal_worker.hp + _heal_step, _heal_worker.max_hp);
+		}
+	}
+	else if (object_index == o_quarry && instance_exists(o_cannon))
+	{
+		var _cannon = instance_find(o_cannon, 0);
+
+		if (variable_instance_exists(_cannon, "hp")
+			&& variable_instance_exists(_cannon, "max_hp")
+			&& _cannon.hp < _cannon.max_hp)
+		{
+			var _repair_step = (BALANCE_WORKSHOP_IRON_REPAIR_AMOUNT * production_speed_multiplier * BALANCE_RESOURCE_BUILDING_SECONDARY_EFFECT_MULTIPLIER) / max(1, BALANCE_WORKSHOP_REPAIR_TIME * room_speed);
+			_cannon.hp = min(_cannon.hp + _repair_step, _cannon.max_hp);
+		}
+	}
+	else if (object_index == o_souls_well)
+	{
+		var _summon_step = (production_speed_multiplier * BALANCE_RESOURCE_BUILDING_SECONDARY_EFFECT_MULTIPLIER) / max(1, BALANCE_GRAVEYARD_SKELETON_PRODUCTION_TIME * room_speed);
+		secondary_effect_progress += _summon_step;
+
+		if (secondary_effect_progress >= 1)
+		{
+			var _spawn_direction = random(360);
+			var _spawn_distance = random(BALANCE_SUMMON_BUILDING_SPAWN_RADIUS);
+			var _spawn_x = x + lengthdir_x(_spawn_distance, _spawn_direction);
+			var _spawn_y = y + lengthdir_y(_spawn_distance, _spawn_direction);
+			var _summoned_unit = instance_create_layer(_spawn_x, _spawn_y, "Instances", o_skeleton);
+
+			if (instance_exists(o_game_controller))
+			{
+				var _game_controller = instance_find(o_game_controller, 0);
+
+				if (variable_instance_exists(_game_controller, "move_spawned_summoned_unit_to_cannon_inner"))
+				{
+					_game_controller.move_spawned_summoned_unit_to_cannon_inner(_summoned_unit);
+				}
+			}
+
+			secondary_effect_progress -= 1;
+		}
+	}
+}
 
 // Meat Bath converts Flesh into stored healing and applies it gradually.
 if (object_index == o_meat_bath)
@@ -176,9 +244,61 @@ if (object_index == o_ritual_circle)
 	exit;
 }
 
+// Workshop converts Iron into stored repair and applies it to the cannon wall.
+if (object_index == o_workshop)
+{
+	if (!instance_exists(o_cannon))
+	{
+		exit;
+	}
+
+	var _cannon = instance_find(o_cannon, 0);
+
+	if (!variable_instance_exists(_cannon, "hp")
+		|| !variable_instance_exists(_cannon, "max_hp")
+		|| _cannon.hp >= _cannon.max_hp)
+	{
+		exit;
+	}
+
+	if (workshop_repair_pool <= 0 && global.resources[RESOURCES.IRON] > 0)
+	{
+		global.resources[RESOURCES.IRON]--;
+		workshop_repair_pool += BALANCE_WORKSHOP_IRON_REPAIR_AMOUNT;
+		resource_popup_create(x, y - production_bar_offset_y, RESOURCES.IRON, -1);
+	}
+	else if (workshop_repair_pool <= 0)
+	{
+		missing_work_resource = RESOURCES.IRON;
+		missing_work_resource_name = "Iron";
+		missing_work_resource_color = COLOR_HUD_IRON;
+	}
+
+	if (workshop_repair_pool <= 0)
+	{
+		exit;
+	}
+
+	var _repair_step = (BALANCE_WORKSHOP_IRON_REPAIR_AMOUNT * production_speed_multiplier) / max(1, BALANCE_WORKSHOP_REPAIR_TIME * room_speed);
+	var _missing_hp = _cannon.max_hp - _cannon.hp;
+	var _repair_amount = min(_repair_step, min(workshop_repair_pool, _missing_hp));
+
+	_cannon.hp += _repair_amount;
+	workshop_repair_pool -= _repair_amount;
+
+	exit;
+}
+
 // Summoning buildings spend Souls to create temporary friendly units.
 if (summon_unit_object != noone)
 {
+	if (object_index == o_goblins_pit && !goblins_pit_can_summon_goblin())
+	{
+		var _goblin_limit = goblins_pit_goblin_limit_get();
+		building_warning_show("Goblin limit " + string(_goblin_limit) + "/" + string(_goblin_limit), COLOR_STATUS_NEGATIVE_RED);
+		exit;
+	}
+
 	if (!summon_has_paid_cost && global.resources[RESOURCES.SOULS] >= BALANCE_SUMMON_BUILDING_SOUL_COST)
 	{
 		global.resources[RESOURCES.SOULS] -= BALANCE_SUMMON_BUILDING_SOUL_COST;

@@ -1,8 +1,8 @@
 // Base unit combat stats.
 unit_faction = UNIT_FACTION.NOONE;
-max_hp = 20;
+max_hp = 20 * BALANCE_COMBAT_VALUE_SCALE;
 hp = max_hp;
-damage = 1;
+damage = 1 * BALANCE_COMBAT_VALUE_SCALE;
 magic_damage = 0;
 reload_time = room_speed;
 reload_timer = 0;
@@ -33,6 +33,10 @@ rally_arrive_radius = BALANCE_PROJECTILE_RALLY_ARRIVE_RADIUS;
 rally_is_active = false;
 rally_is_returning = false;
 rally_has_arrived = false;
+
+// Cultist projectiles can deliver summoned combat units to the impact area.
+cultist_projectile_deploy_assigned = false;
+cultist_projectile_deploy_waiting = false;
 
 // Regroup movement sends newly spawned friendly summons toward the cannon day area.
 regroup_is_active = false;
@@ -81,18 +85,43 @@ next_attack_damage_multiplier = 1;
 next_attack_radius_multiplier = 1;
 demonic_infusion_timer = 0;
 demonic_infusion_reload_multiplier = 1;
+corpse_armor_bonus = 0;
+corpse_armor_timer = 0;
+corpse_armor_retaliation_damage = 0;
 // Soul Chain links damage between several enemies while the timer is active.
 soul_chain_id = noone;
 soul_chain_timer = 0;
 soul_chain_members = array_create(0);
 soul_chain_damage_share = 0;
+soul_chain_death_stun_time = 0;
+soul_chain_death_damage = 0;
+soul_chain_death_flash_timer = 0;
+soul_chain_death_flash_time = 0.25 * room_speed;
 is_being_dragged = false;
 drag_drop_x = x;
 drag_drop_y = y;
+morning_respawn_pending = false;
+corpse_visual_created = false;
+
+// Optional summoned skeleton effects are configured by Warlock.
+warlock_skeleton_explosion_enabled = false;
+warlock_skeleton_explosion_damage = 0;
+warlock_skeleton_respawn_chance = 0;
+warlock_skeleton_dies_at_morning = false;
 
 // Building work assignment lets valid friendly units stay at production buildings.
 assigned_building = noone;
 is_assigned_to_building = false;
+
+// Cannon corpse hauling uses inert corpse snapshots reserved by the game controller.
+carried_corpse = noone;
+reserved_corpse_id = noone;
+cannon_no_corpse_warning_active = false;
+cannon_no_corpse_warning_text = "There are no available corpses";
+cannon_no_corpse_warning_offset_y = 48;
+cannon_no_corpse_warning_padding_x = 6;
+cannon_no_corpse_warning_padding_y = 3;
+cannon_no_corpse_warning_background_alpha = 0.82;
 stun_timer = 0;
 stun_duration = 0;
 is_stunned = false;
@@ -577,14 +606,18 @@ soul_chain_clear = function()
 	soul_chain_timer = 0;
 	soul_chain_members = array_create(0);
 	soul_chain_damage_share = 0;
+	soul_chain_death_stun_time = 0;
+	soul_chain_death_damage = 0;
 };
 
-soul_chain_apply = function(_chain_id, _members, _duration_seconds, _damage_share)
+soul_chain_apply = function(_chain_id, _members, _duration_seconds, _damage_share, _death_stun_time = 0, _death_damage = 0)
 {
 	soul_chain_id = _chain_id;
 	soul_chain_timer = max(1, _duration_seconds * room_speed);
 	soul_chain_members = _members;
 	soul_chain_damage_share = clamp(_damage_share, 0, 1);
+	soul_chain_death_stun_time = max(0, _death_stun_time);
+	soul_chain_death_damage = max(0, _death_damage);
 };
 
 soul_chain_update = function()
@@ -602,7 +635,7 @@ soul_chain_update = function()
 	}
 };
 
-soul_chain_death_curse_apply = function()
+soul_chain_death_effect_apply = function()
 {
 	if (soul_chain_id == noone || array_length(soul_chain_members) <= 1)
 	{
@@ -616,17 +649,22 @@ soul_chain_death_curse_apply = function()
 		if (target_can_be_attacked(_member)
 			&& _member != id
 			&& variable_instance_exists(_member, "soul_chain_id")
-			&& _member.soul_chain_id == soul_chain_id
-			&& variable_instance_exists(_member, "status_effect_apply"))
+			&& _member.soul_chain_id == soul_chain_id)
 		{
-			_member.status_effect_apply(
-				STATUS_EFFECT.CURSE,
-				BALANCE_WARLOCK_SOUL_CHAIN_DEATH_CURSE_TIME,
-				1,
-				0,
-				0,
-				UNIT_FACTION.FRIENDLY
-			);
+			if (soul_chain_death_stun_time > 0 && variable_instance_exists(_member, "stun_apply"))
+			{
+				_member.stun_apply(soul_chain_death_stun_time);
+			}
+
+			if (soul_chain_death_damage > 0 && variable_instance_exists(_member, "unit_damage_receive"))
+			{
+				_member.unit_damage_receive(soul_chain_death_damage, UNIT_FACTION.FRIENDLY, false, false);
+			}
+
+			if (variable_instance_exists(_member, "soul_chain_death_flash_timer"))
+			{
+				_member.soul_chain_death_flash_timer = _member.soul_chain_death_flash_time;
+			}
 		}
 	}
 };
@@ -636,6 +674,11 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 	if (hp <= 0 || _damage_amount <= 0)
 	{
 		return 0;
+	}
+
+	if (_is_critical)
+	{
+		_damage_amount *= brute_rotten_aura_critical_damage_multiplier_get();
 	}
 
 	var _applied_damage = min(_damage_amount, hp);
@@ -676,14 +719,12 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 	return _applied_damage;
 };
 
-brute_cursed_flesh_applies = function()
+brute_rotten_aura_critical_damage_multiplier_get = function()
 {
 	if (unit_faction != UNIT_FACTION.ENEMY
-		|| !BALANCE_BRUTE_CURSED_FLESH_ENABLED
-		|| !status_effect_has(STATUS_EFFECT.CURSE)
 		|| !instance_exists(o_brute))
 	{
-		return false;
+		return 1;
 	}
 
 	var _brute_count = instance_number(o_brute);
@@ -694,21 +735,178 @@ brute_cursed_flesh_applies = function()
 
 		if (instance_exists(_brute)
 			&& variable_instance_exists(_brute, "hp")
-			&& variable_instance_exists(_brute, "has_brute_cursed_flesh")
+			&& variable_instance_exists(_brute, "has_brute_rotten_aura")
+			&& variable_instance_exists(_brute, "brute_ability_level_get")
 			&& _brute.hp > 0
-			&& _brute.has_brute_cursed_flesh
-			&& point_distance(x, y, _brute.x, _brute.y) <= BALANCE_BRUTE_CURSED_FLESH_RADIUS)
+			&& _brute.has_brute_rotten_aura
+			&& _brute.brute_ability_level_get(DEMON_ABILITY.BRUTE_ROTTEN_AURA) >= 4
+			&& point_distance(x, y, _brute.x, _brute.y) <= _brute.brute_rotten_aura_radius_get())
 		{
-			return true;
+			return BALANCE_BRUTE_ROTTEN_AURA_CRITICAL_DAMAGE_MULTIPLIER;
 		}
 	}
 
-	return false;
+	return 1;
+};
+
+demon_active_ability_used_notify = function(_ability)
+{
+	if (!is_demon_form_unit() || !instance_exists(o_brute))
+	{
+		return;
+	}
+
+	var _brute_count = instance_number(o_brute);
+
+	for (var _brute_index = 0; _brute_index < _brute_count; ++_brute_index)
+	{
+		var _brute = instance_find(o_brute, _brute_index);
+
+		if (instance_exists(_brute)
+			&& _brute != id
+			&& variable_instance_exists(_brute, "brute_blood_anvil_trigger"))
+		{
+			_brute.brute_blood_anvil_trigger(id);
+		}
+	}
+};
+
+warlock_soul_engine_enemy_death_notify = function()
+{
+	if (unit_faction != UNIT_FACTION.ENEMY || !instance_exists(o_warlock))
+	{
+		return;
+	}
+
+	var _warlock_count = instance_number(o_warlock);
+
+	for (var _warlock_index = 0; _warlock_index < _warlock_count; ++_warlock_index)
+	{
+		var _warlock = instance_find(o_warlock, _warlock_index);
+
+		if (instance_exists(_warlock) && variable_instance_exists(_warlock, "warlock_soul_engine_enemy_death_notify"))
+		{
+			_warlock.warlock_soul_engine_enemy_death_notify(x, y);
+		}
+	}
+};
+
+warlock_skeleton_death_effect_apply = function()
+{
+	if (object_index != o_skeleton)
+	{
+		return;
+	}
+
+	if (warlock_skeleton_explosion_enabled && warlock_skeleton_explosion_damage > 0)
+	{
+		var _enemy_list = ds_list_create();
+		var _enemy_count = collision_circle_list(
+			x,
+			y,
+			BALANCE_WARLOCK_SUMMON_SKELETONS_EXPLOSION_RADIUS,
+			o_enemy_units,
+			false,
+			true,
+			_enemy_list,
+			false
+		);
+
+		for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+		{
+			var _enemy = _enemy_list[| _enemy_index];
+
+			if (target_can_be_attacked(_enemy) && variable_instance_exists(_enemy, "unit_damage_receive"))
+			{
+				_enemy.unit_damage_receive(warlock_skeleton_explosion_damage, unit_faction);
+			}
+		}
+
+		ds_list_destroy(_enemy_list);
+	}
+
+	if (warlock_skeleton_respawn_chance > 0 && random(1) < warlock_skeleton_respawn_chance)
+	{
+		var _spawn_direction = random(360);
+		var _spawn_distance = BALANCE_WARLOCK_SUMMON_SKELETONS_SPAWN_DISTANCE * 0.5;
+		var _skeleton = instance_create_layer(
+			x + lengthdir_x(_spawn_distance, _spawn_direction),
+			y + lengthdir_y(_spawn_distance, _spawn_direction),
+			"Instances",
+			o_skeleton
+		);
+
+		if (instance_exists(_skeleton))
+		{
+			_skeleton.max_hp = max_hp;
+			_skeleton.hp = _skeleton.max_hp;
+			_skeleton.damage = damage;
+			_skeleton.warlock_skeleton_explosion_enabled = warlock_skeleton_explosion_enabled;
+			_skeleton.warlock_skeleton_explosion_damage = warlock_skeleton_explosion_damage;
+			_skeleton.warlock_skeleton_respawn_chance = warlock_skeleton_respawn_chance;
+			_skeleton.warlock_skeleton_dies_at_morning = warlock_skeleton_dies_at_morning;
+		}
+	}
+};
+
+unit_corpse_snapshot_create = function()
+{
+	if (unit_faction == UNIT_FACTION.ENEMY && random(1) >= BALANCE_ENEMY_CORPSE_DROP_CHANCE)
+	{
+		corpse_visual_created = true;
+		return;
+	}
+
+	if (!corpse_visual_created && instance_exists(o_game_controller))
+	{
+		var _game_controller = instance_find(o_game_controller, 0);
+
+		if (variable_instance_exists(_game_controller, "corpse_snapshot_add"))
+		{
+			_game_controller.corpse_snapshot_add(id);
+			corpse_visual_created = true;
+		}
+	}
 };
 
 unit_death_process = function()
 {
-	soul_chain_death_curse_apply();
+	if (instance_exists(o_game_controller))
+	{
+		var _game_controller = instance_find(o_game_controller, 0);
+
+		if (variable_instance_exists(_game_controller, "cannon_corpse_worker_drop"))
+		{
+			_game_controller.cannon_corpse_worker_drop(id);
+		}
+	}
+
+	unit_corpse_snapshot_create();
+
+	if (is_demon_form_unit() || object_index == o_cultist)
+	{
+		if (!morning_respawn_pending)
+		{
+			soul_chain_death_effect_apply();
+			morning_respawn_pending = true;
+			hp = 0;
+			visible = false;
+			is_being_dragged = false;
+			target_instance = noone;
+			alert_target = noone;
+			forced_attack_target = noone;
+			is_attacking_target = false;
+			is_walking = false;
+			visual_attack_offset_x = 0;
+			visual_attack_offset_y = 0;
+		}
+
+		return;
+	}
+
+	soul_chain_death_effect_apply();
+	warlock_soul_engine_enemy_death_notify();
+	warlock_skeleton_death_effect_apply();
 	status_effect_death_rewards_try();
 	meat_drop_try();
 	instance_destroy();
@@ -735,11 +933,6 @@ meat_drop_try = function()
 
 	var _drop_chance = BALANCE_MEAT_DROP_CHANCE;
 
-	if (brute_cursed_flesh_applies())
-	{
-		_drop_chance += BALANCE_BRUTE_CURSED_FLESH_MEAT_BONUS_CHANCE;
-	}
-
 	if (random(1) >= clamp(_drop_chance, 0, 1))
 	{
 		return;
@@ -763,7 +956,7 @@ is_summoned_unit = function()
 is_wall_blocked_friendly_unit = function()
 {
 	return is_demon_form_unit()
-		|| (is_summoned_unit() && global.day_phase == DAY_PHASE.NIGHT);
+		|| (is_summoned_unit() && object_index != o_goblin && global.day_phase == DAY_PHASE.NIGHT);
 };
 
 is_blocked_by_cannon_wall = function()
@@ -952,6 +1145,37 @@ find_nearest_enemy_object = function(_max_distance)
 	}
 
 	return _nearest_target;
+};
+
+find_nearest_visible_cultist = function()
+{
+	var _nearest_cultist = noone;
+	var _nearest_distance = infinity;
+	var _cultist_count = array_length(global.cultists);
+
+	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+	{
+		var _cultist = global.cultists[_cultist_index];
+
+		if (!instance_exists(_cultist)
+			|| _cultist == id
+			|| !_cultist.visible
+			|| !variable_instance_exists(_cultist, "hp")
+			|| _cultist.hp <= 0)
+		{
+			continue;
+		}
+
+		var _cultist_distance = point_distance(x, y, _cultist.x, _cultist.y);
+
+		if (_cultist_distance < _nearest_distance)
+		{
+			_nearest_cultist = _cultist;
+			_nearest_distance = _cultist_distance;
+		}
+	}
+
+	return _nearest_cultist;
 };
 
 move_towards_target = function(_target)
@@ -1246,6 +1470,16 @@ attack_target = function(_target)
 		}
 
 		start_attack_lunge(_target);
+
+		// Corpse Armor hurts melee attackers while the shield is active.
+		if (variable_instance_exists(_target, "corpse_armor_timer")
+			&& variable_instance_exists(_target, "corpse_armor_retaliation_damage")
+			&& _target.corpse_armor_timer > 0
+			&& _target.corpse_armor_retaliation_damage > 0
+			&& point_distance(x, y, _target.x, _target.y) <= attack_radius + 12)
+		{
+			unit_damage_receive(_target.corpse_armor_retaliation_damage, _target.unit_faction);
+		}
 	}
 
 	if (aoe_radius > 0)
