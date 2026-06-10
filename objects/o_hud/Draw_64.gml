@@ -73,27 +73,57 @@ if (variable_global_exists("day_phase"))
 	var _gui_width = display_get_gui_width();
 	var _phase_x = _gui_width - day_phase_margin_right - day_phase_item_width;
 	var _phase_y = hud_margin_y;
-	var _time_left = ceil(global.day_timer / room_speed);
-	var _phase_text = "DAY: " + string(_time_left);
+	var _current_day = 1;
+	var _day_progress = 0;
 
-	if (variable_global_exists("day_cycle_enabled") && !global.day_cycle_enabled)
+	if (instance_exists(o_game_controller))
 	{
-		_phase_text = "DAY";
+		var _game_controller = instance_find(o_game_controller, 0);
+
+		if (variable_instance_exists(_game_controller, "night_attack_night_index"))
+		{
+			_current_day = max(1, _game_controller.night_attack_night_index);
+		}
 	}
-	else if (global.day_phase == DAY_PHASE.NIGHT)
+
+	if (variable_global_exists("day_cycle_enabled") && global.day_cycle_enabled)
 	{
-		_phase_text = "NIGHT";
+		if (global.day_phase == DAY_PHASE.DAY)
+		{
+			var _day_duration_frames = max(1, global.day_duration * room_speed);
+
+			_day_progress = 1 - clamp(global.day_timer / _day_duration_frames, 0, 1);
+		}
+		else
+		{
+			_day_progress = 1;
+		}
 	}
 
 	draw_set_halign(fa_left);
-	draw_set_valign(fa_middle);
+	draw_set_valign(fa_top);
 	draw_set_alpha(0.72);
 	draw_set_color(COLOR_HUD_BACKGROUND);
 	draw_rectangle(_phase_x, _phase_y, _phase_x + day_phase_item_width, _phase_y + day_phase_item_height, false);
 
 	draw_set_alpha(1);
 	draw_set_color(COLOR_HUD_TEXT);
-	draw_text(_phase_x + day_phase_text_padding, _phase_y + (day_phase_item_height * 0.5), _phase_text);
+	draw_text(_phase_x + day_phase_text_padding, _phase_y + 10, "DAY " + string(_current_day));
+	draw_text(_phase_x + day_phase_text_padding, _phase_y + 32, "SURVIVE " + string(BALANCE_SURVIVE_DAYS) + " DAYS");
+
+	var _bar_x = _phase_x + day_phase_bar_margin_x;
+	var _bar_y = _phase_y + day_phase_item_height - day_phase_bar_margin_bottom - day_phase_bar_height;
+	var _bar_width = day_phase_item_width - (day_phase_bar_margin_x * 2);
+
+	draw_set_alpha(0.55);
+	draw_set_color(c_black);
+	draw_rectangle(_bar_x, _bar_y, _bar_x + _bar_width, _bar_y + day_phase_bar_height, false);
+
+	draw_set_alpha(1);
+	draw_set_color(COLOR_HUD_DAY_PROGRESS);
+	draw_rectangle(_bar_x, _bar_y, _bar_x + (_bar_width * _day_progress), _bar_y + day_phase_bar_height, false);
+	draw_set_color(COLOR_HUD_TEXT);
+	draw_rectangle(_bar_x, _bar_y, _bar_x + _bar_width, _bar_y + day_phase_bar_height, true);
 }
 
 // Draw cannon satiety in the top-center HUD.
@@ -104,7 +134,10 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 	var _gui_width = display_get_gui_width();
 	var _satiety_x = (_gui_width - cannon_satiety_width) * 0.5;
 	var _satiety_y = hud_margin_y + resource_item_height + resource_item_gap;
-	var _satiety_progress = clamp(global.cannon_satiety / max(1, global.cannon_satiety_max), 0, 1);
+	var _satiety_value = max(0, global.cannon_satiety);
+	var _satiety_max = max(1, global.cannon_satiety_max);
+	var _satiety_bar_count = max(1, ceil(_satiety_value / _satiety_max));
+	var _satiety_stack_height = cannon_satiety_height + ((_satiety_bar_count - 1) * (cannon_satiety_bar_height + cannon_satiety_bar_gap));
 	var _satiety_text_x = _satiety_x + cannon_satiety_padding_x;
 	var _satiety_text_y = _satiety_y + (cannon_satiety_height * 0.5);
 	var _satiety_bar_x = _satiety_x + cannon_satiety_width - cannon_satiety_padding_x - cannon_satiety_bar_width;
@@ -114,41 +147,109 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 	draw_set_valign(fa_middle);
 	draw_set_alpha(0.72);
 	draw_set_color(COLOR_HUD_BACKGROUND);
-	draw_rectangle(_satiety_x, _satiety_y, _satiety_x + cannon_satiety_width, _satiety_y + cannon_satiety_height, false);
+	draw_rectangle(_satiety_x, _satiety_y, _satiety_x + cannon_satiety_width, _satiety_y + _satiety_stack_height, false);
 
 	draw_set_alpha(1);
 	draw_set_color(COLOR_HUD_TEXT);
 	draw_text(_satiety_text_x, _satiety_text_y, cannon_satiety_label);
 
-	draw_set_alpha(0.75);
-	draw_set_color(c_black);
-	draw_rectangle(_satiety_bar_x, _satiety_bar_y, _satiety_bar_x + cannon_satiety_bar_width, _satiety_bar_y + cannon_satiety_bar_height, false);
+	for (var _satiety_bar_index = 0; _satiety_bar_index < _satiety_bar_count; ++_satiety_bar_index)
+	{
+		var _satiety_bar_value = _satiety_value - (_satiety_bar_index * _satiety_max);
+		var _satiety_progress = clamp(_satiety_bar_value / _satiety_max, 0, 1);
+		var _satiety_current_bar_y = _satiety_bar_y + (_satiety_bar_index * (cannon_satiety_bar_height + cannon_satiety_bar_gap));
 
-	draw_set_alpha(1);
-	draw_set_color(COLOR_PROJECTILE_CORRUPTION);
-	draw_rectangle(
-		_satiety_bar_x,
-		_satiety_bar_y,
-		_satiety_bar_x + (cannon_satiety_bar_width * _satiety_progress),
-		_satiety_bar_y + cannon_satiety_bar_height,
-		false
-	);
+		draw_set_alpha(0.75);
+		draw_set_color(c_black);
+		draw_rectangle(
+			_satiety_bar_x,
+			_satiety_current_bar_y,
+			_satiety_bar_x + cannon_satiety_bar_width,
+			_satiety_current_bar_y + cannon_satiety_bar_height,
+			false
+		);
+
+		draw_set_alpha(1);
+		draw_set_color(COLOR_PROJECTILE_CORRUPTION);
+		draw_rectangle(
+			_satiety_bar_x,
+			_satiety_current_bar_y,
+			_satiety_bar_x + (cannon_satiety_bar_width * _satiety_progress),
+			_satiety_current_bar_y + cannon_satiety_bar_height,
+			false
+		);
+	}
 }
 
-// Draw queued cannon projectiles at the bottom center of the HUD.
-if (variable_global_exists("cannon_projectile_queue"))
+// Draw defeat notice when the cannon wall has no HP left.
+if (instance_exists(o_cannon))
+{
+	var _cannon = instance_find(o_cannon, 0);
+
+	if (variable_instance_exists(_cannon, "hp") && _cannon.hp <= 0)
+	{
+		var _gui_width = display_get_gui_width();
+		var _notice_x = (_gui_width - wall_fallen_notice_width) * 0.5;
+		var _notice_y = wall_fallen_notice_y;
+
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_top);
+		draw_set_alpha(0.86);
+		draw_set_color(c_black);
+		draw_rectangle(
+			_notice_x,
+			_notice_y,
+			_notice_x + wall_fallen_notice_width,
+			_notice_y + wall_fallen_notice_height,
+			false
+		);
+
+		draw_set_alpha(1);
+		draw_set_color(COLOR_PROJECTILE_DAMAGE);
+		draw_rectangle(
+			_notice_x,
+			_notice_y,
+			_notice_x + wall_fallen_notice_width,
+			_notice_y + wall_fallen_notice_height,
+			true
+		);
+
+		draw_set_color(COLOR_PROJECTILE_DAMAGE);
+		draw_text(_notice_x + (wall_fallen_notice_width * 0.5), _notice_y + wall_fallen_notice_padding, wall_fallen_title);
+
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text(
+			_notice_x + (wall_fallen_notice_width * 0.5),
+			_notice_y + wall_fallen_notice_padding + 32,
+			wall_fallen_description
+		);
+	}
+}
+
+// Draw queued cannon projectiles at the bottom center of the HUD during night.
+if (variable_global_exists("cannon_projectile_queue")
+	&& variable_global_exists("day_phase")
+	&& global.day_phase == DAY_PHASE.NIGHT)
 {
 	var _projectile_queue_count = array_length(global.cannon_projectile_queue);
+	var _feast_projectile_count = 0;
+
+	if (variable_global_exists("cannon_satiety") && variable_global_exists("cannon_satiety_max"))
+	{
+		_feast_projectile_count = floor(max(0, global.cannon_satiety) / max(1, global.cannon_satiety_max));
+	}
+
+	var _projectile_display_count = _projectile_queue_count + _feast_projectile_count;
 	var _projectile_mouse_x = device_mouse_x_to_gui(0);
 	var _projectile_mouse_y = device_mouse_y_to_gui(0);
 	var _gui_width = display_get_gui_width();
 	var _gui_height = display_get_gui_height();
 	var _projectile_base_y = _gui_height - projectile_queue_margin_bottom - projectile_slot_height - projectile_name_offset_y;
-	var _projectile_total_width = (projectile_slot_width * _projectile_queue_count)
-		+ (projectile_slot_gap * max(0, _projectile_queue_count - 1));
+	var _projectile_total_width = (projectile_slot_width * _projectile_display_count)
+		+ (projectile_slot_gap * max(0, _projectile_display_count - 1));
 	var _projectile_start_x = (_gui_width - _projectile_total_width) * 0.5;
 	var _hovered_projectile_index = -1;
-	var _projectile_payload_data = array_create(_projectile_queue_count, noone);
+	var _projectile_payload_data = array_create(_projectile_display_count, noone);
 	var _deploy_preview_units = array_create(0);
 	var _deploy_preview_cursor = 0;
 	var _remaining_cultist_projectile_count = 0;
@@ -241,9 +342,15 @@ if (variable_global_exists("cannon_projectile_queue"))
 	draw_set_halign(fa_center);
 	draw_set_valign(fa_middle);
 
-	for (var _projectile_index = 0; _projectile_index < _projectile_queue_count; ++_projectile_index)
+	for (var _projectile_index = 0; _projectile_index < _projectile_display_count; ++_projectile_index)
 	{
-		var _projectile_type = global.cannon_projectile_queue[_projectile_index];
+		var _projectile_type = PROJECTILE_TYPE.FEAST;
+
+		if (_projectile_index < _projectile_queue_count)
+		{
+			_projectile_type = global.cannon_projectile_queue[_projectile_index];
+		}
+
 		var _slot_x = _projectile_start_x + ((projectile_slot_width + projectile_slot_gap) * _projectile_index);
 		var _slot_y = _projectile_base_y;
 		var _slot_width = projectile_slot_width;
@@ -429,14 +536,20 @@ if (variable_global_exists("cannon_projectile_queue"))
 
 	var _description_projectile_index = _hovered_projectile_index;
 
-	if (_description_projectile_index < 0 && _projectile_queue_count > 0)
+	if (_description_projectile_index < 0 && _projectile_display_count > 0)
 	{
 		_description_projectile_index = 0;
 	}
 
 	if (_description_projectile_index >= 0)
 	{
-		var _description_type = global.cannon_projectile_queue[_description_projectile_index];
+		var _description_type = PROJECTILE_TYPE.FEAST;
+
+		if (_description_projectile_index < _projectile_queue_count)
+		{
+			_description_type = global.cannon_projectile_queue[_description_projectile_index];
+		}
+
 		var _description_x = (_gui_width - projectile_description_width) * 0.5;
 		var _description_y = _projectile_base_y - projectile_description_height - projectile_description_gap;
 

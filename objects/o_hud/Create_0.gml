@@ -10,18 +10,30 @@ resource_icon_text_gap = 12;
 resource_text_padding = 20;
 
 // Day cycle display in the top-right corner.
-day_phase_item_width = 190;
-day_phase_item_height = 34;
+day_phase_item_width = 220;
+day_phase_item_height = 78;
 day_phase_margin_right = 18;
 day_phase_text_padding = 14;
+day_phase_bar_height = 8;
+day_phase_bar_margin_x = 14;
+day_phase_bar_margin_bottom = 12;
 
 // Cannon satiety is filled by hauling corpses to the cannon.
 cannon_satiety_width = 260;
 cannon_satiety_height = 34;
 cannon_satiety_bar_width = 156;
 cannon_satiety_bar_height = 8;
+cannon_satiety_bar_gap = 5;
 cannon_satiety_padding_x = 14;
 cannon_satiety_label = "SATIETY";
+
+// Wall fallen notice appears when cannon HP reaches zero, without stopping the run.
+wall_fallen_notice_width = 420;
+wall_fallen_notice_height = 76;
+wall_fallen_notice_y = 96;
+wall_fallen_notice_padding = 12;
+wall_fallen_title = "THE WALL HAS FALLEN";
+wall_fallen_description = "You lost, but can keep playing.";
 
 // Resource display order from left to right in the top-left corner.
 resource_order = [

@@ -475,7 +475,7 @@ imp_damage_target = function(_target, _damage_amount, _force_critical)
 
 	if (_force_critical)
 	{
-		_damage_with_modifiers *= 2;
+		_damage_with_modifiers *= unit_crit_damage_get();
 	}
 
 	var _final_damage = physical_damage_after_armor(_damage_with_modifiers, _target);
@@ -883,6 +883,7 @@ imp_clone_stats_copy = function(_clone)
 	_clone.magic_damage = magic_damage;
 	_clone.armor = armor;
 	_clone.crit_chance = crit_chance;
+	_clone.crit_damage = crit_damage;
 	_clone.reload_time = reload_time;
 	_clone.attack_radius = attack_radius;
 	_clone.move_speed = move_speed;

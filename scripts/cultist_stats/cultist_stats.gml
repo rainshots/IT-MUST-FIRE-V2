@@ -4,10 +4,22 @@ function cultist_points_roll()
 {
 	var _total_points = irandom_range(9, 11);
 	var _points = array_create(CULTIST_STAT.COUNT, 0);
+	var _weak_stat_index = irandom(CULTIST_STAT.COUNT - 1);
+	var _weak_stat_points = irandom_range(0, 2);
+	var _remaining_points = _total_points - _weak_stat_points;
 
-	for (var _point_index = 0; _point_index < _total_points; ++_point_index)
+	// Make one attribute noticeably weaker so every cultist has a clearer shape.
+	_points[_weak_stat_index] = _weak_stat_points;
+
+	for (var _point_index = 0; _point_index < _remaining_points; ++_point_index)
 	{
 		var _stat_index = irandom(CULTIST_STAT.COUNT - 1);
+
+		if (_stat_index == _weak_stat_index)
+		{
+			_stat_index = (_weak_stat_index + 1 + irandom(1)) mod CULTIST_STAT.COUNT;
+		}
+
 		_points[_stat_index]++;
 	}
 
@@ -23,6 +35,7 @@ function cultist_base_stats_get(_demon_type)
 		magic_damage: 0,
 		aoe_radius: 0,
 		crit_chance: 0,
+		crit_damage: BALANCE_CULTIST_CRIT_DAMAGE_BASE,
 		attack_speed: 1,
 		abilities_cd_spd: 1,
 		exp_effectiveness: 1,
@@ -93,17 +106,19 @@ function cultist_calculated_stats_get(_demon_type, _points)
 	var _fervor = _points[CULTIST_STAT.FERVOR];
 
 	return {
-		hp: cultist_stat_get(_base_stats.hp, _body, 0.05, 1),
-		armor: min(cultist_stat_get(_base_stats.armor, _body, 0.05, 1), 190),
-		damage: cultist_stat_get(_base_stats.damage, _body, 0.05, 1),
-		magic_damage: cultist_stat_get(_base_stats.magic_damage, _spirit, 0.05, 1),
+		hp: cultist_stat_get(_base_stats.hp, _body, BALANCE_CULTIST_BODY_STAT_BONUS, 1),
+		armor: min(cultist_stat_get(_base_stats.armor, _body, BALANCE_CULTIST_BODY_STAT_BONUS, 1), 190),
+		damage: cultist_stat_get(_base_stats.damage, _body, BALANCE_CULTIST_BODY_STAT_BONUS, 1),
+		magic_damage: cultist_stat_get(_base_stats.magic_damage, _spirit, BALANCE_CULTIST_MAGIC_DAMAGE_STAT_BONUS, 1),
 		aoe_radius: _base_stats.aoe_radius,
-		crit_chance: clamp(cultist_stat_get(_base_stats.crit_chance, _fervor, 0.05, 1), 0, 1),
-		attack_speed: cultist_stat_get(_base_stats.attack_speed, _fervor, 0.07, 1),
-		abilities_cd_spd: cultist_stat_get(_base_stats.abilities_cd_spd, _fervor, 0.07, 1),
-		exp_effectiveness: cultist_stat_get(_base_stats.exp_effectiveness, _spirit, 0.07, 1),
-		magic_effectiveness: cultist_stat_get(_base_stats.magic_effectiveness, _spirit, 0.07, 1),
-		resistance: cultist_stat_get(_base_stats.resistance, _spirit, 0.07, 1)
+		crit_chance: clamp(cultist_stat_get(_base_stats.crit_chance, _fervor, BALANCE_CULTIST_CRIT_CHANCE_STAT_BONUS, 1), 0, 1),
+		crit_damage: _base_stats.crit_damage + (_body * BALANCE_CULTIST_CRIT_DAMAGE_PER_BODY),
+		attack_speed: cultist_stat_get(_base_stats.attack_speed, _fervor, BALANCE_CULTIST_FERVOR_STAT_BONUS, 1),
+		abilities_cd_spd: cultist_stat_get(_base_stats.abilities_cd_spd, _spirit, BALANCE_CULTIST_SPIRIT_STAT_BONUS, 1),
+		exp_effectiveness: cultist_stat_get(_base_stats.exp_effectiveness, _spirit, BALANCE_CULTIST_SPIRIT_STAT_BONUS, 1),
+		magic_effectiveness: cultist_stat_get(_base_stats.magic_effectiveness, _spirit, BALANCE_CULTIST_SPIRIT_STAT_BONUS, 1),
+		resistance: cultist_stat_get(_base_stats.resistance, _spirit, BALANCE_CULTIST_SPIRIT_STAT_BONUS, 1),
+		move_speed: cultist_stat_get(_base_stats.move_speed, _fervor, BALANCE_CULTIST_FERVOR_STAT_BONUS, 1)
 	};
 }
 
@@ -339,8 +354,10 @@ function cultist_demon_stats_text_get(_demon_type)
 	var _text = "HP: " + string(_stats.hp)
 		+ "\nArmor: " + string_format(_stats.armor - 100, 0, 1) + "%"
 		+ _damage_text
+		+ "\nCrit damage: x" + string_format(_stats.crit_damage, 0, 2)
 		+ "\nCrit chance: " + string_format(_stats.crit_chance * 100, 0, 1) + "%"
 		+ "\nAttack speed: " + string(_stats.attack_speed)
+		+ "\nMove speed: " + string(_stats.move_speed)
 		+ "\nAbility Recharge: " + string(_stats.abilities_cd_spd)
 		+ "\nXP Gain: " + string(_stats.exp_effectiveness)
 		+ "\nMagic power: " + string(_stats.magic_effectiveness)
@@ -1386,36 +1403,41 @@ function cultist_stats_apply(_unit)
 	_unit.base_magic_damage = _base_stats.magic_damage;
 	_unit.base_aoe_radius = _base_stats.aoe_radius;
 	_unit.base_crit_chance = _base_stats.crit_chance;
+	_unit.base_crit_damage = _base_stats.crit_damage;
 	_unit.base_attack_speed = _base_stats.attack_speed;
 	_unit.base_abilities_cd_spd = _base_stats.abilities_cd_spd;
 	_unit.base_exp_effectiveness = _base_stats.exp_effectiveness;
 	_unit.base_magic_effectiveness = _base_stats.magic_effectiveness;
 	_unit.base_resistance = _base_stats.resistance;
+	_unit.base_move_speed = _base_stats.move_speed;
 
 	_unit.hp_coefficient = 1;
 	_unit.armor_coefficient = 1;
 	_unit.damage_coefficient = 1;
 	_unit.magic_damage_coefficient = 1;
 	_unit.crit_chance_coefficient = 1;
+	_unit.crit_damage_coefficient = 1;
 	_unit.attack_speed_coefficient = 1;
 	_unit.abilities_cd_spd_coefficient = 1;
 	_unit.exp_effectiveness_coefficient = 1;
 	_unit.magic_effectiveness_coefficient = 1;
 	_unit.resistance_coefficient = 1;
+	_unit.move_speed_coefficient = 1;
 
-	_unit.max_hp = cultist_stat_get(_unit.base_hp, _body, 0.05, _unit.hp_coefficient);
+	_unit.max_hp = cultist_stat_get(_unit.base_hp, _body, BALANCE_CULTIST_BODY_STAT_BONUS, _unit.hp_coefficient);
 	_unit.hp = _unit.max_hp;
-	_unit.armor = min(cultist_stat_get(_unit.base_armor, _body, 0.05, _unit.armor_coefficient), 190);
-	_unit.damage = cultist_stat_get(_unit.base_damage, _body, 0.05, _unit.damage_coefficient);
-	_unit.magic_damage = cultist_stat_get(_unit.base_magic_damage, _spirit, 0.05, _unit.magic_damage_coefficient);
-	_unit.crit_chance = clamp(cultist_stat_get(_unit.base_crit_chance, _fervor, 0.05, _unit.crit_chance_coefficient), 0, 1);
-	_unit.attack_speed = cultist_stat_get(_unit.base_attack_speed, _fervor, 0.07, _unit.attack_speed_coefficient);
-	_unit.abilities_cd_spd = cultist_stat_get(_unit.base_abilities_cd_spd, _fervor, 0.07, _unit.abilities_cd_spd_coefficient);
-	_unit.exp_effectiveness = cultist_stat_get(_unit.base_exp_effectiveness, _spirit, 0.07, _unit.exp_effectiveness_coefficient);
-	_unit.magic_effectiveness = cultist_stat_get(_unit.base_magic_effectiveness, _spirit, 0.07, _unit.magic_effectiveness_coefficient);
-	_unit.resistance = cultist_stat_get(_unit.base_resistance, _spirit, 0.07, _unit.resistance_coefficient);
+	_unit.armor = min(cultist_stat_get(_unit.base_armor, _body, BALANCE_CULTIST_BODY_STAT_BONUS, _unit.armor_coefficient), 190);
+	_unit.damage = cultist_stat_get(_unit.base_damage, _body, BALANCE_CULTIST_BODY_STAT_BONUS, _unit.damage_coefficient);
+	_unit.magic_damage = cultist_stat_get(_unit.base_magic_damage, _spirit, BALANCE_CULTIST_MAGIC_DAMAGE_STAT_BONUS, _unit.magic_damage_coefficient);
+	_unit.crit_chance = clamp(cultist_stat_get(_unit.base_crit_chance, _fervor, BALANCE_CULTIST_CRIT_CHANCE_STAT_BONUS, _unit.crit_chance_coefficient), 0, 1);
+	_unit.crit_damage = (_unit.base_crit_damage + (_body * BALANCE_CULTIST_CRIT_DAMAGE_PER_BODY)) * _unit.crit_damage_coefficient;
+	_unit.attack_speed = cultist_stat_get(_unit.base_attack_speed, _fervor, BALANCE_CULTIST_FERVOR_STAT_BONUS, _unit.attack_speed_coefficient);
+	_unit.abilities_cd_spd = cultist_stat_get(_unit.base_abilities_cd_spd, _spirit, BALANCE_CULTIST_SPIRIT_STAT_BONUS, _unit.abilities_cd_spd_coefficient);
+	_unit.exp_effectiveness = cultist_stat_get(_unit.base_exp_effectiveness, _spirit, BALANCE_CULTIST_SPIRIT_STAT_BONUS, _unit.exp_effectiveness_coefficient);
+	_unit.magic_effectiveness = cultist_stat_get(_unit.base_magic_effectiveness, _spirit, BALANCE_CULTIST_SPIRIT_STAT_BONUS, _unit.magic_effectiveness_coefficient);
+	_unit.resistance = cultist_stat_get(_unit.base_resistance, _spirit, BALANCE_CULTIST_SPIRIT_STAT_BONUS, _unit.resistance_coefficient);
 	_unit.aoe_radius = _unit.base_aoe_radius;
 	_unit.reload_time = max(room_speed / max(_unit.attack_speed, 0.1), 1);
 	_unit.attack_radius = _base_stats.attack_radius;
-	_unit.move_speed = _base_stats.move_speed;
+	_unit.move_speed = cultist_stat_get(_unit.base_move_speed, _fervor, BALANCE_CULTIST_FERVOR_STAT_BONUS, _unit.move_speed_coefficient);
 }

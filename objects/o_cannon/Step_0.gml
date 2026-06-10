@@ -42,7 +42,7 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 		}
 		else if (target_projectile_type == PROJECTILE_TYPE.FEAST)
 		{
-			_fired_projectile_count = BALANCE_CANNON_FEAST_PROJECTILE_COUNT;
+			_fired_projectile_count = cannon_feast_projectile_count_get();
 		}
 
 		for (var _projectile_index = 0; _projectile_index < _fired_projectile_count; ++_projectile_index)
@@ -52,7 +52,7 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 
 			if (target_projectile_type == PROJECTILE_TYPE.FEAST)
 			{
-				_spread_radius = BALANCE_CANNON_FEAST_RADIUS;
+				_spread_radius = cannon_feast_radius_get();
 			}
 
 			var _spread_distance = sqrt(random(1)) * _spread_radius;
@@ -115,7 +115,9 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 		}
 
 		// Remove the fired projectile from the front of the queue outside cheat testing.
-		if (_projectile_queue_count > 0 && !global.cannon_projectile_cheat_enabled)
+		if (_projectile_queue_count > 0
+			&& !global.cannon_projectile_cheat_enabled
+			&& (!variable_global_exists("cannon_target_consumes_projectile_queue") || global.cannon_target_consumes_projectile_queue))
 		{
 			var _updated_projectile_queue = array_create(_projectile_queue_count - 1);
 			var _updated_projectile_payload_queue = array_create(_projectile_queue_count - 1);

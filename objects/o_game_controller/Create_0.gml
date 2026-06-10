@@ -320,6 +320,7 @@ global.cannon_target_x = 0;
 global.cannon_target_y = 0;
 global.cannon_target_projectile_type = PROJECTILE_TYPE.DAMAGE;
 global.cannon_target_version = 0;
+global.cannon_target_consumes_projectile_queue = true;
 
 // Global cannon projectile queue consumed from the first slot.
 global.cannon_projectile_queue = [];
@@ -391,6 +392,8 @@ corpse_snapshot_add = function(_unit)
 
 corpse_decay_at_morning = function()
 {
+	cannon_morning_skeletons_raise();
+
 	var _corpse_count = array_length(corpse_draw_data);
 	var _write_index = 0;
 
@@ -408,6 +411,67 @@ corpse_decay_at_morning = function()
 	}
 
 	array_resize(corpse_draw_data, _write_index);
+};
+
+cannon_morning_skeletons_raise = function()
+{
+	if (!instance_exists(o_cannon))
+	{
+		return;
+	}
+
+	var _cannon = instance_find(o_cannon, 0);
+
+	if (!variable_instance_exists(_cannon, "cannon_morning_skeleton_count_range_get"))
+	{
+		return;
+	}
+
+	var _skeleton_range = _cannon.cannon_morning_skeleton_count_range_get();
+	var _skeleton_count = irandom_range(_skeleton_range[0], _skeleton_range[1]);
+
+	if (_skeleton_count <= 0)
+	{
+		return;
+	}
+
+	for (var _skeleton_index = 0; _skeleton_index < _skeleton_count; ++_skeleton_index)
+	{
+		var _candidate_indices = [];
+		var _corpse_count = array_length(corpse_draw_data);
+
+		for (var _corpse_index = 0; _corpse_index < _corpse_count; ++_corpse_index)
+		{
+			var _corpse = corpse_draw_data[_corpse_index];
+			var _corpse_is_reserved = variable_struct_exists(_corpse, "reserved_by")
+				&& instance_exists(_corpse.reserved_by);
+			var _corpse_is_skeleton = variable_struct_exists(_corpse, "source_object_index")
+				&& _corpse.source_object_index == o_skeleton;
+
+			if (!_corpse_is_reserved && !_corpse_is_skeleton)
+			{
+				array_push(_candidate_indices, _corpse_index);
+			}
+		}
+
+		var _candidate_count = array_length(_candidate_indices);
+
+		if (_candidate_count <= 0)
+		{
+			return;
+		}
+
+		var _chosen_candidate_index = _candidate_indices[irandom(_candidate_count - 1)];
+		var _chosen_corpse = corpse_draw_data[_chosen_candidate_index];
+		var _skeleton = instance_create_layer(_chosen_corpse.x, _chosen_corpse.y, "Instances", o_skeleton);
+
+		array_delete(corpse_draw_data, _chosen_candidate_index, 1);
+
+		if (instance_exists(_skeleton))
+		{
+			move_spawned_summoned_unit_to_cannon_inner(_skeleton);
+		}
+	}
 };
 
 corpse_nearest_take = function(_origin_x, _origin_y)
@@ -505,6 +569,103 @@ corpse_nearest_reserve = function(_origin_x, _origin_y, _worker)
 		}
 
 		var _corpse_distance = point_distance(_origin_x, _origin_y, _corpse.x, _corpse.y);
+		var _corpse_is_inside_worker_search = true;
+
+		if (variable_instance_exists(_worker, "corpse_search_radius"))
+		{
+			var _search_center_x = _worker.x;
+			var _search_center_y = _worker.y;
+
+			if (variable_instance_exists(_worker, "corpse_search_center_x"))
+			{
+				_search_center_x = _worker.corpse_search_center_x;
+			}
+
+			if (variable_instance_exists(_worker, "corpse_search_center_y"))
+			{
+				_search_center_y = _worker.corpse_search_center_y;
+			}
+
+			_corpse_is_inside_worker_search = point_distance(_search_center_x, _search_center_y, _corpse.x, _corpse.y) <= _worker.corpse_search_radius;
+		}
+
+		if (!_corpse_is_inside_worker_search)
+		{
+			continue;
+		}
+
+		if (_corpse_distance < _nearest_corpse_distance)
+		{
+			_nearest_corpse_distance = _corpse_distance;
+			_nearest_corpse_index = _corpse_index;
+		}
+	}
+
+	if (_nearest_corpse_index < 0)
+	{
+		return noone;
+	}
+
+	var _nearest_corpse = corpse_draw_data[_nearest_corpse_index];
+
+	_nearest_corpse.reserved_by = _worker;
+	corpse_draw_data[_nearest_corpse_index] = _nearest_corpse;
+
+	return _nearest_corpse;
+};
+
+corpse_nearest_reserve_inside_distance = function(_origin_x, _origin_y, _worker, _max_distance)
+{
+	if (!instance_exists(_worker))
+	{
+		return noone;
+	}
+
+	// Reserve the nearest free corpse only when it is worth detouring from the cannon route.
+	var _corpse_count = array_length(corpse_draw_data);
+	var _nearest_corpse_index = -1;
+	var _nearest_corpse_distance = _max_distance;
+
+	for (var _corpse_index = 0; _corpse_index < _corpse_count; ++_corpse_index)
+	{
+		var _corpse = corpse_draw_data[_corpse_index];
+		var _reserved_by = noone;
+
+		if (variable_struct_exists(_corpse, "reserved_by"))
+		{
+			_reserved_by = _corpse.reserved_by;
+		}
+
+		if (instance_exists(_reserved_by) && _reserved_by != _worker)
+		{
+			continue;
+		}
+
+		var _corpse_distance = point_distance(_origin_x, _origin_y, _corpse.x, _corpse.y);
+		var _corpse_is_inside_worker_search = true;
+
+		if (variable_instance_exists(_worker, "corpse_search_radius"))
+		{
+			var _search_center_x = _worker.x;
+			var _search_center_y = _worker.y;
+
+			if (variable_instance_exists(_worker, "corpse_search_center_x"))
+			{
+				_search_center_x = _worker.corpse_search_center_x;
+			}
+
+			if (variable_instance_exists(_worker, "corpse_search_center_y"))
+			{
+				_search_center_y = _worker.corpse_search_center_y;
+			}
+
+			_corpse_is_inside_worker_search = point_distance(_search_center_x, _search_center_y, _corpse.x, _corpse.y) <= _worker.corpse_search_radius;
+		}
+
+		if (!_corpse_is_inside_worker_search)
+		{
+			continue;
+		}
 
 		if (_corpse_distance < _nearest_corpse_distance)
 		{
@@ -587,6 +748,53 @@ corpse_drop_at_position = function(_corpse, _world_x, _world_y)
 	array_push(corpse_draw_data, _corpse);
 };
 
+cannon_worker_carried_corpses_sync = function(_worker)
+{
+	if (!instance_exists(_worker))
+	{
+		return;
+	}
+
+	if (!variable_instance_exists(_worker, "carried_corpses"))
+	{
+		_worker.carried_corpses = [];
+	}
+
+	if (array_length(_worker.carried_corpses) <= 0
+		&& variable_instance_exists(_worker, "carried_corpse")
+		&& is_struct(_worker.carried_corpse))
+	{
+		array_push(_worker.carried_corpses, _worker.carried_corpse);
+	}
+
+	if (array_length(_worker.carried_corpses) > 0)
+	{
+		_worker.carried_corpse = _worker.carried_corpses[0];
+	}
+	else
+	{
+		_worker.carried_corpse = noone;
+	}
+};
+
+cannon_worker_carried_corpse_count_get = function(_worker)
+{
+	cannon_worker_carried_corpses_sync(_worker);
+	return array_length(_worker.carried_corpses);
+};
+
+cannon_worker_carried_corpse_add = function(_worker, _corpse)
+{
+	if (!instance_exists(_worker) || !is_struct(_corpse))
+	{
+		return;
+	}
+
+	cannon_worker_carried_corpses_sync(_worker);
+	array_push(_worker.carried_corpses, _corpse);
+	cannon_worker_carried_corpses_sync(_worker);
+};
+
 // Building construction menu stores the clicked slot and available building tiles.
 building_window_slot = noone;
 building_window_input_blocked = false;
@@ -603,11 +811,11 @@ building_tooltip_height = 120;
 building_tooltip_padding = 12;
 building_upgrade_window_building = noone;
 building_upgrade_previous_pause_state = false;
-building_upgrade_window_width = 520;
-building_upgrade_window_height = 330;
-building_upgrade_tile_width = 210;
+building_upgrade_window_width = 760;
+building_upgrade_window_height = 350;
+building_upgrade_tile_width = 220;
 building_upgrade_tile_height = 170;
-building_upgrade_tile_gap = 22;
+building_upgrade_tile_gap = 18;
 building_choices = [
 	{
 		building_object: o_slaughter_table,
@@ -709,6 +917,16 @@ projectile_target_selection_radius_get = function(_projectile_type)
 {
 	if (_projectile_type == PROJECTILE_TYPE.FEAST)
 	{
+		if (instance_exists(o_cannon))
+		{
+			var _cannon = instance_find(o_cannon, 0);
+
+			if (variable_instance_exists(_cannon, "cannon_feast_radius_get"))
+			{
+				return _cannon.cannon_feast_radius_get();
+			}
+		}
+
 		return BALANCE_CANNON_FEAST_RADIUS;
 	}
 
@@ -743,26 +961,30 @@ settings_close_bottom_padding = 28;
 // Cultist prototype state.
 cultist_start_count = BALANCE_STARTING_CULTIST_COUNT;
 starting_goblin_count = BALANCE_STARTING_GOBLIN_COUNT;
-next_day_cultist_reward_day = BALANCE_DAILY_CULTIST_FIRST_DAY;
+cultist_reward_days = [
+	BALANCE_SECOND_CULTIST_REWARD_DAY,
+	BALANCE_THIRD_CULTIST_REWARD_DAY
+];
+next_cultist_reward_index = 0;
 cultists_spawned = false;
 cultist_selection_index = 0;
 cultist_selected_demon_type = DEMON_TYPE.IMP;
 cultist_selected_starting_ability = DEMON_ABILITY.IMP_DEMON_LEAP;
 cultist_name_input_active = true;
 cultist_selection_buttons = [
+	DEMON_TYPE.BRUTE,
 	DEMON_TYPE.IMP,
-	DEMON_TYPE.WARLOCK,
-	DEMON_TYPE.BRUTE
+	DEMON_TYPE.WARLOCK
 ];
-cultist_selection_button_width = 128;
-cultist_selection_button_height = 42;
-cultist_selection_button_gap = 14;
-cultist_ability_selection_button_width = 248;
-cultist_ability_selection_button_height = 42;
-cultist_ability_selection_button_gap = 8;
+cultist_selection_button_width = 135;
+cultist_selection_button_height = 58;
+cultist_selection_button_gap = 27;
+cultist_ability_selection_button_width = 135;
+cultist_ability_selection_button_height = 59;
+cultist_ability_selection_button_gap = 27;
 cultist_panel_width = 720;
 cultist_demon_selection_panel_width = 900;
-cultist_panel_height = 520;
+cultist_panel_height = 836;
 cultist_levelup_open = false;
 cultist_levelup_index = 0;
 cultist_drag_lift_offset_y = -30;
@@ -790,6 +1012,14 @@ night_attack_unit_pool = [
 	o_enemy_mage,
 	o_enemy_peasant
 ];
+
+// Adaptive difficulty is a separate soft modifier applied to future night attack plans.
+adaptive_difficulty_multiplier = 1;
+adaptive_night_cannon_hp_start = 0;
+adaptive_last_night_cannon_hp_loss_share = 0;
+adaptive_last_night_low_hp_cultists = 0;
+adaptive_last_night_delta = 0;
+cannon_corrupted_ground_damage_timer = 0;
 
 // Fog visibility helper is used by abilities that require a revealed target point.
 world_position_is_revealed_by_fog = function(_world_x, _world_y)
@@ -837,7 +1067,95 @@ feast_target_touches_corruption = function(_world_x, _world_y)
 		return false;
 	}
 
-	return _corruption_grid.circle_has_full_corruption(_world_x, _world_y, BALANCE_CANNON_FEAST_RADIUS);
+	var _feast_radius = BALANCE_CANNON_FEAST_RADIUS;
+
+	if (instance_exists(o_cannon))
+	{
+		var _cannon = instance_find(o_cannon, 0);
+
+		if (variable_instance_exists(_cannon, "cannon_feast_radius_get"))
+		{
+			_feast_radius = _cannon.cannon_feast_radius_get();
+		}
+	}
+
+	return _corruption_grid.circle_has_full_corruption(_world_x, _world_y, _feast_radius);
+};
+
+cannon_corrupted_ground_damage_update = function()
+{
+	if (global.pause || !instance_exists(o_cannon) || !instance_exists(o_corruption_grid))
+	{
+		return;
+	}
+
+	var _cannon = instance_find(o_cannon, 0);
+
+	if (!variable_instance_exists(_cannon, "cannon_corrupted_ground_damage_get"))
+	{
+		return;
+	}
+
+	var _damage_per_second = _cannon.cannon_corrupted_ground_damage_get();
+
+	if (_damage_per_second <= 0)
+	{
+		return;
+	}
+
+	cannon_corrupted_ground_damage_timer--;
+
+	if (cannon_corrupted_ground_damage_timer > 0)
+	{
+		return;
+	}
+
+	cannon_corrupted_ground_damage_timer = BALANCE_CANNON_CORRUPTED_GROUND_DAMAGE_TICK_TIME * room_speed;
+
+	var _corruption_grid = instance_find(o_corruption_grid, 0);
+	var _tick_damage = _damage_per_second * BALANCE_CANNON_CORRUPTED_GROUND_DAMAGE_TICK_TIME;
+	var _enemy_count = instance_number(o_enemy_units);
+
+	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	{
+		var _enemy = instance_find(o_enemy_units, _enemy_index);
+
+		if (!instance_exists(_enemy)
+			|| !variable_instance_exists(_enemy, "hp")
+			|| _enemy.hp <= 0)
+		{
+			continue;
+		}
+
+		var _cell_x = floor(_enemy.x / _corruption_grid.cell_size);
+		var _cell_y = floor(_enemy.y / _corruption_grid.cell_size);
+		var _is_inside_grid = _cell_x >= 0
+			&& _cell_x < _corruption_grid.grid_width
+			&& _cell_y >= 0
+			&& _cell_y < _corruption_grid.grid_height;
+
+		if (!_is_inside_grid)
+		{
+			continue;
+		}
+
+		var _corruption = ds_grid_get(_corruption_grid.corruption_grid, _cell_x, _cell_y);
+
+		if (_corruption < _corruption_grid.full_corruption_value)
+		{
+			continue;
+		}
+
+		if (variable_instance_exists(_enemy, "unit_damage_receive"))
+		{
+			_enemy.unit_damage_receive(_tick_damage, UNIT_FACTION.NOONE);
+		}
+		else
+		{
+			_enemy.hp = max(_enemy.hp - _tick_damage, 0);
+			damage_popup_create(_enemy.x, _enemy.y, _tick_damage, UNIT_FACTION.ENEMY);
+		}
+	}
 };
 
 // Cannon wall helpers keep demon-form cultists outside the cannon safe zone.
@@ -935,9 +1253,22 @@ cannon_corpse_worker_drop = function(_worker)
 		return;
 	}
 
-	if (variable_instance_exists(_worker, "carried_corpse") && is_struct(_worker.carried_corpse))
+	cannon_worker_carried_corpses_sync(_worker);
+
+	if (variable_instance_exists(_worker, "carried_corpses"))
 	{
-		corpse_drop_at_position(_worker.carried_corpse, _worker.x, _worker.y);
+		var _carried_count = array_length(_worker.carried_corpses);
+
+		for (var _corpse_index = 0; _corpse_index < _carried_count; ++_corpse_index)
+		{
+			var _carried_corpse = _worker.carried_corpses[_corpse_index];
+			var _drop_x = _worker.x + ((_corpse_index - ((_carried_count - 1) * 0.5)) * 18);
+			var _drop_y = _worker.y + (_corpse_index * 8);
+
+			corpse_drop_at_position(_carried_corpse, _drop_x, _drop_y);
+		}
+
+		_worker.carried_corpses = [];
 		_worker.carried_corpse = noone;
 	}
 
@@ -1067,6 +1398,25 @@ find_upgrade_building_at_position = function(_world_x, _world_y)
 	var _building_count = instance_number(o_v13buildings_parent);
 	var _target_building = noone;
 	var _target_depth = infinity;
+	var _cannon_count = instance_number(o_cannon);
+
+	for (var _cannon_index = 0; _cannon_index < _cannon_count; ++_cannon_index)
+	{
+		var _cannon = instance_find(o_cannon, _cannon_index);
+
+		if (instance_exists(_cannon)
+			&& variable_instance_exists(_cannon, "building_has_upgrades")
+			&& _cannon.building_has_upgrades
+			&& _world_x >= _cannon.bbox_left
+			&& _world_x <= _cannon.bbox_right
+			&& _world_y >= _cannon.bbox_top
+			&& _world_y <= _cannon.bbox_bottom
+			&& _cannon.depth < _target_depth)
+		{
+			_target_building = _cannon;
+			_target_depth = _cannon.depth;
+		}
+	}
 
 	for (var _building_index = 0; _building_index < _building_count; ++_building_index)
 	{
@@ -1179,6 +1529,11 @@ assign_cultist_to_worker_building = function(_cultist, _building)
 
 	clear_cultist_building_assignment(_cultist);
 
+	if (_cultist.object_index == o_goblin && global.day_phase == DAY_PHASE.NIGHT)
+	{
+		return false;
+	}
+
 	if (!variable_instance_exists(_building, "building_accepts_workers")
 		|| !_building.building_accepts_workers
 		|| !variable_instance_exists(_building, "worker_cultists")
@@ -1213,7 +1568,23 @@ assign_cultist_to_worker_building = function(_cultist, _building)
 
 cannon_satiety_add = function(_amount)
 {
-	global.cannon_satiety = clamp(global.cannon_satiety + _amount, 0, global.cannon_satiety_max);
+	global.cannon_satiety = max(0, global.cannon_satiety + _amount);
+};
+
+cannon_satiety_can_fire_feast = function()
+{
+	return global.cannon_satiety >= global.cannon_satiety_max;
+};
+
+cannon_satiety_spend_feast = function()
+{
+	if (!cannon_satiety_can_fire_feast())
+	{
+		return false;
+	}
+
+	global.cannon_satiety -= global.cannon_satiety_max;
+	return true;
 };
 
 cannon_feast_projectile_queue_add = function()
@@ -1292,10 +1663,22 @@ cannon_corpse_worker_update = function(_worker, _cannon)
 		_worker.carried_corpse = noone;
 	}
 
+	if (!variable_instance_exists(_worker, "carried_corpses"))
+	{
+		_worker.carried_corpses = [];
+	}
+
+	if (!variable_instance_exists(_worker, "corpse_carry_capacity"))
+	{
+		_worker.corpse_carry_capacity = BALANCE_CANNON_CORPSE_CARRY_CAPACITY;
+	}
+
 	if (!variable_instance_exists(_worker, "reserved_corpse_id"))
 	{
 		_worker.reserved_corpse_id = noone;
 	}
+
+	cannon_worker_carried_corpses_sync(_worker);
 
 	if (variable_instance_exists(_worker, "cannon_no_corpse_warning_active"))
 	{
@@ -1306,16 +1689,67 @@ cannon_corpse_worker_update = function(_worker, _cannon)
 	_worker.is_attacking_target = false;
 	_worker.is_walking = false;
 
-	if (is_struct(_worker.carried_corpse))
+	var _carried_corpse_count = cannon_worker_carried_corpse_count_get(_worker);
+
+	if (_carried_corpse_count > 0)
 	{
 		var _deliver_distance = point_distance(_worker.x, _worker.y, _cannon.x, _cannon.y);
 
 		if (_deliver_distance <= BALANCE_CANNON_CORPSE_DELIVER_RADIUS)
 		{
-			cannon_satiety_add(BALANCE_CANNON_SATIETY_PER_CORPSE);
+			cannon_satiety_add(BALANCE_CANNON_SATIETY_PER_CORPSE * _carried_corpse_count);
+			_worker.carried_corpses = [];
 			_worker.carried_corpse = noone;
 			_worker.reserved_corpse_id = noone;
 			return true;
+		}
+
+		// After the first corpse, take a second only if it is closer than the cannon.
+		if (_carried_corpse_count < _worker.corpse_carry_capacity)
+		{
+			var _second_corpse = noone;
+
+			if (_worker.reserved_corpse_id != noone)
+			{
+				_second_corpse = corpse_get_by_id(_worker.reserved_corpse_id);
+			}
+
+			if (!is_struct(_second_corpse))
+			{
+				_second_corpse = corpse_nearest_reserve_inside_distance(_worker.x, _worker.y, _worker, _deliver_distance);
+
+				if (is_struct(_second_corpse) && variable_struct_exists(_second_corpse, "corpse_id"))
+				{
+					_worker.reserved_corpse_id = _second_corpse.corpse_id;
+				}
+				else
+				{
+					_worker.reserved_corpse_id = noone;
+				}
+			}
+
+			if (is_struct(_second_corpse))
+			{
+				var _second_pickup_distance = point_distance(_worker.x, _worker.y, _second_corpse.x, _second_corpse.y);
+
+				if (_second_pickup_distance <= BALANCE_CANNON_CORPSE_PICKUP_RADIUS)
+				{
+					var _taken_second_corpse = corpse_reserved_take(_worker.reserved_corpse_id, _worker);
+
+					if (is_struct(_taken_second_corpse))
+					{
+						cannon_worker_carried_corpse_add(_worker, _taken_second_corpse);
+					}
+
+					_worker.reserved_corpse_id = noone;
+				}
+				else
+				{
+					cannon_worker_move_towards(_worker, _second_corpse.x, _second_corpse.y);
+				}
+
+				return true;
+			}
 		}
 
 		cannon_worker_move_towards(_worker, _cannon.x, _cannon.y);
@@ -1368,7 +1802,7 @@ cannon_corpse_worker_update = function(_worker, _cannon)
 
 		if (is_struct(_taken_corpse))
 		{
-			_worker.carried_corpse = _taken_corpse;
+			cannon_worker_carried_corpse_add(_worker, _taken_corpse);
 			_worker.reserved_corpse_id = noone;
 		}
 		else
@@ -1512,9 +1946,12 @@ open_cultist_demon_selection = function(_selection_index)
 award_day_cultists = function()
 {
 	var _selection_start_index = -1;
+	var _reward_count = array_length(cultist_reward_days);
 
-	for (var _reward_day = next_day_cultist_reward_day; _reward_day <= BALANCE_DAILY_CULTIST_LAST_DAY; ++_reward_day)
+	for (var _reward_index = next_cultist_reward_index; _reward_index < _reward_count; ++_reward_index)
 	{
+		var _reward_day = cultist_reward_days[_reward_index];
+
 		if (night_attack_night_index < _reward_day)
 		{
 			break;
@@ -1533,7 +1970,7 @@ award_day_cultists = function()
 			_selection_start_index = _new_cultist_index;
 		}
 
-		next_day_cultist_reward_day = _reward_day + 1;
+		next_cultist_reward_index = _reward_index + 1;
 	}
 
 	if (_selection_start_index >= 0)
@@ -2121,14 +2558,13 @@ move_summoned_units_to_cannon_inner = function()
 	}
 };
 
-move_cannon_corpse_goblins_to_cannon_inner = function()
+move_goblins_to_cannon_inner = function()
 {
 	if (!instance_exists(o_cannon))
 	{
 		return;
 	}
 
-	var _cannon = instance_find(o_cannon, 0);
 	var _goblins = array_create(0);
 	var _goblin_count = instance_number(o_goblin);
 
@@ -2136,21 +2572,18 @@ move_cannon_corpse_goblins_to_cannon_inner = function()
 	{
 		var _goblin = instance_find(o_goblin, _goblin_index);
 
-		if (!instance_exists(_goblin)
-			|| !variable_instance_exists(_goblin, "is_assigned_to_building")
-			|| !_goblin.is_assigned_to_building
-			|| !variable_instance_exists(_goblin, "assigned_building")
-			|| _goblin.assigned_building != _cannon)
+		if (!instance_exists(_goblin))
 		{
 			continue;
 		}
 
+		clear_cultist_building_assignment(_goblin);
 		array_push(_goblins, _goblin);
 	}
 
-	var _assigned_goblin_count = array_length(_goblins);
+	var _active_goblin_count = array_length(_goblins);
 
-	for (var _assigned_index = 0; _assigned_index < _assigned_goblin_count; ++_assigned_index)
+	for (var _assigned_index = 0; _assigned_index < _active_goblin_count; ++_assigned_index)
 	{
 		var _assigned_goblin = _goblins[_assigned_index];
 
@@ -2159,7 +2592,7 @@ move_cannon_corpse_goblins_to_cannon_inner = function()
 			continue;
 		}
 
-		var _position = cannon_inner_position_get(_assigned_index, _assigned_goblin_count);
+		var _position = cannon_inner_position_get(_assigned_index, _active_goblin_count);
 
 		_assigned_goblin.regroup_is_active = true;
 		_assigned_goblin.regroup_target_x = _position[0];
@@ -2405,12 +2838,39 @@ award_cultist_night_exp = function()
 {
 	var _has_levelup = false;
 	var _cultist_count = array_length(global.cultists);
+	var _valid_cultists = [];
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
 		var _cultist = global.cultists[_cultist_index];
 
-		if (cultist_exp_add(_cultist, BALANCE_CULTIST_NIGHT_EXP_REWARD))
+		if (instance_exists(_cultist)
+			&& variable_instance_exists(_cultist, "current_exp")
+			&& variable_instance_exists(_cultist, "current_lvl"))
+		{
+			array_push(_valid_cultists, _cultist);
+		}
+	}
+
+	var _full_reward_cultist = noone;
+	var _valid_cultist_count = array_length(_valid_cultists);
+
+	if (_valid_cultist_count > 0)
+	{
+		_full_reward_cultist = _valid_cultists[irandom(_valid_cultist_count - 1)];
+	}
+
+	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+	{
+		var _cultist = global.cultists[_cultist_index];
+		var _exp_reward = BALANCE_CULTIST_NIGHT_EXP_MINOR_REWARD;
+
+		if (_cultist == _full_reward_cultist)
+		{
+			_exp_reward = BALANCE_CULTIST_NIGHT_EXP_REWARD;
+		}
+
+		if (cultist_exp_add(_cultist, _exp_reward))
 		{
 			_has_levelup = true;
 		}
@@ -2466,8 +2926,139 @@ update_summoned_unit_night_life = function()
 
 night_attack_total_difficulty_get = function()
 {
-	return BALANCE_NIGHT_ATTACK_DIFFICULTY_BASE
-		+ ((max(1, night_attack_night_index) - 1) * BALANCE_NIGHT_ATTACK_DIFFICULTY_INCREASE_PER_NIGHT);
+	var _extra_cultist_count = max(0, array_length(global.cultists) - BALANCE_STARTING_CULTIST_COUNT);
+
+	var _difficulty = BALANCE_NIGHT_ATTACK_DIFFICULTY_BASE
+		+ ((max(1, night_attack_night_index) - 1) * BALANCE_NIGHT_ATTACK_DIFFICULTY_INCREASE_PER_NIGHT)
+		+ (_extra_cultist_count * BALANCE_NIGHT_ATTACK_DIFFICULTY_PER_EXTRA_CULTIST);
+
+	if (BALANCE_ADAPTIVE_DIFFICULTY_ENABLED)
+	{
+		_difficulty *= adaptive_difficulty_multiplier;
+	}
+
+	return _difficulty;
+};
+
+adaptive_difficulty_low_hp_cultist_count_get = function()
+{
+	var _low_hp_count = 0;
+	var _cultist_count = array_length(global.cultists);
+
+	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+	{
+		var _cultist = global.cultists[_cultist_index];
+
+		if (!instance_exists(_cultist)
+			|| !variable_instance_exists(_cultist, "hp")
+			|| !variable_instance_exists(_cultist, "max_hp")
+			|| _cultist.max_hp <= 0)
+		{
+			continue;
+		}
+
+		if (_cultist.hp / _cultist.max_hp < BALANCE_ADAPTIVE_DIFFICULTY_CULTIST_LOW_HP_SHARE)
+		{
+			_low_hp_count++;
+		}
+	}
+
+	return _low_hp_count;
+};
+
+adaptive_difficulty_evaluate_night = function()
+{
+	if (!BALANCE_ADAPTIVE_DIFFICULTY_ENABLED)
+	{
+		return;
+	}
+
+	var _difficulty_delta = 0;
+	var _cannon_hp_loss_share = 0;
+
+	if (instance_exists(o_cannon))
+	{
+		var _cannon = instance_find(o_cannon, 0);
+		var _cannon_hp_start = adaptive_night_cannon_hp_start;
+
+		if (_cannon_hp_start <= 0 && variable_instance_exists(_cannon, "max_hp"))
+		{
+			_cannon_hp_start = _cannon.max_hp;
+		}
+
+		_cannon_hp_loss_share = max(0, _cannon_hp_start - _cannon.hp) / max(1, _cannon_hp_start);
+
+		if (_cannon_hp_loss_share <= 0)
+		{
+			_difficulty_delta += BALANCE_ADAPTIVE_DIFFICULTY_EASY_INCREASE;
+		}
+		else if (_cannon_hp_loss_share > BALANCE_ADAPTIVE_DIFFICULTY_CANNON_HARD_HP_LOSS_SHARE)
+		{
+			_difficulty_delta -= BALANCE_ADAPTIVE_DIFFICULTY_HARD_DECREASE;
+		}
+		else
+		{
+			_difficulty_delta += BALANCE_ADAPTIVE_DIFFICULTY_NORMAL_INCREASE;
+		}
+	}
+
+	var _low_hp_cultist_count = adaptive_difficulty_low_hp_cultist_count_get();
+
+	if (_low_hp_cultist_count <= 0)
+	{
+		_difficulty_delta += BALANCE_ADAPTIVE_DIFFICULTY_EASY_INCREASE;
+	}
+	else if (_low_hp_cultist_count > BALANCE_ADAPTIVE_DIFFICULTY_CULTIST_NORMAL_LOW_HP_MAX)
+	{
+		_difficulty_delta -= BALANCE_ADAPTIVE_DIFFICULTY_HARD_DECREASE;
+	}
+	else
+	{
+		_difficulty_delta += BALANCE_ADAPTIVE_DIFFICULTY_NORMAL_INCREASE;
+	}
+
+	adaptive_difficulty_multiplier = clamp(
+		adaptive_difficulty_multiplier + _difficulty_delta,
+		BALANCE_ADAPTIVE_DIFFICULTY_MIN_MULTIPLIER,
+		BALANCE_ADAPTIVE_DIFFICULTY_MAX_MULTIPLIER
+	);
+	adaptive_last_night_cannon_hp_loss_share = _cannon_hp_loss_share;
+	adaptive_last_night_low_hp_cultists = _low_hp_cultist_count;
+	adaptive_last_night_delta = _difficulty_delta;
+};
+
+enemy_night_hp_multiplier_get = function()
+{
+	return 1 + (max(1, night_attack_night_index) - 1) * BALANCE_ENEMY_HP_INCREASE_PER_NIGHT;
+};
+
+enemy_night_hp_scale_apply = function(_enemy)
+{
+	if (!instance_exists(_enemy)
+		|| !variable_instance_exists(_enemy, "max_hp")
+		|| !variable_instance_exists(_enemy, "hp"))
+	{
+		return;
+	}
+
+	var _scale_index = max(1, night_attack_night_index);
+
+	if (variable_instance_exists(_enemy, "night_hp_scale_index_applied")
+		&& _enemy.night_hp_scale_index_applied >= _scale_index)
+	{
+		return;
+	}
+
+	var _hp_share = _enemy.hp / max(1, _enemy.max_hp);
+
+	if (!variable_instance_exists(_enemy, "base_max_hp"))
+	{
+		_enemy.base_max_hp = _enemy.max_hp;
+	}
+
+	_enemy.max_hp = _enemy.base_max_hp * enemy_night_hp_multiplier_get();
+	_enemy.hp = clamp(_enemy.max_hp * _hp_share, 0, _enemy.max_hp);
+	_enemy.night_hp_scale_index_applied = _scale_index;
 };
 
 night_attack_enemy_difficulty_get = function(_enemy_object)
@@ -2809,6 +3400,7 @@ night_attack_enemy_spawn = function(_direction_data, _enemy_object)
 	_enemy.is_night_attack_unit = true;
 	_enemy.owner_garnizon = noone;
 	_enemy.guard_target = noone;
+	enemy_night_hp_scale_apply(_enemy);
 	global.night_attack_unit_count++;
 };
 
@@ -2974,7 +3566,13 @@ start_night_phase = function()
 	global.day_phase = DAY_PHASE.NIGHT;
 	global.day_timer = global.night_duration * room_speed;
 	global.night_attack_unit_count = 0;
-	move_cannon_corpse_goblins_to_cannon_inner();
+	move_goblins_to_cannon_inner();
+
+	if (instance_exists(o_cannon))
+	{
+		var _cannon = instance_find(o_cannon, 0);
+		adaptive_night_cannon_hp_start = _cannon.hp;
+	}
 
 	if (!night_attack_plan_exists)
 	{
@@ -2982,7 +3580,6 @@ start_night_phase = function()
 	}
 
 	start_cultists_loading_into_cannon();
-	cannon_feast_projectile_try_queue();
 	summoned_combat_units_prepare_for_cultist_projectiles();
 
 	with (o_garnizon)
@@ -3008,7 +3605,17 @@ start_night_phase = function()
 			_enemy.is_night_attack_unit = true;
 			_enemy.guard_target = noone;
 			_enemy.owner_garnizon = noone;
+			enemy_night_hp_scale_apply(_enemy);
 		}
+	}
+
+	var _existing_enemy_count = instance_number(o_enemy_units);
+
+	for (var _existing_enemy_index = 0; _existing_enemy_index < _existing_enemy_count; ++_existing_enemy_index)
+	{
+		var _existing_enemy = instance_find(o_enemy_units, _existing_enemy_index);
+
+		enemy_night_hp_scale_apply(_existing_enemy);
 	}
 };
 
@@ -3018,20 +3625,33 @@ start_day_phase = function()
 	global.day_phase = DAY_PHASE.DAY;
 	global.day_timer = global.day_duration * room_speed;
 	global.night_attack_unit_count = 0;
+	adaptive_difficulty_evaluate_night();
 	night_attack_night_index++;
 
 	fade_out_morning_meat();
 	corpse_decay_at_morning();
 	update_summoned_unit_night_life();
+
 	cultist_projectile_deploy_assignments_reset();
 	unload_cultist_projectiles_to_day();
 	transform_demons_to_cultists();
 	restore_dead_cultists_at_morning();
 	move_cultists_to_cannon_inner();
 	move_summoned_units_to_cannon_inner();
-	night_attack_plan_create();
+
+	with (o_boneyard)
+	{
+		boneyard_spawn_morning_units();
+	}
+
+	with (o_pitlings_house)
+	{
+		pitlings_house_spawn_morning_units();
+	}
+
 	award_cultist_night_exp();
 	award_day_cultists();
+	night_attack_plan_create();
 };
 
 fade_out_morning_meat = function()

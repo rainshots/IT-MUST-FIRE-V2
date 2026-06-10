@@ -101,6 +101,8 @@ is_assigned_to_building = false;
 
 // Cannon corpse hauling state is controlled by o_game_controller during the day.
 carried_corpse = noone;
+carried_corpses = [];
+corpse_carry_capacity = BALANCE_CANNON_CORPSE_CARRY_CAPACITY;
 reserved_corpse_id = noone;
 cannon_no_corpse_warning_active = false;
 cannon_no_corpse_warning_text = "There are no available corpses";

@@ -67,6 +67,43 @@ if (global.day_phase == DAY_PHASE.NIGHT && demon_reveal_radius_in_cells > 0)
 	}
 }
 
+// Captured vision towers reveal a wide circle around themselves.
+if (instance_exists(o_tower_vision))
+{
+	var _vision_tower_count = instance_number(o_tower_vision);
+
+	for (var _vision_tower_index = 0; _vision_tower_index < _vision_tower_count; ++_vision_tower_index)
+	{
+		var _vision_tower = instance_find(o_tower_vision, _vision_tower_index);
+		var _tower_reveals_fog = instance_exists(_vision_tower)
+			&& variable_instance_exists(_vision_tower, "is_captured")
+			&& _vision_tower.is_captured;
+
+		if (_tower_reveals_fog)
+		{
+			var _tower_radius = BALANCE_TOWER_VISION_RADIUS;
+
+			if (variable_instance_exists(_vision_tower, "vision_radius"))
+			{
+				_tower_radius = _vision_tower.vision_radius;
+			}
+
+			var _tower_cell_x = floor(_vision_tower.x / cell_size);
+			var _tower_cell_y = floor(_vision_tower.y / cell_size);
+			var _tower_radius_in_cells = ceil(_tower_radius / cell_size);
+			var _is_inside_grid = _tower_cell_x >= 0
+				&& _tower_cell_x < grid_width
+				&& _tower_cell_y >= 0
+				&& _tower_cell_y < grid_height;
+
+			if (_is_inside_grid)
+			{
+				fog_circle_reveal(_tower_cell_x, _tower_cell_y, _tower_radius_in_cells);
+			}
+		}
+	}
+}
+
 // Revealed cells soften the edge by turning directly neighboring hidden cells into half-transparent fog.
 for (var _cell_x = 0; _cell_x < grid_width; ++_cell_x)
 {

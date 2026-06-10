@@ -31,6 +31,38 @@ draw_set_alpha(1);
 draw_set_color(COLOR_HEALTH_BAR);
 draw_rectangle(_bar_x, _bar_y, _bar_x + (bar_width * _hp_progress), _bar_y + bar_height, false);
 
+// Show the upgrade key when the cannon is hovered during regular gameplay.
+if (global.focus_window == FOCUS_WINDOW.NOONE
+	&& (!variable_global_exists("dragged_cultist") || !instance_exists(global.dragged_cultist))
+	&& mouse_x >= bbox_left
+	&& mouse_x <= bbox_right
+	&& mouse_y >= bbox_top
+	&& mouse_y <= bbox_bottom)
+{
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
+	var _prompt_width = string_width(upgrade_prompt_text) + (upgrade_prompt_padding_x * 2);
+	var _prompt_height = string_height(upgrade_prompt_text) + (upgrade_prompt_padding_y * 2);
+	var _prompt_x = x;
+	var _prompt_y = y - upgrade_prompt_offset_y;
+
+	draw_set_alpha(upgrade_prompt_background_alpha);
+	draw_set_color(c_black);
+	draw_rectangle(
+		_prompt_x - (_prompt_width * 0.5),
+		_prompt_y - (_prompt_height * 0.5),
+		_prompt_x + (_prompt_width * 0.5),
+		_prompt_y + (_prompt_height * 0.5),
+		false
+	);
+
+	draw_set_alpha(1);
+	draw_set_color(c_white);
+	draw_text(_prompt_x, _prompt_y, upgrade_prompt_text);
+}
+
 // Restore default draw state.
+draw_set_halign(fa_left);
+draw_set_valign(fa_top);
 draw_set_color(c_white);
 draw_set_alpha(1);

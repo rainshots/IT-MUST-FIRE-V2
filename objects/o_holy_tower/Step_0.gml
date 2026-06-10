@@ -33,7 +33,8 @@ for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_ind
 	var _friendly_unit = instance_find(o_friendly_units, _friendly_index);
 
 	if (instance_exists(_friendly_unit)
-		&& (!variable_instance_exists(_friendly_unit, "is_being_dragged") || !_friendly_unit.is_being_dragged))
+		&& (!variable_instance_exists(_friendly_unit, "is_being_dragged") || !_friendly_unit.is_being_dragged)
+		&& (!variable_instance_exists(_friendly_unit, "ignored_by_enemies") || !_friendly_unit.ignored_by_enemies))
 	{
 		var _distance_to_unit = point_distance(x, y, _friendly_unit.x, _friendly_unit.y);
 

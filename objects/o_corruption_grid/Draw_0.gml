@@ -45,6 +45,9 @@ for (var _cell_x = _left_cell; _cell_x <= _right_cell; ++_cell_x)
 	}
 }
 
+// Captured map buildings draw ground rifts toward the cannon under world assets.
+captured_building_rifts_draw();
+
 // Restore default draw state.
 draw_set_color(c_white);
 draw_set_alpha(1);

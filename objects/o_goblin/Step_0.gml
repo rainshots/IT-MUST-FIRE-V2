@@ -23,12 +23,8 @@ if (is_being_dragged)
 	exit;
 }
 
-// Cannon corpse workers return inside the wall at night instead of freezing at the cannon.
-if (is_assigned_to_building
-	&& instance_exists(assigned_building)
-	&& assigned_building.object_index == o_cannon
-	&& global.day_phase == DAY_PHASE.NIGHT
-	&& regroup_is_active)
+// At night goblins stop working and gather under the cannon.
+if (global.day_phase == DAY_PHASE.NIGHT)
 {
 	target_instance = noone;
 	is_attacking_target = false;
@@ -36,7 +32,17 @@ if (is_assigned_to_building
 	visual_attack_offset_x = 0;
 	visual_attack_offset_y = 0;
 
-	var _regroup_distance = point_distance(x, y, regroup_target_x, regroup_target_y);
+	var _target_x = regroup_target_x;
+	var _target_y = regroup_target_y;
+
+	if (!regroup_is_active && instance_exists(o_cannon))
+	{
+		var _cannon = instance_find(o_cannon, 0);
+		_target_x = _cannon.x;
+		_target_y = _cannon.y + BALANCE_DAY_CANNON_REGROUP_OFFSET_Y;
+	}
+
+	var _regroup_distance = point_distance(x, y, _target_x, _target_y);
 
 	if (_regroup_distance <= regroup_arrive_radius)
 	{
@@ -46,7 +52,7 @@ if (is_assigned_to_building
 	}
 	else
 	{
-		move_towards_world_point(regroup_target_x, regroup_target_y);
+		move_towards_world_point(_target_x, _target_y);
 	}
 
 	apply_separation_push();

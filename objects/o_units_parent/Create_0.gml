@@ -80,6 +80,7 @@ armor = 100;
 armor_debuff_multiplier = 1;
 armor_debuff_timer = 0;
 crit_chance = 0;
+crit_damage = BALANCE_CULTIST_CRIT_DAMAGE_BASE;
 aoe_radius = 0;
 next_attack_damage_multiplier = 1;
 next_attack_radius_multiplier = 1;
@@ -115,6 +116,8 @@ is_assigned_to_building = false;
 
 // Cannon corpse hauling uses inert corpse snapshots reserved by the game controller.
 carried_corpse = noone;
+carried_corpses = [];
+corpse_carry_capacity = BALANCE_CANNON_CORPSE_CARRY_CAPACITY;
 reserved_corpse_id = noone;
 cannon_no_corpse_warning_active = false;
 cannon_no_corpse_warning_text = "There are no available corpses";
@@ -191,6 +194,13 @@ target_can_be_attacked = function(_target)
 	}
 
 	if (variable_instance_exists(_target, "hp") && _target.hp <= 0)
+	{
+		return false;
+	}
+
+	if (unit_faction == UNIT_FACTION.ENEMY
+		&& variable_instance_exists(_target, "ignored_by_enemies")
+		&& _target.ignored_by_enemies)
 	{
 		return false;
 	}
@@ -438,6 +448,16 @@ unit_crit_chance_get = function()
 	return clamp(_crit_chance, 0, 1);
 };
 
+unit_crit_damage_get = function()
+{
+	if (variable_instance_exists(id, "crit_damage"))
+	{
+		return max(crit_damage, 1);
+	}
+
+	return BALANCE_CULTIST_CRIT_DAMAGE_BASE;
+};
+
 effective_attack_speed_get = function()
 {
 	var _effective_reload_time = reload_time
@@ -672,6 +692,13 @@ soul_chain_death_effect_apply = function()
 unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true)
 {
 	if (hp <= 0 || _damage_amount <= 0)
+	{
+		return 0;
+	}
+
+	if (_source_faction == UNIT_FACTION.ENEMY
+		&& variable_instance_exists(id, "ignored_by_enemies")
+		&& ignored_by_enemies)
 	{
 		return 0;
 	}
@@ -1432,7 +1459,7 @@ attack_target = function(_target)
 
 	if (_current_crit_chance > 0 && random(1) < _current_crit_chance)
 	{
-		_damage_amount *= 2;
+		_damage_amount *= unit_crit_damage_get();
 		_is_critical_hit = true;
 	}
 

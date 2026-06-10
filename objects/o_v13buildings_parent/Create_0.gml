@@ -10,8 +10,11 @@ production_progress = 0;
 production_duration = BALANCE_RESOURCE_BUILDING_PRODUCTION_TIME;
 production_amount = BALANCE_RESOURCE_BUILDING_PRODUCTION_AMOUNT;
 production_speed_multiplier = 0;
+production_speed_upgrade_index = 0;
 building_accepts_workers = false;
 summon_unit_object = noone;
+summon_double_unit_chance = 0;
+summon_extra_life_bonus = 0;
 summon_progress = 0;
 summon_duration = 0;
 summon_has_paid_cost = false;
@@ -178,11 +181,18 @@ else if (object_index == o_graveyardv13)
 	production_bonus_stat_name = "SPIRIT";
 	production_bonus_stat_color = COLOR_CULTIST_SPIRIT;
 	summon_unit_object = o_skeleton;
+	summon_double_unit_chance = BALANCE_SUMMON_BUILDING_DOUBLE_UNIT_CHANCE;
 	summon_duration = BALANCE_GRAVEYARD_SKELETON_PRODUCTION_TIME;
 	building_tooltip_title = "Summoning";
 	building_tooltip_description = "Summons Skeletons";
 	building_tooltip_detail = "Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
 	building_tooltip_detail_color = production_bonus_stat_color;
+	building_has_upgrades = true;
+	production_speed_upgrade_index = 1;
+	building_upgrade_names[0] = "Bone Twins";
+	building_upgrade_descriptions[0] = string(BALANCE_SUMMON_BUILDING_DOUBLE_UNIT_CHANCE * 100) + "% chance to summon 2 Skeletons at once.";
+	building_upgrade_names[1] = "Restless Spades";
+	building_upgrade_descriptions[1] = "+" + string(BALANCE_RESOURCE_BUILDING_SPEED_UPGRADE_BONUS) + "x Skeleton production while staffed.";
 }
 else if (object_index == o_hell_pit)
 {
@@ -193,11 +203,18 @@ else if (object_index == o_hell_pit)
 	production_bonus_stat_name = "FERVOR";
 	production_bonus_stat_color = COLOR_CULTIST_FERVOR;
 	summon_unit_object = o_pitling;
+	summon_double_unit_chance = BALANCE_SUMMON_BUILDING_DOUBLE_UNIT_CHANCE;
 	summon_duration = BALANCE_HELL_PIT_PITLING_PRODUCTION_TIME;
 	building_tooltip_title = "Summoning";
 	building_tooltip_description = "Summons Pitlings";
 	building_tooltip_detail = "Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
 	building_tooltip_detail_color = production_bonus_stat_color;
+	building_has_upgrades = true;
+	production_speed_upgrade_index = 1;
+	building_upgrade_names[0] = "Twin Hatch";
+	building_upgrade_descriptions[0] = string(BALANCE_SUMMON_BUILDING_DOUBLE_UNIT_CHANCE * 100) + "% chance to summon 2 Pitlings at once.";
+	building_upgrade_names[1] = "Hotter Coals";
+	building_upgrade_descriptions[1] = "+" + string(BALANCE_RESOURCE_BUILDING_SPEED_UPGRADE_BONUS) + "x Pitling production while staffed.";
 }
 else if (object_index == o_goblins_pit)
 {
@@ -205,11 +222,18 @@ else if (object_index == o_goblins_pit)
 	production_resource_icon = s_soul_icon;
 	production_resource_color = COLOR_HUD_SOULS;
 	summon_unit_object = o_goblin;
+	summon_extra_life_bonus = BALANCE_GOBLIN_UPGRADE_DAY_LIFE_BONUS;
 	summon_duration = BALANCE_GOBLINS_PIT_GOBLIN_PRODUCTION_TIME;
 	building_tooltip_title = "Summoning";
 	building_tooltip_description = "Summons Goblins";
 	building_tooltip_detail = "Adds +" + string(BALANCE_GOBLINS_PER_PIT_LIMIT) + " Goblin limit. Goblins work +" + string(BALANCE_GOBLIN_WORK_SPEED_MULTIPLIER) + "x";
 	building_tooltip_detail_color = COLOR_HUD_IRON;
+	building_has_upgrades = true;
+	production_speed_upgrade_index = noone;
+	building_upgrade_names[0] = "Crowded Den";
+	building_upgrade_descriptions[0] = "Increases this pit's Goblin limit to " + string(BALANCE_GOBLINS_PER_UPGRADED_PIT_LIMIT) + ".";
+	building_upgrade_names[1] = "Stubborn Workers";
+	building_upgrade_descriptions[1] = "New Goblins from this pit live +" + string(BALANCE_GOBLIN_UPGRADE_DAY_LIFE_BONUS) + " days longer.";
 }
 
 recalculate_production_speed_multiplier = function()
@@ -241,7 +265,9 @@ recalculate_production_speed_multiplier = function()
 		_total_speed_multiplier += _worker_speed_multiplier;
 	}
 
-	if (building_upgrade_flags[0] && _total_speed_multiplier > 0)
+	if (production_speed_upgrade_index != noone
+		&& building_upgrade_flags[production_speed_upgrade_index]
+		&& _total_speed_multiplier > 0)
 	{
 		_total_speed_multiplier += BALANCE_RESOURCE_BUILDING_SPEED_UPGRADE_BONUS;
 	}
@@ -280,7 +306,25 @@ building_upgrade_buy = function(_upgrade_index)
 
 goblins_pit_goblin_limit_get = function()
 {
-	return instance_number(o_goblins_pit) * BALANCE_GOBLINS_PER_PIT_LIMIT;
+	var _total_limit = 0;
+	var _pit_count = instance_number(o_goblins_pit);
+
+	for (var _pit_index = 0; _pit_index < _pit_count; ++_pit_index)
+	{
+		var _pit = instance_find(o_goblins_pit, _pit_index);
+		var _pit_limit = BALANCE_GOBLINS_PER_PIT_LIMIT;
+
+		if (instance_exists(_pit)
+			&& variable_instance_exists(_pit, "building_upgrade_flags")
+			&& _pit.building_upgrade_flags[0])
+		{
+			_pit_limit = BALANCE_GOBLINS_PER_UPGRADED_PIT_LIMIT;
+		}
+
+		_total_limit += _pit_limit;
+	}
+
+	return _total_limit;
 };
 
 goblins_pit_goblin_count_get = function()

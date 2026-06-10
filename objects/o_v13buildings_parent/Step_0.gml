@@ -319,20 +319,40 @@ if (summon_unit_object != noone)
 
 	if (summon_progress >= 1)
 	{
-		var _spawn_direction = random(360);
-		var _spawn_distance = random(BALANCE_SUMMON_BUILDING_SPAWN_RADIUS);
-		var _spawn_x = x + lengthdir_x(_spawn_distance, _spawn_direction);
-		var _spawn_y = y + lengthdir_y(_spawn_distance, _spawn_direction);
+		var _summon_count = 1;
 
-		var _summoned_unit = instance_create_layer(_spawn_x, _spawn_y, "Instances", summon_unit_object);
-
-		if (instance_exists(o_game_controller))
+		if (building_upgrade_flags[0]
+			&& summon_double_unit_chance > 0
+			&& random(1) < summon_double_unit_chance)
 		{
-			var _game_controller = instance_find(o_game_controller, 0);
+			_summon_count = 2;
+		}
 
-			if (variable_instance_exists(_game_controller, "move_spawned_summoned_unit_to_cannon_inner"))
+		for (var _summon_index = 0; _summon_index < _summon_count; ++_summon_index)
+		{
+			var _spawn_direction = random(360);
+			var _spawn_distance = random(BALANCE_SUMMON_BUILDING_SPAWN_RADIUS);
+			var _spawn_x = x + lengthdir_x(_spawn_distance, _spawn_direction);
+			var _spawn_y = y + lengthdir_y(_spawn_distance, _spawn_direction);
+
+			var _summoned_unit = instance_create_layer(_spawn_x, _spawn_y, "Instances", summon_unit_object);
+
+			if (instance_exists(_summoned_unit)
+				&& object_index == o_goblins_pit
+				&& building_upgrade_flags[1]
+				&& variable_instance_exists(_summoned_unit, "summon_nights_remaining"))
 			{
-				_game_controller.move_spawned_summoned_unit_to_cannon_inner(_summoned_unit);
+				_summoned_unit.summon_nights_remaining += summon_extra_life_bonus;
+			}
+
+			if (instance_exists(o_game_controller))
+			{
+				var _game_controller = instance_find(o_game_controller, 0);
+
+				if (variable_instance_exists(_game_controller, "move_spawned_summoned_unit_to_cannon_inner"))
+				{
+					_game_controller.move_spawned_summoned_unit_to_cannon_inner(_summoned_unit);
+				}
 			}
 		}
 

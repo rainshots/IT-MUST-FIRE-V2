@@ -2,7 +2,7 @@
 map_assets_depth = 100;
 ground_background_depth = 300;
 draw_depth_between_ground_and_assets = (map_assets_depth + ground_background_depth) * 0.5;
-depth = draw_depth_between_ground_and_assets;
+depth = BALANCE_CAPTURED_BUILDING_RIFT_DEPTH;
 cell_size = BALANCE_GRID_CELL_SIZE;
 grid_width = ceil(room_width / cell_size);
 grid_height = ceil(room_height / cell_size);
@@ -32,6 +32,97 @@ uncorrupted_color = c_black;
 maximum_corruption_color = COLOR_CORRUPTION_MAX;
 holy_cell_alpha = 0.32;
 holy_cell_color = COLOR_HOLY_GROUND;
+
+captured_building_rift_noise_get = function(_source_seed, _segment_index)
+{
+	var _noise_seed = (_source_seed * 12.9898) + (_segment_index * 78.233);
+	var _noise_value = abs(sin(_noise_seed) * 43758.5453);
+	return _noise_value - floor(_noise_value);
+};
+
+captured_building_rift_line_draw = function(_start_x, _start_y, _end_x, _end_y, _source_seed, _line_width, _line_alpha)
+{
+	var _distance = point_distance(_start_x, _start_y, _end_x, _end_y);
+
+	if (_distance <= 1)
+	{
+		return;
+	}
+
+	var _segment_count = max(2, ceil(_distance / BALANCE_CAPTURED_BUILDING_RIFT_SEGMENT_LENGTH));
+	var _line_direction = point_direction(_start_x, _start_y, _end_x, _end_y);
+	var _normal_direction = _line_direction + 90;
+	var _previous_x = _start_x;
+	var _previous_y = _start_y;
+
+	draw_set_alpha(_line_alpha);
+	draw_set_color(COLOR_CAPTURED_BUILDING_RIFT);
+
+	for (var _segment_index = 1; _segment_index <= _segment_count; ++_segment_index)
+	{
+		var _progress = _segment_index / _segment_count;
+		var _segment_x = lerp(_start_x, _end_x, _progress);
+		var _segment_y = lerp(_start_y, _end_y, _progress);
+
+		if (_segment_index < _segment_count)
+		{
+			var _noise = captured_building_rift_noise_get(_source_seed, _segment_index);
+			var _offset = ((_noise * 2) - 1) * BALANCE_CAPTURED_BUILDING_RIFT_JITTER;
+
+			_segment_x += lengthdir_x(_offset, _normal_direction);
+			_segment_y += lengthdir_y(_offset, _normal_direction);
+		}
+
+		draw_line_width(_previous_x, _previous_y, _segment_x, _segment_y, _line_width);
+
+		_previous_x = _segment_x;
+		_previous_y = _segment_y;
+	}
+};
+
+captured_building_rifts_draw = function()
+{
+	if (!instance_exists(o_cannon))
+	{
+		return;
+	}
+
+	var _cannon = instance_find(o_cannon, 0);
+	var _map_object_count = instance_number(o_map_objects_parent);
+
+	for (var _map_object_index = 0; _map_object_index < _map_object_count; ++_map_object_index)
+	{
+		var _map_object = instance_find(o_map_objects_parent, _map_object_index);
+
+		if (!instance_exists(_map_object)
+			|| !variable_instance_exists(_map_object, "tower_capture_enabled")
+			|| !_map_object.tower_capture_enabled
+			|| !variable_instance_exists(_map_object, "is_captured")
+			|| !_map_object.is_captured)
+		{
+			continue;
+		}
+
+		captured_building_rift_line_draw(
+			_map_object.x,
+			_map_object.y,
+			_cannon.x,
+			_cannon.y,
+			_map_object.x + (_map_object.y * 13),
+			BALANCE_CAPTURED_BUILDING_RIFT_WIDTH,
+			BALANCE_CAPTURED_BUILDING_RIFT_ALPHA
+		);
+		captured_building_rift_line_draw(
+			_map_object.x,
+			_map_object.y,
+			_cannon.x,
+			_cannon.y,
+			_map_object.x + (_map_object.y * 13),
+			BALANCE_CAPTURED_BUILDING_RIFT_CORE_WIDTH,
+			BALANCE_CAPTURED_BUILDING_RIFT_CORE_ALPHA
+		);
+	}
+};
 
 change_circle_holy = function(_center_x, _center_y, _radius, _holy_delta)
 {

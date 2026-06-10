@@ -5,6 +5,7 @@ event_inherited();
 sprite_index = s_goblin;
 max_hp = BALANCE_GOBLIN_HP;
 hp = max_hp;
+ignored_by_enemies = true;
 damage = 0;
 magic_damage = 0;
 reload_time = room_speed;

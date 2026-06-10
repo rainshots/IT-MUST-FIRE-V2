@@ -31,8 +31,8 @@
   "resourceVersion":"2.0",
   "solid":false,
   "spriteId":{
-    "name":"s_graveyard30",
-    "path":"sprites/s_graveyard30/s_graveyard30.yy",
+    "name":"s_graveyardv3",
+    "path":"sprites/s_graveyardv3/s_graveyardv3.yy",
   },
   "spriteMaskId":null,
   "visible":true,
