@@ -1,0 +1,26 @@
+{
+  "$GMSound":"v2",
+  "%Name":"An_Invite_for_the_Northern_Tribes___Mountain_Realm",
+  "audioGroupId":{
+    "name":"audiogroup_default",
+    "path":"audiogroups/audiogroup_default",
+  },
+  "bitDepth":1,
+  "channelFormat":1,
+  "compression":3,
+  "compressionQuality":4,
+  "conversionMode":0,
+  "duration":231.62401,
+  "exportDir":"",
+  "name":"An_Invite_for_the_Northern_Tribes___Mountain_Realm",
+  "parent":{
+    "name":"Day",
+    "path":"folders/Sounds/Music/Day.yy",
+  },
+  "preload":false,
+  "resourceType":"GMSound",
+  "resourceVersion":"2.0",
+  "sampleRate":44100,
+  "soundFile":"An_Invite_for_the_Northern_Tribes___Mountain_Realm.mp3",
+  "volume":1.0,
+}

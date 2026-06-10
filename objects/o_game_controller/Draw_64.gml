@@ -2631,9 +2631,19 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 		var _hand_y = device_mouse_y_to_gui(0);
 		var _hand_scale = 0.33;
 
-		if (instance_exists(global.dragged_cultist))
+		if (instance_exists(global.dragged_cultist) && instance_exists(o_camera_controller))
 		{
-			_hand_y += cultist_drag_lift_offset_y - 60;
+			var _drag_hand_camera = instance_find(o_camera_controller, 0);
+			var _drag_hand_camera_x = camera_get_view_x(_drag_hand_camera.camera_id);
+			var _drag_hand_camera_y = camera_get_view_y(_drag_hand_camera.camera_id);
+			var _drag_hand_camera_width = camera_get_view_width(_drag_hand_camera.camera_id);
+			var _drag_hand_camera_height = camera_get_view_height(_drag_hand_camera.camera_id);
+			var _dragged_unit = global.dragged_cultist;
+			var _hand_world_x = _dragged_unit.x;
+			var _hand_world_y = _dragged_unit.bbox_bottom - pickup_hand_drag_offset_y;
+
+			_hand_x = ((_hand_world_x - _drag_hand_camera_x) / _drag_hand_camera_width) * camera_view_width;
+			_hand_y = ((_hand_world_y - _drag_hand_camera_y) / _drag_hand_camera_height) * camera_view_height;
 		}
 
 		draw_set_alpha(1);

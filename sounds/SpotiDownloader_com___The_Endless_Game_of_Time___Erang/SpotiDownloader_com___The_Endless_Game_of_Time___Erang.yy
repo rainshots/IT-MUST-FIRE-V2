@@ -1,0 +1,26 @@
+{
+  "$GMSound":"v2",
+  "%Name":"SpotiDownloader_com___The_Endless_Game_of_Time___Erang",
+  "audioGroupId":{
+    "name":"audiogroup_default",
+    "path":"audiogroups/audiogroup_default",
+  },
+  "bitDepth":1,
+  "channelFormat":1,
+  "compression":3,
+  "compressionQuality":4,
+  "conversionMode":0,
+  "duration":215.56801,
+  "exportDir":"",
+  "name":"SpotiDownloader_com___The_Endless_Game_of_Time___Erang",
+  "parent":{
+    "name":"Day",
+    "path":"folders/Sounds/Music/Day.yy",
+  },
+  "preload":false,
+  "resourceType":"GMSound",
+  "resourceVersion":"2.0",
+  "sampleRate":44100,
+  "soundFile":"SpotiDownloader_com___The_Endless_Game_of_Time___Erang.mp3",
+  "volume":1.0,
+}

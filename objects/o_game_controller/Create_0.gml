@@ -989,6 +989,7 @@ cultist_levelup_open = false;
 cultist_levelup_index = 0;
 cultist_drag_lift_offset_y = -30;
 cultist_drag_drop_offset_y = 30;
+pickup_hand_drag_offset_y = BALANCE_PICKUP_HAND_DRAG_OFFSET_Y;
 global.cultist_drag_shadow_width = 46;
 global.cultist_drag_shadow_height = 14;
 global.dragged_cultist = noone;
