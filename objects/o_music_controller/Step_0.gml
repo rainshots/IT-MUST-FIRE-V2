@@ -39,5 +39,6 @@ if (music_handle == noone)
 // Pick another track or silence once the current music finishes.
 if (!audio_is_playing(music_handle))
 {
-	music_next_roll();
+	music_current_stop();
+	music_silence_timer_roll();
 }

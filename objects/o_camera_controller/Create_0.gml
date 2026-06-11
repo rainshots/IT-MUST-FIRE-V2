@@ -45,6 +45,18 @@ maximum_zoom_speed_multiplier = 2;
 velocity_x = 0;
 velocity_y = 0;
 
+// Screen shake is triggered by heavy gameplay impacts.
+shake_timer = 0;
+shake_duration = 0;
+shake_strength = 0;
+
+camera_shake_start = function(_duration_seconds, _strength)
+{
+	shake_duration = max(1, _duration_seconds * room_speed);
+	shake_timer = shake_duration;
+	shake_strength = max(shake_strength, _strength);
+};
+
 // Camera centering helpers.
 half_view_width = view_width * 0.5;
 half_view_height = view_height * 0.5;

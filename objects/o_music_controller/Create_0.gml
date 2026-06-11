@@ -34,10 +34,8 @@ music_night_gain = 0.28;
 music_current_gain = music_day_gain;
 music_target_gain = music_day_gain;
 music_fade_time = 4 * room_speed;
-music_silence_chance = 0.35;
+music_track_gap_time = 20 * room_speed;
 music_reroll_timer = 0;
-music_silence_time_min = 6 * room_speed;
-music_silence_time_max = 18 * room_speed;
 music_check_timer = 0;
 music_check_interval = room_speed;
 music_debug_visible = false;
@@ -104,7 +102,7 @@ music_phase_track_names_get = function()
 
 music_silence_timer_roll = function()
 {
-	music_reroll_timer = irandom_range(music_silence_time_min, music_silence_time_max);
+	music_reroll_timer = music_track_gap_time;
 };
 
 music_track_start = function(_track, _track_name)
@@ -150,17 +148,14 @@ music_gain_update = function()
 
 music_next_roll = function()
 {
-	var _can_choose_silence = current_music_sound != noone;
-
 	music_current_stop();
 
 	var _phase_tracks = music_phase_tracks_get();
 	var _phase_track_names = music_phase_track_names_get();
 	var _track_count = array_length(_phase_tracks);
 
-	if (_track_count <= 0 || (_can_choose_silence && random(1) < music_silence_chance))
+	if (_track_count <= 0)
 	{
-		music_silence_timer_roll();
 		return;
 	}
 

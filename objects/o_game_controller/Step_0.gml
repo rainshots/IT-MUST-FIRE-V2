@@ -75,6 +75,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 			}
 
 			_dragged_cultist.is_being_dragged = false;
+			global.sound_play_random(global.release_worker_sounds);
 
 			if (_dragged_cultist.object_index != o_cultist
 				&& variable_instance_exists(_dragged_cultist, "demon_type")
@@ -155,6 +156,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 			_closest_cultist.y = _mouse_world_y + cultist_drag_lift_offset_y;
 			_closest_cultist.drag_drop_x = _mouse_world_x;
 			_closest_cultist.drag_drop_y = _mouse_world_y + cultist_drag_drop_offset_y;
+			global.sound_play_random(global.pick_worker_sounds);
 		}
 		else
 		{
@@ -172,6 +174,7 @@ else if (instance_exists(global.dragged_cultist))
 	global.dragged_cultist.x = global.dragged_cultist.drag_drop_x;
 	global.dragged_cultist.y = global.dragged_cultist.drag_drop_y;
 	global.dragged_cultist.is_being_dragged = false;
+	global.sound_play_random(global.release_worker_sounds);
 
 	if (global.dragged_cultist.object_index != o_cultist
 		&& variable_instance_exists(global.dragged_cultist, "demon_type")
@@ -499,6 +502,9 @@ if (!application_surface_ready && surface_exists(application_surface))
 	surface_resize(application_surface, camera_view_width, camera_view_height);
 	application_surface_ready = true;
 }
+
+// Play UI feedback for the currently hovered or clicked button.
+ui_audio_update();
 
 // Update the day timer and let night end only after the attack is cleared.
 if (!global.pause && global.day_cycle_enabled)
@@ -1061,28 +1067,8 @@ if (pause_menu_open && mouse_check_button_pressed(mb_left))
 	{
 		var _panel_x = (camera_view_width - settings_panel_width) * 0.5;
 		var _panel_y = (camera_view_height - settings_panel_height) * 0.5;
-		var _toggle_x = _panel_x + settings_panel_width - settings_toggle_right_padding;
-		var _toggle_y = _panel_y + settings_toggle_top_padding;
 		var _close_button_x = _panel_x + ((settings_panel_width - button_width) * 0.5);
 		var _close_button_y = _panel_y + settings_panel_height - button_height - settings_close_bottom_padding;
-
-		if (_mouse_x >= _toggle_x && _mouse_x <= _toggle_x + fullscreen_toggle_size && _mouse_y >= _toggle_y && _mouse_y <= _toggle_y + fullscreen_toggle_size)
-		{
-			fullscreen_enabled = !fullscreen_enabled;
-
-			if (fullscreen_enabled)
-			{
-				windowed_view_width = current_view_width;
-				windowed_view_height = current_view_height;
-			}
-
-			window_set_fullscreen(fullscreen_enabled);
-
-			if (!fullscreen_enabled)
-			{
-				window_set_size(windowed_view_width, windowed_view_height);
-			}
-		}
 
 		if (_mouse_x >= _close_button_x && _mouse_x <= _close_button_x + button_width && _mouse_y >= _close_button_y && _mouse_y <= _close_button_y + button_height)
 		{

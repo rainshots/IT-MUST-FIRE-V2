@@ -34,6 +34,13 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 		}
 
 		global.cannon_fire_version++;
+		global.sound_play_random(global.cannon_shot_sounds);
+
+		if (instance_exists(o_camera_controller))
+		{
+			var _camera_controller = instance_find(o_camera_controller, 0);
+			_camera_controller.camera_shake_start(BALANCE_CANNON_SHOT_SHAKE_TIME, BALANCE_CANNON_SHOT_SHAKE_STRENGTH);
+		}
 
 		if (target_projectile_type == PROJECTILE_TYPE.RALLY
 			|| target_projectile_type == PROJECTILE_TYPE.CULTIST)

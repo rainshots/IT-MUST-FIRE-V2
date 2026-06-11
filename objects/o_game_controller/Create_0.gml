@@ -340,6 +340,343 @@ global.rally_projectile_group_id = 0;
 global.cannon_satiety = 0;
 global.cannon_satiety_max = BALANCE_CANNON_SATIETY_MAX;
 
+// Global one-shot sound groups used by gameplay feedback.
+global.night_start_sounds = [
+	night_start01,
+	night_start02,
+	night_start03
+];
+global.pick_worker_sounds = [
+	pick_worker01,
+	pick_worker02,
+	pick_worker03,
+	pick_worker04,
+	pick_worker05,
+	pick_worker06,
+	pick_worker07,
+	pick_worker08,
+	pick_worker09,
+	pick_worker10,
+	pick_worker11
+];
+global.release_worker_sounds = [
+	release_worker01,
+	release_worker02,
+	release_worker03,
+	release_worker04,
+	release_worker05,
+	release_worker06,
+	release_worker07,
+	release_worker08,
+	release_worker09,
+	release_worker10,
+	release_worker11
+];
+global.cannon_shot_sounds = [
+	cannon_shot01,
+	cannon_shot02,
+	cannon_shot03
+];
+global.construction_sounds = [
+	construction_sound01,
+	construction_sound02,
+	construction_sound03
+];
+global.ui_hover_sounds = [
+	ui_hover_01,
+	ui_hover_02
+];
+global.ui_confirm_sound = ui_confirm;
+global.damage_sounds = [
+	sword_sound01,
+	sword_sound02,
+	sword_sound03,
+	sword_sound04,
+	sword_sound05,
+	sword_sound06,
+	sword_sound07,
+	sword_sound08
+];
+global.sound_priority_gameplay = 50;
+global.sound_priority_ui = 60;
+global.damage_sound_handle = noone;
+global.damage_sound_gain = 1;
+global.damage_sound_overlap_gain = 0.32;
+
+global.sound_play_random = function(_sounds, _priority = global.sound_priority_gameplay)
+{
+	var _sound_count = array_length(_sounds);
+
+	if (_sound_count <= 0)
+	{
+		return noone;
+	}
+
+	var _sound = _sounds[irandom(_sound_count - 1)];
+	return audio_play_sound(_sound, _priority, false);
+};
+
+global.sound_play_random_with_gain = function(_sounds, _gain, _priority = global.sound_priority_gameplay)
+{
+	var _handle = global.sound_play_random(_sounds, _priority);
+
+	if (_handle != noone)
+	{
+		audio_sound_gain(_handle, _gain, 0);
+	}
+
+	return _handle;
+};
+
+global.damage_sound_play = function()
+{
+	var _gain = global.damage_sound_gain;
+
+	if (global.damage_sound_handle != noone && audio_is_playing(global.damage_sound_handle))
+	{
+		_gain = global.damage_sound_overlap_gain;
+	}
+
+	global.damage_sound_handle = global.sound_play_random_with_gain(global.damage_sounds, _gain);
+};
+
+// UI audio is centralized so hover sounds fire once when entering a button.
+ui_hover_button_key = "";
+
+ui_mouse_is_inside_rect = function(_mouse_x, _mouse_y, _left, _top, _width, _height)
+{
+	return _mouse_x >= _left
+		&& _mouse_x <= _left + _width
+		&& _mouse_y >= _top
+		&& _mouse_y <= _top + _height;
+};
+
+ui_hover_candidate_get = function(_mouse_x, _mouse_y)
+{
+	if (pause_menu_open)
+	{
+		var _button_x = (camera_view_width - button_width) * 0.5;
+		var _button_y = (camera_view_height - ((button_height * pause_button_count) + (button_gap * (pause_button_count - 1)))) * 0.5;
+		var _button_step = button_height + button_gap;
+
+		if (!settings_open)
+		{
+			if (_mouse_x >= _button_x && _mouse_x <= _button_x + button_width)
+			{
+				for (var _pause_button_index = 0; _pause_button_index < pause_button_count; ++_pause_button_index)
+				{
+					var _pause_button_y = _button_y + (_button_step * _pause_button_index);
+
+					if (_mouse_y >= _pause_button_y && _mouse_y <= _pause_button_y + button_height)
+					{
+						return "pause_" + string(_pause_button_index);
+					}
+				}
+			}
+		}
+		else
+		{
+			var _settings_panel_x = (camera_view_width - settings_panel_width) * 0.5;
+			var _settings_panel_y = (camera_view_height - settings_panel_height) * 0.5;
+			var _close_button_x = _settings_panel_x + ((settings_panel_width - button_width) * 0.5);
+			var _close_button_y = _settings_panel_y + settings_panel_height - button_height - settings_close_bottom_padding;
+
+			if (ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _close_button_x, _close_button_y, button_width, button_height))
+			{
+				return "settings_close";
+			}
+		}
+	}
+
+	if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
+	{
+		var _construction_panel_x = (camera_view_width - building_window_width) * 0.5;
+		var _construction_panel_y = (camera_view_height - building_window_height) * 0.5;
+		var _construction_close_size = 34;
+		var _construction_close_x = _construction_panel_x + building_window_width - _construction_close_size - 14;
+		var _construction_close_y = _construction_panel_y + 14;
+		var _grid_x = _construction_panel_x + 44;
+		var _grid_y = _construction_panel_y + 94;
+		var _choice_count = array_length(building_choices);
+
+		if (ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _construction_close_x, _construction_close_y, _construction_close_size, _construction_close_size))
+		{
+			return "building_close";
+		}
+
+		for (var _choice_index = 0; _choice_index < _choice_count; ++_choice_index)
+		{
+			var _choice_column = _choice_index mod building_tile_columns;
+			var _choice_row = _choice_index div building_tile_columns;
+			var _tile_x = _grid_x + ((building_tile_width + building_tile_gap) * _choice_column);
+			var _tile_y = _grid_y + ((building_tile_height + building_tile_gap) * _choice_row);
+
+			if (ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _tile_x, _tile_y, building_tile_width, building_tile_height))
+			{
+				return "building_choice_" + string(_choice_index);
+			}
+		}
+	}
+	else if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE)
+	{
+		var _upgrade_panel_x = (camera_view_width - building_upgrade_window_width) * 0.5;
+		var _upgrade_panel_y = (camera_view_height - building_upgrade_window_height) * 0.5;
+		var _upgrade_close_size = 34;
+		var _upgrade_close_x = _upgrade_panel_x + building_upgrade_window_width - _upgrade_close_size - 14;
+		var _upgrade_close_y = _upgrade_panel_y + 14;
+		var _upgrade_tile_start_x = _upgrade_panel_x + 38;
+		var _upgrade_tile_y = _upgrade_panel_y + 104;
+
+		if (ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _upgrade_close_x, _upgrade_close_y, _upgrade_close_size, _upgrade_close_size))
+		{
+			return "upgrade_close";
+		}
+
+		if (instance_exists(building_upgrade_window_building))
+		{
+			var _upgrade_count = 0;
+
+			if (variable_instance_exists(building_upgrade_window_building, "building_upgrade_levels"))
+			{
+				_upgrade_count = array_length(building_upgrade_window_building.building_upgrade_levels);
+			}
+			else if (variable_instance_exists(building_upgrade_window_building, "building_upgrade_flags"))
+			{
+				_upgrade_count = array_length(building_upgrade_window_building.building_upgrade_flags);
+			}
+
+			for (var _upgrade_index = 0; _upgrade_index < _upgrade_count; ++_upgrade_index)
+			{
+				var _upgrade_tile_x = _upgrade_tile_start_x + ((building_upgrade_tile_width + building_upgrade_tile_gap) * _upgrade_index);
+
+				if (ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _upgrade_tile_x, _upgrade_tile_y, building_upgrade_tile_width, building_upgrade_tile_height))
+				{
+					return "upgrade_choice_" + string(_upgrade_index);
+				}
+			}
+		}
+	}
+	else if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
+	{
+		var _design_width = 1024;
+		var _design_height = 836;
+		var _design_scale = min(camera_view_width / _design_width, camera_view_height / _design_height);
+		var _selection_panel_x = (camera_view_width - (_design_width * _design_scale)) * 0.5;
+		var _selection_panel_y = (camera_view_height - (_design_height * _design_scale)) * 0.5;
+		var _button_start_x = _selection_panel_x + (58 * _design_scale);
+		var _button_y = _selection_panel_y + (514 * _design_scale);
+		var _button_step = cultist_selection_button_width + cultist_selection_button_gap;
+		var _button_count = array_length(cultist_selection_buttons);
+
+		for (var _button_index = 0; _button_index < _button_count; ++_button_index)
+		{
+			var _button_x = _button_start_x + ((_button_step * _button_index) * _design_scale);
+			var _button_width = cultist_selection_button_width * _design_scale;
+			var _button_height = cultist_selection_button_height * _design_scale;
+
+			if (ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _button_x, _button_y, _button_width, _button_height))
+			{
+				return "cultist_type_" + string(_button_index);
+			}
+		}
+
+		var _ability_options = cultist_demon_active_abilities_get(cultist_selected_demon_type);
+		var _ability_count = array_length(_ability_options);
+		var _ability_button_x = _selection_panel_x + (58 * _design_scale);
+		var _ability_button_y = _selection_panel_y + (650 * _design_scale);
+		var _ability_button_width = cultist_ability_selection_button_width * _design_scale;
+		var _ability_button_height = cultist_ability_selection_button_height * _design_scale;
+
+		for (var _ability_index = 0; _ability_index < _ability_count; ++_ability_index)
+		{
+			var _current_ability_x = _ability_button_x
+				+ (((cultist_ability_selection_button_width + cultist_ability_selection_button_gap) * _ability_index) * _design_scale);
+
+			if (ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _current_ability_x, _ability_button_y, _ability_button_width, _ability_button_height))
+			{
+				return "cultist_ability_" + string(_ability_index);
+			}
+		}
+
+		var _confirm_x = _selection_panel_x + (56 * _design_scale);
+		var _confirm_y = _selection_panel_y + (763 * _design_scale);
+		var _confirm_width = 219 * _design_scale;
+		var _confirm_height = 64 * _design_scale;
+
+		if (ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _confirm_x, _confirm_y, _confirm_width, _confirm_height))
+		{
+			return "cultist_confirm";
+		}
+	}
+	else if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
+	{
+		var _level_panel_x = (camera_view_width - cultist_panel_width) * 0.5;
+		var _level_panel_y = (camera_view_height - 660) * 0.5;
+		var _level_button_y = _level_panel_y + 550;
+		var _level_button_width = 150;
+		var _level_button_height = 44;
+		var _level_button_gap = 18;
+		var _level_button_start_x = _level_panel_x + 92;
+		var _cultist = noone;
+
+		if (cultist_levelup_index >= 0 && cultist_levelup_index < array_length(global.cultists))
+		{
+			_cultist = global.cultists[cultist_levelup_index];
+		}
+
+		if (instance_exists(_cultist))
+		{
+			ensure_cultist_levelup_options(_cultist);
+			var _reward_type = cultist_level_reward_type_get(_cultist);
+			var _button_count = 3;
+
+			if (_reward_type == CULTIST_LEVEL_REWARD.PASSIVE)
+			{
+				_button_count = array_length(_cultist.passive_choice_options);
+			}
+			else if (_reward_type == CULTIST_LEVEL_REWARD.ACTIVE)
+			{
+				_button_count = array_length(_cultist.active_choice_options);
+			}
+			else if (_reward_type == CULTIST_LEVEL_REWARD.ABILITY_UPGRADE)
+			{
+				_button_count = array_length(_cultist.ability_upgrade_choice_options);
+			}
+
+			for (var _choice_index = 0; _choice_index < _button_count; ++_choice_index)
+			{
+				var _level_button_x = _level_button_start_x + ((_level_button_width + _level_button_gap) * _choice_index);
+
+				if (ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _level_button_x, _level_button_y, _level_button_width, _level_button_height))
+				{
+					return "level_choice_" + string(_choice_index);
+				}
+			}
+		}
+	}
+
+	return "";
+};
+
+ui_audio_update = function()
+{
+	var _mouse_x = device_mouse_x_to_gui(0);
+	var _mouse_y = device_mouse_y_to_gui(0);
+	var _hover_button_key = ui_hover_candidate_get(_mouse_x, _mouse_y);
+
+	if (_hover_button_key != "" && _hover_button_key != ui_hover_button_key)
+	{
+		global.sound_play_random(global.ui_hover_sounds, global.sound_priority_ui);
+	}
+
+	if (_hover_button_key != "" && mouse_check_button_pressed(mb_left))
+	{
+		audio_play_sound(global.ui_confirm_sound, global.sound_priority_ui, false);
+	}
+
+	ui_hover_button_key = _hover_button_key;
+};
+
 // Global resource storage used by HUD and economy systems.
 global.resources = array_create(RESOURCES.COUNT, 0);
 global.resources[RESOURCES.FLESH] = BALANCE_STARTING_FLESH;
@@ -953,9 +1290,6 @@ button_height = 58;
 button_gap = 18;
 settings_panel_width = 420;
 settings_panel_height = 220;
-fullscreen_toggle_size = 34;
-settings_toggle_right_padding = 82;
-settings_toggle_top_padding = 84;
 settings_close_bottom_padding = 28;
 
 // Cultist prototype state.
@@ -1511,6 +1845,8 @@ construct_building_from_choice = function(_choice)
 	{
 		_built_object.depth = _slot.depth;
 	}
+
+	global.sound_play_random(global.construction_sounds);
 
 	instance_destroy(_slot);
 	close_building_window();
@@ -3567,6 +3903,7 @@ start_night_phase = function()
 	global.day_phase = DAY_PHASE.NIGHT;
 	global.day_timer = global.night_duration * room_speed;
 	global.night_attack_unit_count = 0;
+	global.sound_play_random(global.night_start_sounds);
 	move_goblins_to_cannon_inner();
 
 	if (instance_exists(o_cannon))

@@ -99,4 +99,20 @@ y += velocity_y;
 var _camera_x = round(x - half_view_width);
 var _camera_y = round(y - half_view_height);
 
+// Add a short randomized offset while screen shake is active.
+if (shake_timer > 0)
+{
+	var _shake_progress = shake_timer / max(1, shake_duration);
+	var _current_shake_strength = round(shake_strength * _shake_progress);
+
+	_camera_x += irandom_range(-_current_shake_strength, _current_shake_strength);
+	_camera_y += irandom_range(-_current_shake_strength, _current_shake_strength);
+	shake_timer--;
+
+	if (shake_timer <= 0)
+	{
+		shake_strength = 0;
+	}
+}
+
 camera_set_view_pos(camera_id, _camera_x, _camera_y);

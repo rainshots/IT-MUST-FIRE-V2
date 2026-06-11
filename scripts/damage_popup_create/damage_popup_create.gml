@@ -27,5 +27,10 @@ function damage_popup_create(_x, _y, _amount, _target_faction, _is_critical = fa
 	// Damage numbers and blood are part of the same hit feedback.
 	blood_particles_create(_x, _y);
 
+	if (variable_global_exists("damage_sound_play"))
+	{
+		global.damage_sound_play();
+	}
+
 	return _popup;
 }
