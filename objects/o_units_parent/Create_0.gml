@@ -1,8 +1,8 @@
 // Base unit combat stats.
 unit_faction = UNIT_FACTION.NOONE;
-max_hp = 20 * BALANCE_COMBAT_VALUE_SCALE;
+max_hp = 200;
 hp = max_hp;
-damage = 1 * BALANCE_COMBAT_VALUE_SCALE;
+damage = 10;
 magic_damage = 0;
 reload_time = room_speed;
 reload_timer = 0;
@@ -86,6 +86,8 @@ next_attack_damage_multiplier = 1;
 next_attack_radius_multiplier = 1;
 demonic_infusion_timer = 0;
 demonic_infusion_reload_multiplier = 1;
+heal_feedback_pending_amount = 0;
+heal_feedback_next_popup_time = 0;
 corpse_armor_bonus = 0;
 corpse_armor_timer = 0;
 corpse_armor_retaliation_damage = 0;
@@ -104,7 +106,7 @@ drag_drop_y = y;
 morning_respawn_pending = false;
 corpse_visual_created = false;
 
-// Optional summoned skeleton effects are configured by Warlock.
+// Warlock-raised skeletons use regular skeleton stats with extra ability effects.
 warlock_skeleton_explosion_enabled = false;
 warlock_skeleton_explosion_damage = 0;
 warlock_skeleton_respawn_chance = 0;
@@ -865,9 +867,6 @@ warlock_skeleton_death_effect_apply = function()
 
 		if (instance_exists(_skeleton))
 		{
-			_skeleton.max_hp = max_hp;
-			_skeleton.hp = _skeleton.max_hp;
-			_skeleton.damage = damage;
 			_skeleton.warlock_skeleton_explosion_enabled = warlock_skeleton_explosion_enabled;
 			_skeleton.warlock_skeleton_explosion_damage = warlock_skeleton_explosion_damage;
 			_skeleton.warlock_skeleton_respawn_chance = warlock_skeleton_respawn_chance;

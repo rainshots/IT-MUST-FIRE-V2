@@ -1,5 +1,5 @@
 // Move the projectile along a simple artillery arc.
-if (global.pause)
+if (global.pause && !ignore_pause)
 {
 	exit;
 }

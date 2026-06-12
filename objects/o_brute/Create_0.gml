@@ -64,6 +64,9 @@ meat_explosion_circle_x = x;
 meat_explosion_circle_y = y;
 meat_explosion_circle_radius = BALANCE_BRUTE_MEAT_EXPLOSION_RADIUS;
 hook_targets = [];
+hook_chain_visuals = [];
+hook_chain_state_outbound = 0;
+hook_chain_state_returning = 1;
 hook_line_active = false;
 butcher_chains_second_wave_pending = false;
 
@@ -410,7 +413,9 @@ brute_corpse_consume = function(_corpse)
 		_heal_share = BALANCE_BRUTE_CORPSE_EATER_HEAL_MAX_HP_SHARE_LEVEL_2;
 	}
 
+	var _hp_before_heal = hp;
 	hp = min(hp + (max_hp * _heal_share), max_hp);
+	heal_feedback_create(id, hp - _hp_before_heal);
 	brute_heal_particles_create();
 
 	if (_corpse_eater_level >= 4)
@@ -429,7 +434,9 @@ brute_corpse_consume = function(_corpse)
 				&& variable_instance_exists(_ally, "max_hp")
 				&& point_distance(x, y, _ally.x, _ally.y) <= BALANCE_BRUTE_CORPSE_EATER_ALLY_RADIUS)
 			{
+				var _ally_hp_before_heal = _ally.hp;
 				_ally.hp = min(_ally.hp + (_ally.max_hp * BALANCE_BRUTE_CORPSE_EATER_ALLY_HEAL_MAX_HP_SHARE), _ally.max_hp);
+				heal_feedback_create(_ally, _ally.hp - _ally_hp_before_heal);
 			}
 		}
 	}
@@ -456,6 +463,45 @@ brute_has_grave_slam_target = function()
 	ds_list_destroy(_enemy_list);
 
 	return _has_target;
+};
+
+brute_world_position_is_on_camera = function(_world_x, _world_y)
+{
+	if (!instance_exists(o_camera_controller))
+	{
+		return false;
+	}
+
+	var _camera_controller = instance_find(o_camera_controller, 0);
+	var _camera_margin = 64;
+	var _camera_left = _camera_controller.x - _camera_controller.half_view_width - _camera_margin;
+	var _camera_right = _camera_controller.x + _camera_controller.half_view_width + _camera_margin;
+	var _camera_top = _camera_controller.y - _camera_controller.half_view_height - _camera_margin;
+	var _camera_bottom = _camera_controller.y + _camera_controller.half_view_height + _camera_margin;
+
+	return _world_x >= _camera_left
+		&& _world_x <= _camera_right
+		&& _world_y >= _camera_top
+		&& _world_y <= _camera_bottom;
+};
+
+brute_grave_slam_camera_shake_try = function(_origin_x, _origin_y)
+{
+	if (!brute_world_position_is_on_camera(_origin_x, _origin_y)
+		|| !instance_exists(o_camera_controller))
+	{
+		return;
+	}
+
+	var _camera_controller = instance_find(o_camera_controller, 0);
+
+	if (variable_instance_exists(_camera_controller, "camera_shake_start"))
+	{
+		_camera_controller.camera_shake_start(
+			BALANCE_BRUTE_GRAVE_SLAM_SHAKE_TIME,
+			BALANCE_BRUTE_GRAVE_SLAM_SHAKE_STRENGTH
+		);
+	}
 };
 
 brute_grave_slam_use = function()
@@ -487,6 +533,7 @@ brute_grave_slam_use = function()
 	);
 
 	brute_aoe_circle_show(x, y, _slam_radius, false);
+	brute_grave_slam_camera_shake_try(x, y);
 
 	if (variable_global_exists("particle_type_brute_grave_slam_smoke"))
 	{
@@ -589,6 +636,35 @@ brute_chains_targets_find = function()
 	return _selected_targets;
 };
 
+brute_chains_start_damage_apply = function(_target)
+{
+	return brute_damage_enemy(
+		_target,
+		damage * BALANCE_BRUTE_BUTCHER_CHAINS_DAMAGE_MULTIPLIER,
+		BALANCE_BRUTE_BUTCHER_CHAINS_STUN_TIME,
+		0,
+		0
+	);
+};
+
+brute_chain_visual_add = function(_target, _is_second_wave)
+{
+	array_push(
+		hook_chain_visuals,
+		{
+			target: _target,
+			state: hook_chain_state_outbound,
+			is_second_wave: _is_second_wave,
+			tip_x: x,
+			tip_y: y,
+			origin_x: x,
+			origin_y: y,
+			target_x: _target.x,
+			target_y: _target.y
+		}
+	);
+};
+
 brute_chains_wave_start = function(_is_second_wave)
 {
 	var _targets = brute_chains_targets_find();
@@ -605,43 +681,97 @@ brute_chains_wave_start = function(_is_second_wave)
 		demon_active_ability_used_notify(DEMON_ABILITY.BRUTE_BUTCHER_CHAINS);
 	}
 
-	hook_targets = _targets;
+	hook_targets = [];
 	hook_line_active = true;
 
-	for (var _target_index = 0; _target_index < array_length(hook_targets); ++_target_index)
+	for (var _target_index = 0; _target_index < array_length(_targets); ++_target_index)
 	{
-		var _target = hook_targets[_target_index];
+		var _target = _targets[_target_index];
 
 		if (!instance_exists(_target))
 		{
 			continue;
 		}
 
-		var _target_was_killed = brute_damage_enemy(
-			_target,
-			damage * BALANCE_BRUTE_BUTCHER_CHAINS_DAMAGE_MULTIPLIER,
-			BALANCE_BRUTE_BUTCHER_CHAINS_STUN_TIME,
-			0,
-			0
-		);
-
-		if (!_target_was_killed)
-		{
-			_target.is_being_hooked = true;
-			_target.target_instance = id;
-		}
-		else if (!_is_second_wave && brute_ability_level_get(DEMON_ABILITY.BRUTE_BUTCHER_CHAINS) >= 4)
-		{
-			butcher_chains_second_wave_pending = true;
-		}
+		brute_chain_visual_add(_target, _is_second_wave);
 	}
 
 	return true;
 };
 
+brute_chain_visuals_update = function()
+{
+	var _write_index = 0;
+
+	for (var _chain_index = 0; _chain_index < array_length(hook_chain_visuals); ++_chain_index)
+	{
+		var _chain = hook_chain_visuals[_chain_index];
+
+		if (_chain.state == hook_chain_state_outbound)
+		{
+			if (target_can_be_attacked(_chain.target))
+			{
+				_chain.target_x = _chain.target.x;
+				_chain.target_y = _chain.target.y;
+			}
+
+			var _target_distance = point_distance(_chain.tip_x, _chain.tip_y, _chain.target_x, _chain.target_y);
+			var _flight_distance = min(BALANCE_BRUTE_BUTCHER_CHAINS_LINE_SPEED, _target_distance);
+			var _flight_direction = point_direction(_chain.tip_x, _chain.tip_y, _chain.target_x, _chain.target_y);
+			_chain.tip_x += lengthdir_x(_flight_distance, _flight_direction);
+			_chain.tip_y += lengthdir_y(_flight_distance, _flight_direction);
+
+			if (_target_distance <= BALANCE_BRUTE_BUTCHER_CHAINS_LINE_SPEED)
+			{
+				if (target_can_be_attacked(_chain.target))
+				{
+					var _target_was_killed = brute_chains_start_damage_apply(_chain.target);
+
+					if (!_target_was_killed)
+					{
+						_chain.target.is_being_hooked = true;
+						_chain.target.target_instance = id;
+						array_push(hook_targets, _chain.target);
+						continue;
+					}
+
+					if (!_chain.is_second_wave && brute_ability_level_get(DEMON_ABILITY.BRUTE_BUTCHER_CHAINS) >= 4)
+					{
+						butcher_chains_second_wave_pending = true;
+					}
+				}
+
+				_chain.state = hook_chain_state_returning;
+				_chain.tip_x = _chain.target_x;
+				_chain.tip_y = _chain.target_y;
+			}
+		}
+		else
+		{
+			var _return_distance_to_brute = point_distance(_chain.tip_x, _chain.tip_y, x, y);
+			var _return_distance = min(BALANCE_BRUTE_BUTCHER_CHAINS_LINE_RETURN_SPEED, _return_distance_to_brute);
+			var _return_direction = point_direction(_chain.tip_x, _chain.tip_y, x, y);
+			_chain.tip_x += lengthdir_x(_return_distance, _return_direction);
+			_chain.tip_y += lengthdir_y(_return_distance, _return_direction);
+
+			if (_return_distance_to_brute <= BALANCE_BRUTE_BUTCHER_CHAINS_LINE_RETURN_SPEED)
+			{
+				continue;
+			}
+		}
+
+		hook_chain_visuals[_write_index] = _chain;
+		_write_index++;
+	}
+
+	array_resize(hook_chain_visuals, _write_index);
+};
+
 brute_hook_update = function()
 {
-	if (array_length(hook_targets) <= 0)
+	brute_chain_visuals_update();
+
+	if (array_length(hook_targets) <= 0 && array_length(hook_chain_visuals) <= 0)
 	{
 		hook_line_active = false;
 
@@ -653,6 +783,8 @@ brute_hook_update = function()
 
 		return;
 	}
+
+	hook_line_active = true;
 
 	var _write_index = 0;
 

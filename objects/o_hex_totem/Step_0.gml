@@ -22,7 +22,7 @@ if (beam_timer > 0)
 if (beam_timer <= 0)
 {
 	hex_totem_beam_fire();
-	beam_timer = BALANCE_WARLOCK_HEX_TOTEM_BEAM_TIME * room_speed;
+	beam_timer = BALANCE_WARLOCK_HEX_TOTEM_BEAM_RELOAD_TIME * room_speed;
 }
 
 if (beam_line_timer > 0)
@@ -39,5 +39,5 @@ if (zone_damage_timer > 0)
 if (zone_damage_timer <= 0)
 {
 	hex_totem_zone_damage_apply();
-	zone_damage_timer = BALANCE_WARLOCK_DEMONIC_INFUSION_TICK_TIME * room_speed;
+	zone_damage_timer = BALANCE_WARLOCK_HEX_TOTEM_ZONE_TICK_TIME * room_speed;
 }

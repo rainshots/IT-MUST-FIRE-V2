@@ -35,7 +35,9 @@ for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_ind
 		&& _friendly_unit.hp > 0
 		&& _friendly_unit.hp < _friendly_unit.max_hp)
 	{
+		var _friendly_hp_before_heal = _friendly_unit.hp;
 		_friendly_unit.hp = min(_friendly_unit.hp + heal_amount, _friendly_unit.max_hp);
+		heal_feedback_create(_friendly_unit, _friendly_unit.hp - _friendly_hp_before_heal);
 	}
 }
 
@@ -58,7 +60,9 @@ if (variable_global_exists("cultists"))
 			&& _cultist.hp < _cultist.max_hp
 			&& point_distance(x, y, _cultist.x, _cultist.y) <= heal_radius)
 		{
+			var _cultist_hp_before_heal = _cultist.hp;
 			_cultist.hp = min(_cultist.hp + heal_amount, _cultist.max_hp);
+			heal_feedback_create(_cultist, _cultist.hp - _cultist_hp_before_heal);
 		}
 	}
 }

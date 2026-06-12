@@ -25,13 +25,12 @@ if (variable_global_exists("cultist_assignment_preview_building")
 	);
 }
 
+var _building_is_hovered = global.focus_window == FOCUS_WINDOW.NOONE
+	&& !global.pause
+	&& building_is_mouse_hovered();
+
 // Show upgrade prompt while the cursor hovers upgradeable buildings.
-if (global.focus_window == FOCUS_WINDOW.NOONE
-	&& building_has_upgrades
-	&& mouse_x >= bbox_left
-	&& mouse_x <= bbox_right
-	&& mouse_y >= bbox_top
-	&& mouse_y <= bbox_bottom)
+if (_building_is_hovered && building_has_upgrades)
 {
 	var _prompt_width = string_width(upgrade_prompt_text) + (upgrade_prompt_padding_x * 2);
 	var _prompt_height = string_height(upgrade_prompt_text) + (upgrade_prompt_padding_y * 2);
@@ -47,6 +46,31 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 	draw_set_valign(fa_middle);
 	draw_set_color(COLOR_HUD_IRON);
 	draw_text(x, _prompt_y + (_prompt_height * 0.5), upgrade_prompt_text);
+}
+
+// Show demolition prompt under base buildings.
+if (_building_is_hovered)
+{
+	var _demolish_prompt_width = string_width(demolish_prompt_text) + (demolish_prompt_padding_x * 2);
+	var _demolish_prompt_height = string_height(demolish_prompt_text) + (demolish_prompt_padding_y * 2);
+	var _demolish_prompt_x = x - (_demolish_prompt_width * 0.5);
+	var _demolish_prompt_y = bbox_bottom + demolish_prompt_offset_y;
+
+	draw_set_alpha(demolish_prompt_background_alpha);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_rectangle(
+		_demolish_prompt_x,
+		_demolish_prompt_y,
+		_demolish_prompt_x + _demolish_prompt_width,
+		_demolish_prompt_y + _demolish_prompt_height,
+		false
+	);
+
+	draw_set_alpha(1);
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
+	draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+	draw_text(x, _demolish_prompt_y + (_demolish_prompt_height * 0.5), demolish_prompt_text);
 }
 
 // Draw building warnings above the production UI.

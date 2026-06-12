@@ -51,6 +51,7 @@ crimson_guillotine_retry_timer = 0;
 crimson_guillotine_strike_timer = 0;
 crimson_guillotine_strike_duration = 1;
 crimson_guillotine_ascent_duration = 1;
+crimson_guillotine_fall_duration = 1;
 crimson_guillotine_start_x = x;
 crimson_guillotine_start_y = y;
 crimson_guillotine_apex_y = y;
@@ -59,6 +60,8 @@ crimson_guillotine_repeat_count = 0;
 bloody_clone_cooldown = BALANCE_IMP_BLOODY_CLONE_COOLDOWN * room_speed;
 bloody_clone_timer = 0;
 bloody_clone_retry_timer = 0;
+
+// Demon Leap visuals keep recent dash segments for chained red strike trails.
 leap_visual_timer = 0;
 leap_visual_duration = BALANCE_IMP_DEMON_LEAP_ANIMATION_TIME * room_speed;
 leap_visual_start_x = x;
@@ -66,6 +69,21 @@ leap_visual_start_y = y;
 leap_visual_end_x = x;
 leap_visual_end_y = y;
 leap_visual_arc_height = BALANCE_IMP_DEMON_LEAP_ARC_HEIGHT;
+leap_visual_segments = [];
+demon_leap_is_active = false;
+demon_leap_jump_count = 0;
+demon_leap_max_jump_count = 0;
+demon_leap_home_x = x;
+demon_leap_home_y = y;
+demon_leap_flight_timer = 0;
+demon_leap_flight_duration = max(1, BALANCE_IMP_DEMON_LEAP_ANIMATION_TIME * room_speed);
+demon_leap_flight_start_x = x;
+demon_leap_flight_start_y = y;
+demon_leap_flight_end_x = x;
+demon_leap_flight_end_y = y;
+demon_leap_target = noone;
+demon_leap_is_returning = false;
+demon_leap_hit_targets = [];
 
 brute_blood_anvil_active_recharge = function(_recharge_share)
 {
@@ -244,34 +262,17 @@ imp_target_is_hidden_by_fog = function(_target)
 	return !_game_controller.world_position_is_revealed_by_fog(_target.x, _target.y);
 };
 
-imp_find_lowest_hp_enemy = function(_min_search_radius, _max_search_radius)
+imp_target_is_in_array = function(_target, _target_array)
 {
-	var _best_target = noone;
-	var _best_hp = infinity;
-	var _enemy_count = instance_number(o_enemy_units);
-
-	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	for (var _target_index = 0; _target_index < array_length(_target_array); ++_target_index)
 	{
-		var _enemy = instance_find(o_enemy_units, _enemy_index);
-		var _enemy_distance = point_distance(x, y, _enemy.x, _enemy.y);
-
-		if (!target_can_be_attacked(_enemy)
-			|| !variable_instance_exists(_enemy, "hp")
-			|| imp_target_is_hidden_by_fog(_enemy)
-			|| _enemy_distance < _min_search_radius
-			|| _enemy_distance > _max_search_radius)
+		if (_target_array[_target_index] == _target)
 		{
-			continue;
-		}
-
-		if (_enemy.hp < _best_hp)
-		{
-			_best_target = _enemy;
-			_best_hp = _enemy.hp;
+			return true;
 		}
 	}
 
-	return _best_target;
+	return false;
 };
 
 imp_find_farthest_enemy = function(_search_radius)
@@ -285,6 +286,35 @@ imp_find_farthest_enemy = function(_search_radius)
 		var _enemy = instance_find(o_enemy_units, _enemy_index);
 
 		if (!target_can_be_attacked(_enemy))
+		{
+			continue;
+		}
+
+		var _enemy_distance = point_distance(x, y, _enemy.x, _enemy.y);
+
+		if (_enemy_distance <= _search_radius && _enemy_distance > _best_distance)
+		{
+			_best_target = _enemy;
+			_best_distance = _enemy_distance;
+		}
+	}
+
+	return _best_target;
+};
+
+imp_find_farthest_enemy_except = function(_search_radius, _excluded_targets)
+{
+	var _best_target = noone;
+	var _best_distance = -1;
+	var _enemy_count = instance_number(o_enemy_units);
+
+	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	{
+		var _enemy = instance_find(o_enemy_units, _enemy_index);
+
+		if (!target_can_be_attacked(_enemy)
+			|| imp_target_is_hidden_by_fog(_enemy)
+			|| imp_target_is_in_array(_enemy, _excluded_targets))
 		{
 			continue;
 		}
@@ -452,7 +482,7 @@ imp_crimson_guillotine_aoe_damage_get = function(_guillotine_level)
 	return damage * _damage_multiplier;
 };
 
-imp_leap_visual_start = function(_start_x, _start_y, _end_x, _end_y, _arc_height)
+imp_leap_visual_start = function(_start_x, _start_y, _end_x, _end_y, _arc_height, _draw_slash = true, _trail_duration_multiplier = 2.4)
 {
 	leap_visual_start_x = _start_x;
 	leap_visual_start_y = _start_y;
@@ -461,6 +491,21 @@ imp_leap_visual_start = function(_start_x, _start_y, _end_x, _end_y, _arc_height
 	leap_visual_timer = leap_visual_duration;
 	leap_visual_arc_height = _arc_height;
 	visual_offset_is_ability_controlled = true;
+	var _trail_duration = max(1, leap_visual_duration * _trail_duration_multiplier);
+
+	array_push(
+		leap_visual_segments,
+		{
+			start_x: _start_x,
+			start_y: _start_y,
+			end_x: _end_x,
+			end_y: _end_y,
+			timer: _trail_duration,
+			duration: _trail_duration,
+			arc_height: _arc_height,
+			draw_slash: _draw_slash
+		}
+	);
 };
 
 imp_damage_target = function(_target, _damage_amount, _force_critical)
@@ -530,6 +575,99 @@ imp_crimson_guillotine_aoe_apply = function(_origin_x, _origin_y, _radius, _dama
 	}
 
 	return _has_killed_enemy;
+};
+
+imp_world_position_is_on_camera = function(_world_x, _world_y)
+{
+	if (!instance_exists(o_camera_controller))
+	{
+		return false;
+	}
+
+	var _camera_controller = instance_find(o_camera_controller, 0);
+	var _camera_margin = 64;
+	var _camera_left = _camera_controller.x - _camera_controller.half_view_width - _camera_margin;
+	var _camera_right = _camera_controller.x + _camera_controller.half_view_width + _camera_margin;
+	var _camera_top = _camera_controller.y - _camera_controller.half_view_height - _camera_margin;
+	var _camera_bottom = _camera_controller.y + _camera_controller.half_view_height + _camera_margin;
+
+	return _world_x >= _camera_left
+		&& _world_x <= _camera_right
+		&& _world_y >= _camera_top
+		&& _world_y <= _camera_bottom;
+};
+
+imp_crimson_guillotine_fall_duration_get = function()
+{
+	var _fall_time = max(
+		BALANCE_IMP_CRIMSON_GUILLOTINE_JUMP_TIME - BALANCE_IMP_CRIMSON_GUILLOTINE_ASCENT_TIME,
+		0.01
+	);
+	var _fast_fall_time = _fall_time / BALANCE_IMP_CRIMSON_GUILLOTINE_FALL_SPEED_MULTIPLIER;
+
+	return max(1, _fast_fall_time * room_speed);
+};
+
+imp_crimson_guillotine_flight_start = function(_target)
+{
+	crimson_guillotine_target = _target;
+	crimson_guillotine_ascent_duration = max(1, BALANCE_IMP_CRIMSON_GUILLOTINE_ASCENT_TIME * room_speed);
+	crimson_guillotine_fall_duration = imp_crimson_guillotine_fall_duration_get();
+	crimson_guillotine_strike_duration = crimson_guillotine_ascent_duration + crimson_guillotine_fall_duration;
+	crimson_guillotine_strike_timer = crimson_guillotine_strike_duration;
+	crimson_guillotine_start_x = x;
+	crimson_guillotine_start_y = y;
+	crimson_guillotine_apex_y = y - BALANCE_IMP_CRIMSON_GUILLOTINE_FALL_HEIGHT;
+	visual_offset_is_ability_controlled = true;
+	face_world_x(_target.x);
+};
+
+imp_crimson_guillotine_landing_smoke_create = function(_origin_x, _origin_y, _radius)
+{
+	if (!variable_global_exists("particle_system_effects")
+		|| !variable_global_exists("particle_type_brute_grave_slam_smoke")
+		|| global.particle_system_effects == noone
+		|| global.particle_type_brute_grave_slam_smoke == noone)
+	{
+		return;
+	}
+
+	var _smoke_count = BALANCE_IMP_CRIMSON_GUILLOTINE_LANDING_SMOKE_COUNT;
+
+	for (var _smoke_index = 0; _smoke_index < _smoke_count; ++_smoke_index)
+	{
+		var _smoke_direction = random(360);
+		var _smoke_distance = sqrt(random(1)) * _radius;
+		var _smoke_x = _origin_x + lengthdir_x(_smoke_distance, _smoke_direction);
+		var _smoke_y = _origin_y + lengthdir_y(_smoke_distance, _smoke_direction);
+
+		part_particles_create(
+			global.particle_system_effects,
+			_smoke_x,
+			_smoke_y,
+			global.particle_type_brute_grave_slam_smoke,
+			1
+		);
+	}
+};
+
+imp_crimson_guillotine_camera_shake_try = function(_origin_x, _origin_y)
+{
+	if (!imp_world_position_is_on_camera(_origin_x, _origin_y)
+		|| !instance_exists(o_camera_controller))
+	{
+		return;
+	}
+
+	var _camera_controller = instance_find(o_camera_controller, 0);
+
+	if (variable_instance_exists(_camera_controller, "camera_shake_start"))
+	{
+		_camera_controller.camera_shake_start(
+			BALANCE_IMP_CRIMSON_GUILLOTINE_SHAKE_TIME,
+			BALANCE_IMP_CRIMSON_GUILLOTINE_SHAKE_STRENGTH
+		);
+	}
 };
 
 imp_blood_blades_count_get = function()
@@ -718,65 +856,125 @@ imp_damage_enemies_on_path = function(_start_x, _start_y, _end_x, _end_y)
 	}
 };
 
-imp_demon_leap_use = function()
+imp_demon_leap_jump_count_get = function(_leap_level)
 {
-	var _leap_level = max(1, imp_ability_level_get(DEMON_ABILITY.IMP_DEMON_LEAP));
-	var _max_jump_count = 1;
-	var _previous_target = noone;
-	var _has_jumped = false;
-
 	if (_leap_level >= 4)
 	{
-		_max_jump_count = 4;
-	}
-	else if (_leap_level >= 2)
-	{
-		_max_jump_count = 2;
+		return 7;
 	}
 
-	for (var _jump_index = 0; _jump_index < _max_jump_count; ++_jump_index)
+	if (_leap_level >= 2)
 	{
-		var _target = imp_find_lowest_hp_enemy(
-			BALANCE_IMP_DEMON_LEAP_MIN_SEARCH_RADIUS,
-			BALANCE_IMP_DEMON_LEAP_SEARCH_RADIUS
-		);
+		return 5;
+	}
 
-		if (!instance_exists(_target) || _target == _previous_target)
-		{
-			break;
-		}
+	return 3;
+};
 
-		var _start_x = x;
-		var _start_y = y;
-		x = _target.x;
-		y = _target.y;
-		face_world_x(_target.x);
-		leap_visual_duration = BALANCE_IMP_DEMON_LEAP_ANIMATION_TIME * room_speed;
-		imp_leap_visual_start(_start_x, _start_y, x, y, BALANCE_IMP_DEMON_LEAP_ARC_HEIGHT);
-		ability_popup_create(x, y, DEMON_ABILITY.IMP_DEMON_LEAP);
+imp_demon_leap_flight_start = function(_end_x, _end_y, _target, _is_returning)
+{
+	demon_leap_flight_duration = max(1, BALANCE_IMP_DEMON_LEAP_ANIMATION_TIME * room_speed);
+	demon_leap_flight_timer = demon_leap_flight_duration;
+	demon_leap_flight_start_x = x;
+	demon_leap_flight_start_y = y;
+	demon_leap_flight_end_x = _end_x;
+	demon_leap_flight_end_y = _end_y;
+	demon_leap_target = _target;
+	demon_leap_is_returning = _is_returning;
+	leap_visual_duration = demon_leap_flight_duration;
+	imp_leap_visual_start(x, y, _end_x, _end_y, BALANCE_IMP_DEMON_LEAP_ARC_HEIGHT, !_is_returning);
+	face_world_x(_end_x);
+};
 
-		var _target_was_killed = imp_damage_target(_target, damage, true);
-		_has_jumped = true;
+imp_demon_leap_next_flight_start = function()
+{
+	if (demon_leap_jump_count >= demon_leap_max_jump_count)
+	{
+		imp_demon_leap_flight_start(demon_leap_home_x, demon_leap_home_y, noone, true);
+		return true;
+	}
 
-		if (_leap_level >= 3)
+	var _target = imp_find_farthest_enemy_except(BALANCE_IMP_DEMON_LEAP_SEARCH_RADIUS, demon_leap_hit_targets);
+
+	if (instance_exists(_target))
+	{
+		demon_leap_jump_count++;
+		imp_demon_leap_flight_start(_target.x, _target.y, _target, false);
+		return true;
+	}
+
+	if (demon_leap_jump_count > 0)
+	{
+		imp_demon_leap_flight_start(demon_leap_home_x, demon_leap_home_y, noone, true);
+		return true;
+	}
+
+	demon_leap_is_active = false;
+	visual_offset_is_ability_controlled = false;
+	return false;
+};
+
+imp_demon_leap_update = function()
+{
+	if (!demon_leap_is_active)
+	{
+		return;
+	}
+
+	demon_leap_flight_timer--;
+	var _flight_progress = 1 - clamp(demon_leap_flight_timer / max(1, demon_leap_flight_duration), 0, 1);
+	var _arc_lift = sin(_flight_progress * pi) * BALANCE_IMP_DEMON_LEAP_ARC_HEIGHT;
+	x = lerp(demon_leap_flight_start_x, demon_leap_flight_end_x, _flight_progress);
+	y = lerp(demon_leap_flight_start_y, demon_leap_flight_end_y, _flight_progress) - _arc_lift;
+
+	if (demon_leap_flight_timer > 0)
+	{
+		return;
+	}
+
+	x = demon_leap_flight_end_x;
+	y = demon_leap_flight_end_y;
+
+	if (demon_leap_is_returning)
+	{
+		demon_leap_is_active = false;
+		demon_leap_target = noone;
+		visual_offset_is_ability_controlled = false;
+		return;
+	}
+
+	if (instance_exists(demon_leap_target))
+	{
+		imp_damage_target(demon_leap_target, damage, true);
+		array_push(demon_leap_hit_targets, demon_leap_target);
+
+		if (imp_ability_level_get(DEMON_ABILITY.IMP_DEMON_LEAP) >= 3)
 		{
 			imp_blood_pool_add(x, y);
 		}
-
-		_previous_target = _target;
-
-		if (_leap_level < 4 && (!_target_was_killed || _jump_index >= 1))
-		{
-			break;
-		}
 	}
 
-	if (_has_jumped)
+	imp_demon_leap_next_flight_start();
+};
+
+imp_demon_leap_use = function()
+{
+	var _leap_level = max(1, imp_ability_level_get(DEMON_ABILITY.IMP_DEMON_LEAP));
+	demon_leap_is_active = true;
+	demon_leap_jump_count = 0;
+	demon_leap_max_jump_count = imp_demon_leap_jump_count_get(_leap_level);
+	demon_leap_home_x = x;
+	demon_leap_home_y = y;
+	demon_leap_hit_targets = [];
+
+	if (!imp_demon_leap_next_flight_start())
 	{
-		demon_active_ability_used_notify(DEMON_ABILITY.IMP_DEMON_LEAP);
+		return false;
 	}
 
-	return _has_jumped;
+	ability_popup_create(x, y, DEMON_ABILITY.IMP_DEMON_LEAP);
+	demon_active_ability_used_notify(DEMON_ABILITY.IMP_DEMON_LEAP);
+	return true;
 };
 
 imp_crimson_guillotine_use = function()
@@ -788,15 +986,8 @@ imp_crimson_guillotine_use = function()
 		return false;
 	}
 
-	crimson_guillotine_target = _target;
 	crimson_guillotine_repeat_count = 0;
-	crimson_guillotine_strike_duration = BALANCE_IMP_CRIMSON_GUILLOTINE_JUMP_TIME * room_speed;
-	crimson_guillotine_ascent_duration = max(1, BALANCE_IMP_CRIMSON_GUILLOTINE_ASCENT_TIME * room_speed);
-	crimson_guillotine_strike_timer = crimson_guillotine_strike_duration;
-	crimson_guillotine_start_x = x;
-	crimson_guillotine_start_y = y;
-	crimson_guillotine_apex_y = y - BALANCE_IMP_CRIMSON_GUILLOTINE_FALL_HEIGHT;
-	visual_offset_is_ability_controlled = true;
+	imp_crimson_guillotine_flight_start(_target);
 	ability_popup_create(x, y, DEMON_ABILITY.IMP_CRIMSON_GUILLOTINE);
 	demon_active_ability_used_notify(DEMON_ABILITY.IMP_CRIMSON_GUILLOTINE);
 
@@ -809,20 +1000,19 @@ imp_crimson_guillotine_strike = function()
 
 	if (!instance_exists(crimson_guillotine_target))
 	{
+		visual_offset_is_ability_controlled = false;
 		return;
 	}
 
 	var _guillotine_level = max(1, imp_ability_level_get(DEMON_ABILITY.IMP_CRIMSON_GUILLOTINE));
 	var _target = crimson_guillotine_target;
-	var _start_x = _target.x;
-	var _start_y = _target.y - BALANCE_IMP_CRIMSON_GUILLOTINE_FALL_HEIGHT;
 	var _aoe_radius = imp_crimson_guillotine_aoe_radius_get(_guillotine_level);
 	var _aoe_damage = imp_crimson_guillotine_aoe_damage_get(_guillotine_level);
 	x = _target.x;
 	y = _target.y;
 	face_world_x(_target.x);
-	leap_visual_duration = BALANCE_IMP_DEMON_LEAP_ANIMATION_TIME * room_speed;
-	imp_leap_visual_start(_start_x, _start_y, x, y, BALANCE_IMP_DEMON_LEAP_ARC_HEIGHT * 1.4);
+	imp_crimson_guillotine_landing_smoke_create(x, y, _aoe_radius);
+	imp_crimson_guillotine_camera_shake_try(x, y);
 
 	var _target_was_killed = imp_damage_target(
 		_target,
@@ -853,14 +1043,7 @@ imp_crimson_guillotine_strike = function()
 		if (instance_exists(_repeat_target))
 		{
 			crimson_guillotine_repeat_count++;
-			crimson_guillotine_target = _repeat_target;
-			crimson_guillotine_strike_duration = max(1, BALANCE_IMP_CRIMSON_GUILLOTINE_ASCENT_TIME * room_speed);
-			crimson_guillotine_ascent_duration = 1;
-			crimson_guillotine_strike_timer = crimson_guillotine_strike_duration;
-			crimson_guillotine_start_x = x;
-			crimson_guillotine_start_y = y;
-			crimson_guillotine_apex_y = y - BALANCE_IMP_CRIMSON_GUILLOTINE_FALL_HEIGHT;
-			visual_offset_is_ability_controlled = true;
+			imp_crimson_guillotine_flight_start(_repeat_target);
 		}
 	}
 };
@@ -897,16 +1080,10 @@ imp_clone_stats_copy = function(_clone)
 
 imp_bloody_clone_use = function()
 {
-	var _clone_level = max(1, imp_ability_level_get(DEMON_ABILITY.IMP_BLOODY_CLONE));
-	var _clone_count = 1;
+	var _clone_count = 2;
 	var _start_x = x;
 	var _start_y = y;
 	var _spawn_distance = BALANCE_IMP_BLOODY_CLONE_SPAWN_DISTANCE;
-
-	if (_clone_level >= 4)
-	{
-		_clone_count = 2;
-	}
 
 	for (var _clone_index = 0; _clone_index < _clone_count; ++_clone_index)
 	{

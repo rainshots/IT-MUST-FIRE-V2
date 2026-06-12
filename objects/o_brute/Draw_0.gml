@@ -39,15 +39,28 @@ if (meat_explosion_circle_timer > 0)
 // Draw Butcher Chains pull lines above the ground circles but below the Brute name.
 if (hook_line_active)
 {
-	draw_set_color(COLOR_BRUTE_HOOK_LINE);
-	draw_set_alpha(0.9);
+	draw_set_color(COLOR_COOLDOWN_BRUTE_BUTCHER_CHAINS);
 
+	for (var _chain_index = 0; _chain_index < array_length(hook_chain_visuals); ++_chain_index)
+	{
+		var _chain = hook_chain_visuals[_chain_index];
+
+		draw_set_alpha(0.35);
+		draw_line_width(x, y, _chain.tip_x, _chain.tip_y, 7);
+		draw_set_alpha(1);
+		draw_line_width(x, y, _chain.tip_x, _chain.tip_y, 3);
+	}
+
+	draw_set_alpha(0.9);
 	for (var _target_index = 0; _target_index < array_length(hook_targets); ++_target_index)
 	{
 		var _hook_target = hook_targets[_target_index];
 
 		if (instance_exists(_hook_target))
 		{
+			draw_set_alpha(0.35);
+			draw_line_width(x, y, _hook_target.x, _hook_target.y, 7);
+			draw_set_alpha(1);
 			draw_line_width(x, y, _hook_target.x, _hook_target.y, 3);
 		}
 	}
@@ -91,49 +104,6 @@ draw_set_halign(fa_center);
 draw_set_valign(fa_middle);
 draw_set_color(COLOR_HUD_TEXT);
 draw_text(x, y - 42, cultist_name);
-
-// Draw compact cooldown bars for owned Brute active abilities.
-var _cooldown_bar_width = 34;
-var _cooldown_bar_height = 3;
-var _cooldown_bar_gap = 2;
-var _cooldown_bar_x = x - (_cooldown_bar_width * 0.5);
-var _cooldown_bar_y = y + 32;
-var _cooldown_timers = [];
-var _cooldown_maxes = [];
-var _cooldown_colors = [];
-
-if (cultist_active_ability_has(id, DEMON_ABILITY.BRUTE_GRAVE_SLAM))
-{
-	array_push(_cooldown_timers, grave_slam_timer);
-	array_push(_cooldown_maxes, ability_cooldown_time_get(grave_slam_cooldown));
-	array_push(_cooldown_colors, COLOR_BRUTE_GRAVE_SLAM);
-}
-if (cultist_active_ability_has(id, DEMON_ABILITY.BRUTE_BUTCHER_CHAINS))
-{
-	array_push(_cooldown_timers, butcher_chains_timer);
-	array_push(_cooldown_maxes, ability_cooldown_time_get(butcher_chains_cooldown));
-	array_push(_cooldown_colors, COLOR_BRUTE_HOOK_LINE);
-}
-if (cultist_active_ability_has(id, DEMON_ABILITY.BRUTE_CORPSE_ARMOR))
-{
-	array_push(_cooldown_timers, corpse_armor_ability_timer);
-	array_push(_cooldown_maxes, ability_cooldown_time_get(corpse_armor_cooldown));
-	array_push(_cooldown_colors, COLOR_BRUTE_MEAT_EXPLOSION);
-}
-
-for (var _bar_index = 0; _bar_index < array_length(_cooldown_timers); ++_bar_index)
-{
-	var _bar_y = _cooldown_bar_y + ((_cooldown_bar_height + _cooldown_bar_gap) * _bar_index);
-	var _progress = 1 - clamp(_cooldown_timers[_bar_index] / max(1, _cooldown_maxes[_bar_index]), 0, 1);
-
-	draw_set_alpha(0.75);
-	draw_set_color(COLOR_HUD_BACKGROUND);
-	draw_rectangle(_cooldown_bar_x, _bar_y, _cooldown_bar_x + _cooldown_bar_width, _bar_y + _cooldown_bar_height, false);
-
-	draw_set_alpha(1);
-	draw_set_color(_cooldown_colors[_bar_index]);
-	draw_rectangle(_cooldown_bar_x, _bar_y, _cooldown_bar_x + (_cooldown_bar_width * _progress), _bar_y + _cooldown_bar_height, false);
-}
 
 // Restore default draw state.
 draw_set_halign(fa_left);

@@ -24,6 +24,7 @@ launch_delay_timer = 0;
 flight_time = minimum_flight_time * room_speed;
 flight_timer = 0;
 arc_height = 260;
+ignore_pause = false;
 
 // Visual settings.
 projectile_radius = 12;

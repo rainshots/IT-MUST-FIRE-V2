@@ -1,11 +1,55 @@
+// Keep game surfaces aligned before any tutorial popup can block gameplay input.
+var _window_width = window_get_width();
+var _window_height = window_get_height();
+
+if (_window_width != previous_window_width || _window_height != previous_window_height)
+{
+	current_view_width = _window_width;
+	current_view_height = _window_height;
+	previous_window_width = _window_width;
+	previous_window_height = _window_height;
+
+	if (!fullscreen_enabled)
+	{
+		windowed_view_width = current_view_width;
+		windowed_view_height = current_view_height;
+	}
+
+	// Keep the game resolution fixed and let GameMaker apply aspect correction.
+	display_set_gui_size(camera_view_width, camera_view_height);
+	view_xport[main_view_index] = 0;
+	view_yport[main_view_index] = 0;
+	view_wport[main_view_index] = camera_view_width;
+	view_hport[main_view_index] = camera_view_height;
+
+	if (surface_exists(application_surface))
+	{
+		surface_resize(application_surface, camera_view_width, camera_view_height);
+		application_surface_ready = true;
+	}
+}
+
+// Resize the application surface once it becomes available.
+if (!application_surface_ready && surface_exists(application_surface))
+{
+	surface_resize(application_surface, camera_view_width, camera_view_height);
+	application_surface_ready = true;
+}
+
+// Tutorial popups block every lower gameplay and UI input.
+if (variable_global_exists("tutorial_popup_active") && global.tutorial_popup_active)
+{
+	exit;
+}
+
 // F3 toggles fog visibility for fast map testing.
-if (keyboard_check_pressed(vk_f3))
+if (global.cheats_enabled && keyboard_check_pressed(vk_f3))
 {
 	global.fog_of_war_visible = !global.fog_of_war_visible;
 }
 
 // L restarts the current room for fast prototype iteration.
-if (keyboard_check_pressed(ord("L")))
+if (global.cheats_enabled && keyboard_check_pressed(ord("L")))
 {
 	room_restart();
 	exit;
@@ -26,6 +70,21 @@ if (!cultists_spawned)
 {
 	spawn_starting_cultists();
 }
+
+// Open the first cultist choice after the welcome tutorial has closed.
+if (starting_cultist_selection_pending)
+{
+	open_starting_cultist_selection();
+}
+
+// Spawn objective shrines around the cannon once the cannon exists.
+if (!shrines_spawned)
+{
+	spawn_objective_shrines();
+}
+
+// Track shrine objective completion for the HUD and win condition hooks.
+shrine_objective_update();
 
 // Allow the player to pick up and reposition cultists during gameplay.
 if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultists") && instance_exists(o_camera_controller))
@@ -53,6 +112,14 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 
 			_drag_world_x = _clamped_position[0];
 			_drop_world_y = _clamped_position[1];
+			_assignment_world_y = _drop_world_y;
+		}
+
+		// Keep dragged units inside the already revealed fog of war area.
+		if (!world_position_is_revealed_by_fog(_drag_world_x, _drop_world_y))
+		{
+			_drag_world_x = _dragged_cultist.drag_drop_x;
+			_drop_world_y = _dragged_cultist.drag_drop_y;
 			_assignment_world_y = _drop_world_y;
 		}
 
@@ -150,12 +217,16 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 		{
 			clear_cultist_building_assignment(_closest_cultist);
 
+			// Store the last valid drop point before lifting the unit to the cursor.
+			var _starting_drag_drop_x = _closest_cultist.x;
+			var _starting_drag_drop_y = _closest_cultist.y;
+
 			global.dragged_cultist = _closest_cultist;
 			_closest_cultist.is_being_dragged = true;
 			_closest_cultist.x = _mouse_world_x;
 			_closest_cultist.y = _mouse_world_y + cultist_drag_lift_offset_y;
-			_closest_cultist.drag_drop_x = _mouse_world_x;
-			_closest_cultist.drag_drop_y = _mouse_world_y + cultist_drag_drop_offset_y;
+			_closest_cultist.drag_drop_x = _starting_drag_drop_x;
+			_closest_cultist.drag_drop_y = _starting_drag_drop_y;
 			global.sound_play_random(global.pick_worker_sounds);
 		}
 		else
@@ -211,215 +282,221 @@ with (all)
 	}
 }
 
-// F4 manually starts a combat-form test while the full day/night cycle is disabled.
-if (keyboard_check_pressed(vk_f4) && global.focus_window == FOCUS_WINDOW.NOONE && !instance_exists(global.dragged_cultist))
+if (global.cheats_enabled)
 {
-	transform_cultists_to_demons();
-}
-
-// F1 adds satiety for fast Feast projectile testing.
-if (keyboard_check_pressed(vk_f1) && global.focus_window == FOCUS_WINDOW.NOONE && !instance_exists(global.dragged_cultist))
-{
-	cannon_satiety_add(BALANCE_CANNON_SATIETY_CHEAT_AMOUNT);
-}
-
-// F5 fills the cannon satiety meter for fast corpse-feed testing.
-if (keyboard_check_pressed(vk_f5) && global.focus_window == FOCUS_WINDOW.NOONE && !instance_exists(global.dragged_cultist))
-{
-	global.cannon_satiety = global.cannon_satiety_max;
-}
-
-// Right mouse button spawns meat at the cursor for Brute Corpse Eater testing.
-if (mouse_check_button_pressed(mb_right) && global.focus_window == FOCUS_WINDOW.NOONE && instance_exists(o_camera_controller))
-{
-	var _camera_controller = instance_find(o_camera_controller, 0);
-	var _mouse_gui_x = device_mouse_x_to_gui(0);
-	var _mouse_gui_y = device_mouse_y_to_gui(0);
-	var _camera_x = camera_get_view_x(_camera_controller.camera_id);
-	var _camera_y = camera_get_view_y(_camera_controller.camera_id);
-	var _camera_width = camera_get_view_width(_camera_controller.camera_id);
-	var _camera_height = camera_get_view_height(_camera_controller.camera_id);
-	var _mouse_world_x = _camera_x + ((_mouse_gui_x / camera_view_width) * _camera_width);
-	var _mouse_world_y = _camera_y + ((_mouse_gui_y / camera_view_height) * _camera_height);
-
-	instance_create_layer(_mouse_world_x, _mouse_world_y, "Instances", o_meat);
-}
-
-// NumPad keys spawn prototype units under the cursor for encounter testing.
-var _debug_spawn_unit_object = noone;
-
-if (keyboard_check_pressed(vk_numpad1))
-{
-	_debug_spawn_unit_object = o_enemy_peasant;
-}
-else if (keyboard_check_pressed(vk_numpad2))
-{
-	_debug_spawn_unit_object = o_enemy_knight;
-}
-else if (keyboard_check_pressed(vk_numpad3))
-{
-	_debug_spawn_unit_object = o_enemy_archer;
-}
-else if (keyboard_check_pressed(vk_numpad4))
-{
-	_debug_spawn_unit_object = o_enemy_mage;
-}
-else if (keyboard_check_pressed(vk_numpad8))
-{
-	_debug_spawn_unit_object = o_skeleton;
-}
-else if (keyboard_check_pressed(vk_numpad9))
-{
-	_debug_spawn_unit_object = o_pitling;
-}
-
-if (_debug_spawn_unit_object != noone
-	&& global.focus_window == FOCUS_WINDOW.NOONE
-	&& !global.pause
-	&& instance_exists(o_camera_controller))
-{
-	var _camera_controller = instance_find(o_camera_controller, 0);
-	var _mouse_gui_x = device_mouse_x_to_gui(0);
-	var _mouse_gui_y = device_mouse_y_to_gui(0);
-	var _camera_x = camera_get_view_x(_camera_controller.camera_id);
-	var _camera_y = camera_get_view_y(_camera_controller.camera_id);
-	var _camera_width = camera_get_view_width(_camera_controller.camera_id);
-	var _camera_height = camera_get_view_height(_camera_controller.camera_id);
-	var _mouse_world_x = _camera_x + ((_mouse_gui_x / camera_view_width) * _camera_width);
-	var _mouse_world_y = _camera_y + ((_mouse_gui_y / camera_view_height) * _camera_height);
-
-	instance_create_layer(_mouse_world_x, _mouse_world_y, "Instances", _debug_spawn_unit_object);
-}
-
-// Mouse button 5 damages the topmost HP-bearing instance under the cursor for debugging.
-var _debug_damage_mouse_button = 5;
-
-if (mouse_check_button_pressed(_debug_damage_mouse_button)
-	&& global.focus_window == FOCUS_WINDOW.NOONE
-	&& instance_exists(o_camera_controller))
-{
-	var _camera_controller = instance_find(o_camera_controller, 0);
-	var _mouse_gui_x = device_mouse_x_to_gui(0);
-	var _mouse_gui_y = device_mouse_y_to_gui(0);
-	var _camera_x = camera_get_view_x(_camera_controller.camera_id);
-	var _camera_y = camera_get_view_y(_camera_controller.camera_id);
-	var _camera_width = camera_get_view_width(_camera_controller.camera_id);
-	var _camera_height = camera_get_view_height(_camera_controller.camera_id);
-	var _mouse_world_x = _camera_x + ((_mouse_gui_x / camera_view_width) * _camera_width);
-	var _mouse_world_y = _camera_y + ((_mouse_gui_y / camera_view_height) * _camera_height);
-	var _target_instance = noone;
-	var _target_depth = infinity;
-	var _instance_count = instance_number(all);
-
-	for (var _instance_index = 0; _instance_index < _instance_count; ++_instance_index)
+	// F4 manually starts a combat-form test while the full day/night cycle is disabled.
+	if (keyboard_check_pressed(vk_f4) && global.focus_window == FOCUS_WINDOW.NOONE && !instance_exists(global.dragged_cultist))
 	{
-		var _instance = instance_find(all, _instance_index);
+		transform_cultists_to_demons();
+	}
 
-		if (instance_exists(_instance)
-			&& variable_instance_exists(_instance, "hp")
-			&& _instance.hp > 0
-			&& _mouse_world_x >= _instance.bbox_left
-			&& _mouse_world_x <= _instance.bbox_right
-			&& _mouse_world_y >= _instance.bbox_top
-			&& _mouse_world_y <= _instance.bbox_bottom
-			&& _instance.depth < _target_depth)
+	// F1 adds satiety for fast Feast projectile testing.
+	if (keyboard_check_pressed(vk_f1) && global.focus_window == FOCUS_WINDOW.NOONE && !instance_exists(global.dragged_cultist))
+	{
+		cannon_satiety_add(BALANCE_CANNON_SATIETY_CHEAT_AMOUNT);
+	}
+
+	// F5 fills the cannon satiety meter for fast corpse-feed testing.
+	if (keyboard_check_pressed(vk_f5) && global.focus_window == FOCUS_WINDOW.NOONE && !instance_exists(global.dragged_cultist))
+	{
+		global.cannon_satiety = global.cannon_satiety_max;
+	}
+
+	// Shift + right mouse button spawns meat at the cursor for Brute Corpse Eater testing.
+	if (keyboard_check(vk_shift)
+		&& mouse_check_button_pressed(mb_right)
+		&& global.focus_window == FOCUS_WINDOW.NOONE
+		&& instance_exists(o_camera_controller))
+	{
+		var _camera_controller = instance_find(o_camera_controller, 0);
+		var _mouse_gui_x = device_mouse_x_to_gui(0);
+		var _mouse_gui_y = device_mouse_y_to_gui(0);
+		var _camera_x = camera_get_view_x(_camera_controller.camera_id);
+		var _camera_y = camera_get_view_y(_camera_controller.camera_id);
+		var _camera_width = camera_get_view_width(_camera_controller.camera_id);
+		var _camera_height = camera_get_view_height(_camera_controller.camera_id);
+		var _mouse_world_x = _camera_x + ((_mouse_gui_x / camera_view_width) * _camera_width);
+		var _mouse_world_y = _camera_y + ((_mouse_gui_y / camera_view_height) * _camera_height);
+
+		instance_create_layer(_mouse_world_x, _mouse_world_y, "Instances", o_meat);
+	}
+
+	// NumPad keys spawn prototype units under the cursor for encounter testing.
+	var _debug_spawn_unit_object = noone;
+
+	if (keyboard_check_pressed(vk_numpad1))
+	{
+		_debug_spawn_unit_object = o_enemy_peasant;
+	}
+	else if (keyboard_check_pressed(vk_numpad2))
+	{
+		_debug_spawn_unit_object = o_enemy_knight;
+	}
+	else if (keyboard_check_pressed(vk_numpad3))
+	{
+		_debug_spawn_unit_object = o_enemy_archer;
+	}
+	else if (keyboard_check_pressed(vk_numpad4))
+	{
+		_debug_spawn_unit_object = o_enemy_mage;
+	}
+	else if (keyboard_check_pressed(vk_numpad8))
+	{
+		_debug_spawn_unit_object = o_skeleton;
+	}
+	else if (keyboard_check_pressed(vk_numpad9))
+	{
+		_debug_spawn_unit_object = o_pitling;
+	}
+
+	if (_debug_spawn_unit_object != noone
+		&& global.focus_window == FOCUS_WINDOW.NOONE
+		&& !global.pause
+		&& instance_exists(o_camera_controller))
+	{
+		var _camera_controller = instance_find(o_camera_controller, 0);
+		var _mouse_gui_x = device_mouse_x_to_gui(0);
+		var _mouse_gui_y = device_mouse_y_to_gui(0);
+		var _camera_x = camera_get_view_x(_camera_controller.camera_id);
+		var _camera_y = camera_get_view_y(_camera_controller.camera_id);
+		var _camera_width = camera_get_view_width(_camera_controller.camera_id);
+		var _camera_height = camera_get_view_height(_camera_controller.camera_id);
+		var _mouse_world_x = _camera_x + ((_mouse_gui_x / camera_view_width) * _camera_width);
+		var _mouse_world_y = _camera_y + ((_mouse_gui_y / camera_view_height) * _camera_height);
+
+		instance_create_layer(_mouse_world_x, _mouse_world_y, "Instances", _debug_spawn_unit_object);
+	}
+
+	// Mouse button 5 damages the topmost HP-bearing instance under the cursor for debugging.
+	var _debug_damage_mouse_button = 5;
+
+	if (mouse_check_button_pressed(_debug_damage_mouse_button)
+		&& global.focus_window == FOCUS_WINDOW.NOONE
+		&& instance_exists(o_camera_controller))
+	{
+		var _camera_controller = instance_find(o_camera_controller, 0);
+		var _mouse_gui_x = device_mouse_x_to_gui(0);
+		var _mouse_gui_y = device_mouse_y_to_gui(0);
+		var _camera_x = camera_get_view_x(_camera_controller.camera_id);
+		var _camera_y = camera_get_view_y(_camera_controller.camera_id);
+		var _camera_width = camera_get_view_width(_camera_controller.camera_id);
+		var _camera_height = camera_get_view_height(_camera_controller.camera_id);
+		var _mouse_world_x = _camera_x + ((_mouse_gui_x / camera_view_width) * _camera_width);
+		var _mouse_world_y = _camera_y + ((_mouse_gui_y / camera_view_height) * _camera_height);
+		var _target_instance = noone;
+		var _target_depth = infinity;
+		var _instance_count = instance_number(all);
+
+		for (var _instance_index = 0; _instance_index < _instance_count; ++_instance_index)
 		{
-			_target_instance = _instance;
-			_target_depth = _instance.depth;
+			var _instance = instance_find(all, _instance_index);
+
+			if (instance_exists(_instance)
+				&& variable_instance_exists(_instance, "hp")
+				&& _instance.hp > 0
+				&& _mouse_world_x >= _instance.bbox_left
+				&& _mouse_world_x <= _instance.bbox_right
+				&& _mouse_world_y >= _instance.bbox_top
+				&& _mouse_world_y <= _instance.bbox_bottom
+				&& _instance.depth < _target_depth)
+			{
+				_target_instance = _instance;
+				_target_depth = _instance.depth;
+			}
+		}
+
+		if (instance_exists(_target_instance))
+		{
+			var _damage_amount = BALANCE_DEBUG_MOUSE_DAMAGE;
+			var _target_faction = UNIT_FACTION.ENEMY;
+
+			if (variable_instance_exists(_target_instance, "unit_faction"))
+			{
+				_target_faction = _target_instance.unit_faction;
+			}
+
+			if (variable_instance_exists(_target_instance, "unit_damage_receive"))
+			{
+				_target_instance.unit_damage_receive(_damage_amount, UNIT_FACTION.NOONE);
+			}
+			else
+			{
+				_target_instance.hp = max(_target_instance.hp - _damage_amount, 0);
+				damage_popup_create(_target_instance.x, _target_instance.y, _damage_amount, _target_faction);
+			}
 		}
 	}
 
-	if (instance_exists(_target_instance))
-	{
-		var _damage_amount = BALANCE_DEBUG_MOUSE_DAMAGE;
-		var _target_faction = UNIT_FACTION.ENEMY;
+	// Mouse button 4 gives night reward EXP to the topmost cultist or demon under the cursor.
+	var _debug_exp_mouse_button = 4;
 
-		if (variable_instance_exists(_target_instance, "unit_faction"))
+	if (mouse_check_button_pressed(_debug_exp_mouse_button)
+		&& global.focus_window == FOCUS_WINDOW.NOONE
+		&& instance_exists(o_camera_controller))
+	{
+		var _camera_controller = instance_find(o_camera_controller, 0);
+		var _mouse_gui_x = device_mouse_x_to_gui(0);
+		var _mouse_gui_y = device_mouse_y_to_gui(0);
+		var _camera_x = camera_get_view_x(_camera_controller.camera_id);
+		var _camera_y = camera_get_view_y(_camera_controller.camera_id);
+		var _camera_width = camera_get_view_width(_camera_controller.camera_id);
+		var _camera_height = camera_get_view_height(_camera_controller.camera_id);
+		var _mouse_world_x = _camera_x + ((_mouse_gui_x / camera_view_width) * _camera_width);
+		var _mouse_world_y = _camera_y + ((_mouse_gui_y / camera_view_height) * _camera_height);
+		var _target_instance = noone;
+		var _target_depth = infinity;
+		var _instance_count = instance_number(all);
+
+		for (var _instance_index = 0; _instance_index < _instance_count; ++_instance_index)
 		{
-			_target_faction = _target_instance.unit_faction;
+			var _instance = instance_find(all, _instance_index);
+
+			if (instance_exists(_instance)
+				&& variable_instance_exists(_instance, "current_exp")
+				&& variable_instance_exists(_instance, "current_lvl")
+				&& variable_instance_exists(_instance, "cultist_points")
+				&& _mouse_world_x >= _instance.bbox_left
+				&& _mouse_world_x <= _instance.bbox_right
+				&& _mouse_world_y >= _instance.bbox_top
+				&& _mouse_world_y <= _instance.bbox_bottom
+				&& _instance.depth < _target_depth)
+			{
+				_target_instance = _instance;
+				_target_depth = _instance.depth;
+			}
 		}
 
-		if (variable_instance_exists(_target_instance, "unit_damage_receive"))
+		if (instance_exists(_target_instance))
 		{
-			_target_instance.unit_damage_receive(_damage_amount, UNIT_FACTION.NOONE);
+			if (cultist_exp_add(_target_instance, BALANCE_CULTIST_NIGHT_EXP_REWARD))
+			{
+				open_cultist_levelup();
+			}
+		}
+	}
+
+	// F2 adds prototype resources for fast construction testing.
+	if (keyboard_check_pressed(vk_f2))
+	{
+		global.resources[RESOURCES.FLESH] += BALANCE_DEBUG_RESOURCE_CHEAT_AMOUNT;
+		global.resources[RESOURCES.SOULS] += BALANCE_DEBUG_RESOURCE_CHEAT_AMOUNT;
+		global.resources[RESOURCES.IRON] += BALANCE_DEBUG_RESOURCE_CHEAT_AMOUNT;
+	}
+
+	// F8 skips the current day or night phase.
+	if (keyboard_check_pressed(vk_f8)
+		&& global.day_cycle_enabled
+		&& global.focus_window == FOCUS_WINDOW.NOONE)
+	{
+		if (global.day_phase == DAY_PHASE.DAY)
+		{
+			start_night_phase();
 		}
 		else
 		{
-			_target_instance.hp = max(_target_instance.hp - _damage_amount, 0);
-			damage_popup_create(_target_instance.x, _target_instance.y, _damage_amount, _target_faction);
+			debug_kill_all_enemies();
+			start_day_phase();
 		}
-	}
-}
-
-// Mouse button 4 gives night reward EXP to the topmost cultist or demon under the cursor.
-var _debug_exp_mouse_button = 4;
-
-if (mouse_check_button_pressed(_debug_exp_mouse_button)
-	&& global.focus_window == FOCUS_WINDOW.NOONE
-	&& instance_exists(o_camera_controller))
-{
-	var _camera_controller = instance_find(o_camera_controller, 0);
-	var _mouse_gui_x = device_mouse_x_to_gui(0);
-	var _mouse_gui_y = device_mouse_y_to_gui(0);
-	var _camera_x = camera_get_view_x(_camera_controller.camera_id);
-	var _camera_y = camera_get_view_y(_camera_controller.camera_id);
-	var _camera_width = camera_get_view_width(_camera_controller.camera_id);
-	var _camera_height = camera_get_view_height(_camera_controller.camera_id);
-	var _mouse_world_x = _camera_x + ((_mouse_gui_x / camera_view_width) * _camera_width);
-	var _mouse_world_y = _camera_y + ((_mouse_gui_y / camera_view_height) * _camera_height);
-	var _target_instance = noone;
-	var _target_depth = infinity;
-	var _instance_count = instance_number(all);
-
-	for (var _instance_index = 0; _instance_index < _instance_count; ++_instance_index)
-	{
-		var _instance = instance_find(all, _instance_index);
-
-		if (instance_exists(_instance)
-			&& variable_instance_exists(_instance, "current_exp")
-			&& variable_instance_exists(_instance, "current_lvl")
-			&& variable_instance_exists(_instance, "cultist_points")
-			&& _mouse_world_x >= _instance.bbox_left
-			&& _mouse_world_x <= _instance.bbox_right
-			&& _mouse_world_y >= _instance.bbox_top
-			&& _mouse_world_y <= _instance.bbox_bottom
-			&& _instance.depth < _target_depth)
-		{
-			_target_instance = _instance;
-			_target_depth = _instance.depth;
-		}
-	}
-
-	if (instance_exists(_target_instance))
-	{
-		if (cultist_exp_add(_target_instance, BALANCE_CULTIST_NIGHT_EXP_REWARD))
-		{
-			open_cultist_levelup();
-		}
-	}
-}
-
-// F2 adds prototype resources for fast construction testing.
-if (keyboard_check_pressed(vk_f2))
-{
-	global.resources[RESOURCES.FLESH] += BALANCE_DEBUG_RESOURCE_CHEAT_AMOUNT;
-	global.resources[RESOURCES.SOULS] += BALANCE_DEBUG_RESOURCE_CHEAT_AMOUNT;
-	global.resources[RESOURCES.IRON] += BALANCE_DEBUG_RESOURCE_CHEAT_AMOUNT;
-}
-
-// F8 skips the current day or night phase.
-if (keyboard_check_pressed(vk_f8)
-	&& global.day_cycle_enabled
-	&& global.focus_window == FOCUS_WINDOW.NOONE)
-{
-	if (global.day_phase == DAY_PHASE.DAY)
-	{
-		start_night_phase();
-	}
-	else
-	{
-		debug_kill_all_enemies();
-		start_day_phase();
 	}
 }
 
@@ -448,6 +525,10 @@ if (keyboard_check_pressed(vk_escape))
 	{
 		close_building_upgrade_window();
 	}
+	else if (global.focus_window == FOCUS_WINDOW.CURSED_POINT_STRUCTURE_SELECTION)
+	{
+		// The cursed point reward is mandatory once opened.
+	}
 	else if (global.focus_window == FOCUS_WINDOW.PAUSE_MENU)
 	{
 		pause_menu_open = false;
@@ -463,44 +544,6 @@ if (keyboard_check_pressed(vk_escape))
 		global.pause = true;
 		global.focus_window = FOCUS_WINDOW.PAUSE_MENU;
 	}
-}
-
-// Keep game surfaces aligned with the current window size.
-var _window_width = window_get_width();
-var _window_height = window_get_height();
-
-if (_window_width != previous_window_width || _window_height != previous_window_height)
-{
-	current_view_width = _window_width;
-	current_view_height = _window_height;
-	previous_window_width = _window_width;
-	previous_window_height = _window_height;
-
-	if (!fullscreen_enabled)
-	{
-		windowed_view_width = current_view_width;
-		windowed_view_height = current_view_height;
-	}
-
-	// Keep the game resolution fixed and let GameMaker apply aspect correction.
-	display_set_gui_size(camera_view_width, camera_view_height);
-	view_xport[main_view_index] = 0;
-	view_yport[main_view_index] = 0;
-	view_wport[main_view_index] = camera_view_width;
-	view_hport[main_view_index] = camera_view_height;
-
-	if (surface_exists(application_surface))
-	{
-		surface_resize(application_surface, camera_view_width, camera_view_height);
-		application_surface_ready = true;
-	}
-}
-
-// Resize the application surface once it becomes available.
-if (!application_surface_ready && surface_exists(application_surface))
-{
-	surface_resize(application_surface, camera_view_width, camera_view_height);
-	application_surface_ready = true;
 }
 
 // Play UI feedback for the currently hovered or clicked button.
@@ -544,6 +587,30 @@ if (keyboard_check_pressed(ord("G"))
 	var _upgrade_building = find_upgrade_building_at_position(_upgrade_mouse_world_x, _upgrade_mouse_world_y);
 
 	open_building_upgrade_window(_upgrade_building);
+}
+
+// Demolish a hovered base building and return its empty construction slot.
+if (keyboard_check_pressed(ord("T"))
+	&& global.focus_window == FOCUS_WINDOW.NOONE
+	&& !global.pause
+	&& !instance_exists(global.dragged_cultist)
+	&& instance_exists(o_camera_controller))
+{
+	var _demolish_camera_controller = instance_find(o_camera_controller, 0);
+	var _demolish_mouse_gui_x = device_mouse_x_to_gui(0);
+	var _demolish_mouse_gui_y = device_mouse_y_to_gui(0);
+	var _demolish_camera_x = camera_get_view_x(_demolish_camera_controller.camera_id);
+	var _demolish_camera_y = camera_get_view_y(_demolish_camera_controller.camera_id);
+	var _demolish_camera_width = camera_get_view_width(_demolish_camera_controller.camera_id);
+	var _demolish_camera_height = camera_get_view_height(_demolish_camera_controller.camera_id);
+	var _demolish_mouse_world_x = _demolish_camera_x + ((_demolish_mouse_gui_x / camera_view_width) * _demolish_camera_width);
+	var _demolish_mouse_world_y = _demolish_camera_y + ((_demolish_mouse_gui_y / camera_view_height) * _demolish_camera_height);
+	var _demolish_building = find_demolishable_building_at_position(_demolish_mouse_world_x, _demolish_mouse_world_y);
+
+	if (instance_exists(_demolish_building))
+	{
+		_demolish_building.building_demolish();
+	}
 }
 
 // Handle construction menu tile clicks.

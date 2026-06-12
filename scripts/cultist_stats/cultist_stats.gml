@@ -380,7 +380,7 @@ function cultist_demon_abilities_text_get(_demon_type)
 			+ "\n- Frenzy Echo: repeated attacks create phantom Imp strikes"
 			+ "\n- Blood Hunger: kills grant short attack speed bursts"
 			+ "\nActive abilities:"
-			+ "\n- Demon Leap: jumps to the lowest HP enemy and crits"
+			+ "\n- Demon Leap: jumps to the farthest enemy 3 times and crits"
 			+ "\n- Bloody Clone: creates temporary Imp copies"
 			+ "\n- Crimson Guillotine: crashes down onto the highest HP enemy";
 	}
@@ -1004,7 +1004,7 @@ function cultist_ability_description_get(_ability)
 	}
 	else if (_ability == DEMON_ABILITY.IMP_DEMON_LEAP)
 	{
-		return "Jumps to the lowest HP enemy and lands a critical hit.";
+		return "Jumps 3 times to the farthest enemy within 300px, critically strikes each target, then jumps back.";
 	}
 	else if (_ability == DEMON_ABILITY.IMP_CRIMSON_GUILLOTINE)
 	{
@@ -1122,7 +1122,7 @@ function cultist_ability_upgrade_description_get(_ability, _target_level)
 	{
 		if (_target_level == 2)
 		{
-			return "If the leap kills its target, Imp immediately leaps to one more target.";
+			return "Imp makes 5 chained leaps instead of 3 before jumping back.";
 		}
 		else if (_target_level == 3)
 		{
@@ -1130,7 +1130,7 @@ function cultist_ability_upgrade_description_get(_ability, _target_level)
 		}
 		else if (_target_level == 4)
 		{
-			return "Imp performs up to 4 chained leaps, even if targets survive.";
+			return "Imp makes up to 7 chained leaps before jumping back.";
 		}
 	}
 	else if (_ability == DEMON_ABILITY.IMP_BLOODY_CLONE)

@@ -8,9 +8,9 @@ y_sort_enabled = true;
 // Totem timing and targeting values are kept in balance for quick tuning.
 life_timer = BALANCE_WARLOCK_HEX_TOTEM_DURATION * room_speed;
 beam_timer = 0;
-zone_damage_timer = BALANCE_WARLOCK_DEMONIC_INFUSION_TICK_TIME * room_speed;
+zone_damage_timer = BALANCE_WARLOCK_HEX_TOTEM_ZONE_TICK_TIME * room_speed;
 beam_line_timer = 0;
-beam_line_time = 0.18 * room_speed;
+beam_line_time = BALANCE_WARLOCK_HEX_TOTEM_BEAM_LINE_TIME * room_speed;
 beam_targets = [];
 effect_radius = BALANCE_WARLOCK_HEX_TOTEM_RADIUS;
 has_exploded = false;

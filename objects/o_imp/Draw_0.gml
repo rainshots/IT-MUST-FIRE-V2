@@ -1,18 +1,52 @@
-// Draw Crimson Guillotine ascent before the vertical strike lands.
+// Draw Crimson Guillotine flight before the landing strike resolves.
 if (crimson_guillotine_strike_timer > 0)
 {
 	var _guillotine_elapsed = crimson_guillotine_strike_duration - crimson_guillotine_strike_timer;
-	var _ascent_progress = clamp(_guillotine_elapsed / max(1, crimson_guillotine_ascent_duration), 0, 1);
+	var _target_x = crimson_guillotine_start_x;
+	var _target_y = crimson_guillotine_start_y;
+
+	if (instance_exists(crimson_guillotine_target))
+	{
+		_target_x = crimson_guillotine_target.x;
+		_target_y = crimson_guillotine_target.y;
+	}
+
 	var _visual_x = crimson_guillotine_start_x;
-	var _visual_y = lerp(crimson_guillotine_start_y, crimson_guillotine_apex_y, _ascent_progress);
+	var _visual_y = crimson_guillotine_apex_y;
+	var _is_falling = _guillotine_elapsed > crimson_guillotine_ascent_duration;
+	var _fall_start_x = _target_x;
+	var _fall_start_y = _target_y - BALANCE_IMP_CRIMSON_GUILLOTINE_FALL_HEIGHT;
+
+	if (_is_falling)
+	{
+		var _fall_elapsed = _guillotine_elapsed - crimson_guillotine_ascent_duration;
+		var _fall_progress = clamp(_fall_elapsed / max(1, crimson_guillotine_fall_duration), 0, 1);
+
+		_visual_x = _fall_start_x;
+		_visual_y = lerp(_fall_start_y, _target_y, _fall_progress);
+	}
+	else
+	{
+		var _ascent_progress = clamp(_guillotine_elapsed / max(1, crimson_guillotine_ascent_duration), 0, 1);
+
+		_visual_y = lerp(crimson_guillotine_start_y, crimson_guillotine_apex_y, _ascent_progress);
+	}
 
 	visual_attack_offset_x = _visual_x - x;
 	visual_attack_offset_y = _visual_y - y;
 	visual_offset_is_ability_controlled = true;
 
 	draw_set_color(COLOR_STATUS_NEGATIVE_RED);
-	draw_set_alpha(0.65);
-	draw_line_width(crimson_guillotine_start_x, crimson_guillotine_start_y - 12, crimson_guillotine_start_x, _visual_y - 12, 3);
+	draw_set_alpha(0.45);
+	draw_line_width(crimson_guillotine_start_x, crimson_guillotine_start_y - 12, crimson_guillotine_start_x, crimson_guillotine_apex_y - 12, 3);
+
+	if (_is_falling)
+	{
+		draw_set_alpha(0.55);
+		draw_line_width(_fall_start_x, _fall_start_y - 12, _visual_x, _visual_y - 12, 15);
+		draw_set_alpha(0.95);
+		draw_line_width(_fall_start_x, _fall_start_y - 12, _visual_x, _visual_y - 12, 5);
+	}
 
 	if (instance_exists(crimson_guillotine_target))
 	{
@@ -20,7 +54,7 @@ if (crimson_guillotine_strike_timer > 0)
 		var _aoe_radius = imp_crimson_guillotine_aoe_radius_get(_guillotine_level);
 
 		draw_set_alpha(0.28);
-		draw_circle(crimson_guillotine_target.x, crimson_guillotine_target.y, _aoe_radius, false);
+		draw_circle(_target_x, _target_y, _aoe_radius, false);
 	}
 
 	draw_set_color(c_white);
@@ -43,12 +77,55 @@ else if (leap_visual_timer > 0)
 	visual_attack_offset_x = _visual_x - x;
 	visual_attack_offset_y = _visual_y - y;
 
-	draw_set_color(COLOR_IMP_BLOOD_FRENZY);
-	draw_set_alpha(0.55);
-	draw_line_width(leap_visual_start_x, leap_visual_start_y - 16, leap_visual_end_x, leap_visual_end_y - 16, 2);
-	draw_set_color(c_white);
-	draw_set_alpha(1);
+	draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+	draw_set_alpha(0.75);
+	draw_line_width(leap_visual_start_x, leap_visual_start_y - 16, leap_visual_end_x, leap_visual_end_y - 16, 9);
+	draw_set_alpha(0.95);
+	draw_line_width(leap_visual_start_x, leap_visual_start_y - 16, leap_visual_end_x, leap_visual_end_y - 16, 3);
 }
+
+// Draw lingering Demon Leap chain segments as red slashes.
+for (var _leap_segment_index = 0; _leap_segment_index < array_length(leap_visual_segments); ++_leap_segment_index)
+{
+	var _leap_segment = leap_visual_segments[_leap_segment_index];
+	var _segment_progress = clamp(_leap_segment.timer / max(1, _leap_segment.duration), 0, 1);
+	var _segment_alpha = 0.7 * _segment_progress;
+	var _slash_size = 14;
+	var _segment_direction = point_direction(_leap_segment.start_x, _leap_segment.start_y, _leap_segment.end_x, _leap_segment.end_y);
+	var _lightning_offset = 10 + ((_leap_segment_index mod 2) * 6);
+	var _lightning_mid_x = (_leap_segment.start_x + _leap_segment.end_x) * 0.5 + lengthdir_x(_lightning_offset, _segment_direction + 90);
+	var _lightning_mid_y = (_leap_segment.start_y + _leap_segment.end_y) * 0.5 + lengthdir_y(_lightning_offset, _segment_direction + 90);
+
+	draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+	draw_set_alpha(_segment_alpha * 0.6);
+	draw_line_width(_leap_segment.start_x, _leap_segment.start_y - 16, _lightning_mid_x, _lightning_mid_y - 16, 11);
+	draw_line_width(_lightning_mid_x, _lightning_mid_y - 16, _leap_segment.end_x, _leap_segment.end_y - 16, 11);
+	draw_set_alpha(_segment_alpha);
+	draw_line_width(_leap_segment.start_x, _leap_segment.start_y - 16, _lightning_mid_x, _lightning_mid_y - 16, 4);
+	draw_line_width(_lightning_mid_x, _lightning_mid_y - 16, _leap_segment.end_x, _leap_segment.end_y - 16, 4);
+
+	if (_leap_segment.draw_slash)
+	{
+		draw_set_alpha(_segment_alpha * 0.9);
+		draw_line_width(
+			_leap_segment.end_x - _slash_size,
+			_leap_segment.end_y - _slash_size,
+			_leap_segment.end_x + _slash_size,
+			_leap_segment.end_y + _slash_size,
+			3
+		);
+		draw_line_width(
+			_leap_segment.end_x - _slash_size,
+			_leap_segment.end_y + _slash_size,
+			_leap_segment.end_x + _slash_size,
+			_leap_segment.end_y - _slash_size,
+			3
+		);
+	}
+}
+
+draw_set_color(c_white);
+draw_set_alpha(1);
 
 // Draw active blood pools before unit visuals.
 for (var _pool_index = 0; _pool_index < array_length(blood_pool_data); ++_pool_index)
@@ -152,55 +229,6 @@ if (_stack_count > 0)
 			draw_rectangle(_current_bar_x, _bar_y, _current_bar_x + (_bar_width * _progress), _bar_y + _bar_height, false);
 		}
 	}
-}
-
-// Draw compact cooldown bar for the owned Imp active ability.
-var _cooldown_bar_width = 34;
-var _cooldown_bar_height = 3;
-var _cooldown_bar_gap = 2;
-var _cooldown_bar_x = x - (_cooldown_bar_width * 0.5);
-var _cooldown_bar_y = y + 40;
-var _cooldown_timers = [];
-var _cooldown_maxes = [];
-var _cooldown_colors = [];
-
-if (cultist_active_ability_has(id, DEMON_ABILITY.IMP_DEMON_LEAP))
-{
-	array_push(_cooldown_timers, demon_leap_timer);
-	array_push(_cooldown_maxes, ability_cooldown_time_get(demon_leap_cooldown));
-	array_push(_cooldown_colors, COLOR_IMP_BLOOD_FRENZY);
-}
-if (cultist_active_ability_has(id, DEMON_ABILITY.IMP_CRIMSON_GUILLOTINE))
-{
-	array_push(_cooldown_timers, crimson_guillotine_timer);
-	array_push(_cooldown_maxes, ability_cooldown_time_get(crimson_guillotine_cooldown));
-	array_push(_cooldown_colors, COLOR_STATUS_NEGATIVE_RED);
-}
-if (cultist_active_ability_has(id, DEMON_ABILITY.IMP_BLOODY_CLONE))
-{
-	array_push(_cooldown_timers, bloody_clone_timer);
-	array_push(_cooldown_maxes, ability_cooldown_time_get(bloody_clone_cooldown));
-	array_push(_cooldown_colors, COLOR_PARTICLE_BLOOD);
-}
-
-for (var _cooldown_index = 0; _cooldown_index < array_length(_cooldown_timers); ++_cooldown_index)
-{
-	var _current_bar_y = _cooldown_bar_y + ((_cooldown_bar_height + _cooldown_bar_gap) * _cooldown_index);
-	var _cooldown_progress = 1 - clamp(_cooldown_timers[_cooldown_index] / max(1, _cooldown_maxes[_cooldown_index]), 0, 1);
-
-	draw_set_alpha(0.75);
-	draw_set_color(COLOR_HUD_BACKGROUND);
-	draw_rectangle(_cooldown_bar_x, _current_bar_y, _cooldown_bar_x + _cooldown_bar_width, _current_bar_y + _cooldown_bar_height, false);
-
-	draw_set_alpha(1);
-	draw_set_color(_cooldown_colors[_cooldown_index]);
-	draw_rectangle(
-		_cooldown_bar_x,
-		_current_bar_y,
-		_cooldown_bar_x + (_cooldown_bar_width * _cooldown_progress),
-		_current_bar_y + _cooldown_bar_height,
-		false
-	);
 }
 
 // Restore default draw state.

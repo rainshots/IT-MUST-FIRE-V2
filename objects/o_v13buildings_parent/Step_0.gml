@@ -38,6 +38,7 @@ if (_valid_worker_count <= 0)
 	exit;
 }
 
+building_cultist_fatigue_update();
 recalculate_production_speed_multiplier();
 
 // Resource building upgrades add free secondary work at a fraction of specialist buildings.
@@ -58,7 +59,9 @@ if (building_upgrade_flags[1])
 				continue;
 			}
 
+			var _upgrade_heal_hp_before_heal = _heal_worker.hp;
 			_heal_worker.hp = min(_heal_worker.hp + _heal_step, _heal_worker.max_hp);
+			heal_feedback_create(_heal_worker, _heal_worker.hp - _upgrade_heal_hp_before_heal);
 		}
 	}
 	else if (object_index == o_quarry && instance_exists(o_cannon))
@@ -124,11 +127,11 @@ if (object_index == o_meat_bath)
 		exit;
 	}
 
-	if (meat_bath_heal_pool <= 0 && global.resources[RESOURCES.FLESH] > 0)
+	if (meat_bath_heal_pool <= 0 && global.resources[RESOURCES.FLESH] >= BALANCE_MEAT_BATH_FLESH_COST)
 	{
-		global.resources[RESOURCES.FLESH]--;
+		global.resources[RESOURCES.FLESH] -= BALANCE_MEAT_BATH_FLESH_COST;
 		meat_bath_heal_pool += BALANCE_MEAT_BATH_FLESH_HEAL_AMOUNT;
-		resource_popup_create(x, y - production_bar_offset_y, RESOURCES.FLESH, -1);
+		resource_popup_create(x, y - production_bar_offset_y, RESOURCES.FLESH, -BALANCE_MEAT_BATH_FLESH_COST);
 	}
 	else if (meat_bath_heal_pool <= 0)
 	{
@@ -165,6 +168,7 @@ if (object_index == o_meat_bath)
 
 		_heal_worker.hp += _heal_amount;
 		meat_bath_heal_pool -= _heal_amount;
+		heal_feedback_create(_heal_worker, _heal_amount);
 	}
 
 	exit;
@@ -192,11 +196,11 @@ if (object_index == o_ritual_circle)
 		exit;
 	}
 
-	if (ritual_circle_exp_pool <= 0 && global.resources[RESOURCES.SOULS] > 0)
+	if (ritual_circle_exp_pool <= 0 && global.resources[RESOURCES.SOULS] >= BALANCE_RITUAL_CIRCLE_SOUL_COST)
 	{
-		global.resources[RESOURCES.SOULS]--;
+		global.resources[RESOURCES.SOULS] -= BALANCE_RITUAL_CIRCLE_SOUL_COST;
 		ritual_circle_exp_pool += BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT;
-		resource_popup_create(x, y - production_bar_offset_y, RESOURCES.SOULS, -1);
+		resource_popup_create(x, y - production_bar_offset_y, RESOURCES.SOULS, -BALANCE_RITUAL_CIRCLE_SOUL_COST);
 	}
 	else if (ritual_circle_exp_pool <= 0)
 	{
@@ -261,11 +265,11 @@ if (object_index == o_workshop)
 		exit;
 	}
 
-	if (workshop_repair_pool <= 0 && global.resources[RESOURCES.IRON] > 0)
+	if (workshop_repair_pool <= 0 && global.resources[RESOURCES.IRON] >= BALANCE_WORKSHOP_IRON_COST)
 	{
-		global.resources[RESOURCES.IRON]--;
+		global.resources[RESOURCES.IRON] -= BALANCE_WORKSHOP_IRON_COST;
 		workshop_repair_pool += BALANCE_WORKSHOP_IRON_REPAIR_AMOUNT;
-		resource_popup_create(x, y - production_bar_offset_y, RESOURCES.IRON, -1);
+		resource_popup_create(x, y - production_bar_offset_y, RESOURCES.IRON, -BALANCE_WORKSHOP_IRON_COST);
 	}
 	else if (workshop_repair_pool <= 0)
 	{
@@ -289,7 +293,7 @@ if (object_index == o_workshop)
 	exit;
 }
 
-// Summoning buildings spend Souls to create temporary friendly units.
+// Summoning buildings spend their configured resource to create temporary friendly units.
 if (summon_unit_object != noone)
 {
 	if (object_index == o_goblins_pit && !goblins_pit_can_summon_goblin())
@@ -299,18 +303,18 @@ if (summon_unit_object != noone)
 		exit;
 	}
 
-	if (!summon_has_paid_cost && global.resources[RESOURCES.SOULS] >= BALANCE_SUMMON_BUILDING_SOUL_COST)
+	if (!summon_has_paid_cost && global.resources[summon_resource] >= summon_resource_cost)
 	{
-		global.resources[RESOURCES.SOULS] -= BALANCE_SUMMON_BUILDING_SOUL_COST;
+		global.resources[summon_resource] -= summon_resource_cost;
 		summon_has_paid_cost = true;
-		resource_popup_create(x, y - production_bar_offset_y, RESOURCES.SOULS, -BALANCE_SUMMON_BUILDING_SOUL_COST);
+		resource_popup_create(x, y - production_bar_offset_y, summon_resource, -summon_resource_cost);
 	}
 
 	if (!summon_has_paid_cost)
 	{
-		missing_work_resource = RESOURCES.SOULS;
-		missing_work_resource_name = "Souls";
-		missing_work_resource_color = COLOR_HUD_SOULS;
+		missing_work_resource = summon_resource;
+		missing_work_resource_name = summon_resource_name;
+		missing_work_resource_color = summon_resource_color;
 		exit;
 	}
 

@@ -9,14 +9,17 @@ resource_icon_size = 22;
 resource_icon_text_gap = 12;
 resource_text_padding = 20;
 
-// Day cycle display in the top-right corner.
-day_phase_item_width = 220;
-day_phase_item_height = 78;
+// Day cycle and shrine objective display in the top-right corner.
+day_phase_item_width = 260;
+day_phase_item_height = 102;
 day_phase_margin_right = 18;
 day_phase_text_padding = 14;
 day_phase_bar_height = 8;
 day_phase_bar_margin_x = 14;
 day_phase_bar_margin_bottom = 12;
+shrine_icon_size = 30;
+shrine_icon_gap = 8;
+shrine_icon_y_offset = 55;
 
 // Cannon satiety is filled by hauling corpses to the cannon.
 cannon_satiety_width = 260;
@@ -34,6 +37,14 @@ wall_fallen_notice_y = 96;
 wall_fallen_notice_padding = 12;
 wall_fallen_title = "THE WALL HAS FALLEN";
 wall_fallen_description = "You lost, but can keep playing.";
+
+// Objective complete notice appears when enough shrines are infected.
+objective_complete_notice_width = 420;
+objective_complete_notice_height = 76;
+objective_complete_notice_y = 96;
+objective_complete_notice_padding = 12;
+objective_complete_title = "TRIALS COMPLETE";
+objective_complete_description = "The cannon accepts you as the new Pontiff.";
 
 // Resource display order from left to right in the top-left corner.
 resource_order = [

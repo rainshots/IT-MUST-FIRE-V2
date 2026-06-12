@@ -1,0 +1,60 @@
+// Handle an already opened structure choice even while gameplay is paused.
+if (structure_selection_open)
+{
+	if (global.focus_window != FOCUS_WINDOW.CURSED_POINT_STRUCTURE_SELECTION
+		|| !variable_global_exists("cursed_point_structure_selection_source")
+		|| global.cursed_point_structure_selection_source != id)
+	{
+		structure_selection_open = false;
+		exit;
+	}
+
+	if (mouse_check_button_pressed(mb_left))
+	{
+		var _mouse_x = device_mouse_x_to_gui(0);
+		var _mouse_y = device_mouse_y_to_gui(0);
+		var _hovered_choice = cursed_point_structure_choice_hover_index_get(_mouse_x, _mouse_y);
+
+		if (_hovered_choice >= 0 && _hovered_choice < array_length(structure_choice_options))
+		{
+			cursed_point_structure_build(structure_choice_options[_hovered_choice]);
+		}
+	}
+
+	exit;
+}
+
+// Check whether the ground under the cursed point has fully corrupted.
+tower_capture_update();
+
+// Pause freezes only world button input.
+if (global.pause)
+{
+	exit;
+}
+
+// The summon button stays in the world until the player opens the structure choice.
+summon_button_hovered = cursed_point_summon_button_is_hovered();
+
+if (summon_button_hovered
+	&& summon_button_hover_key != string(id)
+	&& variable_global_exists("ui_hover_sounds")
+	&& variable_global_exists("sound_priority_ui"))
+{
+	global.sound_play_random(global.ui_hover_sounds, global.sound_priority_ui);
+	summon_button_hover_key = string(id);
+}
+else if (!summon_button_hovered)
+{
+	summon_button_hover_key = "";
+}
+
+if (summon_button_hovered && mouse_check_button_pressed(mb_left))
+{
+	if (variable_global_exists("ui_confirm_sound") && variable_global_exists("sound_priority_ui"))
+	{
+		audio_play_sound(global.ui_confirm_sound, global.sound_priority_ui, false);
+	}
+
+	cursed_point_structure_selection_open();
+}

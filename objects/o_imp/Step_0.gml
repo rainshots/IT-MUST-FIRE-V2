@@ -1,12 +1,16 @@
-// Run shared movement, combat, and status effects first.
-event_inherited();
+// Shared movement and attacks pause while active leaps control Imp position.
+if (!demon_leap_is_active && crimson_guillotine_strike_timer <= 0)
+{
+	event_inherited();
+}
 
 if (global.pause || hp <= 0)
 {
 	exit;
 }
 
-if (is_being_dragged || is_stunned)
+if (is_being_dragged
+	|| (is_stunned && !demon_leap_is_active && crimson_guillotine_strike_timer <= 0))
 {
 	exit;
 }
@@ -15,6 +19,21 @@ if (is_being_dragged || is_stunned)
 if (leap_visual_timer > 0)
 {
 	leap_visual_timer--;
+}
+
+for (var _leap_segment_index = array_length(leap_visual_segments) - 1; _leap_segment_index >= 0; --_leap_segment_index)
+{
+	var _leap_segment = leap_visual_segments[_leap_segment_index];
+	_leap_segment.timer--;
+
+	if (_leap_segment.timer <= 0)
+	{
+		array_delete(leap_visual_segments, _leap_segment_index, 1);
+	}
+	else
+	{
+		leap_visual_segments[_leap_segment_index] = _leap_segment;
+	}
 }
 
 if (demon_leap_timer > 0)
@@ -98,6 +117,12 @@ imp_blood_blades_update();
 if (frenzy_echo_visual_timer > 0)
 {
 	frenzy_echo_visual_timer--;
+}
+
+if (demon_leap_is_active)
+{
+	imp_demon_leap_update();
+	exit;
 }
 
 // Use only the active ability this Imp currently owns.

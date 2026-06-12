@@ -1,10 +1,18 @@
-// Draw night tint over the world while keeping HUD readable.
+// Draw phase tint over the world while keeping HUD readable.
 if (variable_global_exists("ui_font") && font_exists(global.ui_font))
 {
 	draw_set_font(global.ui_font);
 }
 
-if (global.day_phase == DAY_PHASE.NIGHT)
+if (global.day_phase == DAY_PHASE.DAY)
+{
+	draw_set_alpha(day_overlay_alpha);
+	draw_set_color(c_black);
+	draw_rectangle(0, 0, camera_view_width, camera_view_height, false);
+	draw_set_alpha(1);
+	draw_set_color(c_white);
+}
+else if (global.day_phase == DAY_PHASE.NIGHT)
 {
 	draw_set_alpha(night_overlay_alpha);
 	draw_set_color(COLOR_NIGHT_OVERLAY);
@@ -722,6 +730,7 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 	draw_set_valign(fa_top);
 	draw_set_color(c_white);
 	draw_set_alpha(1);
+
 	exit;
 }
 
@@ -1180,6 +1189,16 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 	draw_set_valign(fa_top);
 	draw_set_color(c_white);
 	draw_set_alpha(1);
+
+	// Draw tutorial popup above the cultist selection window before this branch exits.
+	if (instance_exists(o_tutorial_controller))
+	{
+		with (o_tutorial_controller)
+		{
+			tutorial_draw();
+		}
+	}
+
 	exit;
 }
 
@@ -1818,6 +1837,16 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 	draw_set_valign(fa_top);
 	draw_set_color(c_white);
 	draw_set_alpha(1);
+
+	// Draw tutorial popup above the level-up window before this branch exits.
+	if (instance_exists(o_tutorial_controller))
+	{
+		with (o_tutorial_controller)
+		{
+			tutorial_draw();
+		}
+	}
+
 	exit;
 }
 
@@ -1967,6 +1996,16 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 	draw_set_valign(fa_top);
 	draw_set_color(c_white);
 	draw_set_alpha(1);
+
+	// Draw tutorial popup above the construction window before this branch exits.
+	if (instance_exists(o_tutorial_controller))
+	{
+		with (o_tutorial_controller)
+		{
+			tutorial_draw();
+		}
+	}
+
 	exit;
 }
 
@@ -2440,6 +2479,13 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && instance_exists(o_camera_contro
 	{
 		var _hover_width = 260;
 		var _hover_height = 188;
+		var _is_goblin_hovered = _hovered_unit.object_index == o_goblin;
+
+		if (_is_goblin_hovered)
+		{
+			_hover_height = 126;
+		}
+
 		var _hover_margin = 18;
 		var _hover_y_max = max(_hover_margin, camera_view_height - _hover_height - _hover_margin);
 		var _hover_x = _hover_margin;
@@ -2485,26 +2531,38 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && instance_exists(o_camera_contro
 
 		draw_set_color(COLOR_HUD_TEXT);
 		draw_text(_hover_x + _hover_padding, _hover_y + _hover_padding, _unit_name);
-		draw_text(_hover_x + _hover_padding, _hover_y + 42, "HP: " + string_format(_hovered_unit.hp, 0, 1) + " / " + string_format(_hovered_unit.max_hp, 0, 1));
-		draw_text(_hover_x + _hover_padding, _hover_y + 62, _damage_text);
-		draw_text(_hover_x + _hover_padding, _hover_y + 82, "Attack speed: " + string_format(_attack_speed, 0, 2));
-		draw_text(_hover_x + _hover_padding, _hover_y + 102, "Attack radius: " + string_format(_hovered_unit.attack_radius, 0, 0));
-		draw_text(_hover_x + _hover_padding, _hover_y + 122, "Move speed: " + string_format(_hovered_unit.move_speed, 0, 2));
 
-		var _extra_line_y = 142;
+		var _extra_line_y = 42;
 
-		if (_has_demonic_infusion)
+		if (_is_goblin_hovered)
 		{
-			draw_set_color(COLOR_WARLOCK_DEMONIC_INFUSION);
-			draw_text(_hover_x + _hover_padding, _hover_y + _extra_line_y, "Demonic Infusion +" + string_format(BALANCE_WARLOCK_DEMONIC_INFUSION_ATTACK_SPEED_BONUS * 100, 0, 0) + "%");
+			draw_text(_hover_x + _hover_padding, _hover_y + _extra_line_y, "Can work in buildings during the day.");
 			_extra_line_y += 20;
+			draw_text(_hover_x + _hover_padding, _hover_y + _extra_line_y, "Rests at night and does not fight.");
+			_extra_line_y += 28;
 		}
-
-		if (variable_instance_exists(_hovered_unit, "worker_speed_multiplier"))
+		else
 		{
-			draw_set_color(COLOR_CULTIST_BODY);
-			draw_text(_hover_x + _hover_padding, _hover_y + _extra_line_y, "Worker +" + string_format(_hovered_unit.worker_speed_multiplier, 0, 1) + "x");
-			_extra_line_y += 20;
+			draw_text(_hover_x + _hover_padding, _hover_y + 42, "HP: " + string_format(_hovered_unit.hp, 0, 1) + " / " + string_format(_hovered_unit.max_hp, 0, 1));
+			draw_text(_hover_x + _hover_padding, _hover_y + 62, _damage_text);
+			draw_text(_hover_x + _hover_padding, _hover_y + 82, "Attack speed: " + string_format(_attack_speed, 0, 2));
+			draw_text(_hover_x + _hover_padding, _hover_y + 102, "Attack radius: " + string_format(_hovered_unit.attack_radius, 0, 0));
+			draw_text(_hover_x + _hover_padding, _hover_y + 122, "Move speed: " + string_format(_hovered_unit.move_speed, 0, 2));
+			_extra_line_y = 142;
+
+			if (_has_demonic_infusion)
+			{
+				draw_set_color(COLOR_WARLOCK_DEMONIC_INFUSION);
+				draw_text(_hover_x + _hover_padding, _hover_y + _extra_line_y, "Demonic Infusion +" + string_format(BALANCE_WARLOCK_DEMONIC_INFUSION_ATTACK_SPEED_BONUS * 100, 0, 0) + "%");
+				_extra_line_y += 20;
+			}
+
+			if (variable_instance_exists(_hovered_unit, "worker_speed_multiplier"))
+			{
+				draw_set_color(COLOR_CULTIST_BODY);
+				draw_text(_hover_x + _hover_padding, _hover_y + _extra_line_y, "Worker +" + string_format(_hovered_unit.worker_speed_multiplier, 0, 1) + "x");
+				_extra_line_y += 20;
+			}
 		}
 
 		if (variable_instance_exists(_hovered_unit, "summon_nights_remaining"))
@@ -2664,6 +2722,9 @@ if (variable_global_exists("cultists") && instance_exists(o_camera_controller))
 	var _demon_bar_width = 62;
 	var _demon_bar_height = 8;
 	var _demon_bar_offset_y = 12;
+	var _cooldown_bar_height = 4;
+	var _cooldown_bar_gap = 2;
+	var _cooldown_bar_top_gap = 2;
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
@@ -2696,6 +2757,112 @@ if (variable_global_exists("cultists") && instance_exists(o_camera_controller))
 		draw_rectangle(_bar_x, _bar_y, _bar_x + (_demon_bar_width * _hp_progress), _bar_y + _demon_bar_height, false);
 		draw_set_color(c_white);
 		draw_rectangle(_bar_x, _bar_y, _bar_x + _demon_bar_width, _bar_y + _demon_bar_height, true);
+
+		// Draw active ability cooldowns directly under the demon health bar.
+		var _cooldown_timers = [];
+		var _cooldown_maxes = [];
+		var _cooldown_colors = [];
+
+		if (_cultist.object_index == o_imp)
+		{
+			if (cultist_active_ability_has(_cultist, DEMON_ABILITY.IMP_DEMON_LEAP))
+			{
+				array_push(_cooldown_timers, _cultist.demon_leap_timer);
+				array_push(_cooldown_maxes, _cultist.ability_cooldown_time_get(_cultist.demon_leap_cooldown));
+				array_push(_cooldown_colors, COLOR_COOLDOWN_IMP_DEMON_LEAP);
+			}
+
+			if (cultist_active_ability_has(_cultist, DEMON_ABILITY.IMP_CRIMSON_GUILLOTINE))
+			{
+				array_push(_cooldown_timers, _cultist.crimson_guillotine_timer);
+				array_push(_cooldown_maxes, _cultist.ability_cooldown_time_get(_cultist.crimson_guillotine_cooldown));
+				array_push(_cooldown_colors, COLOR_COOLDOWN_IMP_CRIMSON_GUILLOTINE);
+			}
+
+			if (cultist_active_ability_has(_cultist, DEMON_ABILITY.IMP_BLOODY_CLONE))
+			{
+				array_push(_cooldown_timers, _cultist.bloody_clone_timer);
+				array_push(_cooldown_maxes, _cultist.ability_cooldown_time_get(_cultist.bloody_clone_cooldown));
+				array_push(_cooldown_colors, COLOR_COOLDOWN_IMP_BLOODY_CLONE);
+			}
+		}
+		else if (_cultist.object_index == o_brute)
+		{
+			if (cultist_active_ability_has(_cultist, DEMON_ABILITY.BRUTE_GRAVE_SLAM))
+			{
+				array_push(_cooldown_timers, _cultist.grave_slam_timer);
+				array_push(_cooldown_maxes, _cultist.ability_cooldown_time_get(_cultist.grave_slam_cooldown));
+				array_push(_cooldown_colors, COLOR_COOLDOWN_BRUTE_GRAVE_SLAM);
+			}
+
+			if (cultist_active_ability_has(_cultist, DEMON_ABILITY.BRUTE_BUTCHER_CHAINS))
+			{
+				array_push(_cooldown_timers, _cultist.butcher_chains_timer);
+				array_push(_cooldown_maxes, _cultist.ability_cooldown_time_get(_cultist.butcher_chains_cooldown));
+				array_push(_cooldown_colors, COLOR_COOLDOWN_BRUTE_BUTCHER_CHAINS);
+			}
+
+			if (cultist_active_ability_has(_cultist, DEMON_ABILITY.BRUTE_CORPSE_ARMOR))
+			{
+				array_push(_cooldown_timers, _cultist.corpse_armor_ability_timer);
+				array_push(_cooldown_maxes, _cultist.ability_cooldown_time_get(_cultist.corpse_armor_cooldown));
+				array_push(_cooldown_colors, COLOR_COOLDOWN_BRUTE_CORPSE_ARMOR);
+			}
+		}
+		else if (_cultist.object_index == o_warlock)
+		{
+			if (cultist_active_ability_has(_cultist, DEMON_ABILITY.WARLOCK_RAISE_LESSER_DEMON))
+			{
+				array_push(_cooldown_timers, _cultist.raise_lesser_demon_timer);
+				array_push(_cooldown_maxes, _cultist.ability_cooldown_time_get(_cultist.raise_lesser_demon_cooldown));
+				array_push(_cooldown_colors, COLOR_COOLDOWN_WARLOCK_RAISE_LESSER_DEMON);
+			}
+
+			if (cultist_active_ability_has(_cultist, DEMON_ABILITY.WARLOCK_SOUL_CHAIN))
+			{
+				array_push(_cooldown_timers, _cultist.soul_chain_cooldown_timer);
+				array_push(_cooldown_maxes, _cultist.ability_cooldown_time_get(_cultist.soul_chain_cooldown));
+				array_push(_cooldown_colors, COLOR_COOLDOWN_WARLOCK_SOUL_CHAIN);
+			}
+
+			if (cultist_active_ability_has(_cultist, DEMON_ABILITY.WARLOCK_HEX_TOTEM))
+			{
+				array_push(_cooldown_timers, _cultist.hex_totem_timer);
+				array_push(_cooldown_maxes, _cultist.ability_cooldown_time_get(_cultist.hex_totem_cooldown));
+				array_push(_cooldown_colors, COLOR_COOLDOWN_WARLOCK_HEX_TOTEM);
+			}
+		}
+
+		for (var _cooldown_index = 0; _cooldown_index < array_length(_cooldown_timers); ++_cooldown_index)
+		{
+			var _cooldown_y = _bar_y
+				+ _demon_bar_height
+				+ _cooldown_bar_top_gap
+				+ ((_cooldown_bar_height + _cooldown_bar_gap) * _cooldown_index);
+			var _cooldown_progress = 1 - clamp(
+				_cooldown_timers[_cooldown_index] / max(1, _cooldown_maxes[_cooldown_index]),
+				0,
+				1
+			);
+
+			draw_set_alpha(0.88);
+			draw_set_color(c_black);
+			draw_rectangle(_bar_x, _cooldown_y, _bar_x + _demon_bar_width, _cooldown_y + _cooldown_bar_height, false);
+
+			draw_set_alpha(1);
+			draw_set_color(_cooldown_colors[_cooldown_index]);
+			draw_rectangle(
+				_bar_x,
+				_cooldown_y,
+				_bar_x + (_demon_bar_width * _cooldown_progress),
+				_cooldown_y + _cooldown_bar_height,
+				false
+			);
+
+			draw_set_alpha(0.95);
+			draw_set_color(c_white);
+			draw_rectangle(_bar_x, _cooldown_y, _bar_x + _demon_bar_width, _cooldown_y + _cooldown_bar_height, true);
+		}
 	}
 
 	draw_set_alpha(1);
@@ -2772,6 +2939,15 @@ if (instance_exists(o_warlock) && instance_exists(o_camera_controller))
 	draw_set_color(c_white);
 }
 
+// Draw tutorial popup above every regular game controller GUI layer.
+if (instance_exists(o_tutorial_controller))
+{
+	with (o_tutorial_controller)
+	{
+		tutorial_draw();
+	}
+}
+
 // Draw nothing while the pause menu is closed.
 if (!pause_menu_open)
 {
@@ -2823,6 +2999,15 @@ else
 	draw_set_halign(fa_center);
 	draw_rectangle(_close_button_x, _close_button_y, _close_button_x + button_width, _close_button_y + button_height, true);
 	draw_text(_close_button_x + (button_width * 0.5), _close_button_y + (button_height * 0.5), "BACK");
+}
+
+// Draw tutorial popup above the pause menu too.
+if (instance_exists(o_tutorial_controller))
+{
+	with (o_tutorial_controller)
+	{
+		tutorial_draw();
+	}
 }
 
 // Restore default draw state.

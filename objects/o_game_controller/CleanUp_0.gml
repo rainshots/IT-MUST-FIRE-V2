@@ -53,6 +53,12 @@ if (variable_global_exists("particle_type_imp_blood_frenzy_smoke") && global.par
 	global.particle_type_imp_blood_frenzy_smoke = noone;
 }
 
+if (variable_global_exists("particle_type_heal") && global.particle_type_heal != noone)
+{
+	part_type_destroy(global.particle_type_heal);
+	global.particle_type_heal = noone;
+}
+
 if (variable_global_exists("particle_type_brute_heal") && global.particle_type_brute_heal != noone)
 {
 	part_type_destroy(global.particle_type_brute_heal);
@@ -81,6 +87,12 @@ if (variable_global_exists("particle_type_warlock_curseweaver_smoke") && global.
 {
 	part_type_destroy(global.particle_type_warlock_curseweaver_smoke);
 	global.particle_type_warlock_curseweaver_smoke = noone;
+}
+
+if (variable_global_exists("particle_type_warlock_summon_skeleton_smoke") && global.particle_type_warlock_summon_skeleton_smoke != noone)
+{
+	part_type_destroy(global.particle_type_warlock_summon_skeleton_smoke);
+	global.particle_type_warlock_summon_skeleton_smoke = noone;
 }
 
 if (variable_global_exists("particle_system_effects") && global.particle_system_effects != noone)

@@ -8,8 +8,10 @@ if (instance_exists(game_controller))
 	}
 }
 
-// Blocking focus windows stop camera movement while their menu input remains available.
-if (global.pause && global.focus_window != FOCUS_WINDOW.NOONE)
+// Blocking focus windows and tutorial popups stop camera movement.
+var _tutorial_popup_active = variable_global_exists("tutorial_popup_active") && global.tutorial_popup_active;
+
+if (global.pause && (global.focus_window != FOCUS_WINDOW.NOONE || _tutorial_popup_active))
 {
 	velocity_x = 0;
 	velocity_y = 0;

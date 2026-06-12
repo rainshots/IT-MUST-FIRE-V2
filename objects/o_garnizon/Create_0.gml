@@ -2,7 +2,7 @@
 event_inherited();
 
 // Garnizon durability.
-max_hp = 300 * BALANCE_COMBAT_VALUE_SCALE;
+max_hp = 3000;
 hp = max_hp;
 max_corruption = 300;
 corruption = 0;

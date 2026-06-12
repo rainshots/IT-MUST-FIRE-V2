@@ -214,7 +214,12 @@ warlock_demonic_infusion_update = function()
 
 		if (_should_heal && _friendly.hp > 0 && _friendly.hp < _friendly.max_hp)
 		{
-			_friendly.hp = min(_friendly.hp + (_friendly.max_hp * _heal_share), _friendly.max_hp);
+			var _hp_before_heal = _friendly.hp;
+			var _heal_cap = BALANCE_WARLOCK_DEMONIC_INFUSION_HEAL_PER_SECOND_MAX * BALANCE_WARLOCK_DEMONIC_INFUSION_TICK_TIME;
+			var _heal_amount = min(_friendly.max_hp * _heal_share, _heal_cap);
+
+			_friendly.hp = min(_friendly.hp + _heal_amount, _friendly.max_hp);
+			heal_feedback_create(_friendly, _friendly.hp - _hp_before_heal);
 		}
 
 		if (_level >= 3
@@ -286,6 +291,41 @@ warlock_soul_engine_skull_fire = function()
 	return true;
 };
 
+warlock_soul_engine_hit_feedback_apply = function(_target, _hit_x, _hit_y)
+{
+	if (!instance_exists(_target))
+	{
+		return;
+	}
+
+	// Soul Engine impacts leave a small purple smoke burst.
+	if (variable_global_exists("particle_type_warlock_curseweaver_smoke"))
+	{
+		warlock_smoke_burst_create(
+			_target.x,
+			_target.y,
+			BALANCE_WARLOCK_SOUL_ENGINE_SKULL_HIT_SMOKE_RADIUS,
+			global.particle_type_warlock_curseweaver_smoke,
+			BALANCE_WARLOCK_SOUL_ENGINE_SKULL_HIT_SMOKE_COUNT
+		);
+	}
+
+	if (!variable_instance_exists(_target, "hp") || _target.hp <= 0)
+	{
+		return;
+	}
+
+	var _knockback_direction = point_direction(_hit_x, _hit_y, _target.x, _target.y);
+
+	if (point_distance(_hit_x, _hit_y, _target.x, _target.y) <= 0)
+	{
+		_knockback_direction = point_direction(x, y, _target.x, _target.y);
+	}
+
+	_target.x += lengthdir_x(BALANCE_WARLOCK_SOUL_ENGINE_SKULL_KNOCKBACK_DISTANCE, _knockback_direction);
+	_target.y += lengthdir_y(BALANCE_WARLOCK_SOUL_ENGINE_SKULL_KNOCKBACK_DISTANCE, _knockback_direction);
+};
+
 warlock_soul_engine_souls_update = function()
 {
 	var _write_index = 0;
@@ -342,7 +382,11 @@ warlock_soul_engine_skulls_update = function()
 
 		if (_distance <= BALANCE_WARLOCK_SOUL_ENGINE_SKULL_HIT_RADIUS)
 		{
+			var _hit_x = _skull.x;
+			var _hit_y = _skull.y;
+
 			warlock_magic_damage_apply(_skull.target, warlock_magic_damage_value_get(BALANCE_WARLOCK_SOUL_ENGINE_SKULL_DAMAGE_MULTIPLIER));
+			warlock_soul_engine_hit_feedback_apply(_skull.target, _hit_x, _hit_y);
 
 			if (_skull.level >= 3)
 			{
@@ -365,6 +409,7 @@ warlock_soul_engine_skulls_update = function()
 					if (_enemy != _skull.target)
 					{
 						warlock_magic_damage_apply(_enemy, warlock_magic_damage_value_get(BALANCE_WARLOCK_SOUL_ENGINE_SKULL_AOE_DAMAGE_MULTIPLIER));
+						warlock_soul_engine_hit_feedback_apply(_enemy, _hit_x, _hit_y);
 					}
 				}
 
@@ -500,11 +545,7 @@ warlock_skeleton_configure = function(_skeleton, _level)
 		return;
 	}
 
-	_skeleton.max_hp = max(1, max_hp * BALANCE_WARLOCK_SUMMON_SKELETONS_HP_SHARE);
-	_skeleton.hp = _skeleton.max_hp;
-	_skeleton.damage = BALANCE_WARLOCK_SUMMON_SKELETONS_DAMAGE;
-	_skeleton.magic_damage = 0;
-	_skeleton.summon_nights_remaining = BALANCE_SKELETON_NIGHT_LIFE;
+	// Keep regular Graveyard skeleton stats; only add Warlock ability behavior.
 	_skeleton.warlock_skeleton_explosion_enabled = _level >= 3;
 	_skeleton.warlock_skeleton_explosion_damage = BALANCE_WARLOCK_SUMMON_SKELETONS_EXPLOSION_DAMAGE;
 	_skeleton.warlock_skeleton_respawn_chance = 0;
@@ -553,18 +594,19 @@ warlock_raise_lesser_demon_use = function()
 		var _skeleton = instance_create_layer(_spawn_x, _spawn_y, "Instances", o_skeleton);
 
 		warlock_skeleton_configure(_skeleton, _level);
+
 		raise_lesser_demon_line_x = _spawn_x;
 		raise_lesser_demon_line_y = _spawn_y;
 		raise_lesser_demon_line_timer = raise_lesser_demon_line_duration;
 		_summoned_count++;
 
-		if (variable_global_exists("particle_type_brute_rotten_aura"))
+		if (variable_global_exists("particle_type_warlock_summon_skeleton_smoke"))
 		{
 			warlock_smoke_burst_create(
 				_spawn_x,
 				_spawn_y,
 				BALANCE_WARLOCK_RAISE_LESSER_DEMON_SMOKE_RADIUS,
-				global.particle_type_brute_rotten_aura,
+				global.particle_type_warlock_summon_skeleton_smoke,
 				BALANCE_WARLOCK_RAISE_LESSER_DEMON_SMOKE_COUNT
 			);
 		}

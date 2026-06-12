@@ -2,14 +2,14 @@
 event_inherited();
 
 // Town durability.
-max_hp = 100 * BALANCE_COMBAT_VALUE_SCALE;
+max_hp = 1000;
 hp = max_hp;
 max_corruption = 100;
 corruption = 0;
 
 // Tooltip lines describe projectile reactions for player targeting.
 tooltip_lines = [
-	"Damage: -" + string(20 * BALANCE_COMBAT_VALUE_SCALE) + " HP, +3 Souls, Graveyard at 0 HP",
+	"Damage: -" + string(200) + " HP, +3 Souls, Graveyard at 0 HP",
 	"Corruption: +33 Corruption, Cursed Town at max",
 	"Summon: +2 Flesh"
 ];
@@ -17,7 +17,7 @@ tooltip_lines = [
 // Town projectile reactions.
 on_damage_projectile_hit = function()
 {
-	var _damage_amount = 20 * BALANCE_COMBAT_VALUE_SCALE;
+	var _damage_amount = 200;
 	var _souls_reward = 3;
 
 	hp = max(hp - _damage_amount, 0);

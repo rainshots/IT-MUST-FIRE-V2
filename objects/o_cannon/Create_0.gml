@@ -167,7 +167,7 @@ building_upgrade_description_get = function(_upgrade_index)
 			_damage = BALANCE_CANNON_CORRUPTED_GROUND_DAMAGE_LEVEL_3;
 		}
 
-		return "Enemies on fully corrupted ground take " + string(_damage / BALANCE_COMBAT_VALUE_SCALE) + " damage/sec.";
+		return "Enemies on fully corrupted ground take " + string(_damage) + " damage/sec.";
 	}
 	else if (_upgrade_index == CANNON_UPGRADE.MORNING_SKELETONS)
 	{

@@ -7,8 +7,10 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 	target_projectile_type = global.cannon_target_projectile_type;
 	target_version = global.cannon_target_version;
 
-	// Fire once at the freshly selected target.
-	if (!global.pause)
+	// Fire once at the freshly selected target, including player-paused target selection.
+	var _can_fire_selected_target = !global.pause || global.focus_window == FOCUS_WINDOW.NOONE;
+
+	if (_can_fire_selected_target)
 	{
 		var _projectile_queue_count = array_length(global.cannon_projectile_queue);
 		var _fired_projectile_count = volley_projectile_count;
@@ -96,6 +98,7 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			_projectile.projectile_type = target_projectile_type;
 			_projectile.effect_radius = projectile_effect_radius;
 			_projectile.cultist_payload = _projectile_payload;
+			_projectile.ignore_pause = global.pause;
 			_projectile.launch_delay_timer = _launch_delay_seconds * room_speed;
 			_projectile.flight_time = _flight_time_seconds * room_speed;
 
@@ -121,9 +124,8 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			}
 		}
 
-		// Remove the fired projectile from the front of the queue outside cheat testing.
+		// Remove the fired projectile from the front of the queue when the target consumed it.
 		if (_projectile_queue_count > 0
-			&& !global.cannon_projectile_cheat_enabled
 			&& (!variable_global_exists("cannon_target_consumes_projectile_queue") || global.cannon_target_consumes_projectile_queue))
 		{
 			var _updated_projectile_queue = array_create(_projectile_queue_count - 1);

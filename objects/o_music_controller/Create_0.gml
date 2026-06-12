@@ -1,4 +1,14 @@
 // Ambient sound loops underneath every phase.
+if (!variable_global_exists("play_music"))
+{
+	global.play_music = BALANCE_PLAY_MUSIC;
+}
+
+if (!variable_global_exists("cheats_enabled"))
+{
+	global.cheats_enabled = BALANCE_CHEATS_ENABLED;
+}
+
 ambient_sound = ambient01;
 ambient_handle = noone;
 ambient_priority = 100;
@@ -27,6 +37,7 @@ night_music_track_names = [];
 music_handle = noone;
 current_music_sound = noone;
 current_music_name = "none";
+music_next_previous_sound = noone;
 current_day_phase = noone;
 music_priority = 100;
 music_day_gain = 1;
@@ -34,18 +45,19 @@ music_night_gain = 0.28;
 music_current_gain = music_day_gain;
 music_target_gain = music_day_gain;
 music_fade_time = 4 * room_speed;
-music_track_gap_time = 20 * room_speed;
+music_track_gap_time = BALANCE_MUSIC_TRACK_GAP_TIME;
 music_reroll_timer = 0;
 music_check_timer = 0;
 music_check_interval = room_speed;
+music_waiting_between_tracks = false;
 music_debug_visible = false;
 music_debug_play_attempts = 0;
-music_auto_enabled = true;
+music_auto_enabled = global.play_music;
 music_audio_unlocked = false;
 
 music_sound_can_play = function(_sound)
 {
-	return is_real(_sound) && _sound >= 0;
+	return audio_exists(_sound);
 };
 
 music_ambient_start = function()
@@ -82,7 +94,9 @@ music_current_stop = function()
 
 music_phase_tracks_get = function()
 {
-	if (variable_global_exists("day_phase") && global.day_phase == DAY_PHASE.NIGHT)
+	if (variable_global_exists("day_phase")
+		&& global.day_phase == DAY_PHASE.NIGHT
+		&& array_length(night_music_tracks) > 0)
 	{
 		return night_music_tracks;
 	}
@@ -92,7 +106,9 @@ music_phase_tracks_get = function()
 
 music_phase_track_names_get = function()
 {
-	if (variable_global_exists("day_phase") && global.day_phase == DAY_PHASE.NIGHT)
+	if (variable_global_exists("day_phase")
+		&& global.day_phase == DAY_PHASE.NIGHT
+		&& array_length(night_music_track_names) > 0)
 	{
 		return night_music_track_names;
 	}
@@ -102,11 +118,15 @@ music_phase_track_names_get = function()
 
 music_silence_timer_roll = function()
 {
-	music_reroll_timer = music_track_gap_time;
+	music_reroll_timer = music_track_gap_time * room_speed;
+	music_waiting_between_tracks = true;
 };
 
 music_track_start = function(_track, _track_name)
 {
+	music_waiting_between_tracks = false;
+	music_next_previous_sound = noone;
+	music_reroll_timer = 0;
 	current_music_sound = _track;
 	current_music_name = _track_name;
 	music_debug_play_attempts++;
@@ -148,7 +168,12 @@ music_gain_update = function()
 
 music_next_roll = function()
 {
-	music_current_stop();
+	var _previous_music_sound = current_music_sound;
+
+	if (_previous_music_sound == noone && music_next_previous_sound != noone)
+	{
+		_previous_music_sound = music_next_previous_sound;
+	}
 
 	var _phase_tracks = music_phase_tracks_get();
 	var _phase_track_names = music_phase_track_names_get();
@@ -156,41 +181,30 @@ music_next_roll = function()
 
 	if (_track_count <= 0)
 	{
+		music_current_stop();
 		return;
 	}
 
-	var _valid_tracks = [];
-	var _valid_track_names = [];
+	var _chosen_track_index = 0;
 
 	for (var _track_index = 0; _track_index < _track_count; ++_track_index)
 	{
-		var _track = _phase_tracks[_track_index];
-
-		if (music_sound_can_play(_track))
+		if (_phase_tracks[_track_index] == _previous_music_sound)
 		{
-			array_push(_valid_tracks, _track);
-
-			if (_track_index < array_length(_phase_track_names))
-			{
-				array_push(_valid_track_names, _phase_track_names[_track_index]);
-			}
-			else
-			{
-				array_push(_valid_track_names, "unknown track");
-			}
+			_chosen_track_index = (_track_index + 1) mod _track_count;
+			break;
 		}
 	}
 
-	var _valid_track_count = array_length(_valid_tracks);
+	var _chosen_track_name = "unknown track";
 
-	if (_valid_track_count <= 0)
+	if (_chosen_track_index < array_length(_phase_track_names))
 	{
-		music_silence_timer_roll();
-		return;
+		_chosen_track_name = _phase_track_names[_chosen_track_index];
 	}
 
-	var _chosen_track_index = irandom(_valid_track_count - 1);
-	music_track_start(_valid_tracks[_chosen_track_index], _valid_track_names[_chosen_track_index]);
+	music_current_stop();
+	music_track_start(_phase_tracks[_chosen_track_index], _chosen_track_name);
 };
 
 music_phase_update = function()
@@ -216,7 +230,7 @@ music_phase_update = function()
 
 music_start_initial = function()
 {
-	if (music_audio_unlocked)
+	if (music_audio_unlocked || !music_auto_enabled)
 	{
 		return;
 	}

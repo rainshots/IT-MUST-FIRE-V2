@@ -2,7 +2,7 @@
 event_inherited();
 
 // Holy tower durability.
-max_hp = 160 * BALANCE_COMBAT_VALUE_SCALE;
+max_hp = 1600;
 hp = max_hp;
 max_corruption = 100;
 corruption = 0;

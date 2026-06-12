@@ -77,14 +77,19 @@ has_warlock_curseweaver = false;
 has_warlock_demonic_infusion = false;
 
 // Day-form health is synced with the chosen demon form after selection.
-max_hp = 1 * BALANCE_COMBAT_VALUE_SCALE;
+max_hp = 10;
 hp = max_hp;
+
+// Fatigue rises while working resource buildings and recovers in Ritual Circle.
+fatigue_amount = 0;
 
 // Visual settings for the day form labels and shared health bar style.
 name_offset_y = 8;
 bar_width = 34;
 bar_height = 4;
 name_health_bar_gap = 8;
+fatigue_bar_gap = 2;
+fatigue_bar_height = 3;
 resource_warning_offset_y = 18;
 resource_warning_padding_x = 6;
 resource_warning_padding_y = 3;

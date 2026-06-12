@@ -75,6 +75,11 @@ if (variable_global_exists("day_phase"))
 	var _phase_y = hud_margin_y;
 	var _current_day = 1;
 	var _day_progress = 0;
+	var _shrine_corrupted_count = 0;
+	var _shrine_required = BALANCE_SHRINE_OBJECTIVE_REQUIRED;
+	var _shrine_total = BALANCE_SHRINE_OBJECTIVE_TOTAL;
+	var _shrine_instances = noone;
+	var _shrine_instance_count = 0;
 
 	if (instance_exists(o_game_controller))
 	{
@@ -83,6 +88,27 @@ if (variable_global_exists("day_phase"))
 		if (variable_instance_exists(_game_controller, "night_attack_night_index"))
 		{
 			_current_day = max(1, _game_controller.night_attack_night_index);
+		}
+
+		if (variable_instance_exists(_game_controller, "shrine_objective_required"))
+		{
+			_shrine_required = _game_controller.shrine_objective_required;
+		}
+
+		if (variable_instance_exists(_game_controller, "shrine_objective_total"))
+		{
+			_shrine_total = _game_controller.shrine_objective_total;
+		}
+
+		if (variable_instance_exists(_game_controller, "shrine_instances"))
+		{
+			_shrine_instances = _game_controller.shrine_instances;
+			_shrine_instance_count = array_length(_shrine_instances);
+		}
+
+		if (variable_instance_exists(_game_controller, "shrine_corrupted_count_get"))
+		{
+			_shrine_corrupted_count = _game_controller.shrine_corrupted_count_get();
 		}
 	}
 
@@ -109,7 +135,62 @@ if (variable_global_exists("day_phase"))
 	draw_set_alpha(1);
 	draw_set_color(COLOR_HUD_TEXT);
 	draw_text(_phase_x + day_phase_text_padding, _phase_y + 10, "DAY " + string(_current_day));
-	draw_text(_phase_x + day_phase_text_padding, _phase_y + 32, "SURVIVE " + string(BALANCE_SURVIVE_DAYS) + " DAYS");
+
+	var _shrine_goal_progress = min(_shrine_corrupted_count, _shrine_required);
+
+	draw_text(
+		_phase_x + day_phase_text_padding,
+		_phase_y + 32,
+		"INFECT " + string(_shrine_goal_progress) + "/" + string(_shrine_required) + " SHRINES"
+	);
+
+	var _shrine_normal_sprite = s_shrine_normal;
+	var _shrine_cursed_sprite = s_shrine_cursed;
+	var _shrine_icon_start_x = _phase_x + day_phase_text_padding;
+	var _shrine_icon_y = _phase_y + shrine_icon_y_offset;
+
+	for (var _shrine_icon_index = 0; _shrine_icon_index < _shrine_total; ++_shrine_icon_index)
+	{
+		var _shrine_icon_x = _shrine_icon_start_x + ((shrine_icon_size + shrine_icon_gap) * _shrine_icon_index);
+		var _shrine_icon_sprite = _shrine_normal_sprite;
+		var _shrine_is_corrupted = _shrine_icon_index < _shrine_corrupted_count;
+
+		if (_shrine_icon_index < _shrine_instance_count)
+		{
+			var _shrine_instance = _shrine_instances[_shrine_icon_index];
+
+			_shrine_is_corrupted = instance_exists(_shrine_instance)
+				&& variable_instance_exists(_shrine_instance, "is_corrupted")
+				&& _shrine_instance.is_corrupted;
+		}
+
+		if (_shrine_is_corrupted)
+		{
+			_shrine_icon_sprite = _shrine_cursed_sprite;
+		}
+
+		draw_set_alpha(0.35);
+		draw_set_color(c_black);
+		draw_rectangle(
+			_shrine_icon_x - 2,
+			_shrine_icon_y - 2,
+			_shrine_icon_x + shrine_icon_size + 2,
+			_shrine_icon_y + shrine_icon_size + 2,
+			false
+		);
+
+		draw_set_alpha(1);
+		draw_sprite_stretched_ext(
+			_shrine_icon_sprite,
+			0,
+			_shrine_icon_x,
+			_shrine_icon_y,
+			shrine_icon_size,
+			shrine_icon_size,
+			c_white,
+			1
+		);
+	}
 
 	var _bar_x = _phase_x + day_phase_bar_margin_x;
 	var _bar_y = _phase_y + day_phase_item_height - day_phase_bar_margin_bottom - day_phase_bar_height;
@@ -124,6 +205,46 @@ if (variable_global_exists("day_phase"))
 	draw_rectangle(_bar_x, _bar_y, _bar_x + (_bar_width * _day_progress), _bar_y + day_phase_bar_height, false);
 	draw_set_color(COLOR_HUD_TEXT);
 	draw_rectangle(_bar_x, _bar_y, _bar_x + _bar_width, _bar_y + day_phase_bar_height, true);
+}
+
+// Draw objective complete notice once the shrine goal is finished.
+if (variable_global_exists("shrine_objective_complete") && global.shrine_objective_complete)
+{
+	var _gui_width = display_get_gui_width();
+	var _notice_x = (_gui_width - objective_complete_notice_width) * 0.5;
+	var _notice_y = objective_complete_notice_y;
+
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_top);
+	draw_set_alpha(0.86);
+	draw_set_color(c_black);
+	draw_rectangle(
+		_notice_x,
+		_notice_y,
+		_notice_x + objective_complete_notice_width,
+		_notice_y + objective_complete_notice_height,
+		false
+	);
+
+	draw_set_alpha(1);
+	draw_set_color(COLOR_PROJECTILE_CORRUPTION);
+	draw_rectangle(
+		_notice_x,
+		_notice_y,
+		_notice_x + objective_complete_notice_width,
+		_notice_y + objective_complete_notice_height,
+		true
+	);
+
+	draw_set_color(COLOR_PROJECTILE_CORRUPTION);
+	draw_text(_notice_x + (objective_complete_notice_width * 0.5), _notice_y + objective_complete_notice_padding, objective_complete_title);
+
+	draw_set_color(COLOR_HUD_TEXT);
+	draw_text(
+		_notice_x + (objective_complete_notice_width * 0.5),
+		_notice_y + objective_complete_notice_padding + 28,
+		objective_complete_description
+	);
 }
 
 // Draw cannon satiety in the top-center HUD.

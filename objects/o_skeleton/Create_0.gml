@@ -2,10 +2,10 @@
 event_inherited();
 
 // Skeleton combat stats.
-max_hp = 5 * BALANCE_COMBAT_VALUE_SCALE;
+max_hp = BALANCE_SKELETON_HP;
 hp = max_hp;
-damage = 1 * BALANCE_COMBAT_VALUE_SCALE;
-reload_time = 1 * room_speed;
+damage = BALANCE_SKELETON_DAMAGE;
+reload_time = BALANCE_SKELETON_RELOAD_TIME * room_speed;
 attack_radius = 34;
 move_speed = 1.35;
 

@@ -1,7 +1,10 @@
 {
   "$GMObject":"",
   "%Name":"o_shrine",
-  "eventList":[],
+  "eventList":[
+    {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":0,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
+    {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":3,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
+  ],
   "managed":true,
   "name":"o_shrine",
   "overriddenProperties":[],
@@ -9,7 +12,10 @@
     "name":"map_objects",
     "path":"folders/Objects/map_objects.yy",
   },
-  "parentObjectId":null,
+  "parentObjectId":{
+    "name":"o_map_objects_parent",
+    "path":"objects/o_map_objects_parent/o_map_objects_parent.yy",
+  },
   "persistent":false,
   "physicsAngularDamping":0.1,
   "physicsDensity":0.5,
@@ -27,7 +33,10 @@
   "resourceType":"GMObject",
   "resourceVersion":"2.0",
   "solid":false,
-  "spriteId":null,
+  "spriteId":{
+    "name":"s_shrine_normal",
+    "path":"sprites/s_shrine_normal/s_shrine_normal.yy",
+  },
   "spriteMaskId":null,
   "visible":true,
 }
