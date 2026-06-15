@@ -14,11 +14,18 @@ if (is_being_dragged)
 	draw_set_color(c_white);
 }
 
-// Draw unit sprite with combat-only visual offset.
+// Draw unit sprite with combat offset and a small whip panic shake while boosted.
+var _whip_shake_x = 0;
+
+if (variable_instance_exists(id, "whip_timer") && whip_timer > 0)
+{
+	_whip_shake_x = sin(current_time * BALANCE_WORKER_WHIP_SHAKE_SPEED) * BALANCE_WORKER_WHIP_SHAKE_OFFSET;
+}
+
 draw_sprite_ext(
 	sprite_index,
 	image_index,
-	x + visual_attack_offset_x,
+	x + visual_attack_offset_x + _whip_shake_x,
 	y + visual_attack_offset_y,
 	image_xscale,
 	image_yscale,

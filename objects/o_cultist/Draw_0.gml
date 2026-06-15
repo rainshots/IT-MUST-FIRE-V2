@@ -14,8 +14,25 @@ if (is_being_dragged)
 	draw_set_color(c_white);
 }
 
-// Draw day cultist sprite.
-draw_self();
+// Draw day cultist sprite with a small whip panic shake while boosted.
+var _whip_shake_x = 0;
+
+if (variable_instance_exists(id, "whip_timer") && whip_timer > 0)
+{
+	_whip_shake_x = sin(current_time * BALANCE_WORKER_WHIP_SHAKE_SPEED) * BALANCE_WORKER_WHIP_SHAKE_OFFSET;
+}
+
+draw_sprite_ext(
+	sprite_index,
+	image_index,
+	x + _whip_shake_x,
+	y,
+	image_xscale,
+	image_yscale,
+	image_angle,
+	image_blend,
+	image_alpha
+);
 
 // Draw carried corpses above the cultist hauling them to the cannon.
 if (variable_instance_exists(id, "carried_corpses") && array_length(carried_corpses) > 0)

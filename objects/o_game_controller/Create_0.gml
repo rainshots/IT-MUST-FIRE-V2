@@ -466,6 +466,15 @@ global.release_worker_sounds = [
 	release_worker10,
 	release_worker11
 ];
+global.whip_sounds = [
+	whip_sound01,
+	whip_sound02,
+	whip_sound03,
+	whip_sound04,
+	whip_sound05,
+	whip_sound06,
+	whip_sound07
+];
 global.cannon_shot_sounds = [
 	cannon_shot01,
 	cannon_shot02,
@@ -1863,6 +1872,17 @@ worker_whip_target_is_valid = function(_unit)
 	return true;
 };
 
+worker_whip_target_can_be_hit = function(_unit)
+{
+	if (!worker_whip_target_is_valid(_unit) || global.day_phase != DAY_PHASE.DAY)
+	{
+		return false;
+	}
+
+	var _damage_amount = _unit.max_hp * BALANCE_WORKER_WHIP_MAX_HP_DAMAGE_SHARE;
+	return _unit.hp > _damage_amount;
+};
+
 find_worker_whip_target_at_position = function(_world_x, _world_y)
 {
 	var _target_unit = noone;
@@ -1873,7 +1893,7 @@ find_worker_whip_target_at_position = function(_world_x, _world_y)
 	{
 		var _cultist = global.cultists[_cultist_index];
 
-		if (worker_whip_target_is_valid(_cultist)
+		if (worker_whip_target_can_be_hit(_cultist)
 			&& _world_x >= _cultist.bbox_left
 			&& _world_x <= _cultist.bbox_right
 			&& _world_y >= _cultist.bbox_top
@@ -1891,7 +1911,7 @@ find_worker_whip_target_at_position = function(_world_x, _world_y)
 	{
 		var _goblin = instance_find(o_goblin, _goblin_index);
 
-		if (worker_whip_target_is_valid(_goblin)
+		if (worker_whip_target_can_be_hit(_goblin)
 			&& _world_x >= _goblin.bbox_left
 			&& _world_x <= _goblin.bbox_right
 			&& _world_y >= _goblin.bbox_top
@@ -1908,22 +1928,19 @@ find_worker_whip_target_at_position = function(_world_x, _world_y)
 
 worker_whip_apply = function(_unit)
 {
-	if (!worker_whip_target_is_valid(_unit) || global.day_phase != DAY_PHASE.DAY)
+	if (!worker_whip_target_can_be_hit(_unit))
 	{
 		return false;
 	}
 
 	var _whip_duration_frames = max(1, BALANCE_WORKER_WHIP_DURATION * room_speed);
+	var _whip_gain_frames = max(1, BALANCE_WORKER_WHIP_HIT_DURATION_GAIN * room_speed);
 	var _damage_amount = _unit.max_hp * BALANCE_WORKER_WHIP_MAX_HP_DAMAGE_SHARE;
-
-	if (_unit.hp <= _damage_amount)
-	{
-		return false;
-	}
+	var _whip_was_inactive = _unit.whip_timer <= 0;
 
 	_unit.hp -= _damage_amount;
-	_unit.whip_timer = _whip_duration_frames;
 	_unit.whip_duration = _whip_duration_frames;
+	_unit.whip_timer = min(_unit.whip_timer + _whip_gain_frames, _unit.whip_duration);
 	_unit.whip_work_multiplier = BALANCE_WORKER_WHIP_SPEED_MULTIPLIER;
 
 	var _damage_popup = instance_create_layer(_unit.x, _unit.y, "Instances", o_damage_popup);
@@ -1931,8 +1948,16 @@ worker_whip_apply = function(_unit)
 	_damage_popup.popup_color = COLOR_DAMAGE_FRIENDLY;
 	_damage_popup.is_critical = false;
 
+	if (_whip_was_inactive)
+	{
+		var _productivity_popup = instance_create_layer(_unit.x, _unit.bbox_top - 12, "Instances", o_damage_popup);
+		_productivity_popup.popup_text = "PRODUCTIVITY x" + string(BALANCE_WORKER_WHIP_SPEED_MULTIPLIER) + "!";
+		_productivity_popup.popup_color = COLOR_CULTIST_FERVOR;
+		_productivity_popup.is_critical = false;
+	}
+
 	blood_particles_create(_unit.x, _unit.y);
-	audio_play_sound(release_worker11, global.sound_priority_gameplay, false);
+	global.sound_play_random(global.whip_sounds);
 
 	if (instance_exists(_unit.assigned_building)
 		&& variable_instance_exists(_unit.assigned_building, "recalculate_production_speed_multiplier"))
@@ -4374,6 +4399,14 @@ start_day_phase = function()
 	with (o_pitlings_house)
 	{
 		pitlings_house_spawn_morning_units();
+	}
+
+	with (o_ritual_circle)
+	{
+		if (variable_instance_exists(id, "ritual_circle_daily_exp_remaining"))
+		{
+			ritual_circle_daily_exp_remaining = BALANCE_RITUAL_CIRCLE_DAILY_EXP_LIMIT;
+		}
 	}
 
 	award_cultist_night_exp();

@@ -2618,6 +2618,7 @@ if (player_pause_active && global.focus_window == FOCUS_WINDOW.NOONE)
 if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultists"))
 {
 	var _should_draw_pickup_hand = instance_exists(global.dragged_cultist);
+	var _should_draw_whip_prompt = false;
 
 	if (!_should_draw_pickup_hand
 		&& instance_exists(o_camera_controller))
@@ -2631,7 +2632,10 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 		var _camera_height = camera_get_view_height(_camera_controller.camera_id);
 		var _mouse_world_x = _camera_x + ((_mouse_gui_x / camera_view_width) * _camera_width);
 		var _mouse_world_y = _camera_y + ((_mouse_gui_y / camera_view_height) * _camera_height);
+		var _whip_target = find_worker_whip_target_at_position(_mouse_world_x, _mouse_world_y);
 		var _cultist_count = array_length(global.cultists);
+
+		_should_draw_whip_prompt = instance_exists(_whip_target);
 
 		for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 		{
@@ -2707,6 +2711,40 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 		draw_set_alpha(1);
 		draw_set_color(c_white);
 		draw_sprite_ext(s_hand, 0, _hand_x, _hand_y, _hand_scale, _hand_scale, 0, c_white, 1);
+
+		if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+		{
+			draw_set_font(global.ui_font);
+		}
+
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_top);
+		draw_set_color(COLOR_HUD_TEXT);
+
+		if (!instance_exists(global.dragged_cultist))
+		{
+			draw_text(_hand_x, _hand_y + 28, "PRESS LMB");
+		}
+
+		if (_should_draw_whip_prompt && sprite_exists(s_whip))
+		{
+			var _whip_scale = 1;
+			var _whip_gap = 134;
+			var _whip_x = _hand_x + _whip_gap;
+			var _whip_y = _hand_y;
+			var _whip_text = "PRESS RMB";
+			var _whip_text_y = _whip_y + 28;
+
+			draw_sprite_ext(s_whip, 0, _whip_x, _whip_y, _whip_scale, _whip_scale, 0, c_white, 1);
+
+			draw_set_color(COLOR_HUD_TEXT);
+			draw_text(_whip_x, _whip_text_y, _whip_text);
+		}
+
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_color(c_white);
+		draw_set_alpha(1);
 	}
 }
 

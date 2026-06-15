@@ -84,6 +84,8 @@ meat_bath_heal_pool = 0;
 
 // Ritual Circle stores base XP here before applying XP Gain to workers.
 ritual_circle_exp_pool = 0;
+ritual_circle_exp_pool_amount = BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT;
+ritual_circle_daily_exp_remaining = BALANCE_RITUAL_CIRCLE_DAILY_EXP_LIMIT;
 
 // Workshop stores paid repair here before applying it to the cannon wall.
 workshop_repair_pool = 0;
@@ -166,7 +168,7 @@ else if (object_index == o_ritual_circle)
 	production_resource_color = COLOR_CULTIST_SPIRIT;
 	building_tooltip_title = "Training";
 	building_tooltip_description = "Gives assigned cultists XP";
-	building_tooltip_detail = "Gives " + string(BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT) + " XP over time";
+	building_tooltip_detail = "Gives " + string(BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT) + " XP chunks. Daily reserve: " + string(BALANCE_RITUAL_CIRCLE_DAILY_EXP_LIMIT) + " XP";
 	building_tooltip_detail_color = COLOR_CULTIST_SPIRIT;
 }
 else if (object_index == o_workshop)

@@ -150,11 +150,13 @@ if (object_index == o_meat_bath)
 // Draw remaining stored XP for the current training chunk.
 if (object_index == o_ritual_circle)
 {
+	var _bar_x = x - (production_bar_width * 0.5);
+	var _bar_y = y - production_bar_offset_y;
+
 	if (ritual_circle_exp_pool > 0)
 	{
-		var _bar_x = x - (production_bar_width * 0.5);
-		var _bar_y = y - production_bar_offset_y;
-		var _progress = clamp(ritual_circle_exp_pool / BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT, 0, 1);
+		var _progress = clamp(ritual_circle_exp_pool / max(1, ritual_circle_exp_pool_amount), 0, 1);
+
 		draw_set_alpha(production_bar_background_alpha);
 		draw_set_color(COLOR_HUD_BACKGROUND);
 		draw_rectangle(_bar_x, _bar_y, _bar_x + production_bar_width, _bar_y + production_bar_height, false);
@@ -167,6 +169,19 @@ if (object_index == o_ritual_circle)
 		draw_set_color(COLOR_HUD_TEXT);
 		draw_rectangle(_bar_x, _bar_y, _bar_x + production_bar_width, _bar_y + production_bar_height, true);
 	}
+
+	var _reserve_bar_height = 3;
+	var _reserve_bar_gap = 3;
+	var _reserve_bar_y = _bar_y + production_bar_height + _reserve_bar_gap;
+	var _reserve_progress = clamp(ritual_circle_daily_exp_remaining / max(1, BALANCE_RITUAL_CIRCLE_DAILY_EXP_LIMIT), 0, 1);
+
+	draw_set_alpha(production_bar_background_alpha);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_rectangle(_bar_x, _reserve_bar_y, _bar_x + production_bar_width, _reserve_bar_y + _reserve_bar_height, false);
+
+	draw_set_alpha(1);
+	draw_set_color(COLOR_CULTIST_SPIRIT);
+	draw_rectangle(_bar_x, _reserve_bar_y, _bar_x + (production_bar_width * _reserve_progress), _reserve_bar_y + _reserve_bar_height, false);
 
 	// Restore default draw state.
 	draw_set_halign(fa_left);

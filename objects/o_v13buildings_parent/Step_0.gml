@@ -32,6 +32,15 @@ for (var _worker_index = 0; _worker_index < _worker_count; ++_worker_index)
 
 array_resize(worker_cultists, _valid_worker_count);
 
+if (object_index == o_ritual_circle)
+{
+	var _daily_exp_restore = BALANCE_RITUAL_CIRCLE_DAILY_EXP_RESTORE_PER_SECOND / max(1, room_speed);
+	ritual_circle_daily_exp_remaining = min(
+		ritual_circle_daily_exp_remaining + _daily_exp_restore,
+		BALANCE_RITUAL_CIRCLE_DAILY_EXP_LIMIT
+	);
+}
+
 if (_valid_worker_count <= 0)
 {
 	production_speed_multiplier = 0;
@@ -196,12 +205,14 @@ if (object_index == o_ritual_circle)
 		exit;
 	}
 
-	if (ritual_circle_exp_pool <= 0)
+	if (ritual_circle_exp_pool <= 0 && ritual_circle_daily_exp_remaining >= BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT)
 	{
-		ritual_circle_exp_pool += BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT;
+		ritual_circle_exp_pool_amount = BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT;
+		ritual_circle_exp_pool += ritual_circle_exp_pool_amount;
+		ritual_circle_daily_exp_remaining -= ritual_circle_exp_pool_amount;
 
 		var _exp_popup = instance_create_layer(x, y - production_bar_offset_y, "Instances", o_damage_popup);
-		_exp_popup.popup_text = "+" + string(BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT) + "exp";
+		_exp_popup.popup_text = "+" + string(ritual_circle_exp_pool_amount) + "exp";
 		_exp_popup.popup_color = COLOR_CULTIST_SPIRIT;
 		_exp_popup.is_critical = false;
 	}
@@ -211,7 +222,7 @@ if (object_index == o_ritual_circle)
 		exit;
 	}
 
-	var _exp_step = (BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT * production_speed_multiplier) / max(1, BALANCE_RITUAL_CIRCLE_EXP_TIME * room_speed);
+	var _exp_step = (ritual_circle_exp_pool_amount * production_speed_multiplier) / max(1, BALANCE_RITUAL_CIRCLE_EXP_TIME * room_speed);
 
 	for (var _exp_worker_index = 0; _exp_worker_index < _valid_worker_count; ++_exp_worker_index)
 	{

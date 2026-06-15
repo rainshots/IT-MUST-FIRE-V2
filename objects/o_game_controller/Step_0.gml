@@ -99,8 +99,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 	var _mouse_world_x = _camera_x + ((_mouse_gui_x / camera_view_width) * _camera_width);
 	var _mouse_world_y = _camera_y + ((_mouse_gui_y / camera_view_height) * _camera_height);
 
-	if (!global.pause
-		&& global.day_phase == DAY_PHASE.DAY
+	if (global.day_phase == DAY_PHASE.DAY
 		&& !instance_exists(global.dragged_cultist)
 		&& mouse_check_button_pressed(mb_right))
 	{
