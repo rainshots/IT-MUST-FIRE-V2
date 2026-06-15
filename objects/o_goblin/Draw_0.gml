@@ -11,6 +11,12 @@ if (variable_instance_exists(id, "summon_nights_remaining"))
 	var _start_x = x - (_total_width * 0.5);
 	var _square_y = y - bar_offset_y + bar_height + 4;
 
+	if (variable_instance_exists(id, "whip_timer") && whip_timer > 0)
+	{
+		var _whip_marker_gap = 5;
+		_square_y += _whip_marker_gap;
+	}
+
 	draw_set_alpha(1);
 	draw_set_color(COLOR_HUD_IRON);
 

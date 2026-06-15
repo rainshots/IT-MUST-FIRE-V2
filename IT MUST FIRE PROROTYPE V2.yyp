@@ -263,6 +263,7 @@
     {"id":{"name":"s_web_particle_02","path":"sprites/s_web_particle_02/s_web_particle_02.yy",},},
     {"id":{"name":"s_web_particle_03","path":"sprites/s_web_particle_03/s_web_particle_03.yy",},},
     {"id":{"name":"s_web_particle_04","path":"sprites/s_web_particle_04/s_web_particle_04.yy",},},
+    {"id":{"name":"s_whip","path":"sprites/s_whip/s_whip.yy",},},
     {"id":{"name":"s_wood_cursed","path":"sprites/s_wood_cursed/s_wood_cursed.yy",},},
     {"id":{"name":"s_wood","path":"sprites/s_wood/s_wood.yy",},},
     {"id":{"name":"s_workshop","path":"sprites/s_workshop/s_workshop.yy",},},

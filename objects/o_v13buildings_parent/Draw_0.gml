@@ -147,7 +147,7 @@ if (object_index == o_meat_bath)
 	exit;
 }
 
-// Draw remaining paid XP for the current Soul chunk.
+// Draw remaining stored XP for the current training chunk.
 if (object_index == o_ritual_circle)
 {
 	if (ritual_circle_exp_pool > 0)
@@ -155,9 +155,6 @@ if (object_index == o_ritual_circle)
 		var _bar_x = x - (production_bar_width * 0.5);
 		var _bar_y = y - production_bar_offset_y;
 		var _progress = clamp(ritual_circle_exp_pool / BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT, 0, 1);
-		var _icon_x = _bar_x + production_bar_width + production_icon_gap;
-		var _icon_y = _bar_y + (production_bar_height * 0.5);
-
 		draw_set_alpha(production_bar_background_alpha);
 		draw_set_color(COLOR_HUD_BACKGROUND);
 		draw_rectangle(_bar_x, _bar_y, _bar_x + production_bar_width, _bar_y + production_bar_height, false);
@@ -169,20 +166,6 @@ if (object_index == o_ritual_circle)
 		draw_set_alpha(production_bar_outline_alpha);
 		draw_set_color(COLOR_HUD_TEXT);
 		draw_rectangle(_bar_x, _bar_y, _bar_x + production_bar_width, _bar_y + production_bar_height, true);
-
-		if (sprite_exists(production_resource_icon))
-		{
-			draw_sprite_stretched_ext(
-				production_resource_icon,
-				0,
-				_icon_x,
-				_icon_y - (production_icon_size * 0.5),
-				production_icon_size,
-				production_icon_size,
-				c_white,
-				1
-			);
-		}
 	}
 
 	// Restore default draw state.

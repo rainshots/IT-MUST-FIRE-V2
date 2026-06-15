@@ -180,6 +180,22 @@ if (_should_draw_health_bar)
 	draw_set_alpha(1);
 	draw_set_color(_health_bar_color);
 	draw_rectangle(_bar_x, _bar_y, _bar_x + (bar_width * _hp_progress), _bar_y + bar_height, false);
+
+	if (variable_instance_exists(id, "whip_timer") && whip_timer > 0 && whip_duration > 0)
+	{
+		var _whip_progress = clamp(whip_timer / whip_duration, 0, 1);
+		var _whip_bar_gap = 2;
+		var _whip_bar_height = 3;
+		var _whip_bar_y = _bar_y + bar_height + _whip_bar_gap;
+
+		draw_set_alpha(0.75);
+		draw_set_color(c_black);
+		draw_rectangle(_bar_x, _whip_bar_y, _bar_x + bar_width, _whip_bar_y + _whip_bar_height, false);
+
+		draw_set_alpha(1);
+		draw_set_color(COLOR_CULTIST_FERVOR);
+		draw_rectangle(_bar_x, _whip_bar_y, _bar_x + (bar_width * _whip_progress), _whip_bar_y + _whip_bar_height, false);
+	}
 }
 
 // Draw stun state above the unit while it cannot act.

@@ -99,6 +99,19 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 	var _mouse_world_x = _camera_x + ((_mouse_gui_x / camera_view_width) * _camera_width);
 	var _mouse_world_y = _camera_y + ((_mouse_gui_y / camera_view_height) * _camera_height);
 
+	if (!global.pause
+		&& global.day_phase == DAY_PHASE.DAY
+		&& !instance_exists(global.dragged_cultist)
+		&& mouse_check_button_pressed(mb_right))
+	{
+		var _whip_target = find_worker_whip_target_at_position(_mouse_world_x, _mouse_world_y);
+
+		if (instance_exists(_whip_target))
+		{
+			worker_whip_apply(_whip_target);
+		}
+	}
+
 	if (instance_exists(global.dragged_cultist))
 	{
 		var _dragged_cultist = global.dragged_cultist;
@@ -261,6 +274,12 @@ else if (instance_exists(global.dragged_cultist))
 else
 {
 	global.cultist_assignment_preview_building = noone;
+}
+
+// Worker whip bonuses tick only while gameplay is running.
+if (!global.pause && variable_global_exists("cultists"))
+{
+	worker_whip_effects_update();
 }
 
 // Assigned cannon workers haul corpses during the day.

@@ -207,6 +207,106 @@ if (variable_global_exists("day_phase"))
 	draw_rectangle(_bar_x, _bar_y, _bar_x + _bar_width, _bar_y + day_phase_bar_height, true);
 }
 
+// Draw direct Imp passive damage on the right side for balance testing.
+var _imp_count = instance_number(o_imp);
+
+if (_imp_count > 0)
+{
+	var _gui_width = display_get_gui_width();
+	var _meter_x = _gui_width - imp_damage_meter_margin_right - imp_damage_meter_width;
+	var _meter_y = imp_damage_meter_y;
+	var _tracked_abilities = [
+		DEMON_ABILITY.IMP_FRENZY_ECHO,
+		DEMON_ABILITY.IMP_BLOOD_BLADES,
+		DEMON_ABILITY.IMP_BLOOD_HUNGER
+	];
+	var _panel_height = imp_damage_meter_padding * 2
+		+ imp_damage_meter_title_height
+		+ (_imp_count * ((array_length(_tracked_abilities) + 1) * imp_damage_meter_line_height + imp_damage_meter_imp_gap));
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_alpha(0.78);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_rectangle(_meter_x, _meter_y, _meter_x + imp_damage_meter_width, _meter_y + _panel_height, false);
+
+	draw_set_alpha(1);
+	draw_set_color(COLOR_HUD_TEXT);
+	draw_text(_meter_x + imp_damage_meter_padding, _meter_y + imp_damage_meter_padding, "IMP PASSIVE DPS");
+
+	var _line_y = _meter_y + imp_damage_meter_padding + imp_damage_meter_title_height;
+
+	for (var _imp_index = 0; _imp_index < _imp_count; ++_imp_index)
+	{
+		var _imp = instance_find(o_imp, _imp_index);
+
+		if (!instance_exists(_imp))
+		{
+			continue;
+		}
+
+		var _imp_name = "Imp";
+
+		if (variable_instance_exists(_imp, "cultist_name") && _imp.cultist_name != "")
+		{
+			_imp_name = _imp.cultist_name;
+		}
+
+		draw_set_color(COLOR_CULTIST_FERVOR);
+		draw_text(_meter_x + imp_damage_meter_padding, _line_y, _imp_name);
+		_line_y += imp_damage_meter_line_height;
+
+		var _has_any_meter_line = false;
+
+		for (var _ability_index = 0; _ability_index < array_length(_tracked_abilities); ++_ability_index)
+		{
+			var _ability = _tracked_abilities[_ability_index];
+			var _ability_level = 0;
+			var _total_damage = 0;
+			var _recent_dps = 0;
+
+			if (variable_instance_exists(_imp, "imp_ability_level_get"))
+			{
+				_ability_level = _imp.imp_ability_level_get(_ability);
+			}
+
+			if (variable_instance_exists(_imp, "imp_ability_damage_totals"))
+			{
+				_total_damage = _imp.imp_ability_damage_totals[_ability];
+			}
+
+			if (variable_instance_exists(_imp, "imp_ability_damage_dps_get"))
+			{
+				_recent_dps = _imp.imp_ability_damage_dps_get(_ability);
+			}
+
+			if (_ability_level <= 0 && _total_damage <= 0)
+			{
+				continue;
+			}
+
+			var _ability_text = string_copy(cultist_ability_name_get(_ability), 1, 14)
+				+ " L" + string(_ability_level)
+				+ " DPS " + string_format(_recent_dps, 0, 1)
+				+ " DMG " + string_format(_total_damage, 0, 0);
+
+			draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+			draw_text(_meter_x + imp_damage_meter_padding, _line_y, _ability_text);
+			_line_y += imp_damage_meter_line_height;
+			_has_any_meter_line = true;
+		}
+
+		if (!_has_any_meter_line)
+		{
+			draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+			draw_text(_meter_x + imp_damage_meter_padding, _line_y, imp_damage_meter_empty_text);
+			_line_y += imp_damage_meter_line_height;
+		}
+
+		_line_y += imp_damage_meter_imp_gap;
+	}
+}
+
 // Draw objective complete notice once the shrine goal is finished.
 if (variable_global_exists("shrine_objective_complete") && global.shrine_objective_complete)
 {

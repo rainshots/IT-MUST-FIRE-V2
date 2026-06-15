@@ -82,7 +82,7 @@ secondary_effect_progress = 0;
 // Meat Bath stores paid healing here so one Flesh restores a fixed amount over time.
 meat_bath_heal_pool = 0;
 
-// Ritual Circle stores paid base XP here before applying XP Gain to workers.
+// Ritual Circle stores base XP here before applying XP Gain to workers.
 ritual_circle_exp_pool = 0;
 
 // Workshop stores paid repair here before applying it to the cannon wall.
@@ -162,12 +162,12 @@ else if (object_index == o_meat_bath)
 else if (object_index == o_ritual_circle)
 {
 	building_accepts_workers = true;
-	production_resource_icon = s_soul_icon;
-	production_resource_color = COLOR_HUD_SOULS;
+	production_resource_icon = noone;
+	production_resource_color = COLOR_CULTIST_SPIRIT;
 	building_tooltip_title = "Training";
 	building_tooltip_description = "Gives assigned cultists XP";
-	building_tooltip_detail = "Uses " + string(BALANCE_RITUAL_CIRCLE_SOUL_COST) + " Souls for " + string(BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT) + " XP";
-	building_tooltip_detail_color = COLOR_HUD_SOULS;
+	building_tooltip_detail = "Gives " + string(BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT) + " XP over time";
+	building_tooltip_detail_color = COLOR_CULTIST_SPIRIT;
 }
 else if (object_index == o_workshop)
 {
@@ -277,6 +277,11 @@ recalculate_production_speed_multiplier = function()
 		{
 			var _stat_points = _worker.cultist_points[production_bonus_stat];
 			_worker_speed_multiplier += _stat_points * BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS;
+		}
+
+		if (variable_instance_exists(_worker, "whip_timer") && _worker.whip_timer > 0)
+		{
+			_worker_speed_multiplier *= _worker.whip_work_multiplier;
 		}
 
 		_worker_speed_multiplier *= building_worker_fatigue_multiplier_get(_worker);

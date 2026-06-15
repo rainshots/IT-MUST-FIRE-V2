@@ -1290,7 +1290,7 @@ building_choices = [
 		building_object: o_ritual_circle,
 		building_sprite: s_ritual_circle,
 		building_name: "Ritual Circle",
-		building_description: "Gives assigned cultists XP by spending Souls.",
+		building_description: "Gives assigned cultists XP over time.",
 		iron_cost: BALANCE_BUILDING_IRON_COST
 	},
 	{
@@ -1834,6 +1834,158 @@ find_building_slot_at_position = function(_world_x, _world_y)
 	return _target_slot;
 };
 
+worker_whip_target_is_valid = function(_unit)
+{
+	if (!instance_exists(_unit)
+		|| (_unit.object_index != o_cultist && _unit.object_index != o_goblin)
+		|| !variable_instance_exists(_unit, "hp")
+		|| !variable_instance_exists(_unit, "max_hp")
+		|| _unit.hp <= 0)
+	{
+		return false;
+	}
+
+	if (variable_instance_exists(_unit, "is_being_dragged") && _unit.is_being_dragged)
+	{
+		return false;
+	}
+
+	if (variable_instance_exists(_unit, "cannon_loading") && _unit.cannon_loading)
+	{
+		return false;
+	}
+
+	if (variable_instance_exists(_unit, "cannon_loaded") && _unit.cannon_loaded)
+	{
+		return false;
+	}
+
+	return true;
+};
+
+find_worker_whip_target_at_position = function(_world_x, _world_y)
+{
+	var _target_unit = noone;
+	var _target_depth = infinity;
+	var _cultist_count = array_length(global.cultists);
+
+	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+	{
+		var _cultist = global.cultists[_cultist_index];
+
+		if (worker_whip_target_is_valid(_cultist)
+			&& _world_x >= _cultist.bbox_left
+			&& _world_x <= _cultist.bbox_right
+			&& _world_y >= _cultist.bbox_top
+			&& _world_y <= _cultist.bbox_bottom
+			&& _cultist.depth < _target_depth)
+		{
+			_target_unit = _cultist;
+			_target_depth = _cultist.depth;
+		}
+	}
+
+	var _goblin_count = instance_number(o_goblin);
+
+	for (var _goblin_index = 0; _goblin_index < _goblin_count; ++_goblin_index)
+	{
+		var _goblin = instance_find(o_goblin, _goblin_index);
+
+		if (worker_whip_target_is_valid(_goblin)
+			&& _world_x >= _goblin.bbox_left
+			&& _world_x <= _goblin.bbox_right
+			&& _world_y >= _goblin.bbox_top
+			&& _world_y <= _goblin.bbox_bottom
+			&& _goblin.depth < _target_depth)
+		{
+			_target_unit = _goblin;
+			_target_depth = _goblin.depth;
+		}
+	}
+
+	return _target_unit;
+};
+
+worker_whip_apply = function(_unit)
+{
+	if (!worker_whip_target_is_valid(_unit) || global.day_phase != DAY_PHASE.DAY)
+	{
+		return false;
+	}
+
+	var _whip_duration_frames = max(1, BALANCE_WORKER_WHIP_DURATION * room_speed);
+	var _damage_amount = _unit.max_hp * BALANCE_WORKER_WHIP_MAX_HP_DAMAGE_SHARE;
+
+	if (_unit.hp <= _damage_amount)
+	{
+		return false;
+	}
+
+	_unit.hp -= _damage_amount;
+	_unit.whip_timer = _whip_duration_frames;
+	_unit.whip_duration = _whip_duration_frames;
+	_unit.whip_work_multiplier = BALANCE_WORKER_WHIP_SPEED_MULTIPLIER;
+
+	var _damage_popup = instance_create_layer(_unit.x, _unit.y, "Instances", o_damage_popup);
+	_damage_popup.popup_text = string(ceil(_damage_amount));
+	_damage_popup.popup_color = COLOR_DAMAGE_FRIENDLY;
+	_damage_popup.is_critical = false;
+
+	blood_particles_create(_unit.x, _unit.y);
+	audio_play_sound(release_worker11, global.sound_priority_gameplay, false);
+
+	if (instance_exists(_unit.assigned_building)
+		&& variable_instance_exists(_unit.assigned_building, "recalculate_production_speed_multiplier"))
+	{
+		_unit.assigned_building.recalculate_production_speed_multiplier();
+	}
+
+	return true;
+};
+
+worker_whip_unit_update = function(_unit)
+{
+	if (!instance_exists(_unit) || !variable_instance_exists(_unit, "whip_timer"))
+	{
+		return;
+	}
+
+	if (_unit.whip_timer <= 0)
+	{
+		return;
+	}
+
+	_unit.whip_timer--;
+
+	if (_unit.whip_timer <= 0)
+	{
+		_unit.whip_work_multiplier = 1;
+
+		if (instance_exists(_unit.assigned_building)
+			&& variable_instance_exists(_unit.assigned_building, "recalculate_production_speed_multiplier"))
+		{
+			_unit.assigned_building.recalculate_production_speed_multiplier();
+		}
+	}
+};
+
+worker_whip_effects_update = function()
+{
+	var _cultist_count = array_length(global.cultists);
+
+	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+	{
+		worker_whip_unit_update(global.cultists[_cultist_index]);
+	}
+
+	var _goblin_count = instance_number(o_goblin);
+
+	for (var _goblin_index = 0; _goblin_index < _goblin_count; ++_goblin_index)
+	{
+		worker_whip_unit_update(instance_find(o_goblin, _goblin_index));
+	}
+};
+
 find_upgrade_building_at_position = function(_world_x, _world_y)
 {
 	var _building_count = instance_number(o_v13buildings_parent);
@@ -2100,6 +2252,11 @@ cannon_worker_move_towards = function(_worker, _target_x, _target_y)
 	if (variable_instance_exists(_worker, "move_speed"))
 	{
 		_move_speed = max(_move_speed, _worker.move_speed);
+	}
+
+	if (variable_instance_exists(_worker, "whip_timer") && _worker.whip_timer > 0)
+	{
+		_move_speed *= _worker.whip_work_multiplier;
 	}
 
 	var _move_distance = min(_move_speed, _distance);

@@ -40,6 +40,16 @@ frenzy_echo_visual_direction = 0;
 blood_hunger_frenzy_timer = 0;
 frenzy_echo_is_resolving = false;
 
+// Ability damage meter separates direct passive damage from regular attacks.
+imp_damage_meter_window_time = 10;
+imp_ability_damage_totals = array_create(DEMON_ABILITY.COUNT, 0);
+imp_ability_damage_samples = array_create(DEMON_ABILITY.COUNT, []);
+
+for (var _damage_sample_index = 0; _damage_sample_index < DEMON_ABILITY.COUNT; ++_damage_sample_index)
+{
+	imp_ability_damage_samples[_damage_sample_index] = [];
+}
+
 // Imp active abilities keep independent cooldown state for future unlocks.
 demon_leap_cooldown = BALANCE_IMP_DEMON_LEAP_COOLDOWN * room_speed;
 demon_leap_timer = 0;
@@ -126,6 +136,85 @@ imp_blood_frenzy_stack_count_get = function()
 imp_ability_level_get = function(_ability)
 {
 	return cultist_ability_level_get(id, _ability);
+};
+
+imp_ability_damage_meter_tracks = function(_ability)
+{
+	return _ability == DEMON_ABILITY.IMP_FRENZY_ECHO
+		|| _ability == DEMON_ABILITY.IMP_BLOOD_BLADES
+		|| _ability == DEMON_ABILITY.IMP_BLOOD_HUNGER;
+};
+
+imp_ability_damage_record = function(_ability, _damage_amount)
+{
+	if (!imp_ability_damage_meter_tracks(_ability) || _damage_amount <= 0)
+	{
+		return;
+	}
+
+	imp_ability_damage_totals[_ability] += _damage_amount;
+
+	var _samples = imp_ability_damage_samples[_ability];
+	array_push(_samples, {
+		amount: _damage_amount,
+		timer: imp_damage_meter_window_time * room_speed
+	});
+	imp_ability_damage_samples[_ability] = _samples;
+};
+
+imp_ability_damage_meter_update = function()
+{
+	var _tracked_abilities = [
+		DEMON_ABILITY.IMP_FRENZY_ECHO,
+		DEMON_ABILITY.IMP_BLOOD_BLADES,
+		DEMON_ABILITY.IMP_BLOOD_HUNGER
+	];
+
+	for (var _ability_index = 0; _ability_index < array_length(_tracked_abilities); ++_ability_index)
+	{
+		var _ability = _tracked_abilities[_ability_index];
+		var _samples = imp_ability_damage_samples[_ability];
+
+		for (var _sample_index = array_length(_samples) - 1; _sample_index >= 0; --_sample_index)
+		{
+			var _sample = _samples[_sample_index];
+			_sample.timer--;
+
+			if (_sample.timer <= 0)
+			{
+				array_delete(_samples, _sample_index, 1);
+			}
+			else
+			{
+				_samples[_sample_index] = _sample;
+			}
+		}
+
+		imp_ability_damage_samples[_ability] = _samples;
+	}
+};
+
+imp_ability_damage_recent_get = function(_ability)
+{
+	if (!imp_ability_damage_meter_tracks(_ability))
+	{
+		return 0;
+	}
+
+	var _recent_damage = 0;
+	var _samples = imp_ability_damage_samples[_ability];
+
+	for (var _sample_index = 0; _sample_index < array_length(_samples); ++_sample_index)
+	{
+		_recent_damage += _samples[_sample_index].amount;
+	}
+
+	return _recent_damage;
+};
+
+imp_ability_damage_dps_get = function(_ability)
+{
+	return imp_ability_damage_recent_get(_ability) / max(1, imp_damage_meter_window_time);
 };
 
 imp_blood_hunger_level_get = function()
@@ -414,7 +503,7 @@ imp_find_highest_hp_enemy = function(_search_radius)
 	return _best_target;
 };
 
-imp_damage_enemies_in_radius = function(_origin_x, _origin_y, _radius, _damage_amount, _excluded_target)
+imp_damage_enemies_in_radius = function(_origin_x, _origin_y, _radius, _damage_amount, _excluded_target, _source_ability = DEMON_ABILITY.NONE)
 {
 	var _enemy_count = instance_number(o_enemy_units);
 
@@ -429,11 +518,11 @@ imp_damage_enemies_in_radius = function(_origin_x, _origin_y, _radius, _damage_a
 			continue;
 		}
 
-		imp_damage_target(_enemy, _damage_amount, false);
+		imp_damage_target(_enemy, _damage_amount, false, _source_ability);
 	}
 };
 
-imp_damage_enemies_in_sector = function(_origin_x, _origin_y, _direction, _radius, _sector_angle, _damage_amount, _main_target)
+imp_damage_enemies_in_sector = function(_origin_x, _origin_y, _direction, _radius, _sector_angle, _damage_amount, _main_target, _source_ability = DEMON_ABILITY.NONE)
 {
 	var _enemy_count = instance_number(o_enemy_units);
 
@@ -453,7 +542,7 @@ imp_damage_enemies_in_sector = function(_origin_x, _origin_y, _direction, _radiu
 
 		if (_angle_delta <= _sector_angle * 0.5)
 		{
-			imp_damage_target(_enemy, _damage_amount, false);
+			imp_damage_target(_enemy, _damage_amount, false, _source_ability);
 		}
 	}
 };
@@ -508,7 +597,7 @@ imp_leap_visual_start = function(_start_x, _start_y, _end_x, _end_y, _arc_height
 	);
 };
 
-imp_damage_target = function(_target, _damage_amount, _force_critical)
+imp_damage_target = function(_target, _damage_amount, _force_critical, _source_ability = DEMON_ABILITY.NONE)
 {
 	if (!target_can_be_attacked(_target) || !variable_instance_exists(_target, "hp"))
 	{
@@ -524,16 +613,20 @@ imp_damage_target = function(_target, _damage_amount, _force_critical)
 	}
 
 	var _final_damage = physical_damage_after_armor(_damage_with_modifiers, _target);
+	var _applied_damage = 0;
 
 	if (variable_instance_exists(_target, "unit_damage_receive"))
 	{
-		_target.unit_damage_receive(_final_damage, unit_faction, _force_critical);
+		_applied_damage = _target.unit_damage_receive(_final_damage, unit_faction, _force_critical);
 	}
 	else
 	{
+		_applied_damage = min(_final_damage, _target.hp);
 		_target.hp = max(_target.hp - _final_damage, 0);
-		damage_popup_create(_target.x, _target.y, _final_damage, _target.unit_faction, _force_critical);
+		damage_popup_create(_target.x, _target.y, _applied_damage, _target.unit_faction, _force_critical);
 	}
+
+	imp_ability_damage_record(_source_ability, _applied_damage);
 
 	var _target_was_killed = _target_hp_before_hit > 0 && _target.hp <= 0;
 	unit_attack_landed(_target, _force_critical, _target_was_killed);
@@ -738,7 +831,7 @@ imp_blood_blades_update = function()
 
 			if (point_distance(_blade_x, _blade_y, _enemy.x, _enemy.y) <= _blade_hit_radius)
 			{
-				var _enemy_was_killed = imp_damage_target(_enemy, _blade_damage, false);
+				var _enemy_was_killed = imp_damage_target(_enemy, _blade_damage, false, DEMON_ABILITY.IMP_BLOOD_BLADES);
 
 				if (_blade_level >= 3)
 				{
@@ -757,7 +850,7 @@ imp_blood_blades_update = function()
 
 						if (instance_exists(_shard_target))
 						{
-							imp_damage_target(_shard_target, damage * BALANCE_IMP_BLOOD_BLADES_SHARD_DAMAGE_SHARE, false);
+							imp_damage_target(_shard_target, damage * BALANCE_IMP_BLOOD_BLADES_SHARD_DAMAGE_SHARE, false, DEMON_ABILITY.IMP_BLOOD_BLADES);
 							_previous_shard_target = _shard_target;
 						}
 					}
@@ -1153,7 +1246,7 @@ imp_frenzy_echo_trigger = function(_source_target)
 	frenzy_echo_visual_timer = 12;
 
 	frenzy_echo_is_resolving = true;
-	imp_damage_target(_target, _echo_damage, false);
+	imp_damage_target(_target, _echo_damage, false, DEMON_ABILITY.IMP_FRENZY_ECHO);
 
 	if (_echo_level >= 3)
 	{
@@ -1164,7 +1257,8 @@ imp_frenzy_echo_trigger = function(_source_target)
 			BALANCE_IMP_FRENZY_ECHO_SECTOR_RADIUS,
 			BALANCE_IMP_FRENZY_ECHO_SECTOR_ANGLE,
 			_echo_damage,
-			_target
+			_target,
+			DEMON_ABILITY.IMP_FRENZY_ECHO
 		);
 	}
 
@@ -1206,7 +1300,7 @@ unit_attack_landed = function(_target, _is_critical_hit = false, _target_was_kil
 
 		if (imp_blood_hunger_level_get() >= 4)
 		{
-			imp_damage_enemies_in_radius(_target.x, _target.y, 100, damage, _target);
+			imp_damage_enemies_in_radius(_target.x, _target.y, 100, damage, _target, DEMON_ABILITY.IMP_BLOOD_HUNGER);
 		}
 
 		if (imp_frenzy_echo_level_get() >= 4)

@@ -116,6 +116,11 @@ warlock_skeleton_dies_at_morning = false;
 assigned_building = noone;
 is_assigned_to_building = false;
 
+// Worker whip temporarily improves day productivity at the cost of health.
+whip_timer = 0;
+whip_duration = 0;
+whip_work_multiplier = 1;
+
 // Cannon corpse hauling uses inert corpse snapshots reserved by the game controller.
 carried_corpse = noone;
 carried_corpses = [];

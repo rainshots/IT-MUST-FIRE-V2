@@ -83,6 +83,11 @@ hp = max_hp;
 // Fatigue rises while working resource buildings and recovers in Ritual Circle.
 fatigue_amount = 0;
 
+// Worker whip temporarily improves day productivity at the cost of health.
+whip_timer = 0;
+whip_duration = 0;
+whip_work_multiplier = 1;
+
 // Visual settings for the day form labels and shared health bar style.
 name_offset_y = 8;
 bar_width = 34;

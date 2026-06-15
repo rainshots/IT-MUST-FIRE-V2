@@ -109,3 +109,13 @@ projectile_descriptions[PROJECTILE_TYPE.SUMMON] = "Summons friendly forces throu
 projectile_descriptions[PROJECTILE_TYPE.RALLY] = "Sends half of nearby friendly units to the impact point.";
 projectile_descriptions[PROJECTILE_TYPE.CULTIST] = "Launches a cultist into battle, dealing impact damage and spawning demon form.";
 projectile_descriptions[PROJECTILE_TYPE.FEAST] = "Fires 20 infection shells over a wide area and heavily damages enemies inside.";
+
+// Right-side debug panel for direct Imp passive damage.
+imp_damage_meter_width = 310;
+imp_damage_meter_margin_right = 18;
+imp_damage_meter_y = 132;
+imp_damage_meter_padding = 10;
+imp_damage_meter_title_height = 20;
+imp_damage_meter_line_height = 18;
+imp_damage_meter_imp_gap = 8;
+imp_damage_meter_empty_text = "No Imp damage yet";

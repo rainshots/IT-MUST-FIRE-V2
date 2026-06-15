@@ -9,6 +9,8 @@ if (global.pause || hp <= 0)
 	exit;
 }
 
+imp_ability_damage_meter_update();
+
 if (is_being_dragged
 	|| (is_stunned && !demon_leap_is_active && crimson_guillotine_strike_timer <= 0))
 {

@@ -174,7 +174,7 @@ if (object_index == o_meat_bath)
 	exit;
 }
 
-// Ritual Circle converts Souls into base XP and applies it gradually.
+// Ritual Circle stores base XP and applies it gradually.
 if (object_index == o_ritual_circle)
 {
 	var _exp_worker_exists = false;
@@ -196,17 +196,14 @@ if (object_index == o_ritual_circle)
 		exit;
 	}
 
-	if (ritual_circle_exp_pool <= 0 && global.resources[RESOURCES.SOULS] >= BALANCE_RITUAL_CIRCLE_SOUL_COST)
+	if (ritual_circle_exp_pool <= 0)
 	{
-		global.resources[RESOURCES.SOULS] -= BALANCE_RITUAL_CIRCLE_SOUL_COST;
 		ritual_circle_exp_pool += BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT;
-		resource_popup_create(x, y - production_bar_offset_y, RESOURCES.SOULS, -BALANCE_RITUAL_CIRCLE_SOUL_COST);
-	}
-	else if (ritual_circle_exp_pool <= 0)
-	{
-		missing_work_resource = RESOURCES.SOULS;
-		missing_work_resource_name = "Souls";
-		missing_work_resource_color = COLOR_HUD_SOULS;
+
+		var _exp_popup = instance_create_layer(x, y - production_bar_offset_y, "Instances", o_damage_popup);
+		_exp_popup.popup_text = "+" + string(BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT) + "exp";
+		_exp_popup.popup_color = COLOR_CULTIST_SPIRIT;
+		_exp_popup.is_critical = false;
 	}
 
 	if (ritual_circle_exp_pool <= 0)

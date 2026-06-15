@@ -172,10 +172,12 @@ if (max_hp > 0)
 	draw_set_color(COLOR_HEALTH_BAR);
 	draw_rectangle(_bar_x, _bar_y, _bar_x + (bar_width * _hp_progress), _bar_y + bar_height, false);
 
+	var _next_status_bar_y = _bar_y + bar_height + fatigue_bar_gap;
+
 	if (global.day_phase == DAY_PHASE.DAY && variable_instance_exists(id, "fatigue_amount"))
 	{
 		var _fatigue_progress = clamp(fatigue_amount / max(1, BALANCE_CULTIST_FATIGUE_MAX), 0, 1);
-		var _fatigue_bar_y = _bar_y + bar_height + fatigue_bar_gap;
+		var _fatigue_bar_y = _next_status_bar_y;
 
 		draw_set_alpha(0.75);
 		draw_set_color(c_black);
@@ -184,6 +186,21 @@ if (max_hp > 0)
 		draw_set_alpha(1);
 		draw_set_color(COLOR_STATUS_NEGATIVE_RED);
 		draw_rectangle(_bar_x, _fatigue_bar_y, _bar_x + (bar_width * _fatigue_progress), _fatigue_bar_y + fatigue_bar_height, false);
+
+		_next_status_bar_y += fatigue_bar_height + fatigue_bar_gap;
+	}
+
+	if (variable_instance_exists(id, "whip_timer") && whip_timer > 0 && whip_duration > 0)
+	{
+		var _whip_progress = clamp(whip_timer / whip_duration, 0, 1);
+
+		draw_set_alpha(0.75);
+		draw_set_color(c_black);
+		draw_rectangle(_bar_x, _next_status_bar_y, _bar_x + bar_width, _next_status_bar_y + fatigue_bar_height, false);
+
+		draw_set_alpha(1);
+		draw_set_color(COLOR_CULTIST_FERVOR);
+		draw_rectangle(_bar_x, _next_status_bar_y, _bar_x + (bar_width * _whip_progress), _next_status_bar_y + fatigue_bar_height, false);
 	}
 }
 
