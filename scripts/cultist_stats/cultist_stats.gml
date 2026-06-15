@@ -40,7 +40,7 @@ function cultist_base_stats_get(_demon_type)
 		abilities_cd_spd: 1,
 		exp_effectiveness: 1,
 		magic_effectiveness: 1,
-		resistance: 1,
+		resistance: 100,
 		attack_radius: 34,
 		move_speed: 1.2
 	};
@@ -108,6 +108,7 @@ function cultist_calculated_stats_get(_demon_type, _points)
 	return {
 		hp: cultist_stat_get(_base_stats.hp, _body, BALANCE_CULTIST_BODY_STAT_BONUS, 1),
 		armor: min(cultist_stat_get(_base_stats.armor, _body, BALANCE_CULTIST_BODY_STAT_BONUS, 1), 190),
+		magic_resistance: min(cultist_stat_get(_base_stats.resistance, _spirit, BALANCE_CULTIST_SPIRIT_STAT_BONUS, 1), 190),
 		damage: cultist_stat_get(_base_stats.damage, _body, BALANCE_CULTIST_BODY_STAT_BONUS, 1),
 		magic_damage: cultist_stat_get(_base_stats.magic_damage, _spirit, BALANCE_CULTIST_MAGIC_DAMAGE_STAT_BONUS, 1),
 		aoe_radius: _base_stats.aoe_radius,
@@ -361,7 +362,7 @@ function cultist_demon_stats_text_get(_demon_type)
 		+ "\nAbility Recharge: " + string(_stats.abilities_cd_spd)
 		+ "\nXP Gain: " + string(_stats.exp_effectiveness)
 		+ "\nMagic power: " + string(_stats.magic_effectiveness)
-		+ "\nResistance: " + string(_stats.resistance);
+		+ "\nMagic resistance: " + string_format(min(_stats.resistance - 100, 90), 0, 1) + "%";
 
 	if (_stats.aoe_radius > 0)
 	{
@@ -1427,6 +1428,7 @@ function cultist_stats_apply(_unit)
 	_unit.max_hp = cultist_stat_get(_unit.base_hp, _body, BALANCE_CULTIST_BODY_STAT_BONUS, _unit.hp_coefficient);
 	_unit.hp = _unit.max_hp;
 	_unit.armor = min(cultist_stat_get(_unit.base_armor, _body, BALANCE_CULTIST_BODY_STAT_BONUS, _unit.armor_coefficient), 190);
+	_unit.magic_resistance = min(cultist_stat_get(_unit.base_resistance, _spirit, BALANCE_CULTIST_SPIRIT_STAT_BONUS, _unit.resistance_coefficient), 190);
 	_unit.damage = cultist_stat_get(_unit.base_damage, _body, BALANCE_CULTIST_BODY_STAT_BONUS, _unit.damage_coefficient);
 	_unit.magic_damage = cultist_stat_get(_unit.base_magic_damage, _spirit, BALANCE_CULTIST_MAGIC_DAMAGE_STAT_BONUS, _unit.magic_damage_coefficient);
 	_unit.crit_chance = clamp(cultist_stat_get(_unit.base_crit_chance, _fervor, BALANCE_CULTIST_CRIT_CHANCE_STAT_BONUS, _unit.crit_chance_coefficient), 0, 1);

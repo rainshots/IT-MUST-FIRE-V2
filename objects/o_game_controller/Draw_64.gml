@@ -22,7 +22,7 @@ else if (global.day_phase == DAY_PHASE.NIGHT)
 }
 
 // Draw attack warning arrows during the day and briefly at the start of the night.
-var _night_warning_time = 3 * room_speed;
+var _night_warning_time = 10 * room_speed;
 var _night_elapsed_time = (global.night_duration * room_speed) - global.day_timer;
 var _night_warning_active = global.day_phase == DAY_PHASE.NIGHT
 	&& _night_elapsed_time <= _night_warning_time;
@@ -38,7 +38,17 @@ if ((global.day_phase == DAY_PHASE.DAY || _night_warning_active)
 	var _camera_y = camera_get_view_y(_camera_controller.camera_id);
 	var _camera_width = camera_get_view_width(_camera_controller.camera_id);
 	var _camera_height = camera_get_view_height(_camera_controller.camera_id);
+	var _mouse_gui_x = device_mouse_x_to_gui(0);
+	var _mouse_gui_y = device_mouse_y_to_gui(0);
+	var _warning_hover_enemy_object = noone;
+	var _warning_hover_distance = infinity;
+	var _warning_alpha = 1;
 	var _direction_count = array_length(night_attack_directions);
+
+	if (global.day_phase == DAY_PHASE.NIGHT)
+	{
+		_warning_alpha = 1 - clamp(_night_elapsed_time / max(1, _night_warning_time), 0, 1);
+	}
 
 	for (var _direction_index = 0; _direction_index < _direction_count; ++_direction_index)
 	{
@@ -66,7 +76,7 @@ if ((global.day_phase == DAY_PHASE.DAY || _night_warning_active)
 		var _arrow_scale = BALANCE_NIGHT_ATTACK_WARNING_ARROW_LENGTH / _arrow_sprite_width;
 		var _arrow_y_scale = _arrow_scale * 0.55;
 
-		draw_sprite_ext(s_attack_arrow, 0, _inner_x, _inner_y, _arrow_scale, _arrow_y_scale, _arrow_angle, c_white, 0.9);
+		draw_sprite_ext(s_attack_arrow, 0, _inner_x, _inner_y, _arrow_scale, _arrow_y_scale, _arrow_angle, c_white, 0.9 * _warning_alpha);
 
 		var _enemy_objects = _direction_data.enemy_objects;
 		var _enemy_count = array_length(_enemy_objects);
@@ -81,8 +91,9 @@ if ((global.day_phase == DAY_PHASE.DAY || _night_warning_active)
 			var _unit_world_y = _outer_world_y + lengthdir_y(_unit_side_offset, _direction + 90);
 			var _unit_x = ((_unit_world_x - _camera_x) / _camera_width) * camera_view_width;
 			var _unit_y = ((_unit_world_y - _camera_y) / _camera_height) * camera_view_height;
+			var _distance_to_icon = point_distance(_mouse_gui_x, _mouse_gui_y, _unit_x, _unit_y);
 
-			draw_set_alpha(1);
+			draw_set_alpha(_warning_alpha);
 			draw_set_color(COLOR_ATTACK_WARNING_UNIT_BACKGROUND);
 			draw_circle(_unit_x, _unit_y, BALANCE_NIGHT_ATTACK_WARNING_UNIT_CIRCLE_RADIUS, false);
 			draw_set_color(c_white);
@@ -98,9 +109,27 @@ if ((global.day_phase == DAY_PHASE.DAY || _night_warning_active)
 				var _sprite_draw_x = _unit_x + ((sprite_get_xoffset(_enemy_sprite) - (_sprite_width * 0.5)) * _sprite_scale);
 				var _sprite_draw_y = _unit_y + ((sprite_get_yoffset(_enemy_sprite) - (_sprite_height * 0.5)) * _sprite_scale);
 
-				draw_sprite_ext(_enemy_sprite, _sprite_frame, _sprite_draw_x, _sprite_draw_y, _sprite_scale, _sprite_scale, 0, c_white, 1);
+				draw_sprite_ext(_enemy_sprite, _sprite_frame, _sprite_draw_x, _sprite_draw_y, _sprite_scale, _sprite_scale, 0, c_white, _warning_alpha);
+			}
+
+			if (_distance_to_icon <= BALANCE_NIGHT_ATTACK_WARNING_UNIT_CIRCLE_RADIUS
+				&& _distance_to_icon <= _warning_hover_distance)
+			{
+				_warning_hover_enemy_object = _enemy_object;
+				_warning_hover_distance = _distance_to_icon;
 			}
 		}
+	}
+
+	if (_warning_hover_enemy_object != noone)
+	{
+		var _card_width = 260;
+		var _card_height = 208;
+		var _card_margin = 18;
+		var _card_x = min(_mouse_gui_x + 18, camera_view_width - _card_width - _card_margin);
+		var _card_y = min(_mouse_gui_y + 18, camera_view_height - _card_height - _card_margin);
+
+		enemy_object_stats_card_draw(_warning_hover_enemy_object, _card_x, _card_y);
 	}
 
 	draw_set_alpha(1);
@@ -632,7 +661,7 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 				"Ability Recharge",
 				"Exp",
 				"Magic power",
-				"Resistance"
+				"Magic resistance"
 			];
 			var _stat_base_values = [
 				_hover_stats.hp,
@@ -645,7 +674,7 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 				_hover_stats.abilities_cd_spd,
 				_hover_stats.exp_effectiveness,
 				_hover_stats.magic_effectiveness,
-				_hover_stats.resistance
+				min(_hover_stats.resistance - 100, 90)
 			];
 			var _stat_bonuses = [
 				_hover_stats.hp * (_hover_body * BALANCE_CULTIST_BODY_STAT_BONUS),
@@ -796,7 +825,7 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 		var _box_size = 12;
 		var _box_gap = 5;
 		var _stat_names = ["Body", "Fervor", "Spirit"];
-		var _stat_notes = ["HP, Armor, Physical damage", "Crit chance, Attack, Ability Recharge", "Exp, Magic damage, Magic power, Resistance"];
+		var _stat_notes = ["HP, Armor, Physical damage", "Crit chance, Attack, Ability Recharge", "Exp, Magic damage, Magic power, Magic resistance"];
 		var _stat_points = [_body_points, _fervor_points, _spirit_points];
 		var _stat_colors = [COLOR_CULTIST_BODY, COLOR_CULTIST_FERVOR, COLOR_CULTIST_SPIRIT];
 
@@ -1099,7 +1128,7 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 			"Ability Recharge",
 			"Exp",
 			"Magic power",
-			"Resistance"
+			"Magic resistance"
 		];
 		var _stat_base_values = [
 			_hover_stats.hp,
@@ -1110,7 +1139,7 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 			_hover_stats.abilities_cd_spd,
 			_hover_stats.exp_effectiveness,
 			_hover_stats.magic_effectiveness,
-			_hover_stats.resistance
+			min(_hover_stats.resistance - 100, 90)
 		];
 		var _stat_bonuses = [
 			_hover_stats.hp * (_hover_body * 0.05),
@@ -1562,11 +1591,11 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 			draw_set_color(COLOR_HEALTH_BAR);
 			draw_text(_stats_right_x + string_width(_stat_text), _stats_y + (_line_height * 1), " (+" + string_format(_magic_bonus, 0, 2) + ")");
 
-			_stat_text = "Resistance: " + string_format(_demon_stats.resistance, 0, 2);
+			_stat_text = "Magic resistance: " + string_format(_demon_stats.magic_resistance - 100, 0, 1) + "%";
 			draw_set_color(COLOR_CULTIST_SPIRIT);
 			draw_text(_stats_right_x, _stats_y + (_line_height * 2), _stat_text);
 			draw_set_color(COLOR_HEALTH_BAR);
-			draw_text(_stats_right_x + string_width(_stat_text), _stats_y + (_line_height * 2), " (+" + string_format(_resistance_bonus, 0, 2) + ")");
+			draw_text(_stats_right_x + string_width(_stat_text), _stats_y + (_line_height * 2), " (+" + string_format(_resistance_bonus, 0, 1) + "%)");
 
 			_stat_text = "Ability Recharge: " + string_format(_demon_stats.abilities_cd_spd, 0, 2);
 			draw_set_color(COLOR_CULTIST_SPIRIT);
@@ -1759,7 +1788,7 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 					+ "\nAbility Recharge +" + string_format(_base_stats.abilities_cd_spd * BALANCE_CULTIST_SPIRIT_STAT_BONUS, 0, 2)
 					+ "\nXP Gain +" + string_format(_base_stats.exp_effectiveness * BALANCE_CULTIST_SPIRIT_STAT_BONUS, 0, 2)
 					+ "\nMagic power +" + string_format(_base_stats.magic_effectiveness * BALANCE_CULTIST_SPIRIT_STAT_BONUS, 0, 2)
-					+ "\nResistance +" + string_format(_base_stats.resistance * BALANCE_CULTIST_SPIRIT_STAT_BONUS, 0, 2);
+					+ "\nMagic resistance +" + string_format(_base_stats.resistance * BALANCE_CULTIST_SPIRIT_STAT_BONUS, 0, 1) + "%";
 
 				if (_base_stats.magic_damage > 0)
 				{
@@ -1864,7 +1893,6 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 	var _grid_y = _panel_y + 94;
 	var _choice_count = array_length(building_choices);
 	var _hovered_choice = -1;
-	var _has_enough_iron = global.resources[RESOURCES.IRON] >= BALANCE_BUILDING_IRON_COST;
 
 	draw_set_alpha(0.55);
 	draw_set_color(c_black);
@@ -1882,8 +1910,8 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 	draw_text(_panel_x + (building_window_width * 0.5), _panel_y + 36, "Construction");
 
 	draw_set_halign(fa_left);
-	draw_set_color(_has_enough_iron ? COLOR_HUD_PROJECTILE_DESCRIPTION : COLOR_PROJECTILE_DAMAGE);
-	draw_text(_panel_x + 44, _panel_y + 62, "All buildings cost " + string(BALANCE_BUILDING_IRON_COST) + " Iron");
+	draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+	draw_text(_panel_x + 44, _panel_y + 62, "Building costs vary by structure");
 
 	draw_set_halign(fa_center);
 	draw_set_color(c_white);
@@ -1906,6 +1934,11 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 		var _sprite_y = _tile_y + 48;
 		var _name_y = _tile_y + 104;
 		var _cost_y = _tile_y + 136;
+		var _limit_count = building_choice_count_get(_choice);
+		var _limit_max = building_choice_limit_get(_choice);
+		var _limit_reached = _limit_count >= _limit_max;
+		var _can_pay_choice = building_choice_can_pay(_choice);
+		var _can_build_choice = _can_pay_choice && !_limit_reached;
 
 		if (_is_hovered)
 		{
@@ -1917,7 +1950,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 		draw_rectangle(_tile_x, _tile_y, _tile_x + building_tile_width, _tile_y + building_tile_height, false);
 
 		draw_set_alpha(1);
-		draw_set_color(_is_hovered ? COLOR_HUD_IRON : c_white);
+		draw_set_color(_limit_reached ? COLOR_PROJECTILE_DAMAGE : (_is_hovered ? COLOR_HUD_IRON : c_white));
 		draw_rectangle(_tile_x, _tile_y, _tile_x + building_tile_width, _tile_y + building_tile_height, true);
 
 		if (sprite_exists(_sprite))
@@ -1936,36 +1969,71 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 				_sprite_draw_width,
 				_sprite_draw_height,
 				c_white,
-				1
+				_limit_reached ? 0.35 : 1
 			);
 		}
 
 		draw_set_halign(fa_center);
 		draw_set_valign(fa_middle);
-		draw_set_color(COLOR_HUD_TEXT);
+		draw_set_color(_limit_reached ? COLOR_HUD_PROJECTILE_DESCRIPTION : COLOR_HUD_TEXT);
 		draw_text(_sprite_x, _name_y, _choice.building_name);
 
-		if (sprite_exists(s_iron_icon))
+		var _costs = building_choice_costs_get(_choice);
+		var _cost_count = array_length(_costs);
+		var _cost_gap = 8;
+		var _cost_total_width = 0;
+
+		for (var _cost_measure_index = 0; _cost_measure_index < _cost_count; ++_cost_measure_index)
 		{
-			draw_sprite_stretched_ext(
-				s_iron_icon,
-				0,
-				_sprite_x - 26,
-				_cost_y - (building_tile_cost_icon_size * 0.5),
-				building_tile_cost_icon_size,
-				building_tile_cost_icon_size,
-				c_white,
-				1
-			);
+			var _measure_cost = _costs[_cost_measure_index];
+			_cost_total_width += building_tile_cost_icon_size + 4 + string_width(string(_measure_cost.cost));
+
+			if (_cost_measure_index < _cost_count - 1)
+			{
+				_cost_total_width += _cost_gap;
+			}
 		}
 
-		draw_set_color(_has_enough_iron ? COLOR_HUD_IRON : COLOR_PROJECTILE_DAMAGE);
-		draw_text(_sprite_x + 14, _cost_y, string(_choice.iron_cost));
+		var _cost_draw_x = _sprite_x - (_cost_total_width * 0.5);
+
+		for (var _cost_index = 0; _cost_index < _cost_count; ++_cost_index)
+		{
+			var _cost_data = _costs[_cost_index];
+			var _cost_icon = resource_icon_get(_cost_data.resource);
+			var _cost_color = resource_color_get(_cost_data.resource);
+			var _cost_text = string(_cost_data.cost);
+			var _has_cost_resource = global.resources[_cost_data.resource] >= _cost_data.cost;
+
+			if (sprite_exists(_cost_icon))
+			{
+				draw_sprite_stretched_ext(
+					_cost_icon,
+					0,
+					_cost_draw_x,
+					_cost_y - (building_tile_cost_icon_size * 0.5),
+					building_tile_cost_icon_size,
+					building_tile_cost_icon_size,
+					c_white,
+					_can_build_choice ? 1 : 0.55
+				);
+
+				_cost_draw_x += building_tile_cost_icon_size + 4;
+			}
+
+			draw_set_color(_has_cost_resource && !_limit_reached ? _cost_color : COLOR_PROJECTILE_DAMAGE);
+			draw_set_halign(fa_left);
+			draw_text(_cost_draw_x, _cost_y, _cost_text);
+			_cost_draw_x += string_width(_cost_text) + _cost_gap;
+		}
 	}
 
 	if (_hovered_choice >= 0)
 	{
 		var _choice = building_choices[_hovered_choice];
+		var _limit_count = building_choice_count_get(_choice);
+		var _limit_max = building_choice_limit_get(_choice);
+		var _limit_reached = _limit_count >= _limit_max;
+		var _can_build_choice = building_choice_can_pay(_choice) && !_limit_reached;
 		var _tooltip_x = min(_mouse_x + 18, camera_view_width - building_tooltip_width - 18);
 		var _tooltip_y = min(_mouse_y + 18, camera_view_height - building_tooltip_height - 18);
 
@@ -1988,8 +2056,16 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 			18,
 			building_tooltip_width - (building_tooltip_padding * 2)
 		);
-		draw_set_color(_has_enough_iron ? COLOR_HUD_IRON : COLOR_PROJECTILE_DAMAGE);
-		draw_text(_tooltip_x + building_tooltip_padding, _tooltip_y + building_tooltip_height - 28, "Cost: " + string(_choice.iron_cost) + " Iron");
+		draw_set_color(_can_build_choice ? COLOR_HUD_IRON : COLOR_PROJECTILE_DAMAGE);
+
+		if (_limit_reached)
+		{
+			draw_text(_tooltip_x + building_tooltip_padding, _tooltip_y + building_tooltip_height - 28, "Limit reached: " + string(_limit_count) + "/" + string(_limit_max));
+		}
+		else
+		{
+			draw_text(_tooltip_x + building_tooltip_padding, _tooltip_y + building_tooltip_height - 28, "Limit: " + string(_limit_count) + "/" + string(_limit_max) + " | Cost: " + building_choice_cost_text_get(_choice));
+		}
 	}
 
 	draw_set_halign(fa_left);
@@ -2410,11 +2486,11 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 		draw_text(_stats_x + string_width(_right_stat_text), _stats_y + (_line_height * _stat_line_index), " (+" + string_format(_magic_bonus, 0, 2) + ")");
 		_stat_line_index++;
 
-		_right_stat_text = "Resistance: " + string_format(_demon_stats.resistance, 0, 2);
+		_right_stat_text = "Magic resistance: " + string_format(_demon_stats.magic_resistance - 100, 0, 1) + "%";
 		draw_set_color(COLOR_CULTIST_SPIRIT);
 		draw_text(_stats_x, _stats_y + (_line_height * _stat_line_index), _right_stat_text);
 		draw_set_color(COLOR_HEALTH_BAR);
-		draw_text(_stats_x + string_width(_right_stat_text), _stats_y + (_line_height * _stat_line_index), " (+" + string_format(_resistance_bonus, 0, 2) + ")");
+		draw_text(_stats_x + string_width(_right_stat_text), _stats_y + (_line_height * _stat_line_index), " (+" + string_format(_resistance_bonus, 0, 1) + "%)");
 		_stat_line_index++;
 
 		if (_demon_stats.aoe_radius > 0)
@@ -2438,7 +2514,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 	}
 }
 
-// Draw friendly summoned unit stats on hover.
+// Draw combat unit stats on hover.
 if (global.focus_window == FOCUS_WINDOW.NOONE && instance_exists(o_camera_controller))
 {
 	var _camera_controller = instance_find(o_camera_controller, 0);
@@ -2452,6 +2528,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && instance_exists(o_camera_contro
 	var _mouse_world_y = _camera_y + ((_mouse_gui_y / camera_view_height) * _camera_height);
 	var _hovered_unit = noone;
 	var _nearest_distance = infinity;
+	var _hovered_unit_is_enemy = false;
 	var _friendly_count = instance_number(o_friendly_units);
 
 	for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_index)
@@ -2471,6 +2548,30 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && instance_exists(o_camera_contro
 			{
 				_nearest_distance = _distance_to_unit;
 				_hovered_unit = _friendly_unit;
+				_hovered_unit_is_enemy = false;
+			}
+		}
+	}
+
+	var _enemy_count = instance_number(o_enemy_units);
+
+	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	{
+		var _enemy_unit = instance_find(o_enemy_units, _enemy_index);
+
+		if (instance_exists(_enemy_unit)
+			&& _mouse_world_x >= _enemy_unit.bbox_left
+			&& _mouse_world_x <= _enemy_unit.bbox_right
+			&& _mouse_world_y >= _enemy_unit.bbox_top
+			&& _mouse_world_y <= _enemy_unit.bbox_bottom)
+		{
+			var _distance_to_enemy = point_distance(_mouse_world_x, _mouse_world_y, _enemy_unit.x, _enemy_unit.y);
+
+			if (_distance_to_enemy <= _nearest_distance)
+			{
+				_nearest_distance = _distance_to_enemy;
+				_hovered_unit = _enemy_unit;
+				_hovered_unit_is_enemy = true;
 			}
 		}
 	}
@@ -2478,7 +2579,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && instance_exists(o_camera_contro
 	if (instance_exists(_hovered_unit))
 	{
 		var _hover_width = 260;
-		var _hover_height = 188;
+		var _hover_height = 248;
 		var _is_goblin_hovered = _hovered_unit.object_index == o_goblin;
 
 		if (_is_goblin_hovered)
@@ -2494,6 +2595,8 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && instance_exists(o_camera_contro
 		var _unit_name = object_get_name(_hovered_unit.object_index);
 		var _damage_text = "Damage: " + string_format(_hovered_unit.damage, 0, 1);
 		var _attack_speed = room_speed / max(_hovered_unit.reload_time, 1);
+		var _armor_text = "Armor: " + string_format(_hovered_unit.armor - 100, 0, 1) + "%";
+		var _magic_resistance_text = "Magic resistance: " + string_format(_hovered_unit.magic_resistance - 100, 0, 1) + "%";
 		var _has_demonic_infusion = variable_instance_exists(_hovered_unit, "demonic_infusion_timer")
 			&& _hovered_unit.demonic_infusion_timer > 0;
 
@@ -2519,6 +2622,22 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && instance_exists(o_camera_contro
 		{
 			_unit_name = "Goblin";
 		}
+		else if (_hovered_unit.object_index == o_enemy_peasant)
+		{
+			_unit_name = "Peasant";
+		}
+		else if (_hovered_unit.object_index == o_enemy_archer)
+		{
+			_unit_name = "Archer";
+		}
+		else if (_hovered_unit.object_index == o_enemy_knight)
+		{
+			_unit_name = "Knight";
+		}
+		else if (_hovered_unit.object_index == o_enemy_mage)
+		{
+			_unit_name = "Mage";
+		}
 
 		draw_set_halign(fa_left);
 		draw_set_valign(fa_top);
@@ -2526,7 +2645,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && instance_exists(o_camera_contro
 		draw_set_color(COLOR_HUD_BACKGROUND);
 		draw_rectangle(_hover_x, _hover_y, _hover_x + _hover_width, _hover_y + _hover_height, false);
 		draw_set_alpha(1);
-		draw_set_color(COLOR_PROJECTILE_SUMMON);
+		draw_set_color(_hovered_unit_is_enemy ? COLOR_DAMAGE_ENEMY : COLOR_PROJECTILE_SUMMON);
 		draw_rectangle(_hover_x, _hover_y, _hover_x + _hover_width, _hover_y + _hover_height, true);
 
 		draw_set_color(COLOR_HUD_TEXT);
@@ -2543,12 +2662,20 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && instance_exists(o_camera_contro
 		}
 		else
 		{
-			draw_text(_hover_x + _hover_padding, _hover_y + 42, "HP: " + string_format(_hovered_unit.hp, 0, 1) + " / " + string_format(_hovered_unit.max_hp, 0, 1));
-			draw_text(_hover_x + _hover_padding, _hover_y + 62, _damage_text);
-			draw_text(_hover_x + _hover_padding, _hover_y + 82, "Attack speed: " + string_format(_attack_speed, 0, 2));
-			draw_text(_hover_x + _hover_padding, _hover_y + 102, "Attack radius: " + string_format(_hovered_unit.attack_radius, 0, 0));
-			draw_text(_hover_x + _hover_padding, _hover_y + 122, "Move speed: " + string_format(_hovered_unit.move_speed, 0, 2));
-			_extra_line_y = 142;
+			draw_text(_hover_x + _hover_padding, _hover_y + _extra_line_y, "HP: " + string_format(_hovered_unit.hp, 0, 1) + " / " + string_format(_hovered_unit.max_hp, 0, 1));
+			_extra_line_y += 20;
+			draw_text(_hover_x + _hover_padding, _hover_y + _extra_line_y, _damage_text);
+			_extra_line_y += 20;
+			draw_text(_hover_x + _hover_padding, _hover_y + _extra_line_y, "Attack speed: " + string_format(_attack_speed, 0, 2));
+			_extra_line_y += 20;
+			draw_text(_hover_x + _hover_padding, _hover_y + _extra_line_y, "Attack radius: " + string_format(_hovered_unit.attack_radius, 0, 0));
+			_extra_line_y += 20;
+			draw_text(_hover_x + _hover_padding, _hover_y + _extra_line_y, "Move speed: " + string_format(_hovered_unit.move_speed, 0, 2));
+			_extra_line_y += 20;
+			draw_text(_hover_x + _hover_padding, _hover_y + _extra_line_y, _armor_text);
+			_extra_line_y += 20;
+			draw_text(_hover_x + _hover_padding, _hover_y + _extra_line_y, _magic_resistance_text);
+			_extra_line_y += 20;
 
 			if (_has_demonic_infusion)
 			{

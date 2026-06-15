@@ -205,6 +205,19 @@ if (max_hp > 0)
 		draw_rectangle(_bar_x, _fatigue_bar_y, _bar_x + (bar_width * _fatigue_progress), _fatigue_bar_y + fatigue_bar_height, false);
 
 		_next_status_bar_y += fatigue_bar_height + fatigue_bar_gap;
+
+		if (fatigue_amount >= BALANCE_CULTIST_FATIGUE_MAX)
+		{
+			var _exhausted_text = "Exhausted";
+			var _exhausted_y = _next_status_bar_y;
+
+			draw_set_halign(fa_center);
+			draw_set_valign(fa_top);
+			draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+			draw_text(x, _exhausted_y, _exhausted_text);
+
+			_next_status_bar_y += string_height(_exhausted_text) + fatigue_bar_gap;
+		}
 	}
 
 	if (variable_instance_exists(id, "whip_timer") && whip_timer > 0 && whip_duration > 0)

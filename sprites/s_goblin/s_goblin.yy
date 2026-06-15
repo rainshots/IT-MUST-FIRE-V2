@@ -1,10 +1,10 @@
 {
   "$GMSprite":"v2",
   "%Name":"s_goblin",
-  "bboxMode":0,
+  "bboxMode":2,
   "bbox_bottom":69,
-  "bbox_left":1,
-  "bbox_right":94,
+  "bbox_left":20,
+  "bbox_right":63,
   "bbox_top":9,
   "collisionKind":1,
   "collisionTolerance":0,

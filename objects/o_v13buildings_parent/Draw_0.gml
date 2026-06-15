@@ -26,7 +26,6 @@ if (variable_global_exists("cultist_assignment_preview_building")
 }
 
 var _building_is_hovered = global.focus_window == FOCUS_WINDOW.NOONE
-	&& !global.pause
 	&& building_is_mouse_hovered();
 
 // Show upgrade prompt while the cursor hovers upgradeable buildings.
@@ -173,7 +172,7 @@ if (object_index == o_ritual_circle)
 	var _reserve_bar_height = 3;
 	var _reserve_bar_gap = 3;
 	var _reserve_bar_y = _bar_y + production_bar_height + _reserve_bar_gap;
-	var _reserve_progress = clamp(ritual_circle_daily_exp_remaining / max(1, BALANCE_RITUAL_CIRCLE_DAILY_EXP_LIMIT), 0, 1);
+	var _reserve_progress = clamp(ritual_circle_daily_exp_remaining / max(1, ritual_circle_daily_exp_limit_get()), 0, 1);
 
 	draw_set_alpha(production_bar_background_alpha);
 	draw_set_color(COLOR_HUD_BACKGROUND);
@@ -247,7 +246,7 @@ if (object_index == o_workshop)
 	exit;
 }
 
-// Draw summoning progress for paid Soul cycles.
+// Draw summoning progress for paid resource cycles.
 if (summon_unit_object != noone)
 {
 	if (summon_has_paid_cost)
@@ -279,18 +278,27 @@ if (summon_unit_object != noone)
 		draw_set_color(production_bonus_stat_color);
 		draw_text(_multiplier_x, _multiplier_y, _multiplier_text);
 
-		if (sprite_exists(production_resource_icon))
+		var _cost_count = array_length(summon_resource_costs);
+
+		for (var _cost_index = 0; _cost_index < _cost_count; ++_cost_index)
 		{
-			draw_sprite_stretched_ext(
-				production_resource_icon,
-				0,
-				_icon_x,
-				_icon_y - (production_icon_size * 0.5),
-				production_icon_size,
-				production_icon_size,
-				c_white,
-				1
-			);
+			var _cost_data = summon_resource_costs[_cost_index];
+
+			if (sprite_exists(_cost_data.icon))
+			{
+				draw_sprite_stretched_ext(
+					_cost_data.icon,
+					0,
+					_icon_x,
+					_icon_y - (production_icon_size * 0.5),
+					production_icon_size,
+					production_icon_size,
+					c_white,
+					1
+				);
+
+				_icon_x += production_icon_size + 2;
+			}
 		}
 	}
 

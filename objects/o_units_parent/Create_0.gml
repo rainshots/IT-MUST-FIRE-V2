@@ -77,6 +77,7 @@ visual_offset_is_ability_controlled = false;
 
 // Optional combat modifiers used by cultist demon forms and debuffs.
 armor = 100;
+magic_resistance = 100;
 armor_debuff_multiplier = 1;
 armor_debuff_timer = 0;
 crit_chance = 0;
@@ -685,7 +686,9 @@ soul_chain_death_effect_apply = function()
 
 			if (soul_chain_death_damage > 0 && variable_instance_exists(_member, "unit_damage_receive"))
 			{
-				_member.unit_damage_receive(soul_chain_death_damage, UNIT_FACTION.FRIENDLY, false, false);
+				var _death_damage = magic_damage_after_resistance(soul_chain_death_damage, _member);
+
+				_member.unit_damage_receive(_death_damage, UNIT_FACTION.FRIENDLY, false, false);
 			}
 
 			if (variable_instance_exists(_member, "soul_chain_death_flash_timer"))
@@ -717,6 +720,20 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 
 	var _applied_damage = min(_damage_amount, hp);
 	hp = max(hp - _damage_amount, 0);
+
+	if (variable_global_exists("day_phase")
+		&& global.day_phase == DAY_PHASE.NIGHT
+		&& _source_faction == UNIT_FACTION.ENEMY
+		&& variable_instance_exists(id, "adaptive_night_hp_start"))
+	{
+		if (!variable_instance_exists(id, "adaptive_night_damage_taken"))
+		{
+			adaptive_night_damage_taken = 0;
+		}
+
+		adaptive_night_damage_taken += _applied_damage;
+	}
+
 	damage_popup_create(x, y, _applied_damage, unit_faction, _is_critical);
 
 	if (!_can_trigger_soul_chain
@@ -1428,6 +1445,26 @@ physical_damage_after_armor = function(_raw_damage, _target)
 	return _raw_damage * _armor_damage_multiplier;
 };
 
+magic_damage_after_resistance = function(_raw_damage, _target)
+{
+	var _final_damage = _raw_damage;
+
+	if (instance_exists(_target) && variable_instance_exists(_target, "magic_resistance"))
+	{
+		var _target_magic_resistance = _target.magic_resistance;
+		var _resistance_damage_multiplier = max(2 - (min(_target_magic_resistance, 190) * 0.01), 0.1);
+
+		_final_damage *= _resistance_damage_multiplier;
+	}
+
+	if (instance_exists(_target) && variable_instance_exists(_target, "status_effect_magic_damage_multiplier"))
+	{
+		_final_damage *= _target.status_effect_magic_damage_multiplier();
+	}
+
+	return _final_damage;
+};
+
 attack_target = function(_target)
 {
 	if (!target_can_be_attacked(_target))
@@ -1479,9 +1516,9 @@ attack_target = function(_target)
 	{
 		_damage_amount = physical_damage_after_armor(_raw_damage_amount, _target);
 	}
-	else if (variable_instance_exists(_target, "status_effect_magic_damage_multiplier"))
+	else
 	{
-		_damage_amount *= _target.status_effect_magic_damage_multiplier();
+		_damage_amount = magic_damage_after_resistance(_raw_damage_amount, _target);
 	}
 
 	if (variable_instance_exists(_target, "hp"))
@@ -1538,9 +1575,9 @@ attack_target = function(_target)
 				{
 					_aoe_damage_amount = physical_damage_after_armor(_raw_damage_amount, _aoe_target);
 				}
-				else if (variable_instance_exists(_aoe_target, "status_effect_magic_damage_multiplier"))
+				else
 				{
-					_aoe_damage_amount *= _aoe_target.status_effect_magic_damage_multiplier();
+					_aoe_damage_amount = magic_damage_after_resistance(_raw_damage_amount, _aoe_target);
 				}
 
 				if (variable_instance_exists(_aoe_target, "unit_damage_receive"))

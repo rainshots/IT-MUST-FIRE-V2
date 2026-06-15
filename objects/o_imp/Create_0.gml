@@ -1158,6 +1158,7 @@ imp_clone_stats_copy = function(_clone)
 	_clone.damage = damage * _damage_multiplier;
 	_clone.magic_damage = magic_damage;
 	_clone.armor = armor;
+	_clone.magic_resistance = magic_resistance;
 	_clone.crit_chance = crit_chance;
 	_clone.crit_damage = crit_damage;
 	_clone.reload_time = reload_time;

@@ -17,7 +17,7 @@ vision_radius = 0;
 
 // Goblin health and lifetime markers sit near the sprite pivot.
 bar_offset_y = -2;
-summon_nights_remaining = BALANCE_GOBLIN_DAY_LIFE;
+summon_nights_remaining = irandom_range(BALANCE_GOBLIN_DAY_LIFE_MIN, BALANCE_GOBLIN_DAY_LIFE_MAX);
 summon_life_label = "Days left";
 
 // Worker buildings read this fixed multiplier.

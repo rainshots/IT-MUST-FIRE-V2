@@ -34,10 +34,11 @@ array_resize(worker_cultists, _valid_worker_count);
 
 if (object_index == o_ritual_circle)
 {
+	var _daily_exp_limit = ritual_circle_daily_exp_limit_get();
 	var _daily_exp_restore = BALANCE_RITUAL_CIRCLE_DAILY_EXP_RESTORE_PER_SECOND / max(1, room_speed);
 	ritual_circle_daily_exp_remaining = min(
 		ritual_circle_daily_exp_remaining + _daily_exp_restore,
-		BALANCE_RITUAL_CIRCLE_DAILY_EXP_LIMIT
+		_daily_exp_limit
 	);
 }
 
@@ -51,7 +52,7 @@ building_cultist_fatigue_update();
 recalculate_production_speed_multiplier();
 
 // Resource building upgrades add free secondary work at a fraction of specialist buildings.
-if (building_upgrade_flags[1])
+if (array_length(building_upgrade_flags) > 1 && building_upgrade_flags[1])
 {
 	if (object_index == o_slaughter_table)
 	{
@@ -311,18 +312,23 @@ if (summon_unit_object != noone)
 		exit;
 	}
 
-	if (!summon_has_paid_cost && global.resources[summon_resource] >= summon_resource_cost)
+	if (!summon_has_paid_cost && summon_costs_can_pay())
 	{
-		global.resources[summon_resource] -= summon_resource_cost;
+		summon_costs_pay();
 		summon_has_paid_cost = true;
-		resource_popup_create(x, y - production_bar_offset_y, summon_resource, -summon_resource_cost);
 	}
 
 	if (!summon_has_paid_cost)
 	{
-		missing_work_resource = summon_resource;
-		missing_work_resource_name = summon_resource_name;
-		missing_work_resource_color = summon_resource_color;
+		var _missing_cost = summon_missing_cost_get();
+
+		if (_missing_cost != noone)
+		{
+			missing_work_resource = _missing_cost.resource;
+			missing_work_resource_name = _missing_cost.name;
+			missing_work_resource_color = _missing_cost.color;
+		}
+
 		exit;
 	}
 
@@ -354,7 +360,10 @@ if (summon_unit_object != noone)
 				&& building_upgrade_flags[1]
 				&& variable_instance_exists(_summoned_unit, "summon_nights_remaining"))
 			{
-				_summoned_unit.summon_nights_remaining += summon_extra_life_bonus;
+				_summoned_unit.summon_nights_remaining = irandom_range(
+					BALANCE_GOBLIN_UPGRADED_DAY_LIFE_MIN,
+					BALANCE_GOBLIN_UPGRADED_DAY_LIFE_MAX
+				);
 			}
 
 			if (instance_exists(o_game_controller))

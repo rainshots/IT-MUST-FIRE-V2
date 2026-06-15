@@ -62,14 +62,16 @@ if (has_brute_rotten_aura && BALANCE_BRUTE_ROTTEN_AURA_ENABLED)
 				continue;
 			}
 
+			var _aura_damage = magic_damage_after_resistance(_base_aura_damage, _enemy);
+
 			if (variable_instance_exists(_enemy, "unit_damage_receive"))
 			{
-				_enemy.unit_damage_receive(_base_aura_damage, unit_faction);
+				_enemy.unit_damage_receive(_aura_damage, unit_faction);
 			}
 			else
 			{
-				_enemy.hp = max(_enemy.hp - _base_aura_damage, 0);
-				damage_popup_create(_enemy.x, _enemy.y, _base_aura_damage, _enemy.unit_faction);
+				_enemy.hp = max(_enemy.hp - _aura_damage, 0);
+				damage_popup_create(_enemy.x, _enemy.y, _aura_damage, _enemy.unit_faction);
 			}
 
 			if (_aura_level >= 3 && variable_instance_exists(_enemy, "status_effect_apply"))

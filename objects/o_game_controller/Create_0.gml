@@ -1299,8 +1299,8 @@ building_choices = [
 		building_object: o_ritual_circle,
 		building_sprite: s_ritual_circle,
 		building_name: "Ritual Circle",
-		building_description: "Gives assigned cultists XP over time.",
-		iron_cost: BALANCE_BUILDING_IRON_COST
+		building_description: "Lets assigned cultists recover fatigue and gain XP over time.",
+		iron_cost: BALANCE_RITUAL_CIRCLE_BUILDING_IRON_COST
 	},
 	{
 		building_object: o_workshop,
@@ -1313,22 +1313,49 @@ building_choices = [
 		building_object: o_graveyardv13,
 		building_sprite: s_graveyard30,
 		building_name: "Graveyard",
-		building_description: "Summons Skeletons(they can fight 1 night) by spending Souls.",
-		iron_cost: BALANCE_BUILDING_IRON_COST
+		building_description: "Summons Skeletons by spending Iron and Souls.",
+		construction_costs: [
+			{
+				resource: RESOURCES.IRON,
+				cost: BALANCE_GRAVEYARD_BUILDING_IRON_COST
+			},
+			{
+				resource: RESOURCES.SOULS,
+				cost: BALANCE_GRAVEYARD_BUILDING_SOUL_COST
+			}
+		]
 	},
 	{
 		building_object: o_hell_pit,
 		building_sprite: s_hell_pit,
 		building_name: "Hell Pit",
-		building_description: "Summons Pitlings(they fight at night) by spending Souls.",
-		iron_cost: BALANCE_BUILDING_IRON_COST
+		building_description: "Summons Pitlings by spending Flesh and Iron.",
+		construction_costs: [
+			{
+				resource: RESOURCES.IRON,
+				cost: BALANCE_BUILDING_IRON_COST
+			},
+			{
+				resource: RESOURCES.FLESH,
+				cost: BALANCE_HELL_PIT_BUILDING_FLESH_COST
+			}
+		]
 	},
 	{
 		building_object: o_goblins_pit,
 		building_sprite: s_goblins_pit,
 		building_name: "Goblins Pit",
-		building_description: "Summons Goblins(they only work) by spending Souls.",
-		iron_cost: BALANCE_BUILDING_IRON_COST
+		building_description: "Summons Goblins by spending Flesh.",
+		construction_costs: [
+			{
+				resource: RESOURCES.IRON,
+				cost: BALANCE_GOBLINS_PIT_BUILDING_IRON_COST
+			},
+			{
+				resource: RESOURCES.FLESH,
+				cost: BALANCE_GOBLINS_PIT_BUILDING_FLESH_COST
+			}
+		]
 	}
 ];
 
@@ -1466,8 +1493,10 @@ night_attack_unit_pool = [
 // Adaptive difficulty is a separate soft modifier applied to future night attack plans.
 adaptive_difficulty_multiplier = 1;
 adaptive_night_cannon_hp_start = 0;
+adaptive_night_tracked_cultist_count = 0;
 adaptive_last_night_cannon_hp_loss_share = 0;
 adaptive_last_night_low_hp_cultists = 0;
+adaptive_last_night_heavy_damage_cultists = 0;
 adaptive_last_night_delta = 0;
 cannon_corrupted_ground_damage_timer = 0;
 
@@ -1879,7 +1908,14 @@ worker_whip_target_can_be_hit = function(_unit)
 		return false;
 	}
 
-	var _damage_amount = _unit.max_hp * BALANCE_WORKER_WHIP_MAX_HP_DAMAGE_SHARE;
+	var _damage_multiplier = 1;
+
+	if (_unit.object_index == o_goblin)
+	{
+		_damage_multiplier = BALANCE_WORKER_WHIP_GOBLIN_DAMAGE_MULTIPLIER;
+	}
+
+	var _damage_amount = _unit.max_hp * BALANCE_WORKER_WHIP_MAX_HP_DAMAGE_SHARE * _damage_multiplier;
 	return _unit.hp > _damage_amount;
 };
 
@@ -1935,7 +1971,14 @@ worker_whip_apply = function(_unit)
 
 	var _whip_duration_frames = max(1, BALANCE_WORKER_WHIP_DURATION * room_speed);
 	var _whip_gain_frames = max(1, BALANCE_WORKER_WHIP_HIT_DURATION_GAIN * room_speed);
-	var _damage_amount = _unit.max_hp * BALANCE_WORKER_WHIP_MAX_HP_DAMAGE_SHARE;
+	var _damage_multiplier = 1;
+
+	if (_unit.object_index == o_goblin)
+	{
+		_damage_multiplier = BALANCE_WORKER_WHIP_GOBLIN_DAMAGE_MULTIPLIER;
+	}
+
+	var _damage_amount = _unit.max_hp * BALANCE_WORKER_WHIP_MAX_HP_DAMAGE_SHARE * _damage_multiplier;
 	var _whip_was_inactive = _unit.whip_timer <= 0;
 
 	_unit.hp -= _damage_amount;
@@ -2131,6 +2174,159 @@ close_building_upgrade_window = function()
 	global.focus_window = FOCUS_WINDOW.NOONE;
 };
 
+building_choice_limit_get = function(_choice)
+{
+	if (_choice.building_object == o_goblins_pit)
+	{
+		return BALANCE_BUILDING_GOBLINS_PIT_LIMIT;
+	}
+
+	return BALANCE_BUILDING_DEFAULT_LIMIT;
+};
+
+building_choice_count_get = function(_choice)
+{
+	return instance_number(_choice.building_object);
+};
+
+building_choice_can_construct = function(_choice)
+{
+	return building_choice_count_get(_choice) < building_choice_limit_get(_choice);
+};
+
+resource_name_get = function(_resource)
+{
+	if (_resource == RESOURCES.FLESH)
+	{
+		return "Flesh";
+	}
+
+	if (_resource == RESOURCES.SOULS)
+	{
+		return "Souls";
+	}
+
+	if (_resource == RESOURCES.IRON)
+	{
+		return "Iron";
+	}
+
+	return "";
+};
+
+resource_icon_get = function(_resource)
+{
+	if (_resource == RESOURCES.FLESH)
+	{
+		return s_flesh_icon;
+	}
+
+	if (_resource == RESOURCES.SOULS)
+	{
+		return s_soul_icon;
+	}
+
+	if (_resource == RESOURCES.IRON)
+	{
+		return s_iron_icon;
+	}
+
+	return noone;
+};
+
+resource_color_get = function(_resource)
+{
+	if (_resource == RESOURCES.FLESH)
+	{
+		return COLOR_HUD_FLESH;
+	}
+
+	if (_resource == RESOURCES.SOULS)
+	{
+		return COLOR_HUD_SOULS;
+	}
+
+	if (_resource == RESOURCES.IRON)
+	{
+		return COLOR_HUD_IRON;
+	}
+
+	return c_white;
+};
+
+building_choice_costs_get = function(_choice)
+{
+	if (variable_struct_exists(_choice, "construction_costs"))
+	{
+		return _choice.construction_costs;
+	}
+
+	return [
+		{
+			resource: RESOURCES.IRON,
+			cost: _choice.iron_cost
+		}
+	];
+};
+
+building_choice_cost_text_get = function(_choice)
+{
+	var _costs = building_choice_costs_get(_choice);
+	var _cost_count = array_length(_costs);
+	var _cost_text = "";
+
+	for (var _cost_index = 0; _cost_index < _cost_count; ++_cost_index)
+	{
+		var _cost_data = _costs[_cost_index];
+
+		if (_cost_index > 0)
+		{
+			_cost_text += " + ";
+		}
+
+		_cost_text += string(_cost_data.cost) + " " + resource_name_get(_cost_data.resource);
+	}
+
+	return _cost_text;
+};
+
+building_choice_can_pay = function(_choice)
+{
+	var _costs = building_choice_costs_get(_choice);
+	var _cost_count = array_length(_costs);
+
+	for (var _cost_index = 0; _cost_index < _cost_count; ++_cost_index)
+	{
+		var _cost_data = _costs[_cost_index];
+
+		if (global.resources[_cost_data.resource] < _cost_data.cost)
+		{
+			return false;
+		}
+	}
+
+	return true;
+};
+
+building_choice_costs_pay = function(_choice, _popup_x, _popup_y)
+{
+	var _costs = building_choice_costs_get(_choice);
+	var _cost_count = array_length(_costs);
+	var _popup_gap = 46;
+	var _popup_start_x = _popup_x - ((_cost_count - 1) * _popup_gap * 0.5);
+
+	for (var _cost_index = 0; _cost_index < _cost_count; ++_cost_index)
+	{
+		var _cost_data = _costs[_cost_index];
+		var _resource = _cost_data.resource;
+		var _cost = _cost_data.cost;
+		var _cost_popup_x = _popup_start_x + (_cost_index * _popup_gap);
+
+		global.resources[_resource] -= _cost;
+		resource_popup_create(_cost_popup_x, _popup_y, _resource, -_cost);
+	}
+};
+
 construct_building_from_choice = function(_choice)
 {
 	if (!instance_exists(building_window_slot))
@@ -2139,7 +2335,12 @@ construct_building_from_choice = function(_choice)
 		return false;
 	}
 
-	if (global.resources[RESOURCES.IRON] < _choice.iron_cost)
+	if (!building_choice_can_construct(_choice))
+	{
+		return false;
+	}
+
+	if (!building_choice_can_pay(_choice))
 	{
 		return false;
 	}
@@ -2147,8 +2348,7 @@ construct_building_from_choice = function(_choice)
 	var _slot = building_window_slot;
 	var _built_object = instance_create_layer(_slot.x, _slot.y, "Instances", _choice.building_object);
 
-	global.resources[RESOURCES.IRON] -= _choice.iron_cost;
-	resource_popup_create(_slot.x, _slot.y - 84, RESOURCES.IRON, -_choice.iron_cost);
+	building_choice_costs_pay(_choice, _slot.x, _slot.y - 84);
 
 	if (instance_exists(_built_object))
 	{
@@ -2185,6 +2385,11 @@ assign_cultist_to_worker_building = function(_cultist, _building)
 		return false;
 	}
 
+	if (_cultist.object_index == o_goblin && _building.object_index == o_ritual_circle)
+	{
+		return false;
+	}
+
 	if (!variable_instance_exists(_building, "building_accepts_workers")
 		|| !_building.building_accepts_workers
 		|| !variable_instance_exists(_building, "worker_cultists")
@@ -2215,6 +2420,136 @@ assign_cultist_to_worker_building = function(_cultist, _building)
 	}
 
 	return true;
+};
+
+worker_idle_wander_target_pick = function(_worker)
+{
+	if (!instance_exists(_worker) || !instance_exists(o_cannon))
+	{
+		return;
+	}
+
+	var _cannon = instance_find(o_cannon, 0);
+	var _wander_direction = random(360);
+	var _wander_distance = random(BALANCE_IDLE_WORKER_WANDER_RADIUS);
+
+	_worker.idle_wander_target_x = _cannon.x + lengthdir_x(_wander_distance, _wander_direction);
+	_worker.idle_wander_target_y = _cannon.y + BALANCE_DAY_CANNON_REGROUP_OFFSET_Y + lengthdir_y(_wander_distance, _wander_direction);
+	_worker.idle_wander_wait_timer = irandom_range(
+		round(BALANCE_IDLE_WORKER_WANDER_WAIT_MIN * room_speed),
+		round(BALANCE_IDLE_WORKER_WANDER_WAIT_MAX * room_speed)
+	);
+};
+
+worker_idle_wander_can_update = function(_worker)
+{
+	if (!instance_exists(_worker)
+		|| global.day_phase != DAY_PHASE.DAY
+		|| (_worker.object_index != o_cultist && _worker.object_index != o_goblin)
+		|| !variable_instance_exists(_worker, "hp")
+		|| _worker.hp <= 0)
+	{
+		return false;
+	}
+
+	if ((variable_instance_exists(_worker, "is_being_dragged") && _worker.is_being_dragged)
+		|| (variable_instance_exists(_worker, "is_assigned_to_building") && _worker.is_assigned_to_building)
+		|| (variable_instance_exists(_worker, "cannon_loading") && _worker.cannon_loading)
+		|| (variable_instance_exists(_worker, "cannon_loaded") && _worker.cannon_loaded))
+	{
+		return false;
+	}
+
+	return instance_exists(o_cannon);
+};
+
+worker_idle_wander_update = function(_worker)
+{
+	if (!worker_idle_wander_can_update(_worker))
+	{
+		return false;
+	}
+
+	if (!variable_instance_exists(_worker, "idle_wander_target_x")
+		|| !variable_instance_exists(_worker, "idle_wander_target_y")
+		|| !variable_instance_exists(_worker, "idle_wander_wait_timer"))
+	{
+		worker_idle_wander_target_pick(_worker);
+	}
+
+	var _distance = point_distance(_worker.x, _worker.y, _worker.idle_wander_target_x, _worker.idle_wander_target_y);
+
+	if (_distance <= BALANCE_IDLE_WORKER_WANDER_REACH_DISTANCE)
+	{
+		if (variable_instance_exists(_worker, "is_walking"))
+		{
+			_worker.is_walking = false;
+		}
+
+		_worker.idle_wander_wait_timer--;
+
+		if (_worker.idle_wander_wait_timer <= 0)
+		{
+			worker_idle_wander_target_pick(_worker);
+		}
+
+		return true;
+	}
+
+	var _move_speed = BALANCE_GOBLIN_MOVE_SPEED;
+
+	if (variable_instance_exists(_worker, "move_speed"))
+	{
+		_move_speed = _worker.move_speed;
+	}
+
+	if (variable_instance_exists(_worker, "whip_timer")
+		&& _worker.whip_timer > 0
+		&& variable_instance_exists(_worker, "whip_work_multiplier"))
+	{
+		_move_speed *= _worker.whip_work_multiplier;
+	}
+
+	_move_speed *= BALANCE_IDLE_WORKER_WANDER_SPEED_MULTIPLIER;
+
+	var _move_distance = min(_move_speed, _distance);
+	var _move_direction = point_direction(_worker.x, _worker.y, _worker.idle_wander_target_x, _worker.idle_wander_target_y);
+
+	_worker.x += lengthdir_x(_move_distance, _move_direction);
+	_worker.y += lengthdir_y(_move_distance, _move_direction);
+	_worker.drag_drop_x = _worker.x;
+	_worker.drag_drop_y = _worker.y;
+
+	if (variable_instance_exists(_worker, "is_walking"))
+	{
+		_worker.is_walking = true;
+	}
+
+	if (variable_instance_exists(_worker, "face_world_x"))
+	{
+		_worker.face_world_x(_worker.idle_wander_target_x);
+	}
+	else
+	{
+		_worker.image_xscale = abs(_worker.image_xscale) * (_worker.idle_wander_target_x >= _worker.x ? 1 : -1);
+	}
+
+	return true;
+};
+
+day_idle_cultists_wander_update = function()
+{
+	if (!variable_global_exists("cultists"))
+	{
+		return;
+	}
+
+	var _cultist_count = array_length(global.cultists);
+
+	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+	{
+		worker_idle_wander_update(global.cultists[_cultist_index]);
+	}
 };
 
 cannon_satiety_add = function(_amount)
@@ -2848,11 +3183,20 @@ transform_cultists_to_demons = function()
 		_demon.cultist_sprite_index = _cultist.cultist_sprite_index;
 		_demon.demon_type = _cultist.demon_type;
 		_demon.demon_ability = _cultist.demon_ability;
-		_demon.fatigue_amount = 0;
 
 		if (variable_instance_exists(_cultist, "fatigue_amount"))
 		{
 			_demon.fatigue_amount = _cultist.fatigue_amount;
+		}
+
+		if (variable_instance_exists(_cultist, "adaptive_night_hp_start"))
+		{
+			_demon.adaptive_night_hp_start = _cultist.adaptive_night_hp_start;
+		}
+
+		if (variable_instance_exists(_cultist, "adaptive_night_damage_taken"))
+		{
+			_demon.adaptive_night_damage_taken = _cultist.adaptive_night_damage_taken;
 		}
 
 		_demon.cultist_starting_abilities = _cultist.cultist_starting_abilities;
@@ -3431,7 +3775,15 @@ restore_dead_cultists_at_morning = function()
 			continue;
 		}
 
+		var _fatigue_amount = 0;
+
+		if (variable_instance_exists(_cultist, "fatigue_amount"))
+		{
+			_fatigue_amount = _cultist.fatigue_amount;
+		}
+
 		cultist_day_health_apply(_cultist, false);
+		_cultist.fatigue_amount = _fatigue_amount;
 		_cultist.hp = _cultist.max_hp * BALANCE_CULTIST_MORNING_RESPAWN_HP_SHARE;
 		_cultist.visible = true;
 		_cultist.image_alpha = 1;
@@ -3488,6 +3840,16 @@ transform_demons_to_cultists = function()
 		if (variable_instance_exists(_unit, "fatigue_amount"))
 		{
 			_cultist.fatigue_amount = _unit.fatigue_amount;
+		}
+
+		if (variable_instance_exists(_unit, "adaptive_night_hp_start"))
+		{
+			_cultist.adaptive_night_hp_start = _unit.adaptive_night_hp_start;
+		}
+
+		if (variable_instance_exists(_unit, "adaptive_night_damage_taken"))
+		{
+			_cultist.adaptive_night_damage_taken = _unit.adaptive_night_damage_taken;
 		}
 
 		if (variable_instance_exists(_unit, "cultist_sprite_index"))
@@ -3640,6 +4002,11 @@ update_summoned_unit_night_life = function()
 		if (instance_exists(_friendly_unit)
 			&& variable_instance_exists(_friendly_unit, "summon_nights_remaining"))
 		{
+			if (_friendly_unit.object_index == o_goblin)
+			{
+				continue;
+			}
+
 			if (variable_instance_exists(_friendly_unit, "warlock_skeleton_dies_at_morning")
 				&& _friendly_unit.warlock_skeleton_dies_at_morning)
 			{
@@ -3667,6 +4034,37 @@ update_summoned_unit_night_life = function()
 
 				instance_destroy(_friendly_unit);
 			}
+		}
+	}
+};
+
+update_goblin_evening_life = function()
+{
+	var _goblin_count = instance_number(o_goblin);
+
+	for (var _goblin_index = _goblin_count - 1; _goblin_index >= 0; --_goblin_index)
+	{
+		var _goblin = instance_find(o_goblin, _goblin_index);
+
+		if (!instance_exists(_goblin)
+			|| !variable_instance_exists(_goblin, "summon_nights_remaining"))
+		{
+			continue;
+		}
+
+		_goblin.summon_nights_remaining--;
+
+		if (_goblin.summon_nights_remaining <= 0)
+		{
+			cannon_corpse_worker_drop(_goblin);
+			clear_cultist_building_assignment(_goblin);
+
+			if (variable_instance_exists(_goblin, "unit_corpse_snapshot_create"))
+			{
+				_goblin.unit_corpse_snapshot_create();
+			}
+
+			instance_destroy(_goblin);
 		}
 	}
 };
@@ -3715,6 +4113,70 @@ adaptive_difficulty_low_hp_cultist_count_get = function()
 	}
 
 	return _low_hp_count;
+};
+
+adaptive_difficulty_night_hp_start_store = function()
+{
+	adaptive_night_tracked_cultist_count = 0;
+	var _cultist_count = array_length(global.cultists);
+
+	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+	{
+		var _cultist = global.cultists[_cultist_index];
+
+		if (!instance_exists(_cultist)
+			|| !variable_instance_exists(_cultist, "hp")
+			|| !variable_instance_exists(_cultist, "demon_type")
+			|| _cultist.demon_type == DEMON_TYPE.NONE)
+		{
+			continue;
+		}
+
+		_cultist.adaptive_night_hp_start = max(0, _cultist.hp);
+		_cultist.adaptive_night_damage_taken = 0;
+		adaptive_night_tracked_cultist_count++;
+	}
+};
+
+adaptive_difficulty_heavy_damage_cultist_count_get = function()
+{
+	var _heavy_damage_count = 0;
+	var _cultist_count = array_length(global.cultists);
+
+	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+	{
+		var _cultist = global.cultists[_cultist_index];
+
+		if (!instance_exists(_cultist)
+			|| !variable_instance_exists(_cultist, "hp")
+			|| !variable_instance_exists(_cultist, "adaptive_night_hp_start"))
+		{
+			continue;
+		}
+
+		var _hp_start = _cultist.adaptive_night_hp_start;
+
+		if (_hp_start <= 0)
+		{
+			continue;
+		}
+
+		var _damage_taken = max(0, _hp_start - _cultist.hp);
+
+		if (variable_instance_exists(_cultist, "adaptive_night_damage_taken"))
+		{
+			_damage_taken = max(_damage_taken, _cultist.adaptive_night_damage_taken);
+		}
+
+		var _hp_loss_share = _damage_taken / _hp_start;
+
+		if (_hp_loss_share > BALANCE_ADAPTIVE_DIFFICULTY_CULTIST_HEAVY_HP_LOSS_SHARE)
+		{
+			_heavy_damage_count++;
+		}
+	}
+
+	return _heavy_damage_count;
 };
 
 adaptive_difficulty_evaluate_night = function()
@@ -3768,6 +4230,13 @@ adaptive_difficulty_evaluate_night = function()
 		_difficulty_delta += BALANCE_ADAPTIVE_DIFFICULTY_NORMAL_INCREASE;
 	}
 
+	var _heavy_damage_cultist_count = adaptive_difficulty_heavy_damage_cultist_count_get();
+
+	if (adaptive_night_tracked_cultist_count > 0 && _heavy_damage_cultist_count <= 0)
+	{
+		_difficulty_delta += BALANCE_ADAPTIVE_DIFFICULTY_NO_HEAVY_CULTIST_DAMAGE_INCREASE;
+	}
+
 	adaptive_difficulty_multiplier = clamp(
 		adaptive_difficulty_multiplier + _difficulty_delta,
 		BALANCE_ADAPTIVE_DIFFICULTY_MIN_MULTIPLIER,
@@ -3775,6 +4244,7 @@ adaptive_difficulty_evaluate_night = function()
 	);
 	adaptive_last_night_cannon_hp_loss_share = _cannon_hp_loss_share;
 	adaptive_last_night_low_hp_cultists = _low_hp_cultist_count;
+	adaptive_last_night_heavy_damage_cultists = _heavy_damage_cultist_count;
 	adaptive_last_night_delta = _difficulty_delta;
 };
 
@@ -3810,6 +4280,368 @@ enemy_night_hp_scale_apply = function(_enemy)
 	_enemy.max_hp = _enemy.base_max_hp * enemy_night_hp_multiplier_get();
 	_enemy.hp = clamp(_enemy.max_hp * _hp_share, 0, _enemy.max_hp);
 	_enemy.night_hp_scale_index_applied = _scale_index;
+};
+
+enemy_object_name_get = function(_enemy_object)
+{
+	if (_enemy_object == o_enemy_peasant)
+	{
+		return "Peasant";
+	}
+	else if (_enemy_object == o_enemy_archer)
+	{
+		return "Archer";
+	}
+	else if (_enemy_object == o_enemy_knight)
+	{
+		return "Knight";
+	}
+	else if (_enemy_object == o_enemy_mage)
+	{
+		return "Mage";
+	}
+
+	return object_get_name(_enemy_object);
+};
+
+enemy_object_stats_get = function(_enemy_object)
+{
+	var _stats = {
+		hp: BALANCE_ENEMY_PEASANT_HP,
+		armor: BALANCE_ENEMY_PEASANT_ARMOR,
+		magic_resistance: BALANCE_ENEMY_PEASANT_MAGIC_RESISTANCE,
+		damage: BALANCE_ENEMY_PEASANT_DAMAGE,
+		magic_damage: BALANCE_ENEMY_PEASANT_MAGIC_DAMAGE,
+		reload_time: BALANCE_ENEMY_PEASANT_RELOAD_TIME * room_speed,
+		attack_radius: BALANCE_ENEMY_PEASANT_ATTACK_RADIUS,
+		move_speed: BALANCE_ENEMY_PEASANT_MOVE_SPEED
+	};
+
+	if (_enemy_object == o_enemy_archer)
+	{
+		_stats.hp = BALANCE_ENEMY_ARCHER_HP;
+		_stats.armor = BALANCE_ENEMY_ARCHER_ARMOR;
+		_stats.magic_resistance = BALANCE_ENEMY_ARCHER_MAGIC_RESISTANCE;
+		_stats.damage = BALANCE_ENEMY_ARCHER_DAMAGE;
+		_stats.magic_damage = BALANCE_ENEMY_ARCHER_MAGIC_DAMAGE;
+		_stats.reload_time = BALANCE_ENEMY_ARCHER_RELOAD_TIME * room_speed;
+		_stats.attack_radius = BALANCE_ENEMY_ARCHER_ATTACK_RADIUS;
+		_stats.move_speed = BALANCE_ENEMY_ARCHER_MOVE_SPEED;
+	}
+	else if (_enemy_object == o_enemy_knight)
+	{
+		_stats.hp = BALANCE_ENEMY_KNIGHT_HP;
+		_stats.armor = BALANCE_ENEMY_KNIGHT_ARMOR;
+		_stats.magic_resistance = BALANCE_ENEMY_KNIGHT_MAGIC_RESISTANCE;
+		_stats.damage = BALANCE_ENEMY_KNIGHT_DAMAGE;
+		_stats.magic_damage = BALANCE_ENEMY_KNIGHT_MAGIC_DAMAGE;
+		_stats.reload_time = BALANCE_ENEMY_KNIGHT_RELOAD_TIME * room_speed;
+		_stats.attack_radius = BALANCE_ENEMY_KNIGHT_ATTACK_RADIUS;
+		_stats.move_speed = BALANCE_ENEMY_KNIGHT_MOVE_SPEED;
+	}
+	else if (_enemy_object == o_enemy_mage)
+	{
+		_stats.hp = BALANCE_ENEMY_MAGE_HP;
+		_stats.armor = BALANCE_ENEMY_MAGE_ARMOR;
+		_stats.magic_resistance = BALANCE_ENEMY_MAGE_MAGIC_RESISTANCE;
+		_stats.damage = BALANCE_ENEMY_MAGE_DAMAGE;
+		_stats.magic_damage = BALANCE_ENEMY_MAGE_MAGIC_DAMAGE;
+		_stats.reload_time = BALANCE_ENEMY_MAGE_RELOAD_TIME * room_speed;
+		_stats.attack_radius = BALANCE_ENEMY_MAGE_ATTACK_RADIUS;
+		_stats.move_speed = BALANCE_ENEMY_MAGE_MOVE_SPEED;
+	}
+
+	_stats.hp *= enemy_night_hp_multiplier_get();
+	return _stats;
+};
+
+enemy_object_stats_card_draw = function(_enemy_object, _hover_x, _hover_y)
+{
+	var _stats = enemy_object_stats_get(_enemy_object);
+	var _hover_width = 260;
+	var _hover_height = 208;
+	var _hover_padding = 14;
+	var _line_y = 42;
+	var _damage_text = "Damage: " + string_format(_stats.damage, 0, 1);
+	var _attack_speed = room_speed / max(_stats.reload_time, 1);
+
+	if (_stats.magic_damage > 0)
+	{
+		_damage_text = "Magic damage: " + string_format(_stats.magic_damage, 0, 1);
+	}
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_alpha(0.96);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_rectangle(_hover_x, _hover_y, _hover_x + _hover_width, _hover_y + _hover_height, false);
+	draw_set_alpha(1);
+	draw_set_color(COLOR_DAMAGE_ENEMY);
+	draw_rectangle(_hover_x, _hover_y, _hover_x + _hover_width, _hover_y + _hover_height, true);
+
+	draw_set_color(COLOR_HUD_TEXT);
+	draw_text(_hover_x + _hover_padding, _hover_y + _hover_padding, enemy_object_name_get(_enemy_object));
+	draw_text(_hover_x + _hover_padding, _hover_y + _line_y, "HP: " + string_format(_stats.hp, 0, 1));
+	_line_y += 20;
+	draw_text(_hover_x + _hover_padding, _hover_y + _line_y, _damage_text);
+	_line_y += 20;
+	draw_text(_hover_x + _hover_padding, _hover_y + _line_y, "Attack speed: " + string_format(_attack_speed, 0, 2));
+	_line_y += 20;
+	draw_text(_hover_x + _hover_padding, _hover_y + _line_y, "Attack radius: " + string_format(_stats.attack_radius, 0, 0));
+	_line_y += 20;
+	draw_text(_hover_x + _hover_padding, _hover_y + _line_y, "Move speed: " + string_format(_stats.move_speed, 0, 2));
+	_line_y += 20;
+	draw_text(_hover_x + _hover_padding, _hover_y + _line_y, "Armor: " + string_format(_stats.armor - 100, 0, 1) + "%");
+	_line_y += 20;
+	draw_text(_hover_x + _hover_padding, _hover_y + _line_y, "Magic resistance: " + string_format(_stats.magic_resistance - 100, 0, 1) + "%");
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+};
+
+cultist_stats_card_draw = function(_cultist, _hover_x, _hover_y)
+{
+	if (!instance_exists(_cultist)
+		|| !variable_instance_exists(_cultist, "cultist_points")
+		|| !variable_instance_exists(_cultist, "demon_type"))
+	{
+		return;
+	}
+
+	var _hover_width = min(300, display_get_gui_width() - 36);
+	var _hover_height = 570;
+	var _hover_padding = 14;
+	var _ability_width = _hover_width - (_hover_padding * 2);
+	var _points = _cultist.cultist_points;
+	var _demon_type = _cultist.demon_type;
+	var _base_stats = cultist_base_stats_get(_demon_type);
+	var _demon_stats = cultist_calculated_stats_get(_demon_type, _points);
+	var _display_name = _cultist.cultist_name;
+	var _abilities_text = cultist_owned_abilities_text_get(_cultist);
+	var _body_points = _points[CULTIST_STAT.BODY];
+	var _spirit_points = _points[CULTIST_STAT.SPIRIT];
+	var _fervor_points = _points[CULTIST_STAT.FERVOR];
+	var _current_level = _cultist.current_lvl;
+	var _current_exp = _cultist.current_exp;
+	var _required_exp = cultist_level_exp_required_get(_current_level);
+	var _exp_progress = clamp(_current_exp / max(1, _required_exp), 0, 1);
+	var _exp_bar_width = 180;
+	var _exp_bar_height = 5;
+	var _exp_bar_x = _hover_x + _hover_padding;
+	var _exp_bar_y = _hover_y + 60;
+	var _level_text = "Level: " + string(_current_level)
+		+ " (" + string_format(_current_exp, 0, 0)
+		+ "/" + string_format(_required_exp, 0, 0) + " exp)";
+
+	if (_display_name == "")
+	{
+		_display_name = "Unnamed";
+	}
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_alpha(0.96);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_rectangle(_hover_x, _hover_y, _hover_x + _hover_width, _hover_y + _hover_height, false);
+	draw_set_alpha(1);
+	draw_set_color(COLOR_CULTIST_FERVOR);
+	draw_rectangle(_hover_x, _hover_y, _hover_x + _hover_width, _hover_y + _hover_height, true);
+
+	draw_set_color(COLOR_HUD_TEXT);
+	draw_text(_hover_x + _hover_padding, _hover_y + _hover_padding, _display_name);
+	draw_text(_hover_x + _hover_padding, _hover_y + 38, _level_text);
+
+	draw_set_alpha(0.75);
+	draw_set_color(c_black);
+	draw_rectangle(_exp_bar_x, _exp_bar_y, _exp_bar_x + _exp_bar_width, _exp_bar_y + _exp_bar_height, false);
+	draw_set_alpha(1);
+	draw_set_color(COLOR_HEALTH_BAR);
+	draw_rectangle(_exp_bar_x, _exp_bar_y, _exp_bar_x + (_exp_bar_width * _exp_progress), _exp_bar_y + _exp_bar_height, false);
+
+	draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+	draw_text(_hover_x + _hover_padding, _hover_y + 78, "Demon: " + cultist_demon_name_get(_demon_type));
+
+	var _attribute_names = ["Body", "Spirit", "Fervor"];
+	var _attribute_points = [_body_points, _spirit_points, _fervor_points];
+	var _attribute_colors = [COLOR_CULTIST_BODY, COLOR_CULTIST_SPIRIT, COLOR_CULTIST_FERVOR];
+	var _attribute_stat_order = [CULTIST_STAT.BODY, CULTIST_STAT.FERVOR, CULTIST_STAT.SPIRIT];
+	var _attribute_x = _hover_x + _hover_padding;
+	var _attribute_y = _hover_y + 112;
+	var _attribute_gap = 24;
+	var _box_size = 8;
+	var _box_gap = 4;
+	var _attribute_count = array_length(_attribute_stat_order);
+
+	for (var _attribute_index = 0; _attribute_index < _attribute_count; ++_attribute_index)
+	{
+		var _attribute_stat = _attribute_stat_order[_attribute_index];
+		var _draw_y = _attribute_y + (_attribute_gap * _attribute_index);
+
+		draw_set_color(_attribute_colors[_attribute_stat]);
+		draw_text(_attribute_x, _draw_y, _attribute_names[_attribute_stat]);
+
+		for (var _point_index = 0; _point_index < _attribute_points[_attribute_stat]; ++_point_index)
+		{
+			var _box_x = _attribute_x + 68 + ((_box_size + _box_gap) * _point_index);
+			var _box_y = _draw_y + 4;
+
+			draw_rectangle(_box_x, _box_y, _box_x + _box_size, _box_y + _box_size, false);
+		}
+	}
+
+	var _stats_x = _hover_x + _hover_padding;
+	var _stats_y = _hover_y + 194;
+	var _line_height = 18;
+	var _stat_line_index = 0;
+	var _hp_text = "HP: " + string_format(_demon_stats.hp, 0, 1);
+	var _hp_bonus = _base_stats.hp * (_body_points * BALANCE_CULTIST_BODY_STAT_BONUS);
+	var _armor_bonus = _base_stats.armor * (_body_points * BALANCE_CULTIST_BODY_STAT_BONUS);
+	var _damage_bonus = _base_stats.damage * (_body_points * BALANCE_CULTIST_BODY_STAT_BONUS);
+	var _magic_damage_bonus = _base_stats.magic_damage * (_spirit_points * BALANCE_CULTIST_MAGIC_DAMAGE_STAT_BONUS);
+	var _crit_damage_bonus = _body_points * BALANCE_CULTIST_CRIT_DAMAGE_PER_BODY;
+	var _crit_bonus = _base_stats.crit_chance * (_fervor_points * BALANCE_CULTIST_CRIT_CHANCE_STAT_BONUS);
+	var _attack_speed_bonus = _base_stats.attack_speed * (_fervor_points * BALANCE_CULTIST_FERVOR_STAT_BONUS);
+	var _move_speed_bonus = _base_stats.move_speed * (_fervor_points * BALANCE_CULTIST_FERVOR_STAT_BONUS);
+	var _shown_attack_speed = _demon_stats.attack_speed;
+	var _has_demonic_infusion = variable_instance_exists(_cultist, "demonic_infusion_timer")
+		&& _cultist.demonic_infusion_timer > 0;
+
+	if (_has_demonic_infusion && variable_instance_exists(_cultist, "effective_attack_speed_get"))
+	{
+		_shown_attack_speed = _cultist.effective_attack_speed_get();
+	}
+
+	var _cooldown_bonus = _base_stats.abilities_cd_spd * (_spirit_points * BALANCE_CULTIST_SPIRIT_STAT_BONUS);
+	var _exp_bonus = _base_stats.exp_effectiveness * (_spirit_points * BALANCE_CULTIST_SPIRIT_STAT_BONUS);
+	var _magic_bonus = _base_stats.magic_effectiveness * (_spirit_points * BALANCE_CULTIST_SPIRIT_STAT_BONUS);
+	var _resistance_bonus = _base_stats.resistance * (_spirit_points * BALANCE_CULTIST_SPIRIT_STAT_BONUS);
+
+	if (variable_instance_exists(_cultist, "hp"))
+	{
+		_hp_text = "HP: " + string_format(_cultist.hp, 0, 1) + " / " + string_format(_cultist.max_hp, 0, 1);
+	}
+
+	draw_set_color(COLOR_CULTIST_BODY);
+	draw_text(_stats_x, _stats_y + (_line_height * _stat_line_index), _hp_text);
+	draw_set_color(COLOR_HEALTH_BAR);
+	draw_text(_stats_x + string_width(_hp_text), _stats_y + (_line_height * _stat_line_index), " (+" + string_format(_hp_bonus, 0, 1) + ")");
+	_stat_line_index++;
+
+	var _shown_armor = _demon_stats.armor;
+
+	if (variable_instance_exists(_cultist, "armor"))
+	{
+		_shown_armor = _cultist.armor;
+	}
+
+	var _stat_text = "Armor: " + string_format(_shown_armor - 100, 0, 1) + "%";
+	draw_set_color(COLOR_CULTIST_BODY);
+	draw_text(_stats_x, _stats_y + (_line_height * _stat_line_index), _stat_text);
+	draw_set_color(COLOR_HEALTH_BAR);
+	draw_text(_stats_x + string_width(_stat_text), _stats_y + (_line_height * _stat_line_index), " (+" + string_format(_armor_bonus, 0, 1) + "%)");
+	_stat_line_index++;
+
+	_stat_text = "Phys dmg: " + string_format(_demon_stats.damage, 0, 2);
+	var _damage_color = COLOR_CULTIST_BODY;
+	var _shown_damage_bonus = _damage_bonus;
+
+	if (_demon_stats.magic_damage > 0)
+	{
+		_stat_text = "Magic dmg: " + string_format(_demon_stats.magic_damage, 0, 2);
+		_damage_color = COLOR_CULTIST_SPIRIT;
+		_shown_damage_bonus = _magic_damage_bonus;
+	}
+
+	draw_set_color(_damage_color);
+	draw_text(_stats_x, _stats_y + (_line_height * _stat_line_index), _stat_text);
+	draw_set_color(COLOR_HEALTH_BAR);
+	draw_text(_stats_x + string_width(_stat_text), _stats_y + (_line_height * _stat_line_index), " (+" + string_format(_shown_damage_bonus, 0, 2) + ")");
+	_stat_line_index++;
+
+	_stat_text = "Crit dmg: x" + string_format(_demon_stats.crit_damage, 0, 2);
+	draw_set_color(COLOR_CULTIST_BODY);
+	draw_text(_stats_x, _stats_y + (_line_height * _stat_line_index), _stat_text);
+	draw_set_color(COLOR_HEALTH_BAR);
+	draw_text(_stats_x + string_width(_stat_text), _stats_y + (_line_height * _stat_line_index), " (+x" + string_format(_crit_damage_bonus, 0, 2) + ")");
+	_stat_line_index++;
+
+	_stat_text = "Crit chance: " + string_format(_demon_stats.crit_chance * 100, 0, 1) + "%";
+	draw_set_color(COLOR_CULTIST_FERVOR);
+	draw_text(_stats_x, _stats_y + (_line_height * _stat_line_index), _stat_text);
+	draw_set_color(COLOR_HEALTH_BAR);
+	draw_text(_stats_x + string_width(_stat_text), _stats_y + (_line_height * _stat_line_index), " (+" + string_format(_crit_bonus * 100, 0, 1) + "%)");
+	_stat_line_index++;
+
+	_stat_text = "Attack speed: " + string_format(_shown_attack_speed, 0, 2);
+	draw_set_color(COLOR_CULTIST_FERVOR);
+	draw_text(_stats_x, _stats_y + (_line_height * _stat_line_index), _stat_text);
+	draw_set_color(COLOR_HEALTH_BAR);
+
+	if (_has_demonic_infusion)
+	{
+		draw_text(_stats_x + string_width(_stat_text), _stats_y + (_line_height * _stat_line_index), " (Demonic Infusion)");
+	}
+	else
+	{
+		draw_text(_stats_x + string_width(_stat_text), _stats_y + (_line_height * _stat_line_index), " (+" + string_format(_attack_speed_bonus, 0, 2) + ")");
+	}
+
+	_stat_line_index++;
+
+	_stat_text = "Move speed: " + string_format(_demon_stats.move_speed, 0, 2);
+	draw_set_color(COLOR_CULTIST_FERVOR);
+	draw_text(_stats_x, _stats_y + (_line_height * _stat_line_index), _stat_text);
+	draw_set_color(COLOR_HEALTH_BAR);
+	draw_text(_stats_x + string_width(_stat_text), _stats_y + (_line_height * _stat_line_index), " (+" + string_format(_move_speed_bonus, 0, 2) + ")");
+	_stat_line_index++;
+
+	_stat_text = "Ability rec: " + string_format(_demon_stats.abilities_cd_spd, 0, 2);
+	draw_set_color(COLOR_CULTIST_SPIRIT);
+	draw_text(_stats_x, _stats_y + (_line_height * _stat_line_index), _stat_text);
+	draw_set_color(COLOR_HEALTH_BAR);
+	draw_text(_stats_x + string_width(_stat_text), _stats_y + (_line_height * _stat_line_index), " (+" + string_format(_cooldown_bonus, 0, 2) + ")");
+	_stat_line_index++;
+
+	_stat_text = "XP Gain: " + string_format(_demon_stats.exp_effectiveness, 0, 2);
+	draw_set_color(COLOR_CULTIST_SPIRIT);
+	draw_text(_stats_x, _stats_y + (_line_height * _stat_line_index), _stat_text);
+	draw_set_color(COLOR_HEALTH_BAR);
+	draw_text(_stats_x + string_width(_stat_text), _stats_y + (_line_height * _stat_line_index), " (+" + string_format(_exp_bonus, 0, 2) + ")");
+	_stat_line_index++;
+
+	_stat_text = "Magic power: " + string_format(_demon_stats.magic_effectiveness, 0, 2);
+	draw_set_color(COLOR_CULTIST_SPIRIT);
+	draw_text(_stats_x, _stats_y + (_line_height * _stat_line_index), _stat_text);
+	draw_set_color(COLOR_HEALTH_BAR);
+	draw_text(_stats_x + string_width(_stat_text), _stats_y + (_line_height * _stat_line_index), " (+" + string_format(_magic_bonus, 0, 2) + ")");
+	_stat_line_index++;
+
+	_stat_text = "Magic resistance: " + string_format(_demon_stats.magic_resistance - 100, 0, 1) + "%";
+	draw_set_color(COLOR_CULTIST_SPIRIT);
+	draw_text(_stats_x, _stats_y + (_line_height * _stat_line_index), _stat_text);
+	draw_set_color(COLOR_HEALTH_BAR);
+	draw_text(_stats_x + string_width(_stat_text), _stats_y + (_line_height * _stat_line_index), " (+" + string_format(_resistance_bonus, 0, 1) + "%)");
+	_stat_line_index++;
+
+	if (_demon_stats.aoe_radius > 0)
+	{
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text(_stats_x, _stats_y + (_line_height * _stat_line_index), "Aoe radius: " + string(_demon_stats.aoe_radius));
+		_stat_line_index++;
+	}
+
+	var _abilities_y = _stats_y + (_line_height * _stat_line_index) + 18;
+
+	draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+	draw_text(_hover_x + _hover_padding, _abilities_y, "Abilities");
+	draw_text_ext(_hover_x + _hover_padding, _abilities_y + 22, _abilities_text, 16, _ability_width);
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
 };
 
 night_attack_enemy_difficulty_get = function(_enemy_object)
@@ -3934,6 +4766,19 @@ night_attack_unit_pair_roll = function(_previous_pair)
 	}
 
 	return _pair;
+};
+
+night_attack_enemy_type_count_roll = function(_enemy_pair)
+{
+	if (array_length(_enemy_pair) <= 1 || random(1) >= BALANCE_NIGHT_ATTACK_SINGLE_TYPE_CHANCE)
+	{
+		return _enemy_pair;
+	}
+
+	// Some directions advertise and spawn only one enemy type.
+	var _enemy_index = irandom(array_length(_enemy_pair) - 1);
+
+	return [_enemy_pair[_enemy_index]];
 };
 
 night_attack_wave_count_get = function(_direction_difficulty, _enemy_objects)
@@ -4072,10 +4917,11 @@ night_attack_plan_create = function()
 	for (var _direction_index = 0; _direction_index < _direction_count; ++_direction_index)
 	{
 		var _direction = _directions[_direction_index mod array_length(_directions)];
-		var _enemy_objects = night_attack_unit_pair_roll(_previous_pair);
+		var _enemy_pair = night_attack_unit_pair_roll(_previous_pair);
+		var _enemy_objects = night_attack_enemy_type_count_roll(_enemy_pair);
 		var _wave_count = night_attack_wave_count_get(_direction_difficulty, _enemy_objects);
 
-		_previous_pair = _enemy_objects;
+		_previous_pair = _enemy_pair;
 
 		array_push(
 			night_attack_directions,
@@ -4124,7 +4970,31 @@ night_attack_direction_wave_start = function(_direction_index)
 	night_attack_directions[_direction_index] = _direction_data;
 };
 
-night_attack_enemy_spawn = function(_direction_data, _enemy_object)
+night_attack_direction_alive_enemy_count_get = function(_direction_index)
+{
+	var _alive_count = 0;
+	var _enemy_count = instance_number(o_enemy_units);
+
+	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	{
+		var _enemy = instance_find(o_enemy_units, _enemy_index);
+
+		if (instance_exists(_enemy)
+			&& variable_instance_exists(_enemy, "hp")
+			&& _enemy.hp > 0
+			&& variable_instance_exists(_enemy, "is_night_attack_unit")
+			&& _enemy.is_night_attack_unit
+			&& variable_instance_exists(_enemy, "night_attack_direction_index")
+			&& _enemy.night_attack_direction_index == _direction_index)
+		{
+			_alive_count++;
+		}
+	}
+
+	return _alive_count;
+};
+
+night_attack_enemy_spawn = function(_direction_index, _direction_data, _enemy_object)
 {
 	if (!instance_exists(o_cannon))
 	{
@@ -4149,6 +5019,7 @@ night_attack_enemy_spawn = function(_direction_data, _enemy_object)
 
 	_enemy.unit_can_attack_cannon = true;
 	_enemy.is_night_attack_unit = true;
+	_enemy.night_attack_direction_index = _direction_index;
 	_enemy.owner_garnizon = noone;
 	_enemy.guard_target = noone;
 	enemy_night_hp_scale_apply(_enemy);
@@ -4194,8 +5065,19 @@ night_attack_spawning_update = function()
 		}
 
 		var _wave_unit_count = array_length(_direction_data.current_wave_units);
+		var _alive_enemy_count = night_attack_direction_alive_enemy_count_get(_direction_index);
+		var _spawn_slot_count = max(0, BALANCE_NIGHT_ATTACK_DIRECTION_ALIVE_ENEMY_LIMIT - _alive_enemy_count);
 
-		for (var _batch_index = 0; _batch_index < BALANCE_NIGHT_ATTACK_SPAWN_BATCH_COUNT; ++_batch_index)
+		if (_spawn_slot_count <= 0)
+		{
+			_direction_data.spawn_timer = BALANCE_NIGHT_ATTACK_UNIT_SPAWN_INTERVAL * room_speed;
+			night_attack_directions[_direction_index] = _direction_data;
+			continue;
+		}
+
+		var _batch_spawn_count = min(BALANCE_NIGHT_ATTACK_SPAWN_BATCH_COUNT, _spawn_slot_count);
+
+		for (var _batch_index = 0; _batch_index < _batch_spawn_count; ++_batch_index)
 		{
 			if (_direction_data.current_wave_spawn_index >= _wave_unit_count)
 			{
@@ -4204,7 +5086,7 @@ night_attack_spawning_update = function()
 
 			var _enemy_object = _direction_data.current_wave_units[_direction_data.current_wave_spawn_index];
 
-			night_attack_enemy_spawn(_direction_data, _enemy_object);
+			night_attack_enemy_spawn(_direction_index, _direction_data, _enemy_object);
 			_direction_data.current_wave_spawn_index++;
 		}
 
@@ -4318,6 +5200,7 @@ start_night_phase = function()
 	global.day_timer = global.night_duration * room_speed;
 	global.night_attack_unit_count = 0;
 	global.sound_play_random(global.night_start_sounds);
+	update_goblin_evening_life();
 	move_goblins_to_cannon_inner();
 
 	if (instance_exists(o_cannon))
@@ -4325,6 +5208,8 @@ start_night_phase = function()
 		var _cannon = instance_find(o_cannon, 0);
 		adaptive_night_cannon_hp_start = _cannon.hp;
 	}
+
+	adaptive_difficulty_night_hp_start_store();
 
 	if (!night_attack_plan_exists)
 	{
@@ -4405,7 +5290,7 @@ start_day_phase = function()
 	{
 		if (variable_instance_exists(id, "ritual_circle_daily_exp_remaining"))
 		{
-			ritual_circle_daily_exp_remaining = BALANCE_RITUAL_CIRCLE_DAILY_EXP_LIMIT;
+			ritual_circle_daily_exp_remaining = ritual_circle_daily_exp_limit_get();
 		}
 	}
 

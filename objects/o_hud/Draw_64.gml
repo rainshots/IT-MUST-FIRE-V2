@@ -765,55 +765,84 @@ if (variable_global_exists("cannon_projectile_queue")
 	if (_description_projectile_index >= 0)
 	{
 		var _description_type = PROJECTILE_TYPE.FEAST;
+		var _description_payload = noone;
+		var _draw_cultist_payload_card = false;
 
 		if (_description_projectile_index < _projectile_queue_count)
 		{
 			_description_type = global.cannon_projectile_queue[_description_projectile_index];
 		}
 
-		var _description_x = (_gui_width - projectile_description_width) * 0.5;
-		var _description_y = _projectile_base_y - projectile_description_height - projectile_description_gap;
-
-		draw_set_halign(fa_left);
-		draw_set_valign(fa_top);
-		draw_set_alpha(0.84);
-		draw_set_color(COLOR_HUD_BACKGROUND);
-		draw_rectangle(
-			_description_x,
-			_description_y,
-			_description_x + projectile_description_width,
-			_description_y + projectile_description_height,
-			false
-		);
-
-		draw_set_alpha(1);
-		draw_set_color(COLOR_HUD_TEXT);
-		var _description_name = projectile_names[_description_type];
-
-		if (_description_type == PROJECTILE_TYPE.CULTIST
+		if (_hovered_projectile_index >= 0
+			&& _description_type == PROJECTILE_TYPE.CULTIST
 			&& variable_global_exists("cannon_projectile_payload_queue")
 			&& _description_projectile_index < array_length(global.cannon_projectile_payload_queue))
 		{
-			var _description_payload = global.cannon_projectile_payload_queue[_description_projectile_index];
-
-			if (instance_exists(_description_payload)
-				&& variable_instance_exists(_description_payload, "cultist_name")
-				&& _description_payload.cultist_name != "")
-			{
-				_description_name = _description_payload.cultist_name;
-			}
+			_description_payload = global.cannon_projectile_payload_queue[_description_projectile_index];
+			_draw_cultist_payload_card = instance_exists(_description_payload)
+				&& variable_instance_exists(_description_payload, "cultist_points");
 		}
 
-		draw_text(_description_x + 10, _description_y + 8, _description_name);
+		var _description_x = (_gui_width - projectile_description_width) * 0.5;
+		var _description_y = _projectile_base_y - projectile_description_height - projectile_description_gap;
 
-		draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
-		draw_text_ext(
-			_description_x + 10,
-			_description_y + 28,
-			projectile_descriptions[_description_type],
-			projectile_description_line_separation,
-			projectile_description_width - 20
-		);
+		if (_draw_cultist_payload_card && instance_exists(o_game_controller))
+		{
+			var _card_width = min(300, _gui_width - 36);
+			var _card_height = 570;
+			var _card_margin = 18;
+			var _card_x = min(_projectile_mouse_x + 18, _gui_width - _card_width - _card_margin);
+			var _card_y = max(_card_margin, _projectile_base_y - _card_height - projectile_description_gap);
+			var _game_controller = instance_find(o_game_controller, 0);
+
+			if (variable_instance_exists(_game_controller, "cultist_stats_card_draw"))
+			{
+				_game_controller.cultist_stats_card_draw(_description_payload, _card_x, _card_y);
+			}
+		}
+		else
+		{
+			draw_set_halign(fa_left);
+			draw_set_valign(fa_top);
+			draw_set_alpha(0.84);
+			draw_set_color(COLOR_HUD_BACKGROUND);
+			draw_rectangle(
+				_description_x,
+				_description_y,
+				_description_x + projectile_description_width,
+				_description_y + projectile_description_height,
+				false
+			);
+
+			draw_set_alpha(1);
+			draw_set_color(COLOR_HUD_TEXT);
+			var _description_name = projectile_names[_description_type];
+
+			if (_description_type == PROJECTILE_TYPE.CULTIST
+				&& variable_global_exists("cannon_projectile_payload_queue")
+				&& _description_projectile_index < array_length(global.cannon_projectile_payload_queue))
+			{
+				_description_payload = global.cannon_projectile_payload_queue[_description_projectile_index];
+
+				if (instance_exists(_description_payload)
+					&& variable_instance_exists(_description_payload, "cultist_name")
+					&& _description_payload.cultist_name != "")
+				{
+					_description_name = _description_payload.cultist_name;
+				}
+			}
+
+			draw_text(_description_x + 10, _description_y + 8, _description_name);
+
+			draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+			draw_text_ext(
+				_description_x + 10,
+				_description_y + 28,
+				projectile_descriptions[_description_type],
+				projectile_description_line_separation,
+				projectile_description_width - 20
+			);
+		}
 	}
 }
 

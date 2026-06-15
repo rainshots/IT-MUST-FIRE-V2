@@ -37,9 +37,13 @@ hex_totem_magic_damage_apply = function(_target, _damage_amount)
 
 	var _final_damage = _damage_amount;
 
-	if (variable_instance_exists(_target, "status_effect_magic_damage_multiplier"))
+	if (instance_exists(owner_warlock) && variable_instance_exists(owner_warlock, "magic_damage_after_resistance"))
 	{
-		_final_damage *= _target.status_effect_magic_damage_multiplier();
+		_final_damage = owner_warlock.magic_damage_after_resistance(_damage_amount, _target);
+	}
+	else if (variable_instance_exists(_target, "magic_damage_after_resistance"))
+	{
+		_final_damage = _target.magic_damage_after_resistance(_damage_amount, _target);
 	}
 
 	if (variable_instance_exists(_target, "unit_damage_receive"))

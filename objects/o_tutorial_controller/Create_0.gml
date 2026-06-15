@@ -40,7 +40,7 @@ tutorial_items = [
 	{
 		id: "buildings",
 		title: "Buildings",
-		body: "There are several building types. Some produce the three main resources: iron, flesh, and souls. Others summon unholy creatures, heal cultists, repair walls, and provide other services in exchange for resources.\n\nTo begin, I recommend building a Meat Bath so your cultists can recover after night battles."
+		body: "There are several building types. Some produce the three main resources: iron, flesh, and souls. Others summon unholy creatures, heal cultists, repair walls, and provide other services in exchange for resources.\n\nTo begin, I recommend building a Ritual Circle so your cultists can recover after work and gain some XP."
 	},
 	{
 		id: "meat_bath_needed",
@@ -68,9 +68,19 @@ tutorial_items = [
 		body: "The cannon is hungry! Assign workers directly to the cannon so they carry corpses into it. Later, this will give you Feast shells at night, letting you desecrate much more ground."
 	},
 	{
+		id: "fatigue",
+		title: "Fatigue",
+		body: "The red bar under the HP bar is cultist fatigue. When it fills completely, the cultist becomes less productive. To recover, build a Ritual Circle and assign the cultist there. They can rest and gain XP by worshipping our lords of the abyss."
+	},
+	{
 		id: "night",
 		title: "Night",
 		body: "At night, your cultists and other combat units are swallowed by the possessed cannon. You can choose where it spits them onto the battlefield by pressing 1 and then the left mouse button.\n\nEach cultist gets a separate volley. Other combat units are split evenly between volleys."
+	},
+	{
+		id: "damage_types",
+		title: "Physical and Magic Damage",
+		body: "There are only 2 damage types in the game: physical and magic.\n\nArmor blocks part of incoming physical damage. Magic resistance blocks part of incoming magic damage."
 	},
 	{
 		id: "day_after_night",

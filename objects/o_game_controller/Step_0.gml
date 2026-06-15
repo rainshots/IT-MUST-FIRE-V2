@@ -142,6 +142,13 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 
 		global.cultist_assignment_preview_building = find_worker_building_at_position(_drag_world_x, _assignment_world_y);
 
+		if (_dragged_cultist.object_index == o_goblin
+			&& instance_exists(global.cultist_assignment_preview_building)
+			&& global.cultist_assignment_preview_building.object_index == o_ritual_circle)
+		{
+			global.cultist_assignment_preview_building = noone;
+		}
+
 		if (!mouse_check_button(mb_left))
 		{
 			var _drop_building = global.cultist_assignment_preview_building;
@@ -199,27 +206,30 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 
 		var _worker_unit_objects = [o_goblin];
 
-		for (var _worker_object_index = 0; _worker_object_index < array_length(_worker_unit_objects); ++_worker_object_index)
+		if (global.day_phase == DAY_PHASE.DAY)
 		{
-			var _worker_object = _worker_unit_objects[_worker_object_index];
-			var _worker_unit_count = instance_number(_worker_object);
-
-			for (var _worker_unit_index = 0; _worker_unit_index < _worker_unit_count; ++_worker_unit_index)
+			for (var _worker_object_index = 0; _worker_object_index < array_length(_worker_unit_objects); ++_worker_object_index)
 			{
-				var _worker_unit = instance_find(_worker_object, _worker_unit_index);
+				var _worker_object = _worker_unit_objects[_worker_object_index];
+				var _worker_unit_count = instance_number(_worker_object);
 
-				if (instance_exists(_worker_unit)
-					&& _mouse_world_x >= _worker_unit.bbox_left
-					&& _mouse_world_x <= _worker_unit.bbox_right
-					&& _mouse_world_y >= _worker_unit.bbox_top
-					&& _mouse_world_y <= _worker_unit.bbox_bottom)
+				for (var _worker_unit_index = 0; _worker_unit_index < _worker_unit_count; ++_worker_unit_index)
 				{
-					var _distance_to_worker_unit = point_distance(_mouse_world_x, _mouse_world_y, _worker_unit.x, _worker_unit.y);
+					var _worker_unit = instance_find(_worker_object, _worker_unit_index);
 
-					if (_distance_to_worker_unit < _closest_distance)
+					if (instance_exists(_worker_unit)
+						&& _mouse_world_x >= _worker_unit.bbox_left
+						&& _mouse_world_x <= _worker_unit.bbox_right
+						&& _mouse_world_y >= _worker_unit.bbox_top
+						&& _mouse_world_y <= _worker_unit.bbox_bottom)
 					{
-						_closest_distance = _distance_to_worker_unit;
-						_closest_cultist = _worker_unit;
+						var _distance_to_worker_unit = point_distance(_mouse_world_x, _mouse_world_y, _worker_unit.x, _worker_unit.y);
+
+						if (_distance_to_worker_unit < _closest_distance)
+						{
+							_closest_distance = _distance_to_worker_unit;
+							_closest_cultist = _worker_unit;
+						}
 					}
 				}
 			}
@@ -279,6 +289,7 @@ else
 if (!global.pause && variable_global_exists("cultists"))
 {
 	worker_whip_effects_update();
+	day_idle_cultists_wander_update();
 }
 
 // Assigned cannon workers haul corpses during the day.
@@ -610,7 +621,6 @@ if (keyboard_check_pressed(ord("G"))
 // Demolish a hovered base building and return its empty construction slot.
 if (keyboard_check_pressed(ord("T"))
 	&& global.focus_window == FOCUS_WINDOW.NOONE
-	&& !global.pause
 	&& !instance_exists(global.dragged_cultist)
 	&& instance_exists(o_camera_controller))
 {

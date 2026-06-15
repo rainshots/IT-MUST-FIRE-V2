@@ -111,7 +111,7 @@ target_instance = noone;
 is_attacking_target = false;
 is_walking = false;
 
-// Unassigned goblins drift back to the cannon inner area.
+// Unassigned goblins wander in front of the cannon.
 if (regroup_is_active)
 {
 	var _regroup_distance = point_distance(x, y, regroup_target_x, regroup_target_y);
@@ -127,14 +127,13 @@ if (regroup_is_active)
 		move_towards_world_point(regroup_target_x, regroup_target_y);
 	}
 }
-else if (instance_exists(o_cannon))
+else if (instance_exists(o_game_controller))
 {
-	var _cannon = instance_find(o_cannon, 0);
-	var _distance_to_cannon = point_distance(x, y, _cannon.x, _cannon.y);
+	var _game_controller = instance_find(o_game_controller, 0);
 
-	if (_distance_to_cannon > cannon_guard_radius)
+	if (variable_instance_exists(_game_controller, "worker_idle_wander_update"))
 	{
-		move_towards_world_point(_cannon.x, _cannon.y);
+		_game_controller.worker_idle_wander_update(id);
 	}
 }
 

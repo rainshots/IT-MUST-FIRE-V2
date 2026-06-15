@@ -1,6 +1,7 @@
 // Initialize shared friendly combat state.
 event_inherited();
 
+
 // Pitling combat stats.
 max_hp = BALANCE_PITLING_HP;
 hp = max_hp;

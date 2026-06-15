@@ -272,6 +272,16 @@ if (_flight_progress >= 1)
 				_demon.cultist_sprite_index = _cultist.cultist_sprite_index;
 			}
 
+			if (variable_instance_exists(_cultist, "adaptive_night_hp_start"))
+			{
+				_demon.adaptive_night_hp_start = _cultist.adaptive_night_hp_start;
+			}
+
+			if (variable_instance_exists(_cultist, "adaptive_night_damage_taken"))
+			{
+				_demon.adaptive_night_damage_taken = _cultist.adaptive_night_damage_taken;
+			}
+
 			_demon.demon_type = _cultist.demon_type;
 			_demon.demon_ability = _cultist.demon_ability;
 			_demon.cultist_starting_abilities = _cultist.cultist_starting_abilities;

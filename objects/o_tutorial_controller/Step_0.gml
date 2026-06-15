@@ -120,4 +120,9 @@ else if (_current_day_phase == DAY_PHASE.NIGHT)
 	{
 		tutorial_trigger("cursed_buildings");
 	}
+
+	if (_current_day == 1 && _night_elapsed_frames >= 10 * room_speed)
+	{
+		tutorial_trigger("damage_types");
+	}
 }
