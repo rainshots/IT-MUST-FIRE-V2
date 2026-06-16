@@ -107,6 +107,20 @@ drag_drop_y = y;
 morning_respawn_pending = false;
 corpse_visual_created = false;
 
+// Knockout keeps defeated cultists visible until they recover.
+is_knocked_out = false;
+knockout_timer = 0;
+knockout_duration = BALANCE_CULTIST_KNOCKOUT_TIME * room_speed;
+knockout_recovery_hp_share = BALANCE_CULTIST_KNOCKOUT_RECOVERY_HP_SHARE;
+knockout_label_text = "Knocked out";
+knockout_label_offset_y = 58;
+knockout_label_padding_x = 7;
+knockout_label_padding_y = 3;
+knockout_label_background_alpha = 0.82;
+knockout_bar_width = 54;
+knockout_bar_height = 5;
+knockout_bar_gap = 4;
+
 // Warlock-raised skeletons use regular skeleton stats with extra ability effects.
 warlock_skeleton_explosion_enabled = false;
 warlock_skeleton_explosion_damage = 0;
@@ -929,22 +943,31 @@ unit_death_process = function()
 		}
 	}
 
-	unit_corpse_snapshot_create();
-
 	if (is_demon_form_unit() || object_index == o_cultist)
 	{
-		if (!morning_respawn_pending)
+		if (!is_knocked_out)
 		{
 			soul_chain_death_effect_apply();
-			morning_respawn_pending = true;
+
+			if (global.day_phase == DAY_PHASE.NIGHT && instance_exists(o_game_controller))
+			{
+				var _game_controller = instance_find(o_game_controller, 0);
+				_game_controller.adaptive_night_cultist_knocked_out = true;
+			}
+
+			is_knocked_out = true;
+			knockout_duration = max(1, BALANCE_CULTIST_KNOCKOUT_TIME * room_speed);
+			knockout_timer = knockout_duration;
 			hp = 0;
-			visible = false;
+			visible = true;
+			image_angle = 90;
 			is_being_dragged = false;
 			target_instance = noone;
 			alert_target = noone;
 			forced_attack_target = noone;
 			is_attacking_target = false;
 			is_walking = false;
+			attack_feedback_timer = 0;
 			visual_attack_offset_x = 0;
 			visual_attack_offset_y = 0;
 		}
@@ -952,12 +975,48 @@ unit_death_process = function()
 		return;
 	}
 
+	unit_corpse_snapshot_create();
 	soul_chain_death_effect_apply();
 	warlock_soul_engine_enemy_death_notify();
 	warlock_skeleton_death_effect_apply();
 	status_effect_death_rewards_try();
 	meat_drop_try();
 	instance_destroy();
+};
+
+knockout_update = function()
+{
+	if (!is_knocked_out)
+	{
+		return false;
+	}
+
+	target_instance = noone;
+	alert_target = noone;
+	forced_attack_target = noone;
+	is_attacking_target = false;
+	is_walking = false;
+	is_stunned = false;
+	attack_feedback_timer = 0;
+	visual_attack_offset_x = 0;
+	visual_attack_offset_y = 0;
+	image_angle = 90;
+
+	knockout_timer--;
+
+	if (knockout_timer <= 0)
+	{
+		var _recovered_hp = max(1, max_hp * knockout_recovery_hp_share);
+
+		hp = min(_recovered_hp, max_hp);
+		is_knocked_out = false;
+		knockout_timer = 0;
+		image_angle = 0;
+		corpse_visual_created = false;
+		morning_respawn_pending = false;
+	}
+
+	return is_knocked_out;
 };
 
 stun_apply = function(_duration_seconds)

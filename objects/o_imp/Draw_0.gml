@@ -1,3 +1,10 @@
+// Knocked out cultists only draw the shared recovery state.
+if (is_knocked_out)
+{
+	event_inherited();
+	exit;
+}
+
 // Draw Crimson Guillotine flight before the landing strike resolves.
 if (crimson_guillotine_strike_timer > 0)
 {

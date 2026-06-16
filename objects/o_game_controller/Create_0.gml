@@ -1497,6 +1497,8 @@ adaptive_night_tracked_cultist_count = 0;
 adaptive_last_night_cannon_hp_loss_share = 0;
 adaptive_last_night_low_hp_cultists = 0;
 adaptive_last_night_heavy_damage_cultists = 0;
+adaptive_last_night_cultist_knocked_out = false;
+adaptive_night_cultist_knocked_out = false;
 adaptive_last_night_delta = 0;
 cannon_corrupted_ground_damage_timer = 0;
 
@@ -3788,6 +3790,8 @@ restore_dead_cultists_at_morning = function()
 		_cultist.visible = true;
 		_cultist.image_alpha = 1;
 		_cultist.image_angle = 0;
+		_cultist.is_knocked_out = false;
+		_cultist.knockout_timer = 0;
 		_cultist.morning_respawn_pending = false;
 		_cultist.corpse_visual_created = false;
 	}
@@ -3885,8 +3889,10 @@ transform_demons_to_cultists = function()
 
 		if (_was_dead)
 		{
-			_cultist.hp = _cultist.max_hp * BALANCE_CULTIST_MORNING_RESPAWN_HP_SHARE;
-			_cultist.morning_respawn_pending = true;
+			_cultist.hp = _cultist.max_hp * BALANCE_CULTIST_KNOCKOUT_RECOVERY_HP_SHARE;
+			_cultist.is_knocked_out = false;
+			_cultist.knockout_timer = 0;
+			_cultist.morning_respawn_pending = false;
 		}
 
 		array_push(_new_cultists, _cultist);
@@ -4237,6 +4243,12 @@ adaptive_difficulty_evaluate_night = function()
 		_difficulty_delta += BALANCE_ADAPTIVE_DIFFICULTY_NO_HEAVY_CULTIST_DAMAGE_INCREASE;
 	}
 
+	// A knockout means the previous night was already punishing enough.
+	if (adaptive_night_cultist_knocked_out && _difficulty_delta > BALANCE_ADAPTIVE_DIFFICULTY_KNOCKOUT_MAX_INCREASE)
+	{
+		_difficulty_delta = BALANCE_ADAPTIVE_DIFFICULTY_KNOCKOUT_MAX_INCREASE;
+	}
+
 	adaptive_difficulty_multiplier = clamp(
 		adaptive_difficulty_multiplier + _difficulty_delta,
 		BALANCE_ADAPTIVE_DIFFICULTY_MIN_MULTIPLIER,
@@ -4245,6 +4257,7 @@ adaptive_difficulty_evaluate_night = function()
 	adaptive_last_night_cannon_hp_loss_share = _cannon_hp_loss_share;
 	adaptive_last_night_low_hp_cultists = _low_hp_cultist_count;
 	adaptive_last_night_heavy_damage_cultists = _heavy_damage_cultist_count;
+	adaptive_last_night_cultist_knocked_out = adaptive_night_cultist_knocked_out;
 	adaptive_last_night_delta = _difficulty_delta;
 };
 
@@ -5199,6 +5212,7 @@ start_night_phase = function()
 	global.day_phase = DAY_PHASE.NIGHT;
 	global.day_timer = global.night_duration * room_speed;
 	global.night_attack_unit_count = 0;
+	adaptive_night_cultist_knocked_out = false;
 	global.sound_play_random(global.night_start_sounds);
 	update_goblin_evening_life();
 	move_goblins_to_cannon_inner();

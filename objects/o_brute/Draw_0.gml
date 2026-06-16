@@ -1,3 +1,10 @@
+// Knocked out cultists only draw the shared recovery state.
+if (is_knocked_out)
+{
+	event_inherited();
+	exit;
+}
+
 // Draw Rotten Aura radius beneath the Brute visuals.
 if (has_brute_rotten_aura && BALANCE_BRUTE_ROTTEN_AURA_ENABLED)
 {

@@ -8,6 +8,15 @@ if (global.pause)
 update_attack_lunge();
 is_stunned = false;
 
+// Knocked out cultists stay on the battlefield until they recover.
+if (is_knocked_out)
+{
+	if (knockout_update())
+	{
+		exit;
+	}
+}
+
 // Destroy dead units.
 if (hp <= 0)
 {

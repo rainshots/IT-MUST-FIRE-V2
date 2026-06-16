@@ -1,3 +1,10 @@
+// Knocked out cultists only draw the shared recovery state.
+if (is_knocked_out)
+{
+	event_inherited();
+	exit;
+}
+
 // Draw Demonic Infusion radius beneath the Warlock visuals when unlocked.
 if (warlock_ability_level_get(DEMON_ABILITY.WARLOCK_DEMONIC_INFUSION) > 0)
 {

@@ -163,6 +163,49 @@ if (attack_feedback_timer > 0)
 draw_set_alpha(1);
 draw_set_color(c_white);
 
+// Draw knockout recovery state instead of regular combat bars.
+if (is_knocked_out)
+{
+	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+	{
+		draw_set_font(global.ui_font);
+	}
+
+	var _knockout_x = x;
+	var _knockout_y = y - knockout_label_offset_y;
+	var _knockout_width = string_width(knockout_label_text) + (knockout_label_padding_x * 2);
+	var _knockout_height = string_height(knockout_label_text) + (knockout_label_padding_y * 2);
+	var _knockout_left = _knockout_x - (_knockout_width * 0.5);
+	var _knockout_top = _knockout_y - (_knockout_height * 0.5);
+	var _knockout_progress = 1 - clamp(knockout_timer / max(1, knockout_duration), 0, 1);
+	var _knockout_bar_x = _knockout_x - (knockout_bar_width * 0.5);
+	var _knockout_bar_y = _knockout_top - knockout_bar_gap - knockout_bar_height;
+
+	draw_set_alpha(knockout_label_background_alpha);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_rectangle(_knockout_bar_x, _knockout_bar_y, _knockout_bar_x + knockout_bar_width, _knockout_bar_y + knockout_bar_height, false);
+
+	draw_set_alpha(1);
+	draw_set_color(COLOR_HEALTH_BAR);
+	draw_rectangle(_knockout_bar_x, _knockout_bar_y, _knockout_bar_x + (knockout_bar_width * _knockout_progress), _knockout_bar_y + knockout_bar_height, false);
+
+	draw_set_alpha(knockout_label_background_alpha);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_roundrect(_knockout_left, _knockout_top, _knockout_left + _knockout_width, _knockout_top + _knockout_height, false);
+
+	draw_set_alpha(1);
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
+	draw_set_color(COLOR_HUD_TEXT);
+	draw_text(_knockout_x, _knockout_y, knockout_label_text);
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+	exit;
+}
+
 // Draw regular unit health bars; demon bars are drawn above the world from the controller.
 var _hp_progress = clamp(hp / max_hp, 0, 1);
 var _is_demon_bar_drawn_by_controller = is_demon_form_unit();
