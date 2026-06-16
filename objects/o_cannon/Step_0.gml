@@ -122,6 +122,20 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 				_projectile.ground_corruption_amount = BALANCE_CANNON_FEAST_CORRUPTION_AMOUNT;
 				_projectile.ground_corruption_radius = BALANCE_CANNON_FEAST_PROJECTILE_CORRUPTION_RADIUS;
 			}
+			else if (target_projectile_type == PROJECTILE_TYPE.HEAL)
+			{
+				_projectile.effect_radius = BALANCE_PROJECTILE_HEAL_RADIUS;
+				_projectile.damage_amount = BALANCE_PROJECTILE_HEAL_AMOUNT;
+			}
+			else if (target_projectile_type == PROJECTILE_TYPE.BOMB)
+			{
+				_projectile.effect_radius = BALANCE_PROJECTILE_BOMB_RADIUS;
+				_projectile.damage_amount = BALANCE_PROJECTILE_BOMB_DAMAGE_AMOUNT;
+			}
+			else if (target_projectile_type == PROJECTILE_TYPE.SKELETONS)
+			{
+				_projectile.effect_radius = BALANCE_PROJECTILE_SKELETON_RADIUS;
+			}
 		}
 
 		// Remove the fired projectile from the front of the queue when the target consumed it.

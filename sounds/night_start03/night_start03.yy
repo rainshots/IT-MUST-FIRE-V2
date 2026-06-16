@@ -10,7 +10,7 @@
   "compression":0,
   "compressionQuality":4,
   "conversionMode":0,
-  "duration":6.45873,
+  "duration":8.95873,
   "exportDir":"",
   "name":"night_start03",
   "parent":{

@@ -20,6 +20,16 @@ global.tutorial_popup_active = false;
 global.tutorial_welcome_closed = false;
 global.cursed_point_structure_selection_source = noone;
 
+// World hint for the first worker assignment.
+worker_assignment_hint_completed = false;
+worker_assignment_hint_text = "Drag a worker onto a building to start working.\nHover the worker, hold LMB, then release over the building.";
+worker_assignment_hint_width = 360;
+worker_assignment_hint_padding_x = 10;
+worker_assignment_hint_padding_y = 7;
+worker_assignment_hint_line_height = 16;
+worker_assignment_hint_offset_y = 150;
+worker_assignment_hint_background_alpha = 0.86;
+
 // Tutorial controller owns onboarding popups and pauses gameplay while they are open.
 if (!instance_exists(o_tutorial_controller))
 {
@@ -34,12 +44,14 @@ shrine_objective_required = BALANCE_SHRINE_OBJECTIVE_REQUIRED;
 shrine_spawn_distances = [
 	BALANCE_SHRINE_DISTANCE_NEAR,
 	BALANCE_SHRINE_DISTANCE_FAR,
-	BALANCE_SHRINE_DISTANCE_MID
+	BALANCE_SHRINE_DISTANCE_MID,
+	BALANCE_SHRINE_DISTANCE_FAR
 ];
 shrine_spawn_angle_ranges = [
 	[BALANCE_SHRINE_ANGLE_FIRST_MIN, BALANCE_SHRINE_ANGLE_FIRST_MAX],
 	[BALANCE_SHRINE_ANGLE_SECOND_MIN, BALANCE_SHRINE_ANGLE_SECOND_MAX],
-	[BALANCE_SHRINE_ANGLE_THIRD_MIN, BALANCE_SHRINE_ANGLE_THIRD_MAX]
+	[BALANCE_SHRINE_ANGLE_THIRD_MIN, BALANCE_SHRINE_ANGLE_THIRD_MAX],
+	[BALANCE_SHRINE_ANGLE_FOURTH_MIN, BALANCE_SHRINE_ANGLE_FOURTH_MAX]
 ];
 
 // Global particle system used by lightweight world effects.
@@ -429,6 +441,11 @@ global.cannon_projectile_drop_types = [
 	PROJECTILE_TYPE.SUMMON,
 	PROJECTILE_TYPE.RALLY
 ];
+global.cannon_feast_bonus_projectile_types = [
+	PROJECTILE_TYPE.HEAL,
+	PROJECTILE_TYPE.BOMB,
+	PROJECTILE_TYPE.SKELETONS
+];
 global.cannon_projectile_cheat_enabled = global.cheats_enabled;
 global.rally_projectile_group_id = 0;
 global.cannon_satiety = 0;
@@ -470,10 +487,7 @@ global.whip_sounds = [
 	whip_sound01,
 	whip_sound02,
 	whip_sound03,
-	whip_sound04,
-	whip_sound05,
-	whip_sound06,
-	whip_sound07
+	whip_sound04
 ];
 global.cannon_shot_sounds = [
 	cannon_shot01,
@@ -515,15 +529,27 @@ global.sound_play_random = function(_sounds, _priority = global.sound_priority_g
 		return noone;
 	}
 
-	var _sound = _sounds[irandom(_sound_count - 1)];
-	return audio_play_sound(_sound, _priority, false);
+	var _start_index = irandom(_sound_count - 1);
+
+	for (var _sound_offset = 0; _sound_offset < _sound_count; ++_sound_offset)
+	{
+		var _sound_index = (_start_index + _sound_offset) mod _sound_count;
+		var _sound = _sounds[_sound_index];
+
+		if (audio_exists(_sound))
+		{
+			return audio_play_sound(_sound, _priority, false);
+		}
+	}
+
+	return noone;
 };
 
 global.sound_play_random_with_gain = function(_sounds, _gain, _priority = global.sound_priority_gameplay)
 {
 	var _handle = global.sound_play_random(_sounds, _priority);
 
-	if (_handle != noone)
+	if (_handle >= 0)
 	{
 		audio_sound_gain(_handle, _gain, 0);
 	}
@@ -861,6 +887,27 @@ corpse_decay_at_morning = function()
 	}
 
 	array_resize(corpse_draw_data, _write_index);
+};
+
+corpse_available_for_hauling_exists = function()
+{
+	var _corpse_count = array_length(corpse_draw_data);
+
+	for (var _corpse_index = 0; _corpse_index < _corpse_count; ++_corpse_index)
+	{
+		var _corpse = corpse_draw_data[_corpse_index];
+		var _corpse_is_reserved = variable_struct_exists(_corpse, "reserved_by")
+			&& instance_exists(_corpse.reserved_by);
+		var _corpse_is_skeleton = variable_struct_exists(_corpse, "source_object_index")
+			&& _corpse.source_object_index == o_skeleton;
+
+		if (!_corpse_is_reserved && !_corpse_is_skeleton)
+		{
+			return true;
+		}
+	}
+
+	return false;
 };
 
 cannon_morning_skeletons_raise = function()
@@ -1410,6 +1457,21 @@ projectile_target_selection_radius_get = function(_projectile_type)
 	if (_projectile_type == PROJECTILE_TYPE.CULTIST)
 	{
 		return BALANCE_CULTIST_PROJECTILE_EFFECT_RADIUS;
+	}
+
+	if (_projectile_type == PROJECTILE_TYPE.HEAL)
+	{
+		return BALANCE_PROJECTILE_HEAL_RADIUS;
+	}
+
+	if (_projectile_type == PROJECTILE_TYPE.BOMB)
+	{
+		return BALANCE_PROJECTILE_BOMB_RADIUS;
+	}
+
+	if (_projectile_type == PROJECTILE_TYPE.SKELETONS)
+	{
+		return BALANCE_PROJECTILE_SKELETON_RADIUS;
 	}
 
 	return BALANCE_PROJECTILE_EFFECT_RADIUS;
@@ -2403,6 +2465,7 @@ assign_cultist_to_worker_building = function(_cultist, _building)
 	array_push(_building.worker_cultists, _cultist);
 	_cultist.assigned_building = _building;
 	_cultist.is_assigned_to_building = true;
+	worker_assignment_hint_completed = true;
 
 	if (variable_instance_exists(_cultist, "target_instance"))
 	{
@@ -2432,7 +2495,10 @@ worker_idle_wander_target_pick = function(_worker)
 	}
 
 	var _cannon = instance_find(o_cannon, 0);
-	var _wander_direction = random(360);
+	var _wander_direction = random_range(
+		BALANCE_IDLE_WORKER_WANDER_DIRECTION_MIN,
+		BALANCE_IDLE_WORKER_WANDER_DIRECTION_MAX
+	);
 	var _wander_distance = random(BALANCE_IDLE_WORKER_WANDER_RADIUS);
 
 	_worker.idle_wander_target_x = _cannon.x + lengthdir_x(_wander_distance, _wander_direction);
@@ -2443,7 +2509,7 @@ worker_idle_wander_target_pick = function(_worker)
 	);
 };
 
-worker_idle_wander_can_update = function(_worker)
+worker_idle_wander_can_update = function(_worker, _allow_cannon_assignment = false)
 {
 	if (!instance_exists(_worker)
 		|| global.day_phase != DAY_PHASE.DAY
@@ -2454,8 +2520,16 @@ worker_idle_wander_can_update = function(_worker)
 		return false;
 	}
 
+	var _is_assigned_to_building = variable_instance_exists(_worker, "is_assigned_to_building")
+		&& _worker.is_assigned_to_building;
+	var _can_wander_while_assigned_to_cannon = _allow_cannon_assignment
+		&& _is_assigned_to_building
+		&& variable_instance_exists(_worker, "assigned_building")
+		&& instance_exists(_worker.assigned_building)
+		&& _worker.assigned_building.object_index == o_cannon;
+
 	if ((variable_instance_exists(_worker, "is_being_dragged") && _worker.is_being_dragged)
-		|| (variable_instance_exists(_worker, "is_assigned_to_building") && _worker.is_assigned_to_building)
+		|| (_is_assigned_to_building && !_can_wander_while_assigned_to_cannon)
 		|| (variable_instance_exists(_worker, "cannon_loading") && _worker.cannon_loading)
 		|| (variable_instance_exists(_worker, "cannon_loaded") && _worker.cannon_loaded))
 	{
@@ -2465,9 +2539,9 @@ worker_idle_wander_can_update = function(_worker)
 	return instance_exists(o_cannon);
 };
 
-worker_idle_wander_update = function(_worker)
+worker_idle_wander_update = function(_worker, _allow_cannon_assignment = false)
 {
-	if (!worker_idle_wander_can_update(_worker))
+	if (!worker_idle_wander_can_update(_worker, _allow_cannon_assignment))
 	{
 		return false;
 	}
@@ -2477,6 +2551,16 @@ worker_idle_wander_update = function(_worker)
 		|| !variable_instance_exists(_worker, "idle_wander_wait_timer"))
 	{
 		worker_idle_wander_target_pick(_worker);
+	}
+
+	var _cannon = instance_find(o_cannon, 0);
+
+	if (variable_instance_exists(_cannon, "cannon_worker_is_behind_sprite")
+		&& _cannon.cannon_worker_is_behind_sprite(_worker)
+		&& _worker.idle_wander_target_y < _cannon.y + BALANCE_DAY_CANNON_REGROUP_OFFSET_Y)
+	{
+		worker_idle_wander_target_pick(_worker);
+		_worker.idle_wander_wait_timer = 0;
 	}
 
 	var _distance = point_distance(_worker.x, _worker.y, _worker.idle_wander_target_x, _worker.idle_wander_target_y);
@@ -2556,7 +2640,15 @@ day_idle_cultists_wander_update = function()
 
 cannon_satiety_add = function(_amount)
 {
+	var _feast_count_before = floor(max(0, global.cannon_satiety) / max(1, global.cannon_satiety_max));
 	global.cannon_satiety = max(0, global.cannon_satiety + _amount);
+	var _feast_count_after = floor(max(0, global.cannon_satiety) / max(1, global.cannon_satiety_max));
+	var _new_feast_count = max(0, _feast_count_after - _feast_count_before);
+
+	for (var _feast_index = 0; _feast_index < _new_feast_count; ++_feast_index)
+	{
+		cannon_random_feast_bonus_projectile_queue_add();
+	}
 };
 
 cannon_satiety_can_fire_feast = function()
@@ -2575,11 +2667,36 @@ cannon_satiety_spend_feast = function()
 	return true;
 };
 
+cannon_projectile_queue_add = function(_projectile_type, _payload = noone)
+{
+	if (array_length(global.cannon_projectile_queue) >= global.cannon_projectile_queue_max)
+	{
+		return false;
+	}
+
+	array_push(global.cannon_projectile_queue, _projectile_type);
+	array_push(global.cannon_projectile_payload_queue, _payload);
+	global.cannon_projectile_gain_timer = 0;
+
+	return true;
+};
+
+cannon_random_feast_bonus_projectile_queue_add = function()
+{
+	var _bonus_projectile_count = array_length(global.cannon_feast_bonus_projectile_types);
+
+	if (_bonus_projectile_count <= 0)
+	{
+		return false;
+	}
+
+	var _bonus_projectile_type = global.cannon_feast_bonus_projectile_types[irandom(_bonus_projectile_count - 1)];
+	return cannon_projectile_queue_add(_bonus_projectile_type);
+};
+
 cannon_feast_projectile_queue_add = function()
 {
-	array_push(global.cannon_projectile_queue, PROJECTILE_TYPE.FEAST);
-	array_push(global.cannon_projectile_payload_queue, noone);
-	global.cannon_projectile_gain_timer = 0;
+	return cannon_projectile_queue_add(PROJECTILE_TYPE.FEAST);
 };
 
 cannon_feast_projectile_try_queue = function()
@@ -2777,12 +2894,7 @@ cannon_corpse_worker_update = function(_worker, _cannon)
 			_worker.cannon_no_corpse_warning_active = true;
 		}
 
-		var _idle_distance = point_distance(_worker.x, _worker.y, _cannon.x, _cannon.y);
-
-		if (_idle_distance > BALANCE_CANNON_CORPSE_DELIVER_RADIUS)
-		{
-			cannon_worker_move_towards(_worker, _cannon.x, _cannon.y);
-		}
+		worker_idle_wander_update(_worker, true);
 
 		return true;
 	}
@@ -2951,9 +3063,9 @@ spawn_objective_shrines = function()
 
 	for (var _shrine_index = 0; _shrine_index < shrine_objective_total; ++_shrine_index)
 	{
-		var _angle_range = shrine_spawn_angle_ranges[_shrine_index];
+		var _angle_range = shrine_spawn_angle_ranges[_shrine_index mod array_length(shrine_spawn_angle_ranges)];
 		var _angle = random_range(_angle_range[0], _angle_range[1]);
-		var _distance = shrine_spawn_distances[_shrine_index];
+		var _distance = shrine_spawn_distances[_shrine_index mod array_length(shrine_spawn_distances)];
 		var _spawn_x = _cannon.x + lengthdir_x(_distance, _angle);
 		var _spawn_y = _cannon.y + lengthdir_y(_distance, _angle);
 		var _shrine = instance_create_layer(_spawn_x, _spawn_y, "Instances", o_shrine);
@@ -2962,6 +3074,7 @@ spawn_objective_shrines = function()
 	}
 
 	shrines_spawned = true;
+	night_attack_plan_create();
 };
 
 shrine_corrupted_count_get = function()
@@ -3137,11 +3250,6 @@ assign_current_cultist_demon = function()
 		{
 			global.pause = false;
 			global.focus_window = FOCUS_WINDOW.NOONE;
-
-			if (variable_global_exists("tutorial_hint_trigger"))
-			{
-				global.tutorial_hint_trigger("construction_start");
-			}
 		}
 	}
 };
@@ -3303,11 +3411,45 @@ summoned_combat_units_prepare_for_cultist_projectiles = function()
 	}
 };
 
-clear_cannon_projectile_queues = function()
+clear_cannon_projectile_queues = function(_clear_all = true)
 {
 	cultist_projectile_deploy_assignments_reset();
-	global.cannon_projectile_queue = [];
-	global.cannon_projectile_payload_queue = [];
+
+	if (_clear_all)
+	{
+		global.cannon_projectile_queue = [];
+		global.cannon_projectile_payload_queue = [];
+		global.cannon_projectile_gain_timer = 0;
+		return;
+	}
+
+	var _projectile_count = array_length(global.cannon_projectile_queue);
+	var _payload_count = array_length(global.cannon_projectile_payload_queue);
+	var _kept_projectiles = [];
+	var _kept_payloads = [];
+
+	for (var _projectile_index = 0; _projectile_index < _projectile_count; ++_projectile_index)
+	{
+		var _projectile_type = global.cannon_projectile_queue[_projectile_index];
+
+		if (_projectile_type == PROJECTILE_TYPE.CULTIST)
+		{
+			continue;
+		}
+
+		var _payload = noone;
+
+		if (_projectile_index < _payload_count)
+		{
+			_payload = global.cannon_projectile_payload_queue[_projectile_index];
+		}
+
+		array_push(_kept_projectiles, _projectile_type);
+		array_push(_kept_payloads, _payload);
+	}
+
+	global.cannon_projectile_queue = _kept_projectiles;
+	global.cannon_projectile_payload_queue = _kept_payloads;
 	global.cannon_projectile_gain_timer = 0;
 };
 
@@ -3421,7 +3563,7 @@ queue_cultist_projectile = function(_cultist)
 
 start_cultists_loading_into_cannon = function()
 {
-	clear_cannon_projectile_queues();
+	clear_cannon_projectile_queues(false);
 
 	var _cultist_count = array_length(global.cultists);
 
@@ -4891,6 +5033,42 @@ night_attack_enemy_difficulties_spend = function(_enemy_objects, _enemy_difficul
 	return _enemy_difficulties;
 };
 
+// Night attacks come from the direction of a random shrine with a small angle drift.
+night_attack_shrine_direction_roll = function()
+{
+	if (!instance_exists(o_cannon))
+	{
+		return random(360);
+	}
+
+	var _shrine_count = array_length(shrine_instances);
+
+	if (_shrine_count <= 0)
+	{
+		return random(360);
+	}
+
+	var _cannon = instance_find(o_cannon, 0);
+	var _start_index = irandom(_shrine_count - 1);
+
+	for (var _offset = 0; _offset < _shrine_count; ++_offset)
+	{
+		var _shrine_index = (_start_index + _offset) mod _shrine_count;
+		var _shrine = shrine_instances[_shrine_index];
+
+		if (!instance_exists(_shrine))
+		{
+			continue;
+		}
+
+		var _shrine_direction = point_direction(_cannon.x, _cannon.y, _shrine.x, _shrine.y);
+		var _random_angle = BALANCE_NIGHT_ATTACK_SHRINE_DIRECTION_RANDOM_ANGLE;
+		return (_shrine_direction + random_range(-_random_angle, _random_angle) + 360) mod 360;
+	}
+
+	return random(360);
+};
+
 night_attack_plan_create = function()
 {
 	var _direction_count = max(1, BALANCE_NIGHT_ATTACK_DIRECTION_COUNT);
@@ -4905,22 +5083,11 @@ night_attack_plan_create = function()
 		_total_difficulty / _direction_count,
 		BALANCE_NIGHT_ATTACK_DIRECTION_DIFFICULTY_MAX
 	);
-	var _first_direction = random(360);
-	var _second_direction_offset = random_range(
-		BALANCE_NIGHT_ATTACK_DIRECTION_MIN_ANGLE,
-		BALANCE_NIGHT_ATTACK_DIRECTION_MAX_ANGLE
-	);
+	var _directions = [];
 
-	if (choose(true, false))
+	for (var _roll_index = 0; _roll_index < _direction_count; ++_roll_index)
 	{
-		_second_direction_offset = -_second_direction_offset;
-	}
-
-	var _directions = [_first_direction];
-
-	if (_direction_count > 1)
-	{
-		array_push(_directions, (_first_direction + _second_direction_offset + 360) mod 360);
+		array_push(_directions, night_attack_shrine_direction_roll());
 	}
 
 	night_attack_directions = [];

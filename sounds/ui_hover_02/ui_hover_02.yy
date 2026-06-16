@@ -10,7 +10,7 @@
   "compression":0,
   "compressionQuality":4,
   "conversionMode":0,
-  "duration":0.07015873,
+  "duration":2.5730612,
   "exportDir":"",
   "name":"ui_hover_02",
   "parent":{

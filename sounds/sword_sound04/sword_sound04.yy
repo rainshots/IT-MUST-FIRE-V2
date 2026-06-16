@@ -10,7 +10,7 @@
   "compression":0,
   "compressionQuality":4,
   "conversionMode":0,
-  "duration":0.14154194,
+  "duration":2.6444445,
   "exportDir":"",
   "name":"sword_sound04",
   "parent":{

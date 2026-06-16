@@ -22,5 +22,5 @@
   "resourceVersion":"2.0",
   "sampleRate":44100,
   "soundFile":"An_Invite_for_the_Northern_Tribes___Mountain_Realm.mp3",
-  "volume":1.0,
+  "volume":0.2,
 }

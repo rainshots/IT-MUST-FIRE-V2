@@ -21,6 +21,33 @@ shrine_icon_size = 30;
 shrine_icon_gap = 8;
 shrine_icon_y_offset = 55;
 
+// Compact cultist status cards shown when no focus window is open.
+cultist_status_card_width = 334;
+cultist_status_card_height = 152;
+cultist_status_card_margin_right = 18;
+cultist_status_card_y = 132;
+cultist_status_card_gap = 18;
+cultist_status_card_padding_x = 24;
+cultist_status_card_portrait_width = 64;
+cultist_status_card_portrait_height = 90;
+cultist_status_card_portrait_y = 26;
+cultist_status_card_level_y = 112;
+cultist_status_card_text_x = 110;
+cultist_status_card_name_y = 20;
+cultist_status_card_name_max_characters = 14;
+cultist_status_card_bar_x = 110;
+cultist_status_card_bar_y = 55;
+cultist_status_card_bar_width = 130;
+cultist_status_card_bar_height = 18;
+cultist_status_card_bar_gap = 8;
+cultist_status_card_label_gap = 7;
+cultist_status_card_background_alpha = 0.3;
+cultist_status_card_bar_background_color = c_black;
+cultist_status_card_hp_color = COLOR_HUD_CULTIST_STATUS_HP;
+cultist_status_card_exp_color = COLOR_HUD_CULTIST_STATUS_EXP;
+cultist_status_card_fatigue_color = COLOR_HUD_CULTIST_STATUS_FATIGUE;
+cultist_status_card_label_color = COLOR_HUD_TEXT;
+
 // Cannon satiety is filled by hauling corpses to the cannon.
 cannon_satiety_width = 260;
 cannon_satiety_height = 34;
@@ -89,33 +116,30 @@ projectile_payload_icon_gap = 4;
 projectile_payload_count_gap = 2;
 projectile_aim_prompt_gap = 6;
 projectile_aim_prompt_text = "Press 1 to aim";
+projectile_day_alpha = 0.45;
 projectile_description_width = 330;
 projectile_description_height = 58;
 projectile_description_gap = 8;
 projectile_description_line_separation = 16;
 
-projectile_names = array_create(PROJECTILE_TYPE.FEAST + 1, "");
+projectile_names = array_create(PROJECTILE_TYPE.COUNT, "");
 projectile_names[PROJECTILE_TYPE.DAMAGE] = "DAMAGE";
 projectile_names[PROJECTILE_TYPE.CORRUPTION] = "INFECTION";
 projectile_names[PROJECTILE_TYPE.SUMMON] = "SUMMON";
 projectile_names[PROJECTILE_TYPE.RALLY] = "RALLY";
 projectile_names[PROJECTILE_TYPE.CULTIST] = "CULTIST";
 projectile_names[PROJECTILE_TYPE.FEAST] = "FEAST";
+projectile_names[PROJECTILE_TYPE.HEAL] = "HEAL";
+projectile_names[PROJECTILE_TYPE.BOMB] = "BOMB";
+projectile_names[PROJECTILE_TYPE.SKELETONS] = "SKELETONS";
 
-projectile_descriptions = array_create(PROJECTILE_TYPE.FEAST + 1, "");
+projectile_descriptions = array_create(PROJECTILE_TYPE.COUNT, "");
 projectile_descriptions[PROJECTILE_TYPE.DAMAGE] = "Damages units and buildings inside the impact area.";
 projectile_descriptions[PROJECTILE_TYPE.CORRUPTION] = "Infects ground cells and triggers corruption reactions.";
 projectile_descriptions[PROJECTILE_TYPE.SUMMON] = "Summons friendly forces through valid target reactions.";
 projectile_descriptions[PROJECTILE_TYPE.RALLY] = "Sends half of nearby friendly units to the impact point.";
 projectile_descriptions[PROJECTILE_TYPE.CULTIST] = "Launches a cultist into battle, dealing impact damage and spawning demon form.";
-projectile_descriptions[PROJECTILE_TYPE.FEAST] = "Fires 20 infection shells over a wide area and heavily damages enemies inside.";
-
-// Right-side debug panel for direct Imp passive damage.
-imp_damage_meter_width = 310;
-imp_damage_meter_margin_right = 18;
-imp_damage_meter_y = 132;
-imp_damage_meter_padding = 10;
-imp_damage_meter_title_height = 20;
-imp_damage_meter_line_height = 18;
-imp_damage_meter_imp_gap = 8;
-imp_damage_meter_empty_text = "No Imp damage yet";
+projectile_descriptions[PROJECTILE_TYPE.FEAST] = "Fires 20 infection shells over a wide area and heavily damages enemies inside. When you gain a Feast shell, you also gain 1 random bonus shell.";
+projectile_descriptions[PROJECTILE_TYPE.HEAL] = "Restores 700 health to all friendly units inside a 150 pixel radius.";
+projectile_descriptions[PROJECTILE_TYPE.BOMB] = "Deals 70 damage to every unit inside a 150 pixel radius.";
+projectile_descriptions[PROJECTILE_TYPE.SKELETONS] = "Summons 3 skeletons inside a 150 pixel radius.";

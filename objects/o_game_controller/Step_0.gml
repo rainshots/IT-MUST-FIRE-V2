@@ -328,7 +328,14 @@ if (global.cheats_enabled)
 	// F5 fills the cannon satiety meter for fast corpse-feed testing.
 	if (keyboard_check_pressed(vk_f5) && global.focus_window == FOCUS_WINDOW.NOONE && !instance_exists(global.dragged_cultist))
 	{
-		global.cannon_satiety = global.cannon_satiety_max;
+		var _satiety_to_next_feast = global.cannon_satiety_max - (global.cannon_satiety mod global.cannon_satiety_max);
+
+		if (_satiety_to_next_feast <= 0)
+		{
+			_satiety_to_next_feast = global.cannon_satiety_max;
+		}
+
+		cannon_satiety_add(_satiety_to_next_feast);
 	}
 
 	// Shift + right mouse button spawns meat at the cursor for Brute Corpse Eater testing.

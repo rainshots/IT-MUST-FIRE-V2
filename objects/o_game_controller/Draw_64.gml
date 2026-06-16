@@ -136,6 +136,57 @@ if ((global.day_phase == DAY_PHASE.DAY || _night_warning_active)
 	draw_set_color(c_white);
 }
 
+// Draw a non-blocking worker assignment hint above the first Quarry.
+if (!worker_assignment_hint_completed
+	&& global.focus_window == FOCUS_WINDOW.NOONE
+	&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active)
+	&& instance_exists(o_camera_controller))
+{
+	var _hint_building = noone;
+
+	if (instance_exists(o_quarry))
+	{
+		_hint_building = instance_find(o_quarry, 0);
+	}
+
+	if (instance_exists(_hint_building))
+	{
+		var _hint_camera_controller = instance_find(o_camera_controller, 0);
+		var _hint_camera_x = camera_get_view_x(_hint_camera_controller.camera_id);
+		var _hint_camera_y = camera_get_view_y(_hint_camera_controller.camera_id);
+		var _hint_camera_width = camera_get_view_width(_hint_camera_controller.camera_id);
+		var _hint_camera_height = camera_get_view_height(_hint_camera_controller.camera_id);
+		var _hint_anchor_x = ((_hint_building.x - _hint_camera_x) / _hint_camera_width) * camera_view_width;
+		var _hint_anchor_y = (((_hint_building.bbox_top - worker_assignment_hint_offset_y) - _hint_camera_y) / _hint_camera_height) * camera_view_height;
+		var _hint_width = min(worker_assignment_hint_width, camera_view_width - 36);
+		var _hint_text_width = _hint_width - (worker_assignment_hint_padding_x * 2);
+		var _hint_height = (worker_assignment_hint_padding_y * 2)
+			+ string_height_ext(worker_assignment_hint_text, worker_assignment_hint_line_height, _hint_text_width);
+		var _hint_x = clamp(_hint_anchor_x - (_hint_width * 0.5), 18, camera_view_width - _hint_width - 18);
+		var _hint_y = max(18, _hint_anchor_y - _hint_height);
+		var _pulse = 0.88 + (sin(current_time * 0.006) * 0.08);
+
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_alpha(worker_assignment_hint_background_alpha * _pulse);
+		draw_set_color(COLOR_HUD_BACKGROUND);
+		draw_rectangle(_hint_x, _hint_y, _hint_x + _hint_width, _hint_y + _hint_height, false);
+
+		draw_set_alpha(_pulse);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text_ext(
+			_hint_x + worker_assignment_hint_padding_x,
+			_hint_y + worker_assignment_hint_padding_y,
+			worker_assignment_hint_text,
+			worker_assignment_hint_line_height,
+			_hint_text_width
+		);
+
+		draw_set_alpha(1);
+		draw_set_color(c_white);
+	}
+}
+
 // Draw target selection radius under the cursor.
 if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_camera_controller))
 {
@@ -186,6 +237,18 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 			_target_color = COLOR_STATUS_NEGATIVE_RED;
 			_target_hint_text = "Must touch existing corruption";
 		}
+	}
+	else if (target_selection_projectile_type == PROJECTILE_TYPE.HEAL)
+	{
+		_target_color = COLOR_PROJECTILE_HEAL;
+	}
+	else if (target_selection_projectile_type == PROJECTILE_TYPE.BOMB)
+	{
+		_target_color = COLOR_PROJECTILE_BOMB;
+	}
+	else if (target_selection_projectile_type == PROJECTILE_TYPE.SKELETONS)
+	{
+		_target_color = COLOR_PROJECTILE_SKELETONS;
 	}
 
 	draw_set_color(_target_color);
@@ -2146,6 +2209,8 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE)
 			var _upgrade_level_max = 1;
 			var _upgrade_description = "";
 			var _upgrade_cost = 0;
+			var _upgrade_resource_name = "Iron";
+			var _upgrade_resource_color = COLOR_HUD_IRON;
 			var _is_bought = false;
 
 			if (_uses_levels)
@@ -2161,6 +2226,14 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE)
 				_upgrade_description = building_upgrade_window_building.building_upgrade_descriptions[_upgrade_index];
 				_upgrade_cost = building_upgrade_window_building.building_upgrade_costs[_upgrade_index];
 				_is_bought = building_upgrade_window_building.building_upgrade_flags[_upgrade_index];
+
+				if (variable_instance_exists(building_upgrade_window_building, "building_upgrade_resources")
+					&& _upgrade_index < array_length(building_upgrade_window_building.building_upgrade_resources))
+				{
+					var _upgrade_resource = building_upgrade_window_building.building_upgrade_resources[_upgrade_index];
+					_upgrade_resource_name = building_upgrade_window_building.resource_name_get(_upgrade_resource);
+					_upgrade_resource_color = building_upgrade_window_building.resource_color_get(_upgrade_resource);
+				}
 			}
 
 			var _can_buy = building_upgrade_window_building.building_upgrade_can_buy(_upgrade_index);
@@ -2198,7 +2271,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE)
 			);
 
 			draw_set_valign(fa_middle);
-			draw_set_color(_is_bought ? COLOR_HUD_PROJECTILE_DESCRIPTION : (_can_buy ? COLOR_HUD_IRON : COLOR_PROJECTILE_DAMAGE));
+			draw_set_color(_is_bought ? COLOR_HUD_PROJECTILE_DESCRIPTION : (_can_buy ? _upgrade_resource_color : COLOR_PROJECTILE_DAMAGE));
 
 			if (_is_bought)
 			{
@@ -2219,7 +2292,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE)
 				}
 				else
 				{
-					draw_text(_tile_x + 12, _tile_y + building_upgrade_tile_height - 24, "Cost: " + string(_upgrade_cost) + " Iron");
+					draw_text(_tile_x + 12, _tile_y + building_upgrade_tile_height - 24, "Cost: " + string(_upgrade_cost) + " " + _upgrade_resource_name);
 				}
 			}
 		}

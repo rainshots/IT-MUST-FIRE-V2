@@ -128,8 +128,109 @@ if (_flight_progress >= 1)
 			ds_list_destroy(_nearby_units);
 		}
 	}
+	else if (projectile_type == PROJECTILE_TYPE.HEAL)
+	{
+		var _friendly_list = ds_list_create();
+		var _friendly_count = collision_circle_list(
+			target_x,
+			target_y,
+			effect_radius,
+			o_friendly_units,
+			false,
+			true,
+			_friendly_list,
+			false
+		);
 
-	if (projectile_type != PROJECTILE_TYPE.RALLY && projectile_type != PROJECTILE_TYPE.FEAST)
+		for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_index)
+		{
+			var _friendly = _friendly_list[| _friendly_index];
+
+			if (!instance_exists(_friendly)
+				|| !variable_instance_exists(_friendly, "hp")
+				|| !variable_instance_exists(_friendly, "max_hp")
+				|| _friendly.max_hp <= 0)
+			{
+				continue;
+			}
+
+			var _hp_before_heal = _friendly.hp;
+
+			if (variable_instance_exists(_friendly, "is_knocked_out") && _friendly.is_knocked_out)
+			{
+				_friendly.is_knocked_out = false;
+				_friendly.knockout_timer = 0;
+				_friendly.image_angle = 0;
+			}
+
+			_friendly.hp = min(_friendly.hp + damage_amount, _friendly.max_hp);
+
+			if (_friendly.hp > _hp_before_heal)
+			{
+				heal_feedback_create(_friendly, _friendly.hp - _hp_before_heal);
+			}
+		}
+
+		ds_list_destroy(_friendly_list);
+	}
+	else if (projectile_type == PROJECTILE_TYPE.BOMB)
+	{
+		with (all)
+		{
+			var _is_valid_target = (
+				id != other.id
+				&& object_index != o_projectile
+				&& object_index != o_particle_smoke
+				&& object_index != o_particle_explosion
+				&& object_index != o_camera_controller
+				&& object_index != o_game_controller
+			);
+
+			if (_is_valid_target
+				&& point_distance(x, y, other.target_x, other.target_y) <= other.effect_radius
+				&& variable_instance_exists(id, "hp"))
+			{
+				if (variable_instance_exists(id, "unit_damage_receive"))
+				{
+					unit_damage_receive(other.damage_amount, UNIT_FACTION.NOONE);
+				}
+				else
+				{
+					hp = max(hp - other.damage_amount, 0);
+
+					if (variable_instance_exists(id, "unit_faction"))
+					{
+						damage_popup_create(x, y, other.damage_amount, unit_faction);
+					}
+				}
+			}
+		}
+	}
+	else if (projectile_type == PROJECTILE_TYPE.SKELETONS)
+	{
+		for (var _skeleton_index = 0; _skeleton_index < BALANCE_PROJECTILE_SKELETON_COUNT; ++_skeleton_index)
+		{
+			var _spawn_direction = random(360);
+			var _spawn_distance = sqrt(random(1)) * effect_radius;
+			var _skeleton_x = target_x + lengthdir_x(_spawn_distance, _spawn_direction);
+			var _skeleton_y = target_y + lengthdir_y(_spawn_distance, _spawn_direction);
+			var _skeleton = instance_create_layer(_skeleton_x, _skeleton_y, particle_layer_name, o_skeleton);
+
+			if (instance_exists(_skeleton))
+			{
+				_skeleton.regroup_is_active = false;
+				_skeleton.rally_is_active = false;
+				_skeleton.target_instance = noone;
+				_skeleton.alert_target = noone;
+			}
+		}
+	}
+
+	if (projectile_type != PROJECTILE_TYPE.RALLY
+		&& projectile_type != PROJECTILE_TYPE.FEAST
+		&& projectile_type != PROJECTILE_TYPE.HEAL
+		&& projectile_type != PROJECTILE_TYPE.BOMB
+		&& projectile_type != PROJECTILE_TYPE.SKELETONS)
 	{
 		with (all)
 		{

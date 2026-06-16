@@ -77,6 +77,7 @@ building_upgrade_flags = [false, false];
 building_upgrade_names = ["", ""];
 building_upgrade_descriptions = ["", ""];
 building_upgrade_costs = [BALANCE_BUILDING_UPGRADE_IRON_COST, BALANCE_BUILDING_UPGRADE_IRON_COST];
+building_upgrade_resources = [RESOURCES.IRON, RESOURCES.IRON];
 building_has_upgrades = false;
 secondary_effect_progress = 0;
 
@@ -264,6 +265,8 @@ if (object_index == o_slaughter_table)
 	building_upgrade_descriptions[0] = "+0.5x Flesh production while at least one worker assigned.";
 	building_upgrade_names[1] = "Blood Poultice";
 	building_upgrade_descriptions[1] = "Slowly heals workers who assigned on this building.";
+	building_upgrade_resources[1] = RESOURCES.SOULS;
+	building_upgrade_costs[1] = BALANCE_BLOOD_POULTICE_UPGRADE_SOUL_COST;
 }
 else if (object_index == o_quarry)
 {
@@ -284,6 +287,7 @@ else if (object_index == o_quarry)
 	building_upgrade_names = [""];
 	building_upgrade_descriptions = [""];
 	building_upgrade_costs = [BALANCE_BUILDING_UPGRADE_IRON_COST];
+	building_upgrade_resources = [RESOURCES.IRON];
 	building_upgrade_names[0] = "Reinforced Tools";
 	building_upgrade_descriptions[0] = "+0.5x Iron production while at least one worker assigned.";
 }
@@ -306,6 +310,8 @@ else if (object_index == o_souls_well)
 	building_upgrade_descriptions[0] = "+0.5x Souls production while at least one worker assigned.";
 	building_upgrade_names[1] = "Bone Whisper";
 	building_upgrade_descriptions[1] = "Slowly summons Skeletons while at least one worker assigned.";
+	building_upgrade_resources[1] = RESOURCES.SOULS;
+	building_upgrade_costs[1] = BALANCE_BONE_WHISPER_UPGRADE_SOUL_COST;
 }
 else if (object_index == o_meat_bath)
 {
@@ -331,6 +337,8 @@ else if (object_index == o_ritual_circle)
 	building_upgrade_descriptions[0] = "Cultists recover fatigue " + string(BALANCE_RITUAL_CIRCLE_REST_UPGRADE_MULTIPLIER) + "x faster.";
 	building_upgrade_names[1] = "Endless Chant";
 	building_upgrade_descriptions[1] = "Daily XP reserve is increased " + string(BALANCE_RITUAL_CIRCLE_DAILY_EXP_UPGRADE_MULTIPLIER) + "x.";
+	building_upgrade_resources[1] = RESOURCES.SOULS;
+	building_upgrade_costs[1] = BALANCE_ENDLESS_CHANT_UPGRADE_SOUL_COST;
 }
 else if (object_index == o_workshop)
 {
@@ -409,6 +417,8 @@ else if (object_index == o_goblins_pit)
 	production_speed_upgrade_index = noone;
 	building_upgrade_names[0] = "Crowded Den";
 	building_upgrade_descriptions[0] = "Increases this pit's Goblin limit to " + string(BALANCE_GOBLINS_PER_UPGRADED_PIT_LIMIT) + ".";
+	building_upgrade_resources[0] = RESOURCES.SOULS;
+	building_upgrade_costs[0] = BALANCE_CROWDED_DEN_UPGRADE_SOUL_COST;
 	building_upgrade_names[1] = "Stubborn Workers";
 	building_upgrade_descriptions[1] = "New Goblins from this pit live " + string(BALANCE_GOBLIN_UPGRADED_DAY_LIFE_MIN) + "-" + string(BALANCE_GOBLIN_UPGRADED_DAY_LIFE_MAX) + " days.";
 }
@@ -554,11 +564,16 @@ building_cultist_fatigue_update = function()
 
 building_upgrade_can_buy = function(_upgrade_index)
 {
+	if (_upgrade_index < 0 || _upgrade_index >= array_length(building_upgrade_flags))
+	{
+		return false;
+	}
+
+	var _upgrade_resource = building_upgrade_resources[_upgrade_index];
+
 	return building_has_upgrades
-		&& _upgrade_index >= 0
-		&& _upgrade_index < array_length(building_upgrade_flags)
 		&& !building_upgrade_flags[_upgrade_index]
-		&& global.resources[RESOURCES.IRON] >= building_upgrade_costs[_upgrade_index];
+		&& global.resources[_upgrade_resource] >= building_upgrade_costs[_upgrade_index];
 };
 
 building_upgrade_buy = function(_upgrade_index)
@@ -567,15 +582,17 @@ building_upgrade_buy = function(_upgrade_index)
 	{
 		if (_upgrade_index >= 0 && _upgrade_index < array_length(building_upgrade_costs))
 		{
-			building_warning_show("Need " + string(building_upgrade_costs[_upgrade_index]) + " Iron", COLOR_STATUS_NEGATIVE_RED);
+			var _missing_resource = building_upgrade_resources[_upgrade_index];
+			building_warning_show("Need " + string(building_upgrade_costs[_upgrade_index]) + " " + resource_name_get(_missing_resource), COLOR_STATUS_NEGATIVE_RED);
 		}
 
 		return false;
 	}
 
 	var _upgrade_cost = building_upgrade_costs[_upgrade_index];
-	global.resources[RESOURCES.IRON] -= _upgrade_cost;
-	resource_popup_create(x, y - production_bar_offset_y, RESOURCES.IRON, -_upgrade_cost);
+	var _upgrade_resource = building_upgrade_resources[_upgrade_index];
+	global.resources[_upgrade_resource] -= _upgrade_cost;
+	resource_popup_create(x, y - production_bar_offset_y, _upgrade_resource, -_upgrade_cost);
 	building_upgrade_flags[_upgrade_index] = true;
 	recalculate_production_speed_multiplier();
 	return true;

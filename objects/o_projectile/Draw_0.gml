@@ -21,6 +21,18 @@ else if (projectile_type == PROJECTILE_TYPE.FEAST)
 {
 	_projectile_color = COLOR_PROJECTILE_CORRUPTION;
 }
+else if (projectile_type == PROJECTILE_TYPE.HEAL)
+{
+	_projectile_color = COLOR_PROJECTILE_HEAL;
+}
+else if (projectile_type == PROJECTILE_TYPE.BOMB)
+{
+	_projectile_color = COLOR_PROJECTILE_BOMB;
+}
+else if (projectile_type == PROJECTILE_TYPE.SKELETONS)
+{
+	_projectile_color = COLOR_PROJECTILE_SKELETONS;
+}
 
 // Draw a round projectile.
 draw_set_color(_projectile_color);

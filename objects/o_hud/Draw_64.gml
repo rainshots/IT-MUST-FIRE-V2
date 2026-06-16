@@ -207,103 +207,194 @@ if (variable_global_exists("day_phase"))
 	draw_rectangle(_bar_x, _bar_y, _bar_x + _bar_width, _bar_y + day_phase_bar_height, true);
 }
 
-// Draw direct Imp passive damage on the right side for balance testing.
-var _imp_count = instance_number(o_imp);
-
-if (_imp_count > 0)
+// Draw compact cultist status cards while gameplay is unobstructed.
+if (variable_global_exists("cultists")
+	&& variable_global_exists("focus_window")
+	&& global.focus_window == FOCUS_WINDOW.NOONE
+	&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active))
 {
-	var _gui_width = display_get_gui_width();
-	var _meter_x = _gui_width - imp_damage_meter_margin_right - imp_damage_meter_width;
-	var _meter_y = imp_damage_meter_y;
-	var _tracked_abilities = [
-		DEMON_ABILITY.IMP_FRENZY_ECHO,
-		DEMON_ABILITY.IMP_BLOOD_BLADES,
-		DEMON_ABILITY.IMP_BLOOD_HUNGER
-	];
-	var _panel_height = imp_damage_meter_padding * 2
-		+ imp_damage_meter_title_height
-		+ (_imp_count * ((array_length(_tracked_abilities) + 1) * imp_damage_meter_line_height + imp_damage_meter_imp_gap));
+	var _cultist_card_gui_width = display_get_gui_width();
+	var _cultist_card_gui_height = display_get_gui_height();
+	var _cultist_card_scale = clamp(_cultist_card_gui_height / 1080, 0.6, 1);
+	var _cultist_card_width = cultist_status_card_width * _cultist_card_scale;
+	var _cultist_card_height = cultist_status_card_height * _cultist_card_scale;
+	var _cultist_card_gap = cultist_status_card_gap * _cultist_card_scale;
+	var _cultist_card_padding_x = cultist_status_card_padding_x * _cultist_card_scale;
+	var _cultist_card_portrait_width = cultist_status_card_portrait_width * _cultist_card_scale;
+	var _cultist_card_portrait_height = cultist_status_card_portrait_height * _cultist_card_scale;
+	var _cultist_card_portrait_y = cultist_status_card_portrait_y * _cultist_card_scale;
+	var _cultist_card_level_y = cultist_status_card_level_y * _cultist_card_scale;
+	var _cultist_card_text_x = cultist_status_card_text_x * _cultist_card_scale;
+	var _cultist_card_name_y = cultist_status_card_name_y * _cultist_card_scale;
+	var _cultist_card_bar_x = cultist_status_card_bar_x * _cultist_card_scale;
+	var _cultist_card_bar_y = cultist_status_card_bar_y * _cultist_card_scale;
+	var _cultist_card_bar_width = cultist_status_card_bar_width * _cultist_card_scale;
+	var _cultist_card_bar_height = cultist_status_card_bar_height * _cultist_card_scale;
+	var _cultist_card_bar_gap = cultist_status_card_bar_gap * _cultist_card_scale;
+	var _cultist_card_label_gap = cultist_status_card_label_gap * _cultist_card_scale;
+	var _cultist_card_x = _cultist_card_gui_width - cultist_status_card_margin_right - _cultist_card_width;
+	var _cultist_card_count = array_length(global.cultists);
+	var _cultist_card_draw_index = 0;
 
-	draw_set_halign(fa_left);
-	draw_set_valign(fa_top);
-	draw_set_alpha(0.78);
-	draw_set_color(COLOR_HUD_BACKGROUND);
-	draw_rectangle(_meter_x, _meter_y, _meter_x + imp_damage_meter_width, _meter_y + _panel_height, false);
-
-	draw_set_alpha(1);
-	draw_set_color(COLOR_HUD_TEXT);
-	draw_text(_meter_x + imp_damage_meter_padding, _meter_y + imp_damage_meter_padding, "IMP PASSIVE DPS");
-
-	var _line_y = _meter_y + imp_damage_meter_padding + imp_damage_meter_title_height;
-
-	for (var _imp_index = 0; _imp_index < _imp_count; ++_imp_index)
+	for (var _cultist_card_index = 0; _cultist_card_index < _cultist_card_count; ++_cultist_card_index)
 	{
-		var _imp = instance_find(o_imp, _imp_index);
+		var _cultist = global.cultists[_cultist_card_index];
 
-		if (!instance_exists(_imp))
+		if (!instance_exists(_cultist))
 		{
 			continue;
 		}
 
-		var _imp_name = "Imp";
+		var _cultist_card_y = cultist_status_card_y
+			+ ((_cultist_card_height + _cultist_card_gap) * _cultist_card_draw_index);
 
-		if (variable_instance_exists(_imp, "cultist_name") && _imp.cultist_name != "")
+		if (_cultist_card_y + _cultist_card_height > _cultist_card_gui_height - hud_margin_y)
 		{
-			_imp_name = _imp.cultist_name;
+			break;
 		}
 
-		draw_set_color(COLOR_CULTIST_FERVOR);
-		draw_text(_meter_x + imp_damage_meter_padding, _line_y, _imp_name);
-		_line_y += imp_damage_meter_line_height;
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_alpha(cultist_status_card_background_alpha);
+		draw_set_color(c_black);
+		draw_rectangle(
+			_cultist_card_x,
+			_cultist_card_y,
+			_cultist_card_x + _cultist_card_width,
+			_cultist_card_y + _cultist_card_height,
+			false
+		);
 
-		var _has_any_meter_line = false;
+		var _portrait_sprite = _cultist.sprite_index;
 
-		for (var _ability_index = 0; _ability_index < array_length(_tracked_abilities); ++_ability_index)
+		if (variable_instance_exists(_cultist, "cultist_sprite_index") && sprite_exists(_cultist.cultist_sprite_index))
 		{
-			var _ability = _tracked_abilities[_ability_index];
-			var _ability_level = 0;
-			var _total_damage = 0;
-			var _recent_dps = 0;
-
-			if (variable_instance_exists(_imp, "imp_ability_level_get"))
-			{
-				_ability_level = _imp.imp_ability_level_get(_ability);
-			}
-
-			if (variable_instance_exists(_imp, "imp_ability_damage_totals"))
-			{
-				_total_damage = _imp.imp_ability_damage_totals[_ability];
-			}
-
-			if (variable_instance_exists(_imp, "imp_ability_damage_dps_get"))
-			{
-				_recent_dps = _imp.imp_ability_damage_dps_get(_ability);
-			}
-
-			if (_ability_level <= 0 && _total_damage <= 0)
-			{
-				continue;
-			}
-
-			var _ability_text = string_copy(cultist_ability_name_get(_ability), 1, 14)
-				+ " L" + string(_ability_level)
-				+ " DPS " + string_format(_recent_dps, 0, 1)
-				+ " DMG " + string_format(_total_damage, 0, 0);
-
-			draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
-			draw_text(_meter_x + imp_damage_meter_padding, _line_y, _ability_text);
-			_line_y += imp_damage_meter_line_height;
-			_has_any_meter_line = true;
+			_portrait_sprite = _cultist.cultist_sprite_index;
 		}
 
-		if (!_has_any_meter_line)
+		var _portrait_x = _cultist_card_x + _cultist_card_padding_x;
+		var _portrait_y = _cultist_card_y + _cultist_card_portrait_y;
+
+		draw_set_alpha(1);
+
+		if (sprite_exists(_portrait_sprite))
 		{
-			draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
-			draw_text(_meter_x + imp_damage_meter_padding, _line_y, imp_damage_meter_empty_text);
-			_line_y += imp_damage_meter_line_height;
+			draw_sprite_stretched_ext(
+				_portrait_sprite,
+				0,
+				_portrait_x,
+				_portrait_y,
+				_cultist_card_portrait_width,
+				_cultist_card_portrait_height,
+				c_white,
+				1
+			);
+		}
+		else
+		{
+			draw_set_color(COLOR_CULTIST_BODY);
+			draw_circle(
+				_portrait_x + (_cultist_card_portrait_width * 0.5),
+				_portrait_y + (_cultist_card_portrait_height * 0.5),
+				_cultist_card_portrait_width * 0.35,
+				false
+			);
 		}
 
-		_line_y += imp_damage_meter_imp_gap;
+		var _cultist_name = "Cultist";
+
+		if (variable_instance_exists(_cultist, "cultist_name") && _cultist.cultist_name != "")
+		{
+			_cultist_name = _cultist.cultist_name;
+		}
+
+		if (string_length(_cultist_name) > cultist_status_card_name_max_characters)
+		{
+			_cultist_name = string_copy(_cultist_name, 1, cultist_status_card_name_max_characters - 3) + "...";
+		}
+
+		var _current_level = 1;
+
+		if (variable_instance_exists(_cultist, "current_lvl"))
+		{
+			_current_level = _cultist.current_lvl;
+		}
+
+		draw_set_alpha(1);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text(
+			_cultist_card_x + _cultist_card_text_x,
+			_cultist_card_y + _cultist_card_name_y,
+			_cultist_name
+		);
+		draw_text(
+			_portrait_x + 4,
+			_cultist_card_y + _cultist_card_level_y,
+			"LVL " + string(_current_level)
+		);
+
+		var _hp_progress = 0;
+		var _exp_progress = 0;
+		var _fatigue_progress = 0;
+
+		if (variable_instance_exists(_cultist, "hp") && variable_instance_exists(_cultist, "max_hp"))
+		{
+			_hp_progress = clamp(_cultist.hp / max(1, _cultist.max_hp), 0, 1);
+		}
+
+		if (variable_instance_exists(_cultist, "current_exp"))
+		{
+			var _required_exp = max(1, cultist_level_exp_required_get(_current_level));
+			_exp_progress = clamp(_cultist.current_exp / _required_exp, 0, 1);
+		}
+
+		if (variable_instance_exists(_cultist, "fatigue_amount"))
+		{
+			_fatigue_progress = clamp(_cultist.fatigue_amount / max(1, BALANCE_CULTIST_FATIGUE_MAX), 0, 1);
+		}
+
+		var _bar_labels = ["HP", "XP", "Fatigue"];
+		var _bar_values = [_hp_progress, _exp_progress, _fatigue_progress];
+		var _bar_colors = [
+			cultist_status_card_hp_color,
+			cultist_status_card_exp_color,
+			cultist_status_card_fatigue_color
+		];
+		var _bar_count = array_length(_bar_labels);
+
+		for (var _bar_index = 0; _bar_index < _bar_count; ++_bar_index)
+		{
+			var _cultist_status_bar_x = _cultist_card_x + _cultist_card_bar_x;
+			var _cultist_status_bar_y = _cultist_card_y + _cultist_card_bar_y
+				+ ((_cultist_card_bar_height + _cultist_card_bar_gap) * _bar_index);
+
+			draw_set_color(cultist_status_card_bar_background_color);
+			draw_rectangle(
+				_cultist_status_bar_x,
+				_cultist_status_bar_y,
+				_cultist_status_bar_x + _cultist_card_bar_width,
+				_cultist_status_bar_y + _cultist_card_bar_height,
+				false
+			);
+
+			draw_set_color(_bar_colors[_bar_index]);
+			draw_rectangle(
+				_cultist_status_bar_x,
+				_cultist_status_bar_y,
+				_cultist_status_bar_x + (_cultist_card_bar_width * _bar_values[_bar_index]),
+				_cultist_status_bar_y + _cultist_card_bar_height,
+				false
+			);
+
+			draw_set_color(cultist_status_card_label_color);
+			draw_text(
+				_cultist_status_bar_x + _cultist_card_bar_width + _cultist_card_label_gap,
+				_cultist_status_bar_y,
+				_bar_labels[_bar_index]
+			);
+		}
+
+		_cultist_card_draw_index++;
 	}
 }
 
@@ -447,11 +538,12 @@ if (instance_exists(o_cannon))
 	}
 }
 
-// Draw queued cannon projectiles at the bottom center of the HUD during night.
+// Draw queued cannon projectiles at the bottom center of the HUD.
 if (variable_global_exists("cannon_projectile_queue")
-	&& variable_global_exists("day_phase")
-	&& global.day_phase == DAY_PHASE.NIGHT)
+	&& variable_global_exists("day_phase"))
 {
+	var _projectiles_are_active = global.day_phase == DAY_PHASE.NIGHT;
+	var _projectile_draw_alpha = _projectiles_are_active ? 1 : projectile_day_alpha;
 	var _projectile_queue_count = array_length(global.cannon_projectile_queue);
 	var _feast_projectile_count = 0;
 
@@ -600,6 +692,18 @@ if (variable_global_exists("cannon_projectile_queue")
 		{
 			_projectile_color = COLOR_PROJECTILE_CORRUPTION;
 		}
+		else if (_projectile_type == PROJECTILE_TYPE.HEAL)
+		{
+			_projectile_color = COLOR_PROJECTILE_HEAL;
+		}
+		else if (_projectile_type == PROJECTILE_TYPE.BOMB)
+		{
+			_projectile_color = COLOR_PROJECTILE_BOMB;
+		}
+		else if (_projectile_type == PROJECTILE_TYPE.SKELETONS)
+		{
+			_projectile_color = COLOR_PROJECTILE_SKELETONS;
+		}
 
 		if (_is_current_projectile)
 		{
@@ -616,18 +720,18 @@ if (variable_global_exists("cannon_projectile_queue")
 			_hovered_projectile_index = _projectile_index;
 		}
 
-		draw_set_alpha(0.76);
+		draw_set_alpha(0.76 * _projectile_draw_alpha);
 		draw_set_color(COLOR_HUD_BACKGROUND);
 		draw_rectangle(_slot_x, _slot_y, _slot_x + _slot_width, _slot_y + _slot_height, false);
 
 		if (_is_current_projectile)
 		{
-			draw_set_alpha(1);
+			draw_set_alpha(_projectile_draw_alpha);
 			draw_set_color(COLOR_HUD_PROJECTILE_SELECTED);
 			draw_rectangle(_slot_x, _slot_y, _slot_x + _slot_width, _slot_y + _slot_height, true);
 		}
 
-		draw_set_alpha(1);
+		draw_set_alpha(_projectile_draw_alpha);
 		draw_set_color(_projectile_color);
 		draw_circle(_slot_x + (_slot_width * 0.5), _slot_y + 22, _circle_radius, false);
 
@@ -688,7 +792,7 @@ if (variable_global_exists("cannon_projectile_queue")
 					projectile_payload_icon_size,
 					projectile_payload_icon_size,
 					c_white,
-					1
+					_projectile_draw_alpha
 				);
 			}
 
@@ -711,7 +815,7 @@ if (variable_global_exists("cannon_projectile_queue")
 						projectile_payload_icon_size,
 						projectile_payload_icon_size,
 						c_white,
-						1
+						_projectile_draw_alpha
 					);
 				}
 
@@ -735,7 +839,7 @@ if (variable_global_exists("cannon_projectile_queue")
 						projectile_payload_icon_size,
 						projectile_payload_icon_size,
 						c_white,
-						1
+						_projectile_draw_alpha
 					);
 				}
 			}
@@ -744,7 +848,7 @@ if (variable_global_exists("cannon_projectile_queue")
 			draw_set_valign(fa_middle);
 		}
 
-		if (_is_current_projectile)
+		if (_is_current_projectile && _projectiles_are_active)
 		{
 			draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
 			draw_text(
@@ -775,6 +879,7 @@ if (variable_global_exists("cannon_projectile_queue")
 
 		if (_hovered_projectile_index >= 0
 			&& _description_type == PROJECTILE_TYPE.CULTIST
+			&& _projectiles_are_active
 			&& variable_global_exists("cannon_projectile_payload_queue")
 			&& _description_projectile_index < array_length(global.cannon_projectile_payload_queue))
 		{
@@ -804,7 +909,7 @@ if (variable_global_exists("cannon_projectile_queue")
 		{
 			draw_set_halign(fa_left);
 			draw_set_valign(fa_top);
-			draw_set_alpha(0.84);
+			draw_set_alpha(0.84 * _projectile_draw_alpha);
 			draw_set_color(COLOR_HUD_BACKGROUND);
 			draw_rectangle(
 				_description_x,
@@ -814,7 +919,7 @@ if (variable_global_exists("cannon_projectile_queue")
 				false
 			);
 
-			draw_set_alpha(1);
+			draw_set_alpha(_projectile_draw_alpha);
 			draw_set_color(COLOR_HUD_TEXT);
 			var _description_name = projectile_names[_description_type];
 

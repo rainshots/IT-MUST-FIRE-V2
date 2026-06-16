@@ -55,6 +55,13 @@ if (!global.tutorial_welcome_closed)
 	exit;
 }
 
+// Show building construction hint once the player can afford a basic building.
+if (variable_global_exists("resources")
+	&& global.resources[RESOURCES.IRON] > BALANCE_BUILDING_IRON_COST)
+{
+	tutorial_trigger("construction_start");
+}
+
 // Opening the construction window for the first time explains building types.
 var _construction_window_open = global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION;
 var _current_day = tutorial_current_day_get();

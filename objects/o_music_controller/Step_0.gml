@@ -19,15 +19,6 @@ if (!music_auto_enabled)
 	exit;
 }
 
-// Right mouse button skips to the next music track for playback testing.
-if (mouse_check_button_pressed(mb_right))
-{
-	music_waiting_between_tracks = false;
-	music_target_gain_update();
-	music_next_roll();
-	exit;
-}
-
 // Keep ambient alive even if it was stopped by room or audio changes.
 music_ambient_start();
 

@@ -43,6 +43,18 @@ target_y = y;
 target_projectile_type = PROJECTILE_TYPE.DAMAGE;
 target_version = -1;
 
+// Cannon fades when a worker is hidden by the upper part of its sprite.
+hidden_worker_alpha = BALANCE_CANNON_HIDDEN_WORKER_ALPHA;
+hidden_worker_front_offset_y = BALANCE_CANNON_HIDDEN_WORKER_FRONT_OFFSET_Y;
+hauler_prompt_text = "Assign Corpse Haulers Here!";
+hauler_prompt_offset_y = BALANCE_CANNON_HAULER_PROMPT_OFFSET_Y;
+hauler_prompt_padding_x = BALANCE_CANNON_HAULER_PROMPT_PADDING_X;
+hauler_prompt_padding_y = BALANCE_CANNON_HAULER_PROMPT_PADDING_Y;
+hauler_prompt_background_alpha = BALANCE_CANNON_HAULER_PROMPT_BACKGROUND_ALPHA;
+hauler_prompt_shake_interval = BALANCE_CANNON_HAULER_PROMPT_SHAKE_INTERVAL;
+hauler_prompt_shake_time = BALANCE_CANNON_HAULER_PROMPT_SHAKE_TIME;
+hauler_prompt_shake_strength = BALANCE_CANNON_HAULER_PROMPT_SHAKE_STRENGTH;
+
 // Projectile settings passed to created projectile instances.
 projectile_effect_radius = BALANCE_PROJECTILE_EFFECT_RADIUS;
 volley_projectile_count = BALANCE_CANNON_VOLLEY_PROJECTILE_COUNT;
@@ -246,4 +258,94 @@ building_upgrade_buy = function(_upgrade_index)
 	building_upgrade_costs[_upgrade_index] = cannon_upgrade_next_cost_get(_upgrade_index);
 
 	return true;
+};
+
+cannon_worker_is_behind_sprite = function(_worker)
+{
+	if (!instance_exists(_worker)
+		|| (_worker.object_index != o_cultist && _worker.object_index != o_goblin)
+		|| !variable_instance_exists(_worker, "hp")
+		|| _worker.hp <= 0)
+	{
+		return false;
+	}
+
+	if ((variable_instance_exists(_worker, "cannon_loading") && _worker.cannon_loading)
+		|| (variable_instance_exists(_worker, "cannon_loaded") && _worker.cannon_loaded))
+	{
+		return false;
+	}
+
+	return _worker.x >= bbox_left
+		&& _worker.x <= bbox_right
+		&& _worker.y >= bbox_top
+		&& _worker.y <= y + hidden_worker_front_offset_y;
+};
+
+cannon_has_worker_behind_sprite = function()
+{
+	if (!variable_global_exists("cultists"))
+	{
+		return false;
+	}
+
+	var _cultist_count = array_length(global.cultists);
+
+	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+	{
+		if (cannon_worker_is_behind_sprite(global.cultists[_cultist_index]))
+		{
+			return true;
+		}
+	}
+
+	var _goblin_count = instance_number(o_goblin);
+
+	for (var _goblin_index = 0; _goblin_index < _goblin_count; ++_goblin_index)
+	{
+		if (cannon_worker_is_behind_sprite(instance_find(o_goblin, _goblin_index)))
+		{
+			return true;
+		}
+	}
+
+	return false;
+};
+
+cannon_assigned_worker_exists = function()
+{
+	var _worker_count = array_length(worker_cultists);
+
+	for (var _worker_index = 0; _worker_index < _worker_count; ++_worker_index)
+	{
+		var _worker = worker_cultists[_worker_index];
+
+		if (instance_exists(_worker)
+			&& variable_instance_exists(_worker, "assigned_building")
+			&& _worker.assigned_building == id
+			&& variable_instance_exists(_worker, "hp")
+			&& _worker.hp > 0)
+		{
+			return true;
+		}
+	}
+
+	return false;
+};
+
+cannon_should_show_hauler_prompt = function()
+{
+	if (global.day_phase != DAY_PHASE.DAY
+		|| !instance_exists(o_game_controller)
+		|| cannon_assigned_worker_exists())
+	{
+		return false;
+	}
+
+	var _game_controller = instance_find(o_game_controller, 0);
+
+	return variable_instance_exists(_game_controller, "night_attack_night_index")
+		&& _game_controller.night_attack_night_index >= 2
+		&& variable_instance_exists(_game_controller, "corpse_available_for_hauling_exists")
+		&& _game_controller.corpse_available_for_hauling_exists();
 };
