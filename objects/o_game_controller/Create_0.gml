@@ -34,6 +34,25 @@ worker_assignment_hint_line_height = 16;
 worker_assignment_hint_offset_y = 150;
 worker_assignment_hint_background_alpha = 0.86;
 
+// Phase banner briefly announces day and night transitions.
+phase_banner_text = "";
+phase_banner_timer = 0;
+phase_banner_duration = 1.5 * room_speed;
+phase_banner_width = 340;
+phase_banner_height = 62;
+phase_banner_y = 158;
+phase_banner_background_alpha = 0.86;
+
+// Night effect layers are enabled in sequence so night settles in gradually.
+night_effect_layer_names = [
+	"NightEffect",
+	"NightEffect2",
+	"NightEffect3"
+];
+night_effect_transition_duration = 6 * room_speed;
+night_effect_transition_timer = 0;
+night_effect_transition_active = false;
+
 // Tutorial controller owns onboarding popups and pauses gameplay while they are open.
 if (!instance_exists(o_tutorial_controller))
 {
@@ -431,10 +450,12 @@ global.cannon_target_y = 0;
 global.cannon_target_projectile_type = PROJECTILE_TYPE.DAMAGE;
 global.cannon_target_version = 0;
 global.cannon_target_consumes_projectile_queue = true;
+global.cannon_target_projectile_queue_index = 0;
 
-// Global cannon projectile queue consumed from the first slot.
+// Global cannon projectile queue consumed from the selected slot.
 global.cannon_projectile_queue = [];
 global.cannon_projectile_payload_queue = [];
+global.cannon_selected_projectile_index = 0;
 global.cannon_projectile_queue_max = BALANCE_CANNON_PROJECTILE_QUEUE_MAX;
 global.cannon_projectile_gain_time = BALANCE_CANNON_PROJECTILE_GAIN_TIME;
 global.cannon_projectile_gain_timer = 0;
@@ -2714,6 +2735,7 @@ cannon_projectile_queue_add = function(_projectile_type, _payload = noone)
 
 	array_push(global.cannon_projectile_queue, _projectile_type);
 	array_push(global.cannon_projectile_payload_queue, _payload);
+	global.cannon_selected_projectile_index = clamp(global.cannon_selected_projectile_index, 0, array_length(global.cannon_projectile_queue) - 1);
 	global.cannon_projectile_gain_timer = 0;
 
 	return true;
@@ -3484,6 +3506,7 @@ clear_cannon_projectile_queues = function(_clear_all = true)
 	{
 		global.cannon_projectile_queue = [];
 		global.cannon_projectile_payload_queue = [];
+		global.cannon_selected_projectile_index = 0;
 		global.cannon_projectile_gain_timer = 0;
 		return;
 	}
@@ -3515,6 +3538,7 @@ clear_cannon_projectile_queues = function(_clear_all = true)
 
 	global.cannon_projectile_queue = _kept_projectiles;
 	global.cannon_projectile_payload_queue = _kept_payloads;
+	global.cannon_selected_projectile_index = clamp(global.cannon_selected_projectile_index, 0, max(0, array_length(global.cannon_projectile_queue) - 1));
 	global.cannon_projectile_gain_timer = 0;
 };
 
@@ -3623,6 +3647,7 @@ queue_cultist_projectile = function(_cultist)
 
 	global.cannon_projectile_queue = _updated_projectile_queue;
 	global.cannon_projectile_payload_queue = _updated_payload_queue;
+	global.cannon_selected_projectile_index = clamp(global.cannon_selected_projectile_index, 0, array_length(global.cannon_projectile_queue) - 1);
 	return true;
 };
 
@@ -5437,6 +5462,47 @@ night_attack_is_complete = function()
 		&& !night_attack_alive_enemy_exists();
 };
 
+phase_banner_show = function(_text)
+{
+	phase_banner_text = _text;
+	phase_banner_timer = phase_banner_duration;
+};
+
+night_effect_layers_set_progress = function(_progress)
+{
+	var _layer_count = array_length(night_effect_layer_names);
+	var _clamped_progress = clamp(_progress, 0, 1);
+
+	for (var _layer_index = 0; _layer_index < _layer_count; ++_layer_index)
+	{
+		var _layer_id = layer_get_id(night_effect_layer_names[_layer_index]);
+
+		if (_layer_id == -1)
+		{
+			continue;
+		}
+
+		var _layer_threshold = _layer_index / max(1, _layer_count);
+		layer_set_visible(_layer_id, _clamped_progress > _layer_threshold);
+	}
+};
+
+night_effect_transition_start = function()
+{
+	night_effect_transition_timer = 0;
+	night_effect_transition_active = true;
+	night_effect_layers_set_progress(0);
+};
+
+night_effect_layers_disable = function()
+{
+	night_effect_transition_timer = 0;
+	night_effect_transition_active = false;
+	night_effect_layers_set_progress(0);
+};
+
+night_effect_layers_disable();
+
 start_night_phase = function()
 {
 	clear_dragged_unit();
@@ -5445,6 +5511,8 @@ start_night_phase = function()
 	global.day_timer = global.night_duration * room_speed;
 	global.night_attack_unit_count = 0;
 	adaptive_night_cultist_knocked_out = false;
+	phase_banner_show("NIGHT FALLS");
+	night_effect_transition_start();
 	global.sound_play_random(global.night_start_sounds);
 	update_goblin_evening_life();
 	move_goblins_to_cannon_inner();
@@ -5513,6 +5581,8 @@ start_day_phase = function()
 	global.day_phase = DAY_PHASE.DAY;
 	global.day_timer = global.day_duration * room_speed;
 	global.night_attack_unit_count = 0;
+	phase_banner_show("DAY BREAKS");
+	night_effect_layers_disable();
 	adaptive_difficulty_evaluate_night();
 	night_attack_night_index++;
 

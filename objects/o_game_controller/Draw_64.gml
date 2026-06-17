@@ -136,6 +136,53 @@ if ((global.day_phase == DAY_PHASE.DAY || _night_warning_active)
 	draw_set_color(c_white);
 }
 
+// Draw a short phase transition banner near the top of the screen.
+if (phase_banner_timer > 0 && phase_banner_text != "")
+{
+	var _banner_progress = phase_banner_timer / max(1, phase_banner_duration);
+	var _banner_alpha = min(1, _banner_progress * 3);
+	var _banner_width = min(phase_banner_width, camera_view_width - 36);
+	var _banner_height = phase_banner_height;
+	var _banner_x = (camera_view_width - _banner_width) * 0.5;
+	var _banner_y = phase_banner_y;
+	var _banner_accent_color = COLOR_PHASE_BANNER_DAY;
+
+	if (global.day_phase == DAY_PHASE.NIGHT)
+	{
+		_banner_accent_color = COLOR_PHASE_BANNER_NIGHT;
+	}
+
+	draw_set_alpha(phase_banner_background_alpha * _banner_alpha);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_rectangle(_banner_x, _banner_y, _banner_x + _banner_width, _banner_y + _banner_height, false);
+
+	draw_set_alpha(_banner_alpha);
+	draw_set_color(_banner_accent_color);
+	draw_rectangle(_banner_x, _banner_y, _banner_x + _banner_width, _banner_y + 4, false);
+	draw_rectangle(_banner_x, _banner_y + _banner_height - 4, _banner_x + _banner_width, _banner_y + _banner_height, false);
+
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
+
+	if (variable_global_exists("ui_heading_font") && font_exists(global.ui_heading_font))
+	{
+		draw_set_font(global.ui_heading_font);
+	}
+
+	draw_set_color(COLOR_HUD_TEXT);
+	draw_text(_banner_x + (_banner_width * 0.5), _banner_y + (_banner_height * 0.5), phase_banner_text);
+
+	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+	{
+		draw_set_font(global.ui_font);
+	}
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_alpha(1);
+	draw_set_color(c_white);
+}
+
 // Draw a non-blocking worker assignment hint above the first Quarry.
 if (!worker_assignment_hint_completed
 	&& worker_assignment_hint_delay_started

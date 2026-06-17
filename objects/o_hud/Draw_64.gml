@@ -4,53 +4,60 @@ if (!variable_global_exists("resources"))
 	exit;
 }
 
-// Hide HUD while any modal gameplay window or tutorial popup is visible.
-if (global.focus_window != FOCUS_WINDOW.NOONE
-	|| (variable_global_exists("tutorial_popup_active") && global.tutorial_popup_active))
+// Hide regular HUD while modal windows are visible, but keep projectile choices during aiming.
+var _tutorial_popup_blocks_hud = variable_global_exists("tutorial_popup_active") && global.tutorial_popup_active;
+var _projectile_queue_stays_visible = global.focus_window == FOCUS_WINDOW.TARGET_SELECTION
+	&& !_tutorial_popup_blocks_hud;
+var _regular_hud_is_visible = global.focus_window == FOCUS_WINDOW.NOONE
+	&& !_tutorial_popup_blocks_hud;
+
+if (!_regular_hud_is_visible && !_projectile_queue_stays_visible)
 {
 	exit;
 }
 
-draw_set_halign(fa_left);
-draw_set_valign(fa_middle);
-
-var _resource_count = array_length(resource_order);
-
-for (var _resource_index = 0; _resource_index < _resource_count; ++_resource_index)
+if (_regular_hud_is_visible)
 {
-	var _resource = resource_order[_resource_index];
-	var _draw_x = hud_margin_x + ((resource_item_width + resource_item_gap) * _resource_index);
-	var _draw_y = hud_margin_y;
-	var _value = global.resources[_resource];
-	var _icon_x = _draw_x + resource_text_padding;
-	var _icon_y = _draw_y + (resource_item_height * 0.5);
-	var _icon_sprite = resource_icon_sprites[_resource];
-	var _text_x = _icon_x + (resource_icon_size * 0.5) + resource_icon_text_gap;
-	var _text_y = _icon_y;
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_middle);
 
-	// Draw resource panel background.
-	draw_set_alpha(0.72);
-	draw_set_color(COLOR_HUD_BACKGROUND);
-	draw_rectangle(_draw_x, _draw_y, _draw_x + resource_item_width, _draw_y + resource_item_height, false);
+	var _resource_count = array_length(resource_order);
 
-	// Draw resource icon, falling back to a color dot if the sprite is unavailable.
-	draw_set_alpha(1);
-	if (sprite_exists(_icon_sprite))
+	for (var _resource_index = 0; _resource_index < _resource_count; ++_resource_index)
 	{
-		var _icon_left = _icon_x - (resource_icon_size * 0.5);
-		var _icon_top = _icon_y - (resource_icon_size * 0.5);
+		var _resource = resource_order[_resource_index];
+		var _draw_x = hud_margin_x + ((resource_item_width + resource_item_gap) * _resource_index);
+		var _draw_y = hud_margin_y;
+		var _value = global.resources[_resource];
+		var _icon_x = _draw_x + resource_text_padding;
+		var _icon_y = _draw_y + (resource_item_height * 0.5);
+		var _icon_sprite = resource_icon_sprites[_resource];
+		var _text_x = _icon_x + (resource_icon_size * 0.5) + resource_icon_text_gap;
+		var _text_y = _icon_y;
 
-		draw_sprite_stretched_ext(_icon_sprite, 0, _icon_left, _icon_top, resource_icon_size, resource_icon_size, c_white, 1);
-	}
-	else
-	{
-		draw_set_color(resource_colors[_resource]);
-		draw_circle(_icon_x, _icon_y, resource_icon_radius, false);
-	}
+		// Draw resource panel background.
+		draw_set_alpha(0.72);
+		draw_set_color(COLOR_HUD_BACKGROUND);
+		draw_rectangle(_draw_x, _draw_y, _draw_x + resource_item_width, _draw_y + resource_item_height, false);
 
-	draw_set_color(COLOR_HUD_TEXT);
-	draw_text(_text_x, _text_y, string(_value));
-}
+		// Draw resource icon, falling back to a color dot if the sprite is unavailable.
+		draw_set_alpha(1);
+		if (sprite_exists(_icon_sprite))
+		{
+			var _icon_left = _icon_x - (resource_icon_size * 0.5);
+			var _icon_top = _icon_y - (resource_icon_size * 0.5);
+
+			draw_sprite_stretched_ext(_icon_sprite, 0, _icon_left, _icon_top, resource_icon_size, resource_icon_size, c_white, 1);
+		}
+		else
+		{
+			draw_set_color(resource_colors[_resource]);
+			draw_circle(_icon_x, _icon_y, resource_icon_radius, false);
+		}
+
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text(_text_x, _text_y, string(_value));
+	}
 
 // Draw derived ground corruption after regular resources.
 var _corruption_index = _resource_count;
@@ -617,6 +624,8 @@ if (instance_exists(o_cannon))
 	}
 }
 
+}
+
 // Draw queued cannon projectiles at the bottom center of the HUD.
 if (variable_global_exists("cannon_projectile_queue")
 	&& variable_global_exists("day_phase"))
@@ -631,7 +640,8 @@ if (variable_global_exists("cannon_projectile_queue")
 		_feast_projectile_count = floor(max(0, global.cannon_satiety) / max(1, global.cannon_satiety_max));
 	}
 
-	var _projectile_display_count = _projectile_queue_count + _feast_projectile_count;
+	var _projectile_display_count = min(_projectile_queue_count + _feast_projectile_count, 9);
+	var _projectile_queue_display_count = min(_projectile_queue_count, _projectile_display_count);
 	var _projectile_mouse_x = device_mouse_x_to_gui(0);
 	var _projectile_mouse_y = device_mouse_y_to_gui(0);
 	var _gui_width = display_get_gui_width();
@@ -645,6 +655,12 @@ if (variable_global_exists("cannon_projectile_queue")
 	var _deploy_preview_units = array_create(0);
 	var _deploy_preview_cursor = 0;
 	var _remaining_cultist_projectile_count = 0;
+	var _selected_projectile_index = 0;
+
+	if (_projectile_display_count > 0 && variable_global_exists("cannon_selected_projectile_index"))
+	{
+		_selected_projectile_index = clamp(global.cannon_selected_projectile_index, 0, _projectile_display_count - 1);
+	}
 
 	// Build compact cultist projectile payload previews from the current queue.
 	for (var _preview_queue_index = 0; _preview_queue_index < _projectile_queue_count; ++_preview_queue_index)
@@ -676,7 +692,7 @@ if (variable_global_exists("cannon_projectile_queue")
 		}
 	}
 
-	for (var _preview_projectile_index = 0; _preview_projectile_index < _projectile_queue_count; ++_preview_projectile_index)
+	for (var _preview_projectile_index = 0; _preview_projectile_index < _projectile_queue_display_count; ++_preview_projectile_index)
 	{
 		if (global.cannon_projectile_queue[_preview_projectile_index] != PROJECTILE_TYPE.CULTIST)
 		{
@@ -747,7 +763,7 @@ if (variable_global_exists("cannon_projectile_queue")
 		var _slot_y = _projectile_base_y;
 		var _slot_width = projectile_slot_width;
 		var _slot_height = projectile_slot_background_height;
-		var _is_current_projectile = _projectile_index == 0;
+		var _is_current_projectile = _projectile_index == _selected_projectile_index;
 		var _projectile_color = COLOR_PROJECTILE_DAMAGE;
 		var _circle_radius = projectile_circle_radius;
 
@@ -927,13 +943,23 @@ if (variable_global_exists("cannon_projectile_queue")
 			draw_set_valign(fa_middle);
 		}
 
-		if (_is_current_projectile && _projectiles_are_active)
+		if (_projectiles_are_active)
 		{
-			draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+			var _key_prompt_text = projectile_key_prompt_prefix + string(_projectile_index + 1);
+
+			if (_is_current_projectile)
+			{
+				draw_set_color(COLOR_HUD_TEXT);
+			}
+			else
+			{
+				draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+			}
+
 			draw_text(
 				_slot_x + (_slot_width * 0.5),
 				_slot_y + _slot_height + projectile_aim_prompt_gap,
-				projectile_aim_prompt_text
+				_key_prompt_text
 			);
 		}
 	}
@@ -942,7 +968,7 @@ if (variable_global_exists("cannon_projectile_queue")
 
 	if (_description_projectile_index < 0 && _projectile_display_count > 0)
 	{
-		_description_projectile_index = 0;
+		_description_projectile_index = _selected_projectile_index;
 	}
 
 	if (_description_projectile_index >= 0)

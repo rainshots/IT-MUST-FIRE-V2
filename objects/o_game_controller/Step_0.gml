@@ -36,6 +36,27 @@ if (!application_surface_ready && surface_exists(application_surface))
 	application_surface_ready = true;
 }
 
+// Phase banner fades out independently from gameplay pause.
+if (phase_banner_timer > 0)
+{
+	phase_banner_timer--;
+}
+
+// Night effect layers come online over a few seconds after night starts.
+if (night_effect_transition_active)
+{
+	night_effect_transition_timer++;
+
+	var _night_effect_progress = night_effect_transition_timer / max(1, night_effect_transition_duration);
+	night_effect_layers_set_progress(_night_effect_progress);
+
+	if (_night_effect_progress >= 1)
+	{
+		night_effect_transition_active = false;
+		night_effect_layers_set_progress(1);
+	}
+}
+
 // Tutorial popups block every lower gameplay and UI input.
 if (variable_global_exists("tutorial_popup_active") && global.tutorial_popup_active)
 {
@@ -941,6 +962,7 @@ if (!global.pause
 
 			array_push(global.cannon_projectile_queue, _new_projectile_type);
 			array_push(global.cannon_projectile_payload_queue, noone);
+			global.cannon_selected_projectile_index = clamp(global.cannon_selected_projectile_index, 0, array_length(global.cannon_projectile_queue) - 1);
 			global.cannon_projectile_gain_timer = 0;
 		}
 	}
@@ -981,100 +1003,40 @@ if (_can_select_cannon_projectile)
 	var _projectile_queue_count = array_length(global.cannon_projectile_queue);
 	var _feast_projectile_count = floor(max(0, global.cannon_satiety) / max(1, global.cannon_satiety_max));
 	var _selectable_projectile_count = _projectile_queue_count + _feast_projectile_count;
+	var _max_digit_count = min(_selectable_projectile_count, 9);
+	var _selected_projectile_index = -1;
 
-	if (global.cannon_projectile_cheat_enabled)
+	if (_max_digit_count > 0)
 	{
-		var _selected_projectile_index = -1;
-		var _max_digit_count = min(_selectable_projectile_count, 9);
-
-		for (var _digit_index = 0; _digit_index < _max_digit_count; ++_digit_index)
-		{
-			if (keyboard_check_pressed(ord(string(_digit_index + 1))))
-			{
-				_selected_projectile_index = _digit_index;
-				break;
-			}
-		}
-
-		if (_selected_projectile_index >= 0)
-		{
-			var _selected_projectile_type = PROJECTILE_TYPE.FEAST;
-			var _selected_projectile_payload = noone;
-
-			if (_selected_projectile_index < _projectile_queue_count)
-			{
-				_selected_projectile_type = global.cannon_projectile_queue[_selected_projectile_index];
-
-				if (_selected_projectile_index < array_length(global.cannon_projectile_payload_queue))
-				{
-					_selected_projectile_payload = global.cannon_projectile_payload_queue[_selected_projectile_index];
-				}
-
-				for (var _queue_index = _selected_projectile_index; _queue_index > 0; --_queue_index)
-				{
-					global.cannon_projectile_queue[_queue_index] = global.cannon_projectile_queue[_queue_index - 1];
-
-					if (_queue_index < array_length(global.cannon_projectile_payload_queue))
-					{
-						global.cannon_projectile_payload_queue[_queue_index] = global.cannon_projectile_payload_queue[_queue_index - 1];
-					}
-				}
-
-				global.cannon_projectile_queue[0] = _selected_projectile_type;
-				global.cannon_projectile_payload_queue[0] = _selected_projectile_payload;
-			}
-
-			target_selection_projectile_type = _selected_projectile_type;
-			target_selection_radius = projectile_target_selection_radius_get(_selected_projectile_type);
-			global.focus_window = FOCUS_WINDOW.TARGET_SELECTION;
-		}
+		global.cannon_selected_projectile_index = clamp(global.cannon_selected_projectile_index, 0, _max_digit_count - 1);
 	}
 	else
 	{
-		var _normal_selected_projectile_index = -1;
-		var _normal_max_digit_count = min(_selectable_projectile_count, 9);
+		global.cannon_selected_projectile_index = 0;
+	}
 
-		for (var _normal_digit_index = 0; _normal_digit_index < _normal_max_digit_count; ++_normal_digit_index)
+	for (var _digit_index = 0; _digit_index < _max_digit_count; ++_digit_index)
+	{
+		if (keyboard_check_pressed(ord(string(_digit_index + 1))))
 		{
-			if (keyboard_check_pressed(ord(string(_normal_digit_index + 1))))
-			{
-				_normal_selected_projectile_index = _normal_digit_index;
-				break;
-			}
+			_selected_projectile_index = _digit_index;
+			break;
+		}
+	}
+
+	if (_selected_projectile_index >= 0)
+	{
+		var _selected_projectile_type = PROJECTILE_TYPE.FEAST;
+
+		if (_selected_projectile_index < _projectile_queue_count)
+		{
+			_selected_projectile_type = global.cannon_projectile_queue[_selected_projectile_index];
 		}
 
-		if (_normal_selected_projectile_index >= 0)
-		{
-			var _normal_selected_projectile_type = PROJECTILE_TYPE.FEAST;
-			var _normal_selected_projectile_payload = noone;
-
-			if (_normal_selected_projectile_index < _projectile_queue_count)
-			{
-				_normal_selected_projectile_type = global.cannon_projectile_queue[_normal_selected_projectile_index];
-
-				if (_normal_selected_projectile_index < array_length(global.cannon_projectile_payload_queue))
-				{
-					_normal_selected_projectile_payload = global.cannon_projectile_payload_queue[_normal_selected_projectile_index];
-				}
-
-				for (var _normal_queue_index = _normal_selected_projectile_index; _normal_queue_index > 0; --_normal_queue_index)
-				{
-					global.cannon_projectile_queue[_normal_queue_index] = global.cannon_projectile_queue[_normal_queue_index - 1];
-
-					if (_normal_queue_index < array_length(global.cannon_projectile_payload_queue))
-					{
-						global.cannon_projectile_payload_queue[_normal_queue_index] = global.cannon_projectile_payload_queue[_normal_queue_index - 1];
-					}
-				}
-
-				global.cannon_projectile_queue[0] = _normal_selected_projectile_type;
-				global.cannon_projectile_payload_queue[0] = _normal_selected_projectile_payload;
-			}
-
-			target_selection_projectile_type = _normal_selected_projectile_type;
-			target_selection_radius = projectile_target_selection_radius_get(_normal_selected_projectile_type);
-			global.focus_window = FOCUS_WINDOW.TARGET_SELECTION;
-		}
+		global.cannon_selected_projectile_index = _selected_projectile_index;
+		target_selection_projectile_type = _selected_projectile_type;
+		target_selection_radius = projectile_target_selection_radius_get(_selected_projectile_type);
+		global.focus_window = FOCUS_WINDOW.TARGET_SELECTION;
 	}
 }
 
@@ -1101,10 +1063,13 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && mouse_check_button_p
 		var _view_height = camera_get_view_height(_camera_controller.camera_id);
 		var _target_world_x = _camera_x + ((_mouse_x / camera_view_width) * _view_width);
 		var _target_world_y = _camera_y + ((_mouse_y / camera_view_height) * _view_height);
+		var _projectile_queue_count = array_length(global.cannon_projectile_queue);
+		var _selected_projectile_index = clamp(global.cannon_selected_projectile_index, 0, 8);
 
-		if (target_selection_projectile_type != PROJECTILE_TYPE.FEAST)
+		if (target_selection_projectile_type != PROJECTILE_TYPE.FEAST && _projectile_queue_count > 0)
 		{
-			target_selection_projectile_type = global.cannon_projectile_queue[0];
+			_selected_projectile_index = clamp(_selected_projectile_index, 0, _projectile_queue_count - 1);
+			target_selection_projectile_type = global.cannon_projectile_queue[_selected_projectile_index];
 		}
 
 		target_selection_radius = projectile_target_selection_radius_get(target_selection_projectile_type);
@@ -1140,6 +1105,7 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && mouse_check_button_p
 			global.cannon_target_y = _target_world_y;
 			global.cannon_target_projectile_type = target_selection_projectile_type;
 			global.cannon_target_consumes_projectile_queue = _target_consumes_projectile_queue;
+			global.cannon_target_projectile_queue_index = _selected_projectile_index;
 			global.cannon_target_version++;
 			global.focus_window = FOCUS_WINDOW.NOONE;
 		}

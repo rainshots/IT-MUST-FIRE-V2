@@ -1,11 +1,19 @@
 // Ground corruption grid settings.
-map_assets_depth = 100;
-ground_background_depth = 300;
-draw_depth_between_ground_and_assets = (map_assets_depth + ground_background_depth) * 0.5;
 depth = BALANCE_CAPTURED_BUILDING_RIFT_DEPTH;
 cell_size = BALANCE_GRID_CELL_SIZE;
 grid_width = ceil(room_width / cell_size);
 grid_height = ceil(room_height / cell_size);
+
+// Draw Taint under map assets but above roads, using current room layer depths.
+var _map_assets_layer = layer_get_id("Assets_1");
+var _roads_layer = layer_get_id("Roads");
+
+if (_map_assets_layer != -1 && _roads_layer != -1)
+{
+	var _map_assets_depth = layer_get_depth(_map_assets_layer);
+	var _roads_depth = layer_get_depth(_roads_layer);
+	depth = (_map_assets_depth + _roads_depth) * 0.5;
+}
 
 // Corruption values are stored from 0 to 1.
 corruption_grid = ds_grid_create(grid_width, grid_height);

@@ -13,25 +13,30 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 	if (_can_fire_selected_target)
 	{
 		var _projectile_queue_count = array_length(global.cannon_projectile_queue);
+		var _target_projectile_queue_index = 0;
 		var _fired_projectile_count = volley_projectile_count;
 		var _projectile_payload = noone;
 		var _remaining_cultist_projectile_count = 0;
 
-		if (_projectile_queue_count > 0 && array_length(global.cannon_projectile_payload_queue) > 0)
+		if (variable_global_exists("cannon_target_projectile_queue_index"))
 		{
-			_projectile_payload = global.cannon_projectile_payload_queue[0];
+			_target_projectile_queue_index = clamp(global.cannon_target_projectile_queue_index, 0, max(0, _projectile_queue_count - 1));
+		}
+
+		if (_projectile_queue_count > 0
+			&& _target_projectile_queue_index < array_length(global.cannon_projectile_payload_queue))
+		{
+			_projectile_payload = global.cannon_projectile_payload_queue[_target_projectile_queue_index];
 		}
 
 		if (target_projectile_type == PROJECTILE_TYPE.CULTIST)
 		{
 			for (var _cultist_queue_index = 0; _cultist_queue_index < _projectile_queue_count; ++_cultist_queue_index)
 			{
-				if (global.cannon_projectile_queue[_cultist_queue_index] != PROJECTILE_TYPE.CULTIST)
+				if (global.cannon_projectile_queue[_cultist_queue_index] == PROJECTILE_TYPE.CULTIST)
 				{
-					break;
+					_remaining_cultist_projectile_count++;
 				}
-
-				_remaining_cultist_projectile_count++;
 			}
 		}
 
@@ -138,30 +143,39 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			}
 		}
 
-		// Remove the fired projectile from the front of the queue when the target consumed it.
+		// Remove the fired projectile from its selected queue slot when the target consumed it.
 		if (_projectile_queue_count > 0
 			&& (!variable_global_exists("cannon_target_consumes_projectile_queue") || global.cannon_target_consumes_projectile_queue))
 		{
 			var _updated_projectile_queue = array_create(_projectile_queue_count - 1);
 			var _updated_projectile_payload_queue = array_create(_projectile_queue_count - 1);
 			var _payload_queue_count = array_length(global.cannon_projectile_payload_queue);
+			var _write_queue_index = 0;
 
-			for (var _queue_index = 1; _queue_index < _projectile_queue_count; ++_queue_index)
+			for (var _queue_index = 0; _queue_index < _projectile_queue_count; ++_queue_index)
 			{
-				_updated_projectile_queue[_queue_index - 1] = global.cannon_projectile_queue[_queue_index];
+				if (_queue_index == _target_projectile_queue_index)
+				{
+					continue;
+				}
+
+				_updated_projectile_queue[_write_queue_index] = global.cannon_projectile_queue[_queue_index];
 
 				if (_queue_index < _payload_queue_count)
 				{
-					_updated_projectile_payload_queue[_queue_index - 1] = global.cannon_projectile_payload_queue[_queue_index];
+					_updated_projectile_payload_queue[_write_queue_index] = global.cannon_projectile_payload_queue[_queue_index];
 				}
 				else
 				{
-					_updated_projectile_payload_queue[_queue_index - 1] = noone;
+					_updated_projectile_payload_queue[_write_queue_index] = noone;
 				}
+
+				_write_queue_index++;
 			}
 
 			global.cannon_projectile_queue = _updated_projectile_queue;
 			global.cannon_projectile_payload_queue = _updated_projectile_payload_queue;
+			global.cannon_selected_projectile_index = clamp(_target_projectile_queue_index, 0, max(0, array_length(global.cannon_projectile_queue) - 1));
 		}
 	}
 }

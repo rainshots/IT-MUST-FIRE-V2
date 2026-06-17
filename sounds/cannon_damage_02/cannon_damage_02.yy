@@ -1,4 +1,4 @@
-﻿{
+{
   "$GMSound":"v2",
   "%Name":"cannon_damage_02",
   "audioGroupId":{
@@ -22,5 +22,5 @@
   "resourceVersion":"2.0",
   "sampleRate":44100,
   "soundFile":"cannon_damage_02.ogg",
-  "volume":1.0,
+  "volume":0.31,
 }
