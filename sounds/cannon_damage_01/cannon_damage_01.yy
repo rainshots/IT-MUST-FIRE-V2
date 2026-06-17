@@ -1,0 +1,26 @@
+{
+  "$GMSound":"v2",
+  "%Name":"cannon_damage_01",
+  "audioGroupId":{
+    "name":"audiogroup_default",
+    "path":"audiogroups/audiogroup_default",
+  },
+  "bitDepth":1,
+  "channelFormat":1,
+  "compression":0,
+  "compressionQuality":4,
+  "conversionMode":0,
+  "duration":4.1741495,
+  "exportDir":"",
+  "name":"cannon_damage_01",
+  "parent":{
+    "name":"Sounds",
+    "path":"folders/Sounds.yy",
+  },
+  "preload":false,
+  "resourceType":"GMSound",
+  "resourceVersion":"2.0",
+  "sampleRate":44100,
+  "soundFile":"cannon_damage_01.ogg",
+  "volume":1.0,
+}

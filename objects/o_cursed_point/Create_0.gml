@@ -19,15 +19,16 @@ bar_height = 0;
 summon_button_text = "SUMMON STRUCTURE";
 summon_button_width = 188;
 summon_button_height = 34;
-summon_button_offset_y = 138;
+summon_button_offset_y = 38;
 summon_button_pulse_speed = 0.006;
 summon_button_pulse_scale = 0.08;
+summon_button_hover_scale = 2;
 summon_button_hovered = false;
 summon_button_hover_key = "";
 
 // Hover tooltip explains the inactive cursed point goal.
 tooltip_lines = [
-	"When the ground under this pictogram is corrupted,",
+	"When the ground under this pictogram is tainted,",
 	"you can summon a structure here."
 ];
 tooltip_width = 360;
@@ -42,6 +43,7 @@ structure_choice_tile_width = 220;
 structure_choice_tile_height = 188;
 structure_choice_tile_gap = 28;
 structure_choice_sprite_size = 84;
+structure_choice_hover_scale = 2;
 structure_choice_options = [];
 
 // Capture rewards roll from one of these two packs.
@@ -49,8 +51,8 @@ structure_choice_packs = [
 	[
 		{
 			building_object: o_tower_corruption,
-			building_name: "Corruption Tower",
-			building_description: "Spreads corruption around itself after capture."
+			building_name: "Taint Tower",
+			building_description: "Spreads Taint around itself after capture."
 		},
 		{
 			building_object: o_tower_damage,
@@ -72,7 +74,7 @@ structure_choice_packs = [
 		{
 			building_object: o_boneyard,
 			building_name: "Boneyard",
-			building_description: "Spawns Skeletons every morning after capture."
+			building_description: "Spawns 2 Skeletons every morning after capture."
 		},
 		{
 			building_object: o_orcs_hut,
@@ -82,7 +84,7 @@ structure_choice_packs = [
 		{
 			building_object: o_pitlings_house,
 			building_name: "Pitlings House",
-			building_description: "Spawns Pitlings every morning after capture."
+			building_description: "Spawns 1 Pitling every morning after capture."
 		}
 	]
 ];
@@ -145,6 +147,16 @@ cursed_point_summon_button_rect_get = function()
 	];
 };
 
+cursed_point_rect_expand = function(_rect, _scale)
+{
+	var _expanded_width = _rect[2] * _scale;
+	var _expanded_height = _rect[3] * _scale;
+	var _expanded_x = _rect[0] + (_rect[2] * 0.5) - (_expanded_width * 0.5);
+	var _expanded_y = _rect[1] + (_rect[3] * 0.5) - (_expanded_height * 0.5);
+
+	return [_expanded_x, _expanded_y, _expanded_width, _expanded_height];
+};
+
 cursed_point_summon_button_is_hovered = function()
 {
 	if (!is_captured || structure_selection_open || global.focus_window != FOCUS_WINDOW.NOONE)
@@ -154,11 +166,12 @@ cursed_point_summon_button_is_hovered = function()
 
 	var _mouse_position = cursed_point_mouse_world_position_get();
 	var _button_rect = cursed_point_summon_button_rect_get();
+	var _hover_rect = cursed_point_rect_expand(_button_rect, summon_button_hover_scale);
 
-	return _mouse_position[0] >= _button_rect[0]
-		&& _mouse_position[0] <= _button_rect[0] + _button_rect[2]
-		&& _mouse_position[1] >= _button_rect[1]
-		&& _mouse_position[1] <= _button_rect[1] + _button_rect[3];
+	return _mouse_position[0] >= _hover_rect[0]
+		&& _mouse_position[0] <= _hover_rect[0] + _hover_rect[2]
+		&& _mouse_position[1] >= _hover_rect[1]
+		&& _mouse_position[1] <= _hover_rect[1] + _hover_rect[3];
 };
 
 cursed_point_structure_options_roll = function()
@@ -233,21 +246,32 @@ cursed_point_structure_choice_rect_get = function(_choice_index)
 cursed_point_structure_choice_hover_index_get = function(_mouse_x, _mouse_y)
 {
 	var _choice_count = array_length(structure_choice_options);
+	var _hovered_choice = -1;
+	var _hovered_choice_distance = infinity;
 
 	for (var _choice_index = 0; _choice_index < _choice_count; ++_choice_index)
 	{
 		var _choice_rect = cursed_point_structure_choice_rect_get(_choice_index);
+		var _hover_rect = cursed_point_rect_expand(_choice_rect, structure_choice_hover_scale);
 
-		if (_mouse_x >= _choice_rect[0]
-			&& _mouse_x <= _choice_rect[0] + _choice_rect[2]
-			&& _mouse_y >= _choice_rect[1]
-			&& _mouse_y <= _choice_rect[1] + _choice_rect[3])
+		if (_mouse_x >= _hover_rect[0]
+			&& _mouse_x <= _hover_rect[0] + _hover_rect[2]
+			&& _mouse_y >= _hover_rect[1]
+			&& _mouse_y <= _hover_rect[1] + _hover_rect[3])
 		{
-			return _choice_index;
+			var _choice_center_x = _choice_rect[0] + (_choice_rect[2] * 0.5);
+			var _choice_center_y = _choice_rect[1] + (_choice_rect[3] * 0.5);
+			var _choice_distance = point_distance(_mouse_x, _mouse_y, _choice_center_x, _choice_center_y);
+
+			if (_choice_distance < _hovered_choice_distance)
+			{
+				_hovered_choice = _choice_index;
+				_hovered_choice_distance = _choice_distance;
+			}
 		}
 	}
 
-	return -1;
+	return _hovered_choice;
 };
 
 cursed_point_structure_choice_hover_key_get = function(_mouse_x, _mouse_y)

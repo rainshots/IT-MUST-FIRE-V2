@@ -401,7 +401,7 @@ function cultist_demon_abilities_text_get(_demon_type)
 		return "Passive abilities:"
 			+ "\n- Corpse Eater: eats nearby corpses to heal " + string(BALANCE_BRUTE_CORPSE_EATER_HEAL_MAX_HP_SHARE * 100) + "% HP"
 			+ "\n- Rotten Aura: nearby enemies take constant magic damage"
-			+ "\n- Blood Anvil: nearby demon active abilities recharge Brute actives"
+			+ "\n- Blood Anvil: The use of active abilities by other cultists next to Brute, recharge his active abilities faster."
 			+ "\nActive abilities:"
 			+ "\n- Grave Slam: AOE damage and stun"
 			+ "\n- Butcher Chains: pulls the farthest enemies"

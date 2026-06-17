@@ -86,6 +86,15 @@ if (!shrines_spawned)
 // Track shrine objective completion for the HUD and win condition hooks.
 shrine_objective_update();
 
+// Delay the first worker assignment hint until gameplay has been visible for a moment.
+if (!global.pause
+	&& global.focus_window == FOCUS_WINDOW.NOONE
+	&& worker_assignment_hint_delay_started
+	&& worker_assignment_hint_delay_timer > 0)
+{
+	worker_assignment_hint_delay_timer--;
+}
+
 // Allow the player to pick up and reposition cultists during gameplay.
 if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultists") && instance_exists(o_camera_controller))
 {
@@ -590,7 +599,14 @@ if (!global.pause && global.day_cycle_enabled)
 {
 	if (global.day_phase == DAY_PHASE.DAY)
 	{
-		global.day_timer--;
+		// Keep the first day from advancing until the player assigns a worker.
+		var _first_day_waits_for_worker = night_attack_night_index == 1
+			&& first_day_timer_waiting_for_worker_assignment;
+
+		if (!_first_day_waits_for_worker)
+		{
+			global.day_timer--;
+		}
 
 		if (global.day_timer <= 0)
 		{

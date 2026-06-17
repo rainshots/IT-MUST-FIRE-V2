@@ -27,6 +27,6 @@ attack_feedback_line_width = 2;
 // Tooltip lines describe captured tower behavior.
 tooltip_lines = [
 	"Captured: shoots enemies in a 600px radius",
-	"Capture: requires full corruption under the tower",
+	"Capture: requires full Taint under the tower",
 	"Hover: shows shooting radius"
 ];

@@ -14,9 +14,9 @@ image_index = 0;
 
 // Shrine tooltip describes the run objective.
 tooltip_lines = [
-	"Goal: infect " + string(BALANCE_SHRINE_OBJECTIVE_REQUIRED) + " of " + string(BALANCE_SHRINE_OBJECTIVE_TOTAL) + " shrines",
-	"Corruption: infects this shrine",
-	"Cursed: infects ground in a 450px radius"
+	"Goal: taint " + string(BALANCE_SHRINE_OBJECTIVE_REQUIRED) + " of " + string(BALANCE_SHRINE_OBJECTIVE_TOTAL) + " shrines",
+	"Taint: taints this shrine",
+	"Tainted: spreads Taint in a 450px radius"
 ];
 
 shrine_corrupt = function()

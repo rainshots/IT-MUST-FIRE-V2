@@ -28,5 +28,6 @@ ignore_pause = false;
 
 // Visual settings.
 projectile_radius = 12;
+projectile_visual_scale = 2.5;
 explosion_preview_frames = 8;
 draw_explosion_preview = false;

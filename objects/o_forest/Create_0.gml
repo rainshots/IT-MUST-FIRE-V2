@@ -19,7 +19,7 @@ spread_offset_down_y = 1;
 // Tooltip lines describe forest behavior.
 tooltip_lines = [
 	"Damage: No effect yet",
-	"Corruption: Spreads from full corrupted ground",
+	"Taint: Spreads from fully tainted ground",
 	"Summon: No effect yet"
 ];
 

@@ -8,6 +8,11 @@ if (global.pause)
 
 if (hp <= 0)
 {
+	if (variable_instance_exists(id, "unit_death_sound_play"))
+	{
+		unit_death_sound_play();
+	}
+
 	clone_blood_explosion();
 	instance_destroy();
 	exit;

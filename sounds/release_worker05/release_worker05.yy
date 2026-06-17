@@ -10,7 +10,7 @@
   "compression":0,
   "compressionQuality":4,
   "conversionMode":0,
-  "duration":5.2293196,
+  "duration":5.22932,
   "exportDir":"",
   "name":"release_worker05",
   "parent":{

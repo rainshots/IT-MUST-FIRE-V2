@@ -49,8 +49,10 @@ if (global.day_phase == DAY_PHASE.NIGHT && demon_reveal_radius_in_cells > 0)
 			&& variable_instance_exists(_friendly_unit, "demon_type")
 			&& _friendly_unit.demon_type != DEMON_TYPE.NONE
 			&& (!variable_instance_exists(_friendly_unit, "hp") || _friendly_unit.hp > 0);
+		var _can_reveal_fog = _is_combat_demon
+			&& (!variable_instance_exists(_friendly_unit, "is_being_dragged") || !_friendly_unit.is_being_dragged);
 
-		if (_is_combat_demon)
+		if (_can_reveal_fog)
 		{
 			var _demon_cell_x = floor(_friendly_unit.x / cell_size);
 			var _demon_cell_y = floor(_friendly_unit.y / cell_size);

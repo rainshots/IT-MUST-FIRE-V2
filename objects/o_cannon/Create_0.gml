@@ -4,19 +4,34 @@ hp = max_hp;
 global.cannon_fire_version = 0;
 y_sort_enabled = true;
 
-// Cannon accepts any number of daytime corpse haulers.
+// Night damage tracking plays agony sounds at each 10 percent damage threshold.
+night_damage_start_hp = max_hp;
+night_damage_agony_threshold_index = 0;
+night_damage_agony_step_share = 0.1;
+
+// Cannon accepts a small crew of daytime corpse haulers.
 building_accepts_workers = true;
 worker_cultists = [];
-worker_max = 1000000;
+worker_max = BALANCE_RESOURCE_BUILDING_WORKER_MAX;
+
+// Assigned cannon worker indicator is shown under the cannon once it has workers.
+worker_indicator_label = "Cannon workers";
+worker_indicator_offset_y = 30;
+worker_indicator_padding_x = 8;
+worker_indicator_padding_y = 5;
+worker_indicator_line_gap = 16;
+worker_indicator_icon_size = 20;
+worker_indicator_icon_gap = 5;
+worker_indicator_background_alpha = 0.78;
 
 // Cannon upgrade branches use the shared building upgrade window.
 building_has_upgrades = true;
-building_tooltip_description = "Improves cannon corruption, corpse revival, and Feast volleys.";
+building_tooltip_description = "Improves cannon Taint, corpse revival, and Taint Shell volleys.";
 building_upgrade_levels = array_create(CANNON_UPGRADE.COUNT, 0);
 building_upgrade_names = [
-	"Blighted Ground",
+	"Tainted Ground",
 	"Morning Rising",
-	"Feast Barrage"
+	"Taint Barrage"
 ];
 building_upgrade_costs = [
 	BALANCE_CANNON_UPGRADE_COST_LEVEL_1,
@@ -27,10 +42,6 @@ building_warning_show = function(_text, _color)
 {
 };
 
-// Cannon health bar visual settings.
-bar_width = 84;
-bar_height = 7;
-bar_offset_y = 58;
 upgrade_prompt_text = "G - UPGRADE";
 upgrade_prompt_offset_y = 82;
 upgrade_prompt_padding_x = 7;
@@ -46,7 +57,7 @@ target_version = -1;
 // Cannon fades when a worker is hidden by the upper part of its sprite.
 hidden_worker_alpha = BALANCE_CANNON_HIDDEN_WORKER_ALPHA;
 hidden_worker_front_offset_y = BALANCE_CANNON_HIDDEN_WORKER_FRONT_OFFSET_Y;
-hauler_prompt_text = "Assign Corpse Haulers Here!";
+hauler_prompt_text = "Assign workers to the cannon to carry the corpses. \n(Drag any worker right on cannon)";
 hauler_prompt_offset_y = BALANCE_CANNON_HAULER_PROMPT_OFFSET_Y;
 hauler_prompt_padding_x = BALANCE_CANNON_HAULER_PROMPT_PADDING_X;
 hauler_prompt_padding_y = BALANCE_CANNON_HAULER_PROMPT_PADDING_Y;
@@ -70,6 +81,74 @@ starting_corruption_radius = starting_corruption_radius_in_cells * BALANCE_GRID_
 starting_corruption_amount = BALANCE_CANNON_STARTING_CORRUPTION_AMOUNT;
 
 corrupt_circle(x, y, starting_corruption_radius, starting_corruption_amount);
+
+cannon_damage_sound_play = function()
+{
+	if (variable_global_exists("cannon_damage_sounds") && variable_global_exists("sound_play_random"))
+	{
+		global.sound_play_random(global.cannon_damage_sounds);
+	}
+};
+
+cannon_agony_sound_play = function()
+{
+	if (variable_global_exists("cannon_agony_sounds") && variable_global_exists("sound_play_random"))
+	{
+		global.sound_play_random(global.cannon_agony_sounds);
+	}
+};
+
+cannon_night_damage_tracking_start = function()
+{
+	night_damage_start_hp = max(hp, 1);
+	night_damage_agony_threshold_index = 0;
+};
+
+cannon_night_damage_agony_update = function()
+{
+	if (!variable_global_exists("day_phase")
+		|| global.day_phase != DAY_PHASE.NIGHT
+		|| night_damage_start_hp <= 0
+		|| night_damage_agony_step_share <= 0)
+	{
+		return;
+	}
+
+	var _damage_share = clamp((night_damage_start_hp - hp) / night_damage_start_hp, 0, 1);
+	var _current_threshold_index = floor(_damage_share / night_damage_agony_step_share);
+	var _previous_threshold_index = night_damage_agony_threshold_index;
+
+	if (_current_threshold_index <= _previous_threshold_index)
+	{
+		return;
+	}
+
+	for (var _threshold_index = _previous_threshold_index + 1; _threshold_index <= _current_threshold_index; ++_threshold_index)
+	{
+		cannon_agony_sound_play();
+	}
+
+	night_damage_agony_threshold_index = _current_threshold_index;
+};
+
+unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true)
+{
+	if (hp <= 0 || _damage_amount <= 0)
+	{
+		return 0;
+	}
+
+	var _applied_damage = min(_damage_amount, hp);
+	hp = max(hp - _damage_amount, 0);
+
+	if (_applied_damage > 0)
+	{
+		cannon_damage_sound_play();
+		cannon_night_damage_agony_update();
+	}
+
+	return _applied_damage;
+};
 
 cannon_upgrade_next_cost_get = function(_upgrade_index)
 {
@@ -179,7 +258,7 @@ building_upgrade_description_get = function(_upgrade_index)
 			_damage = BALANCE_CANNON_CORRUPTED_GROUND_DAMAGE_LEVEL_3;
 		}
 
-		return "Enemies on fully corrupted ground take " + string(_damage) + " damage/sec.";
+		return "Enemies on fully tainted ground take " + string(_damage) + " damage/sec.";
 	}
 	else if (_upgrade_index == CANNON_UPGRADE.MORNING_SKELETONS)
 	{
@@ -217,7 +296,7 @@ building_upgrade_description_get = function(_upgrade_index)
 			_multiplier = BALANCE_CANNON_FEAST_UPGRADE_LEVEL_3_MULTIPLIER;
 		}
 
-		return "Feast radius and shell count become " + string(round(_multiplier * 100)) + "%.";
+		return "Taint Shell radius and shell count become " + string(round(_multiplier * 100)) + "%.";
 	}
 
 	return "";

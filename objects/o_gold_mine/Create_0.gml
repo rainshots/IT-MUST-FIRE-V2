@@ -10,7 +10,7 @@ corruption = 0;
 // Tooltip lines describe projectile reactions for player targeting.
 tooltip_lines = [
 	"Damage: +3 Iron",
-	"Corruption: Cursed on infected ground",
+	"Taint: becomes tainted on tainted ground",
 	"Summon: No effect yet"
 ];
 

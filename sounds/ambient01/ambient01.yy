@@ -10,7 +10,7 @@
   "compression":0,
   "compressionQuality":4,
   "conversionMode":0,
-  "duration":171.78078,
+  "duration":182.66746,
   "exportDir":"",
   "name":"ambient01",
   "parent":{

@@ -9,6 +9,14 @@ resource_icon_size = 22;
 resource_icon_text_gap = 12;
 resource_text_padding = 20;
 
+// Cannon HP follows the wide bottom-bar concept from the HUD design.
+cannon_hp_bar_width_share = 0.6375;
+cannon_hp_fill_height_share = 0.0472;
+cannon_hp_background_height_share = 0.0241;
+cannon_hp_bottom_margin_share = 0.0185;
+cannon_hp_background_offset_share = 0.012;
+cannon_hp_label = "CANNON HP";
+
 // Day cycle and shrine objective display in the top-right corner.
 day_phase_item_width = 260;
 day_phase_item_height = 102;
@@ -49,25 +57,27 @@ cultist_status_card_fatigue_color = COLOR_HUD_CULTIST_STATUS_FATIGUE;
 cultist_status_card_label_color = COLOR_HUD_TEXT;
 
 // Cannon satiety is filled by hauling corpses to the cannon.
-cannon_satiety_width = 260;
+cannon_satiety_width = 368;
 cannon_satiety_height = 34;
+cannon_satiety_bar_offset_x = 92;
 cannon_satiety_bar_width = 156;
 cannon_satiety_bar_height = 8;
 cannon_satiety_bar_gap = 5;
+cannon_satiety_bar_label_gap = 8;
 cannon_satiety_padding_x = 14;
 cannon_satiety_label = "SATIETY";
 
 // Wall fallen notice appears when cannon HP reaches zero, without stopping the run.
 wall_fallen_notice_width = 420;
-wall_fallen_notice_height = 76;
+wall_fallen_notice_height = 92;
 wall_fallen_notice_y = 96;
 wall_fallen_notice_padding = 12;
 wall_fallen_title = "THE WALL HAS FALLEN";
 wall_fallen_description = "You lost, but can keep playing.";
 
-// Objective complete notice appears when enough shrines are infected.
+// Objective complete notice appears when enough shrines are tainted.
 objective_complete_notice_width = 420;
-objective_complete_notice_height = 76;
+objective_complete_notice_height = 92;
 objective_complete_notice_y = 96;
 objective_complete_notice_padding = 12;
 objective_complete_title = "TRIALS COMPLETE";
@@ -92,8 +102,8 @@ resource_icon_sprites = [
 	s_iron_icon
 ];
 
-// Corruption display is derived from the ground corruption grid.
-corruption_display_name = "CORRUPTION";
+// Taint display is derived from the ground corruption grid.
+corruption_display_name = "TAINT";
 corruption_display_value = 0;
 corruption_display_decimals = 1;
 corruption_update_interval = 0.25 * room_speed;
@@ -124,22 +134,22 @@ projectile_description_line_separation = 16;
 
 projectile_names = array_create(PROJECTILE_TYPE.COUNT, "");
 projectile_names[PROJECTILE_TYPE.DAMAGE] = "DAMAGE";
-projectile_names[PROJECTILE_TYPE.CORRUPTION] = "INFECTION";
+projectile_names[PROJECTILE_TYPE.CORRUPTION] = "TAINT";
 projectile_names[PROJECTILE_TYPE.SUMMON] = "SUMMON";
 projectile_names[PROJECTILE_TYPE.RALLY] = "RALLY";
 projectile_names[PROJECTILE_TYPE.CULTIST] = "CULTIST";
-projectile_names[PROJECTILE_TYPE.FEAST] = "FEAST";
+projectile_names[PROJECTILE_TYPE.FEAST] = "TAINT SHELL";
 projectile_names[PROJECTILE_TYPE.HEAL] = "HEAL";
 projectile_names[PROJECTILE_TYPE.BOMB] = "BOMB";
 projectile_names[PROJECTILE_TYPE.SKELETONS] = "SKELETONS";
 
 projectile_descriptions = array_create(PROJECTILE_TYPE.COUNT, "");
 projectile_descriptions[PROJECTILE_TYPE.DAMAGE] = "Damages units and buildings inside the impact area.";
-projectile_descriptions[PROJECTILE_TYPE.CORRUPTION] = "Infects ground cells and triggers corruption reactions.";
+projectile_descriptions[PROJECTILE_TYPE.CORRUPTION] = "Adds Taint to ground cells and triggers Taint reactions.";
 projectile_descriptions[PROJECTILE_TYPE.SUMMON] = "Summons friendly forces through valid target reactions.";
 projectile_descriptions[PROJECTILE_TYPE.RALLY] = "Sends half of nearby friendly units to the impact point.";
 projectile_descriptions[PROJECTILE_TYPE.CULTIST] = "Launches a cultist into battle, dealing impact damage and spawning demon form.";
-projectile_descriptions[PROJECTILE_TYPE.FEAST] = "Fires 20 infection shells over a wide area and heavily damages enemies inside. When you gain a Feast shell, you also gain 1 random bonus shell.";
+projectile_descriptions[PROJECTILE_TYPE.FEAST] = "Fires " + string(BALANCE_CANNON_FEAST_PROJECTILE_COUNT) + " Taint Shell impacts over a wide area and heavily damages enemies inside. When you gain a Taint Shell, you also gain 1 random bonus projectile.";
 projectile_descriptions[PROJECTILE_TYPE.HEAL] = "Restores 700 health to all friendly units inside a 150 pixel radius.";
 projectile_descriptions[PROJECTILE_TYPE.BOMB] = "Deals 70 damage to every unit inside a 150 pixel radius.";
 projectile_descriptions[PROJECTILE_TYPE.SKELETONS] = "Summons 3 skeletons inside a 150 pixel radius.";

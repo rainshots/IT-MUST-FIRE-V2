@@ -931,6 +931,14 @@ unit_corpse_snapshot_create = function()
 	}
 };
 
+unit_death_sound_play = function()
+{
+	if (variable_global_exists("death_sounds") && variable_global_exists("sound_play_random"))
+	{
+		global.sound_play_random(global.death_sounds);
+	}
+};
+
 unit_death_process = function()
 {
 	if (instance_exists(o_game_controller))
@@ -947,6 +955,7 @@ unit_death_process = function()
 	{
 		if (!is_knocked_out)
 		{
+			unit_death_sound_play();
 			soul_chain_death_effect_apply();
 
 			if (global.day_phase == DAY_PHASE.NIGHT && instance_exists(o_game_controller))
@@ -975,6 +984,7 @@ unit_death_process = function()
 		return;
 	}
 
+	unit_death_sound_play();
 	unit_corpse_snapshot_create();
 	soul_chain_death_effect_apply();
 	warlock_soul_engine_enemy_death_notify();

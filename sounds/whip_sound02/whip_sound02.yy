@@ -10,7 +10,7 @@
   "compression":0,
   "compressionQuality":4,
   "conversionMode":0,
-  "duration":3.3257823,
+  "duration":3.325782,
   "exportDir":"",
   "name":"whip_sound02",
   "parent":{

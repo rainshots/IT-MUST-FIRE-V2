@@ -35,8 +35,10 @@ else if (projectile_type == PROJECTILE_TYPE.SKELETONS)
 }
 
 // Draw a round projectile.
+var _draw_radius = projectile_radius * projectile_visual_scale;
+
 draw_set_color(_projectile_color);
-draw_circle(x, y, projectile_radius, false);
+draw_circle(x, y, _draw_radius, false);
 
 // Restore default draw state.
 draw_set_color(c_white);

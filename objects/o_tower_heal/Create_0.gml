@@ -18,6 +18,6 @@ heal_tick_timer = irandom(heal_tick_time - 1);
 // Tooltip lines describe captured tower behavior.
 tooltip_lines = [
 	"Captured: heals friendly troops in a 600px radius",
-	"Capture: requires full corruption under the tower",
+	"Capture: requires full Taint under the tower",
 	"Hover: shows healing radius"
 ];

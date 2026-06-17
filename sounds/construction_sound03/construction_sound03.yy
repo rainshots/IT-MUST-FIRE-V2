@@ -10,7 +10,7 @@
   "compression":0,
   "compressionQuality":4,
   "conversionMode":0,
-  "duration":8.194081,
+  "duration":8.194082,
   "exportDir":"",
   "name":"construction_sound03",
   "parent":{

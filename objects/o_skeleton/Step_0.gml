@@ -20,6 +20,11 @@ if (variable_instance_exists(id, "life_timer"))
 			unit_corpse_snapshot_create();
 		}
 
+		if (variable_instance_exists(id, "unit_death_sound_play"))
+		{
+			unit_death_sound_play();
+		}
+
 		instance_destroy();
 		exit;
 	}

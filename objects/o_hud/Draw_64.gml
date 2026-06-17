@@ -4,6 +4,13 @@ if (!variable_global_exists("resources"))
 	exit;
 }
 
+// Hide HUD while any modal gameplay window or tutorial popup is visible.
+if (global.focus_window != FOCUS_WINDOW.NOONE
+	|| (variable_global_exists("tutorial_popup_active") && global.tutorial_popup_active))
+{
+	exit;
+}
+
 draw_set_halign(fa_left);
 draw_set_valign(fa_middle);
 
@@ -428,12 +435,22 @@ if (variable_global_exists("shrine_objective_complete") && global.shrine_objecti
 	);
 
 	draw_set_color(COLOR_PROJECTILE_CORRUPTION);
+	if (variable_global_exists("ui_heading_font") && font_exists(global.ui_heading_font))
+	{
+		draw_set_font(global.ui_heading_font);
+	}
+
 	draw_text(_notice_x + (objective_complete_notice_width * 0.5), _notice_y + objective_complete_notice_padding, objective_complete_title);
+
+	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+	{
+		draw_set_font(global.ui_font);
+	}
 
 	draw_set_color(COLOR_HUD_TEXT);
 	draw_text(
 		_notice_x + (objective_complete_notice_width * 0.5),
-		_notice_y + objective_complete_notice_padding + 28,
+		_notice_y + objective_complete_notice_padding + 46,
 		objective_complete_description
 	);
 }
@@ -448,12 +465,15 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 	var _satiety_y = hud_margin_y + resource_item_height + resource_item_gap;
 	var _satiety_value = max(0, global.cannon_satiety);
 	var _satiety_max = max(1, global.cannon_satiety_max);
+	var _satiety_per_corpse = max(1, BALANCE_CANNON_SATIETY_PER_CORPSE);
+	var _satiety_max_corpses = ceil(_satiety_max / _satiety_per_corpse);
 	var _satiety_bar_count = max(1, ceil(_satiety_value / _satiety_max));
 	var _satiety_stack_height = cannon_satiety_height + ((_satiety_bar_count - 1) * (cannon_satiety_bar_height + cannon_satiety_bar_gap));
 	var _satiety_text_x = _satiety_x + cannon_satiety_padding_x;
 	var _satiety_text_y = _satiety_y + (cannon_satiety_height * 0.5);
-	var _satiety_bar_x = _satiety_x + cannon_satiety_width - cannon_satiety_padding_x - cannon_satiety_bar_width;
+	var _satiety_bar_x = _satiety_x + cannon_satiety_bar_offset_x;
 	var _satiety_bar_y = _satiety_y + ((cannon_satiety_height - cannon_satiety_bar_height) * 0.5);
+	var _satiety_bar_label_x = _satiety_bar_x + cannon_satiety_bar_width + cannon_satiety_bar_label_gap;
 
 	draw_set_halign(fa_left);
 	draw_set_valign(fa_middle);
@@ -470,6 +490,8 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 		var _satiety_bar_value = _satiety_value - (_satiety_bar_index * _satiety_max);
 		var _satiety_progress = clamp(_satiety_bar_value / _satiety_max, 0, 1);
 		var _satiety_current_bar_y = _satiety_bar_y + (_satiety_bar_index * (cannon_satiety_bar_height + cannon_satiety_bar_gap));
+		var _satiety_bar_corpses = ceil(clamp(_satiety_bar_value, 0, _satiety_max) / _satiety_per_corpse);
+		var _satiety_bar_label = string(_satiety_bar_corpses) + "/" + string(_satiety_max_corpses) + " corpses";
 
 		draw_set_alpha(0.75);
 		draw_set_color(c_black);
@@ -490,6 +512,9 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 			_satiety_current_bar_y + cannon_satiety_bar_height,
 			false
 		);
+
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text(_satiety_bar_label_x, _satiety_current_bar_y + (cannon_satiety_bar_height * 0.5), _satiety_bar_label);
 	}
 }
 
@@ -527,14 +552,68 @@ if (instance_exists(o_cannon))
 		);
 
 		draw_set_color(COLOR_PROJECTILE_DAMAGE);
+		if (variable_global_exists("ui_heading_font") && font_exists(global.ui_heading_font))
+		{
+			draw_set_font(global.ui_heading_font);
+		}
+
 		draw_text(_notice_x + (wall_fallen_notice_width * 0.5), _notice_y + wall_fallen_notice_padding, wall_fallen_title);
+
+		if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+		{
+			draw_set_font(global.ui_font);
+		}
 
 		draw_set_color(COLOR_HUD_TEXT);
 		draw_text(
 			_notice_x + (wall_fallen_notice_width * 0.5),
-			_notice_y + wall_fallen_notice_padding + 32,
+			_notice_y + wall_fallen_notice_padding + 46,
 			wall_fallen_description
 		);
+	}
+}
+
+// Draw the cannon HP as a wide bottom HUD bar.
+if (instance_exists(o_cannon))
+{
+	var _cannon = instance_find(o_cannon, 0);
+
+	if (variable_instance_exists(_cannon, "hp") && variable_instance_exists(_cannon, "max_hp"))
+	{
+		var _gui_width = display_get_gui_width();
+		var _gui_height = display_get_gui_height();
+		var _hp_progress = clamp(_cannon.hp / max(1, _cannon.max_hp), 0, 1);
+		var _bar_width = _gui_width * cannon_hp_bar_width_share;
+		var _fill_height = max(1, _gui_height * cannon_hp_fill_height_share);
+		var _background_height = max(1, _gui_height * cannon_hp_background_height_share);
+		var _fill_x = (_gui_width - _bar_width) * 0.5;
+		var _fill_y = _gui_height - (_gui_height * cannon_hp_bottom_margin_share) - _fill_height;
+		var _background_y = _fill_y + (_gui_height * cannon_hp_background_offset_share);
+		var _label_x = _fill_x + (_bar_width * 0.5);
+		var _label_y = _fill_y + (_fill_height * 0.5);
+
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_middle);
+		draw_set_alpha(0.8);
+		draw_set_color(c_black);
+		draw_rectangle(_fill_x, _background_y, _fill_x + _bar_width, _background_y + _background_height, false);
+
+		draw_set_alpha(1);
+		draw_set_color(COLOR_CANNON_HP_BAR);
+		draw_rectangle(_fill_x, _fill_y, _fill_x + (_bar_width * _hp_progress), _fill_y + _fill_height, false);
+
+		draw_set_color(c_white);
+		if (variable_global_exists("ui_heading_font") && font_exists(global.ui_heading_font))
+		{
+			draw_set_font(global.ui_heading_font);
+		}
+
+		draw_text(_label_x, _label_y, cannon_hp_label);
+
+		if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+		{
+			draw_set_font(global.ui_font);
+		}
 	}
 }
 

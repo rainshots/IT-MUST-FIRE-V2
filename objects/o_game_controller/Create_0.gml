@@ -22,7 +22,11 @@ global.cursed_point_structure_selection_source = noone;
 
 // World hint for the first worker assignment.
 worker_assignment_hint_completed = false;
-worker_assignment_hint_text = "Drag a worker onto a building to start working.\nHover the worker, hold LMB, then release over the building.";
+first_day_timer_waiting_for_worker_assignment = true;
+worker_assignment_hint_delay_started = false;
+worker_assignment_hint_delay_time = 2 * room_speed;
+worker_assignment_hint_delay_timer = -1;
+worker_assignment_hint_text = "Drag a worker onto a building to assign him for work.\nHover the worker, hold LMB, then release over the building.";
 worker_assignment_hint_width = 360;
 worker_assignment_hint_padding_x = 10;
 worker_assignment_hint_padding_y = 7;
@@ -494,10 +498,40 @@ global.cannon_shot_sounds = [
 	cannon_shot02,
 	cannon_shot03
 ];
+global.cannon_damage_sounds = [
+	cannon_damage_01,
+	cannon_damage_02,
+	cannon_damage_03,
+	cannon_damage_04,
+	cannon_damage_05,
+	cannon_damage_06
+];
+global.cannon_agony_sounds = [
+	cannon_agony_01,
+	cannon_agony_02,
+	cannon_agony_03,
+	cannon_agony_04
+];
 global.construction_sounds = [
 	construction_sound01,
 	construction_sound02,
 	construction_sound03
+];
+global.death_sounds = [
+	death_sound01,
+	death_sound02,
+	death_sound03,
+	death_sound04,
+	death_sound05,
+	death_sound06,
+	death_sound07,
+	death_sound08
+];
+global.explosion_sounds = [
+	explosion_sound01,
+	explosion_sound02,
+	explosion_sound03,
+	explosion_sound04
 ];
 global.ui_hover_sounds = [
 	ui_hover_01,
@@ -1339,7 +1373,7 @@ building_choices = [
 		building_object: o_meat_bath,
 		building_sprite: s_meat_bath,
 		building_name: "Meat Bath",
-		building_description: "Heals assigned cultists by spending Flesh.",
+		building_description: "Heals assigned workers by spending Flesh.",
 		iron_cost: BALANCE_BUILDING_IRON_COST
 	},
 	{
@@ -1353,14 +1387,14 @@ building_choices = [
 		building_object: o_workshop,
 		building_sprite: s_workshop,
 		building_name: "Workshop",
-		building_description: "Repairs the cannon wall by spending Iron.",
+		building_description: "Repairs the cannon by spending Iron.",
 		iron_cost: BALANCE_BUILDING_IRON_COST
 	},
 	{
 		building_object: o_graveyardv13,
 		building_sprite: s_graveyard30,
 		building_name: "Graveyard",
-		building_description: "Summons Skeletons by spending Iron and Souls.",
+		building_description: "Summons Skeletons(combat unit with magic gamage) by spending Iron and Souls.",
 		construction_costs: [
 			{
 				resource: RESOURCES.IRON,
@@ -1376,7 +1410,7 @@ building_choices = [
 		building_object: o_hell_pit,
 		building_sprite: s_hell_pit,
 		building_name: "Hell Pit",
-		building_description: "Summons Pitlings by spending Flesh and Iron.",
+		building_description: "Summons Pitlings(strong combat unit with physical gamage) by spending Flesh and Iron.",
 		construction_costs: [
 			{
 				resource: RESOURCES.IRON,
@@ -1392,7 +1426,7 @@ building_choices = [
 		building_object: o_goblins_pit,
 		building_sprite: s_goblins_pit,
 		building_name: "Goblins Pit",
-		building_description: "Summons Goblins by spending Flesh.",
+		building_description: "Summons Goblins(non-combat units who can work) by spending Flesh.",
 		construction_costs: [
 			{
 				resource: RESOURCES.IRON,
@@ -1878,6 +1912,8 @@ find_worker_building_at_position = function(_world_x, _world_y)
 		if (instance_exists(_cannon)
 			&& variable_instance_exists(_cannon, "building_accepts_workers")
 			&& _cannon.building_accepts_workers
+			&& variable_instance_exists(_cannon, "worker_cultists")
+			&& array_length(_cannon.worker_cultists) < _cannon.worker_max
 			&& _world_x >= _cannon.bbox_left
 			&& _world_x <= _cannon.bbox_right
 			&& _world_y >= _cannon.bbox_top
@@ -2057,7 +2093,8 @@ worker_whip_apply = function(_unit)
 
 	if (_whip_was_inactive)
 	{
-		var _productivity_popup = instance_create_layer(_unit.x, _unit.bbox_top - 12, "Instances", o_damage_popup);
+		var _productivity_popup_offset_y = 200; // Keeps productivity feedback below modal/HUD elements.
+		var _productivity_popup = instance_create_layer(_unit.x, _unit.bbox_top - 12 + _productivity_popup_offset_y, "Instances", o_damage_popup);
 		_productivity_popup.popup_text = "PRODUCTIVITY x" + string(BALANCE_WORKER_WHIP_SPEED_MULTIPLIER) + "!";
 		_productivity_popup.popup_color = COLOR_CULTIST_FERVOR;
 		_productivity_popup.is_critical = false;
@@ -2457,7 +2494,7 @@ assign_cultist_to_worker_building = function(_cultist, _building)
 	if (!variable_instance_exists(_building, "building_accepts_workers")
 		|| !_building.building_accepts_workers
 		|| !variable_instance_exists(_building, "worker_cultists")
-		|| (_building.object_index != o_cannon && array_length(_building.worker_cultists) >= _building.worker_max))
+		|| array_length(_building.worker_cultists) >= _building.worker_max)
 	{
 		return false;
 	}
@@ -2466,6 +2503,7 @@ assign_cultist_to_worker_building = function(_cultist, _building)
 	_cultist.assigned_building = _building;
 	_cultist.is_assigned_to_building = true;
 	worker_assignment_hint_completed = true;
+	first_day_timer_waiting_for_worker_assignment = false;
 
 	if (variable_instance_exists(_cultist, "target_instance"))
 	{
@@ -2987,7 +3025,9 @@ cannon_corpse_workers_drop_all = function()
 
 // Runtime UI font includes Cyrillic glyphs for cultist names.
 var _ui_font_size = 11;
+var _ui_heading_font_size = 28;
 var _should_create_ui_font = !variable_global_exists("ui_font") || !font_exists(global.ui_font);
+var _should_create_ui_heading_font = !variable_global_exists("ui_heading_font") || !font_exists(global.ui_heading_font);
 
 if (!_should_create_ui_font && (!variable_global_exists("ui_font_size") || global.ui_font_size != _ui_font_size))
 {
@@ -2995,10 +3035,23 @@ if (!_should_create_ui_font && (!variable_global_exists("ui_font_size") || globa
 	_should_create_ui_font = true;
 }
 
+if (!_should_create_ui_heading_font
+	&& (!variable_global_exists("ui_heading_font_size") || global.ui_heading_font_size != _ui_heading_font_size))
+{
+	font_delete(global.ui_heading_font);
+	_should_create_ui_heading_font = true;
+}
+
 if (_should_create_ui_font)
 {
 	global.ui_font = font_add("Arial", _ui_font_size, false, false, 32, 1279);
 	global.ui_font_size = _ui_font_size;
+}
+
+if (_should_create_ui_heading_font)
+{
+	global.ui_heading_font = font_add("Arial", _ui_heading_font_size, true, false, 32, 1279);
+	global.ui_heading_font_size = _ui_heading_font_size;
 }
 
 open_starting_cultist_selection = function()
@@ -3203,6 +3256,17 @@ cultist_selected_starting_ability_validate = function()
 	cultist_selected_starting_ability = cultist_starting_ability_default_get(cultist_selected_demon_type);
 };
 
+worker_assignment_hint_delay_start = function()
+{
+	if (worker_assignment_hint_completed || worker_assignment_hint_delay_started)
+	{
+		return;
+	}
+
+	worker_assignment_hint_delay_started = true;
+	worker_assignment_hint_delay_timer = worker_assignment_hint_delay_time;
+};
+
 assign_current_cultist_demon = function()
 {
 	var _cultist = get_current_cultist();
@@ -3250,6 +3314,7 @@ assign_current_cultist_demon = function()
 		{
 			global.pause = false;
 			global.focus_window = FOCUS_WINDOW.NOONE;
+			worker_assignment_hint_delay_start();
 		}
 	}
 };
@@ -5388,6 +5453,11 @@ start_night_phase = function()
 	{
 		var _cannon = instance_find(o_cannon, 0);
 		adaptive_night_cannon_hp_start = _cannon.hp;
+
+		if (variable_instance_exists(_cannon, "cannon_night_damage_tracking_start"))
+		{
+			_cannon.cannon_night_damage_tracking_start();
+		}
 	}
 
 	adaptive_difficulty_night_hp_start_store();

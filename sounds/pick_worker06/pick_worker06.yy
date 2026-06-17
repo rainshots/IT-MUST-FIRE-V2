@@ -10,7 +10,7 @@
   "compression":0,
   "compressionQuality":4,
   "conversionMode":0,
-  "duration":3.6510885,
+  "duration":3.651088,
   "exportDir":"",
   "name":"pick_worker06",
   "parent":{

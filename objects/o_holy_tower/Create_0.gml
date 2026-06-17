@@ -35,8 +35,8 @@ attack_feedback_line_width = 2;
 
 // Tooltip lines describe tower behavior.
 tooltip_lines = [
-	"Damage: Takes damage. Corrupts holy area at 0 HP",
-	"Corruption: Blocks nearby ground corruption",
+	"Damage: Takes damage. Taints holy area at 0 HP",
+	"Taint: Blocks nearby ground Taint",
 	"Summon: No effect yet"
 ];
 

@@ -10,7 +10,7 @@
   "compression":0,
   "compressionQuality":4,
   "conversionMode":0,
-  "duration":7.5780725,
+  "duration":7.578073,
   "exportDir":"",
   "name":"cannon_shot01",
   "parent":{

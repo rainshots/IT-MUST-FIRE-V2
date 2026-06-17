@@ -15,6 +15,6 @@ vision_radius = BALANCE_TOWER_VISION_RADIUS;
 // Tooltip lines describe captured tower behavior.
 tooltip_lines = [
 	"Captured: reveals fog in a 1200px radius",
-	"Capture: requires full corruption under the tower",
+	"Capture: requires full Taint under the tower",
 	"Hover: shows vision radius"
 ];

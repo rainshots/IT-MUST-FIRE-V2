@@ -30,7 +30,7 @@ tutorial_items = [
 	{
 		id: "welcome",
 		title: "Welcome",
-		body: "Greetings, Great Pontiff! This is the prototype of IT MUST FIRE. You lead a cult that worships a colossal cannon with a demon sealed inside.\n\nYour goal: find and infect 2 shrines while keeping your settlement walls from falling."
+		body: "Greetings, Great Pontiff! This is the prototype of IT MUST FIRE. You lead a cult that worships a colossal cannon with a demon sealed inside.\n\nYour goal: taint 2 shrines while keeping your settlement walls from falling."
 	},
 	{
 		id: "construction_start",
@@ -65,7 +65,7 @@ tutorial_items = [
 	{
 		id: "cannon_workers",
 		title: "Cannon Workers",
-		body: "The cannon is hungry! Assign workers directly to the cannon so they carry corpses into it. Later, this will give you Feast shells at night, letting you desecrate much more ground."
+		body: "The cannon is hungry! Assign workers directly to the cannon so they carry corpses into it. Later, this will give you Taint Shells at night, letting you spread Taint over much more ground."
 	},
 	{
 		id: "fatigue",
@@ -89,13 +89,13 @@ tutorial_items = [
 	},
 	{
 		id: "infection",
-		title: "Infection",
-		body: "In addition to cultist shells, the cannon can gain Feast shells. A Feast shell deals heavy damage and desecrates a large area.\n\nTo gain Feast shells, the cannon needs corpses left after battles. Assign workers directly to the cannon to gather them."
+		title: "Taint",
+		body: "In addition to cultist shells, the cannon can gain Taint Shells. A Taint Shell deals heavy damage and spreads Taint over a large area.\n\nTo gain Taint Shells, the cannon needs corpses left after battles. Assign workers directly to the cannon to gather them."
 	},
 	{
 		id: "cursed_buildings",
-		title: "Cursed Buildings",
-		body: "The map contains many different buildings that can help you desecrate even more ground. To awaken them, desecrate the ground underneath them."
+		title: "Tainted Buildings",
+		body: "The map contains many different buildings that can help you spread even more Taint. To awaken them, taint the ground underneath them."
 	}
 ];
 
@@ -237,7 +237,18 @@ tutorial_draw = function()
 	draw_rectangle(_popup_x, _popup_y, _popup_x + popup_width, _popup_y + popup_height, true);
 
 	draw_set_color(COLOR_HUD_TEXT);
+	if (variable_global_exists("ui_heading_font") && font_exists(global.ui_heading_font))
+	{
+		draw_set_font(global.ui_heading_font);
+	}
+
 	draw_text(_popup_x + popup_padding, _popup_y + popup_padding, current_title);
+
+	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+	{
+		draw_set_font(global.ui_font);
+	}
+
 	draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
 	draw_text_ext(_text_x, _text_y, current_body, popup_text_line_height, _text_width);
 

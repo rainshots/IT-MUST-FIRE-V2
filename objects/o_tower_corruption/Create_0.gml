@@ -17,7 +17,7 @@ spread_update_timer = irandom(spread_update_interval - 1);
 
 // Tooltip lines describe captured tower behavior.
 tooltip_lines = [
-	"Captured: spreads corruption in a 600px radius",
-	"Capture: requires full corruption under the tower",
+	"Captured: spreads Taint in a 600px radius",
+	"Capture: requires full Taint under the tower",
 	"Hover: shows effect radius"
 ];

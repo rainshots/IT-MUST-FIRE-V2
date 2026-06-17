@@ -22,5 +22,5 @@
   "resourceVersion":"2.0",
   "sampleRate":44100,
   "soundFile":"A_Circle_of_Faun___Mountain_Realm.mp3",
-  "volume":0.2,
+  "volume":0.3,
 }

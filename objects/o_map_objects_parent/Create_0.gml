@@ -14,7 +14,7 @@ bar_offset_y = 48;
 // Tooltip text and visual settings.
 tooltip_lines = [
 	"Damage: No effect",
-	"Corruption: No effect",
+	"Taint: No effect",
 	"Summon: No effect"
 ];
 tooltip_padding = 10;

@@ -138,6 +138,8 @@ if ((global.day_phase == DAY_PHASE.DAY || _night_warning_active)
 
 // Draw a non-blocking worker assignment hint above the first Quarry.
 if (!worker_assignment_hint_completed
+	&& worker_assignment_hint_delay_started
+	&& worker_assignment_hint_delay_timer <= 0
 	&& global.focus_window == FOCUS_WINDOW.NOONE
 	&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active)
 	&& instance_exists(o_camera_controller))
@@ -235,7 +237,7 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 		if (!feast_target_touches_corruption(_mouse_world_x, _mouse_world_y))
 		{
 			_target_color = COLOR_STATUS_NEGATIVE_RED;
-			_target_hint_text = "Must touch existing corruption";
+			_target_hint_text = "Must touch existing Taint";
 		}
 	}
 	else if (target_selection_projectile_type == PROJECTILE_TYPE.HEAL)
@@ -352,14 +354,24 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 	draw_set_halign(fa_left);
 	draw_set_valign(fa_top);
 	draw_set_color(COLOR_HUD_TEXT);
+	if (variable_global_exists("ui_heading_font") && font_exists(global.ui_heading_font))
+	{
+		draw_set_font(global.ui_heading_font);
+	}
+
 	draw_text_transformed(
 		_panel_x + (56 * _design_scale),
 		_panel_y + (78 * _design_scale),
 		"A NEW CULTIST HAS BEEN SUMMONED!",
-		3.2 * _design_scale,
-		3.2 * _design_scale,
+		1.18 * _design_scale,
+		1.18 * _design_scale,
 		0
 	);
+
+	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+	{
+		draw_set_font(global.ui_font);
+	}
 
 	// Draw name input.
 	var _name_label_x = _panel_x + (58 * _design_scale);
@@ -430,7 +442,7 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 		var _body_points = _cultist.cultist_points[CULTIST_STAT.BODY];
 		var _spirit_points = _cultist.cultist_points[CULTIST_STAT.SPIRIT];
 		var _fervor_points = _cultist.cultist_points[CULTIST_STAT.FERVOR];
-		var _stat_names = ["BODY", "Fervor", "Spirit"];
+		var _stat_names = ["Body", "Fervor", "Spirit"];
 		var _stat_notes = [
 			"HP, Armor, Damage, Crit damage",
 			"Crit chance, Attack speed, Move speed",
@@ -460,7 +472,17 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 		draw_set_halign(fa_left);
 		draw_set_valign(fa_top);
 		draw_set_color(COLOR_HUD_TEXT);
-		draw_text_transformed(_panel_x + (578 * _design_scale), _panel_y + (240 * _design_scale), _preview_name, 2.25 * _design_scale, 2.25 * _design_scale, 0);
+		if (variable_global_exists("ui_heading_font") && font_exists(global.ui_heading_font))
+		{
+			draw_set_font(global.ui_heading_font);
+		}
+
+		draw_text_transformed(_panel_x + (578 * _design_scale), _panel_y + (240 * _design_scale), _preview_name, 0.88 * _design_scale, 0.88 * _design_scale, 0);
+
+		if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+		{
+			draw_set_font(global.ui_font);
+		}
 
 		for (var _stat_index = 0; _stat_index < CULTIST_STAT.COUNT; ++_stat_index)
 		{
@@ -469,7 +491,17 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 			var _stat_color = _stat_colors[_stat_index];
 
 			draw_set_color(_stat_color);
-			draw_text_transformed(_stat_x, _stat_y, _stat_names[_stat_index], 2.3 * _design_scale, 2.3 * _design_scale, 0);
+			if (variable_global_exists("ui_heading_font") && font_exists(global.ui_heading_font))
+			{
+				draw_set_font(global.ui_heading_font);
+			}
+
+			draw_text_transformed(_stat_x, _stat_y, _stat_names[_stat_index], 0.9 * _design_scale, 0.9 * _design_scale, 0);
+
+			if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+			{
+				draw_set_font(global.ui_font);
+			}
 
 			for (var _point_index = 0; _point_index < _stat_points[_stat_index]; ++_point_index)
 			{
@@ -873,7 +905,18 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 	draw_set_halign(fa_center);
 	draw_set_valign(fa_middle);
 	draw_set_color(COLOR_CULTIST_FERVOR);
-	draw_text_transformed(_panel_x + (_panel_width * 0.5), _panel_y + 34, "A NEW CULTIST HAS BEEN SUMMONED!", 1.7, 1.7, 0);
+	if (variable_global_exists("ui_heading_font") && font_exists(global.ui_heading_font))
+	{
+		draw_set_font(global.ui_heading_font);
+	}
+
+	draw_text(_panel_x + (_panel_width * 0.5), _panel_y + 34, "A NEW CULTIST HAS BEEN SUMMONED!");
+
+	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+	{
+		draw_set_font(global.ui_font);
+	}
+
 	draw_set_color(COLOR_HUD_TEXT);
 	draw_text(_panel_x + (_panel_width * 0.5), _panel_y + 72, "Choose Cultist Demon Form");
 
@@ -1383,7 +1426,17 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 	draw_set_halign(fa_center);
 	draw_set_valign(fa_middle);
 	draw_set_color(COLOR_HUD_TEXT);
+	if (variable_global_exists("ui_heading_font") && font_exists(global.ui_heading_font))
+	{
+		draw_set_font(global.ui_heading_font);
+	}
+
 	draw_text(_panel_x + (_panel_width * 0.5), _panel_y + 40, "Level Up");
+
+	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+	{
+		draw_set_font(global.ui_font);
+	}
 
 	if (instance_exists(_cultist))
 	{
@@ -1425,7 +1478,18 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 			_pending_ability_upgrade_choices = _cultist.pending_ability_upgrade_choices;
 		}
 
-		draw_text_transformed(_panel_x + (_panel_width * 0.5), _panel_y + 88, "LVL " + string(_cultist_level), 2, 2, 0);
+		if (variable_global_exists("ui_heading_font") && font_exists(global.ui_heading_font))
+		{
+			draw_set_font(global.ui_heading_font);
+		}
+
+		draw_text(_panel_x + (_panel_width * 0.5), _panel_y + 88, "LVL " + string(_cultist_level));
+
+		if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+		{
+			draw_set_font(global.ui_font);
+		}
+
 		draw_text(_panel_x + (_panel_width * 0.5), _panel_y + 132, _display_name);
 
 		// Draw the day form and demon form so the player sees who is being upgraded.
@@ -1970,11 +2034,21 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 	draw_set_halign(fa_center);
 	draw_set_valign(fa_middle);
 	draw_set_color(COLOR_HUD_TEXT);
+	if (variable_global_exists("ui_heading_font") && font_exists(global.ui_heading_font))
+	{
+		draw_set_font(global.ui_heading_font);
+	}
+
 	draw_text(_panel_x + (building_window_width * 0.5), _panel_y + 36, "Construction");
+
+	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+	{
+		draw_set_font(global.ui_font);
+	}
 
 	draw_set_halign(fa_left);
 	draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
-	draw_text(_panel_x + 44, _panel_y + 62, "Building costs vary by structure");
+	draw_text(_panel_x + 44, _panel_y + 68, "Building costs vary by structure");
 
 	draw_set_halign(fa_center);
 	draw_set_color(c_white);
@@ -2174,7 +2248,17 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE)
 	draw_set_halign(fa_center);
 	draw_set_valign(fa_middle);
 	draw_set_color(COLOR_HUD_TEXT);
+	if (variable_global_exists("ui_heading_font") && font_exists(global.ui_heading_font))
+	{
+		draw_set_font(global.ui_heading_font);
+	}
+
 	draw_text(_panel_x + (building_upgrade_window_width * 0.5), _panel_y + 36, "Upgrade");
+
+	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+	{
+		draw_set_font(global.ui_font);
+	}
 
 	draw_set_color(c_white);
 	draw_rectangle(_close_x, _close_y, _close_x + _close_size, _close_y + _close_size, true);
@@ -2184,7 +2268,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE)
 	{
 		draw_set_halign(fa_left);
 		draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
-		draw_text(_panel_x + 38, _panel_y + 64, building_upgrade_window_building.building_tooltip_description);
+		draw_text(_panel_x + 38, _panel_y + 68, building_upgrade_window_building.building_tooltip_description);
 
 		var _upgrade_count = 0;
 		var _uses_levels = variable_instance_exists(building_upgrade_window_building, "building_upgrade_levels");
@@ -3232,7 +3316,17 @@ else
 	draw_rectangle(_panel_x, _panel_y, _panel_x + settings_panel_width, _panel_y + settings_panel_height, false);
 
 	draw_set_color(c_black);
+	if (variable_global_exists("ui_heading_font") && font_exists(global.ui_heading_font))
+	{
+		draw_set_font(global.ui_heading_font);
+	}
+
 	draw_text(_panel_x + (settings_panel_width * 0.5), _panel_y + 34, "SETTINGS");
+
+	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+	{
+		draw_set_font(global.ui_font);
+	}
 
 	draw_set_halign(fa_center);
 	draw_rectangle(_close_button_x, _close_button_y, _close_button_x + button_width, _close_button_y + button_height, true);

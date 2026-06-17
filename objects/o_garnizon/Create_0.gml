@@ -25,7 +25,7 @@ activation_check_timer = irandom(max(round(activation_check_interval) - 1, 0));
 // Tooltip lines describe projectile reactions for player targeting.
 tooltip_lines = [
 	"Damage: Takes damage",
-	"Corruption: No effect yet",
+	"Taint: No effect yet",
 	"Summon: No effect yet"
 ];
 

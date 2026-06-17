@@ -10,7 +10,7 @@ corruption = max_corruption;
 // Tooltip lines describe projectile reactions for player targeting.
 tooltip_lines = [
 	"Damage: +2 Souls",
-	"Corruption: +2 Souls",
+	"Taint: +2 Souls",
 	"Summon: Create 8 Skeletons"
 ];
 

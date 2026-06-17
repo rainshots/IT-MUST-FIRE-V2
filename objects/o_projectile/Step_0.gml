@@ -22,6 +22,12 @@ y = lerp(start_y, target_y, _flight_progress) + _arc_offset;
 // Apply the projectile effect when it lands.
 if (_flight_progress >= 1)
 {
+	// Play a random impact sound for any landed projectile.
+	if (variable_global_exists("explosion_sounds") && variable_global_exists("sound_play_random"))
+	{
+		global.sound_play_random(global.explosion_sounds);
+	}
+
 	// Spawn the main explosion flash at the impact point.
 	instance_create_layer(target_x, target_y, particle_layer_name, o_particle_explosion);
 

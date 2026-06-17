@@ -15,7 +15,7 @@ day_reward_timer = day_reward_interval;
 // Tooltip lines describe projectile reactions for player targeting.
 tooltip_lines = [
 	"Damage: +3 Iron",
-	"Corruption: No effect yet",
+	"Taint: No effect yet",
 	"Summon: No effect yet"
 ];
 

@@ -10,7 +10,7 @@ corruption = 0;
 // Tooltip lines describe projectile reactions for player targeting.
 tooltip_lines = [
 	"Damage: -" + string(200) + " HP, +3 Souls, Graveyard at 0 HP",
-	"Corruption: +33 Corruption, Cursed Town at max",
+	"Taint: +33 Taint, Tainted Town at max",
 	"Summon: +2 Flesh"
 ];
 

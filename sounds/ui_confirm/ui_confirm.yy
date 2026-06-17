@@ -10,7 +10,7 @@
   "compression":0,
   "compressionQuality":4,
   "conversionMode":0,
-  "duration":3.0454876,
+  "duration":3.045488,
   "exportDir":"",
   "name":"ui_confirm",
   "parent":{

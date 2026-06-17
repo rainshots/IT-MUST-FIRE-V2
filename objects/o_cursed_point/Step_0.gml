@@ -27,14 +27,20 @@ if (structure_selection_open)
 // Check whether the ground under the cursed point has fully corrupted.
 tower_capture_update();
 
-// Pause freezes only world button input.
-if (global.pause)
+// The summon button stays interactive during lightweight gameplay pause.
+var _pause_menu_blocks_button = false;
+
+if (instance_exists(o_game_controller))
 {
-	exit;
+	var _game_controller = instance_find(o_game_controller, 0);
+
+	if (variable_instance_exists(_game_controller, "pause_menu_open"))
+	{
+		_pause_menu_blocks_button = _game_controller.pause_menu_open;
+	}
 }
 
-// The summon button stays in the world until the player opens the structure choice.
-summon_button_hovered = cursed_point_summon_button_is_hovered();
+summon_button_hovered = !_pause_menu_blocks_button && cursed_point_summon_button_is_hovered();
 
 if (summon_button_hovered
 	&& summon_button_hover_key != string(id)
@@ -57,4 +63,10 @@ if (summon_button_hovered && mouse_check_button_pressed(mb_left))
 	}
 
 	cursed_point_structure_selection_open();
+}
+
+// Pause freezes the remaining world logic.
+if (global.pause)
+{
+	exit;
 }
