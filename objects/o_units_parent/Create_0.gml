@@ -61,6 +61,7 @@ separation_push_x = 0;
 separation_push_y = 0;
 combat_separation_multiplier = 0.45;
 is_attacking_target = false;
+attack_ring_slot_seed = irandom(999999);
 
 // Attack feedback shows who hit whom for a short moment.
 attack_feedback_time = 0.16 * room_speed;
@@ -1318,6 +1319,38 @@ move_towards_world_point = function(_target_x, _target_y)
 	face_world_x(_target_x);
 	x += lengthdir_x(_current_move_speed, _target_direction);
 	y += lengthdir_y(_current_move_speed, _target_direction);
+};
+
+attack_ring_should_use = function(_target, _attack_radius)
+{
+	if (unit_faction != UNIT_FACTION.ENEMY
+		|| !instance_exists(_target)
+		|| _target.object_index == o_cannon
+		|| _target == guard_target
+		|| _attack_radius > BALANCE_UNIT_ATTACK_RING_MELEE_RADIUS_MAX)
+	{
+		return false;
+	}
+
+	if (variable_instance_exists(_target, "unit_faction"))
+	{
+		return _target.unit_faction == UNIT_FACTION.FRIENDLY;
+	}
+
+	return false;
+};
+
+attack_ring_point_get = function(_target, _attack_radius)
+{
+	var _slot_count = max(1, BALANCE_UNIT_ATTACK_RING_SLOT_COUNT);
+	var _slot_index = attack_ring_slot_seed mod _slot_count;
+	var _slot_angle = 360 * (_slot_index / _slot_count);
+	var _ring_radius = min(BALANCE_UNIT_ATTACK_RING_MAX_RADIUS, max(0, _attack_radius - BALANCE_UNIT_ATTACK_RING_ATTACK_PADDING));
+
+	return [
+		_target.x + lengthdir_x(_ring_radius, _slot_angle),
+		_target.y + lengthdir_y(_ring_radius, _slot_angle)
+	];
 };
 
 update_walk_sway = function()

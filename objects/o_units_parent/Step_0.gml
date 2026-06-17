@@ -273,6 +273,9 @@ if (!_special_behavior_handled && instance_exists(target_instance))
 {
 	var _target_distance = point_distance(x, y, target_instance.x, target_instance.y);
 	var _current_attack_radius = attack_radius;
+	var _use_attack_ring = false;
+	var _attack_move_x = target_instance.x;
+	var _attack_move_y = target_instance.y;
 
 	face_world_x(target_instance.x);
 
@@ -285,7 +288,18 @@ if (!_special_behavior_handled && instance_exists(target_instance))
 		_current_attack_radius = BALANCE_CANNON_WALL_RADIUS + attack_radius;
 	}
 
-	if (_target_distance <= _current_attack_radius)
+	_use_attack_ring = attack_ring_should_use(target_instance, _current_attack_radius);
+
+	if (_use_attack_ring)
+	{
+		var _attack_ring_point = attack_ring_point_get(target_instance, _current_attack_radius);
+		_attack_move_x = _attack_ring_point[0];
+		_attack_move_y = _attack_ring_point[1];
+		_target_distance = point_distance(x, y, _attack_move_x, _attack_move_y);
+	}
+
+	if ((!_use_attack_ring && _target_distance <= _current_attack_radius)
+		|| (_use_attack_ring && _target_distance <= BALANCE_UNIT_ATTACK_RING_ARRIVE_RADIUS))
 	{
 		if (target_instance == guard_target)
 		{
@@ -299,7 +313,14 @@ if (!_special_behavior_handled && instance_exists(target_instance))
 	}
 	else
 	{
-		move_towards_target(target_instance);
+		if (_use_attack_ring)
+		{
+			move_towards_world_point(_attack_move_x, _attack_move_y);
+		}
+		else
+		{
+			move_towards_target(target_instance);
+		}
 	}
 }
 else if (!_special_behavior_handled && _is_friendly_unit && instance_exists(_friendly_follow_target))
