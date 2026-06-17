@@ -1,6 +1,6 @@
 {
   "$GMSound":"v2",
-  "%Name":"ambient01",
+  "%Name":"Berserk_OST_Sign_1___Guts",
   "audioGroupId":{
     "name":"audiogroup_default",
     "path":"audiogroups/audiogroup_default",
@@ -10,17 +10,17 @@
   "compression":0,
   "compressionQuality":4,
   "conversionMode":0,
-  "duration":182.66747,
+  "duration":252.096,
   "exportDir":"",
-  "name":"ambient01",
+  "name":"Berserk_OST_Sign_1___Guts",
   "parent":{
-    "name":"Music",
-    "path":"folders/Sounds/Music.yy",
+    "name":"Night",
+    "path":"folders/Sounds/Music/Night.yy",
   },
   "preload":false,
   "resourceType":"GMSound",
   "resourceVersion":"2.0",
   "sampleRate":44100,
-  "soundFile":"ambient01.ogg",
-  "volume":0.77,
+  "soundFile":"Berserk_OST_Sign_1___Guts.mp3",
+  "volume":0.4,
 }

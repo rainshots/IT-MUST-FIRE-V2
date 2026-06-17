@@ -1,6 +1,6 @@
 {
   "$GMSound":"v2",
-  "%Name":"ambient01",
+  "%Name":"BERSERK__Forces____Susumu_Hirasawa",
   "audioGroupId":{
     "name":"audiogroup_default",
     "path":"audiogroups/audiogroup_default",
@@ -10,17 +10,17 @@
   "compression":0,
   "compressionQuality":4,
   "conversionMode":0,
-  "duration":182.66747,
+  "duration":243.96,
   "exportDir":"",
-  "name":"ambient01",
+  "name":"BERSERK__Forces____Susumu_Hirasawa",
   "parent":{
-    "name":"Music",
-    "path":"folders/Sounds/Music.yy",
+    "name":"Night",
+    "path":"folders/Sounds/Music/Night.yy",
   },
   "preload":false,
   "resourceType":"GMSound",
   "resourceVersion":"2.0",
   "sampleRate":44100,
-  "soundFile":"ambient01.ogg",
-  "volume":0.77,
+  "soundFile":"BERSERK__Forces____Susumu_Hirasawa.mp3",
+  "volume":0.4,
 }

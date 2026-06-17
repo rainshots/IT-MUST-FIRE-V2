@@ -615,7 +615,7 @@ if (instance_exists(o_cannon))
 			draw_set_font(global.ui_heading_font);
 		}
 
-		draw_text(_label_x, _label_y, cannon_hp_label);
+		draw_text_transformed(_label_x, _label_y, cannon_hp_label, cannon_hp_label_scale, cannon_hp_label_scale, 0);
 
 		if (variable_global_exists("ui_font") && font_exists(global.ui_font))
 		{

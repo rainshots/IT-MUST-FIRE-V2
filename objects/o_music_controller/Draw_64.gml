@@ -42,23 +42,29 @@ var _debug_y = 120;
 var _line_height = 18;
 var _ambient_playing = audio_is_playing(ambient_sound);
 var _ambient_handle_playing = false;
-var _music_playing = false;
+var _day_music_playing = false;
+var _night_music_playing = false;
 
 if (ambient_handle != noone)
 {
 	_ambient_handle_playing = audio_is_playing(ambient_handle);
 }
 
-if (music_handle != noone)
+if (day_music_handle != noone)
 {
-	_music_playing = audio_is_playing(music_handle);
+	_day_music_playing = audio_is_playing(day_music_handle);
+}
+
+if (night_music_handle != noone)
+{
+	_night_music_playing = audio_is_playing(night_music_handle);
 }
 
 draw_set_halign(fa_left);
 draw_set_valign(fa_top);
 draw_set_alpha(0.82);
 draw_set_color(c_black);
-draw_rectangle(_debug_x - 8, _debug_y - 8, _debug_x + 430, _debug_y + 150, false);
+draw_rectangle(_debug_x - 8, _debug_y - 8, _debug_x + 560, _debug_y + 220, false);
 
 draw_set_alpha(1);
 draw_set_color(c_white);
@@ -67,13 +73,19 @@ draw_text(_debug_x, _debug_y + (_line_height * 1), "ambient sound: " + string(am
 draw_text(_debug_x, _debug_y + (_line_height * 2), "ambient handle: " + string(ambient_handle));
 draw_text(_debug_x, _debug_y + (_line_height * 3), "ambient sound playing: " + string(_ambient_playing));
 draw_text(_debug_x, _debug_y + (_line_height * 4), "ambient handle playing: " + string(_ambient_handle_playing));
-draw_text(_debug_x, _debug_y + (_line_height * 5), "music handle: " + string(music_handle));
-draw_text(_debug_x, _debug_y + (_line_height * 6), "music playing: " + string(_music_playing));
-draw_text(_debug_x, _debug_y + (_line_height * 7), "play attempts: " + string(music_debug_play_attempts));
-draw_text(_debug_x, _debug_y + (_line_height * 8), "music gain: " + string(music_current_gain));
-draw_text(_debug_x, _debug_y + (_line_height * 9), "music target gain: " + string(music_target_gain));
-draw_text(_debug_x, _debug_y + (_line_height * 10), "audio unlocked: " + string(music_audio_unlocked));
-draw_text(_debug_x, _debug_y + (_line_height * 11), "F10 toggles this panel");
+draw_text(_debug_x, _debug_y + (_line_height * 5), "day handle: " + string(day_music_handle));
+draw_text(_debug_x, _debug_y + (_line_height * 6), "day playing: " + string(_day_music_playing));
+draw_text(_debug_x, _debug_y + (_line_height * 7), "day track: " + day_current_music_name);
+draw_text(_debug_x, _debug_y + (_line_height * 8), "day gain: " + string(day_music_current_gain));
+draw_text(_debug_x, _debug_y + (_line_height * 9), "day target gain: " + string(day_music_target_gain));
+draw_text(_debug_x, _debug_y + (_line_height * 10), "night handle: " + string(night_music_handle));
+draw_text(_debug_x, _debug_y + (_line_height * 11), "night playing: " + string(_night_music_playing));
+draw_text(_debug_x, _debug_y + (_line_height * 12), "night track: " + night_current_music_name);
+draw_text(_debug_x, _debug_y + (_line_height * 13), "night gain: " + string(night_music_current_gain));
+draw_text(_debug_x, _debug_y + (_line_height * 14), "night target gain: " + string(night_music_target_gain));
+draw_text(_debug_x, _debug_y + (_line_height * 15), "play attempts: " + string(music_debug_play_attempts));
+draw_text(_debug_x, _debug_y + (_line_height * 16), "audio unlocked: " + string(music_audio_unlocked));
+draw_text(_debug_x, _debug_y + (_line_height * 17), "F10 toggles this panel");
 
 draw_set_halign(fa_left);
 draw_set_valign(fa_top);

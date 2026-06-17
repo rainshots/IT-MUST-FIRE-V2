@@ -1,6 +1,6 @@
 {
   "$GMSound":"v2",
-  "%Name":"ambient01",
+  "%Name":"Alpha_Omega___Monasterium_Imperium",
   "audioGroupId":{
     "name":"audiogroup_default",
     "path":"audiogroups/audiogroup_default",
@@ -10,17 +10,17 @@
   "compression":0,
   "compressionQuality":4,
   "conversionMode":0,
-  "duration":182.66747,
+  "duration":234.24,
   "exportDir":"",
-  "name":"ambient01",
+  "name":"Alpha_Omega___Monasterium_Imperium",
   "parent":{
-    "name":"Music",
-    "path":"folders/Sounds/Music.yy",
+    "name":"Night",
+    "path":"folders/Sounds/Music/Night.yy",
   },
   "preload":false,
   "resourceType":"GMSound",
   "resourceVersion":"2.0",
   "sampleRate":44100,
-  "soundFile":"ambient01.ogg",
-  "volume":0.77,
+  "soundFile":"Alpha_Omega___Monasterium_Imperium.mp3",
+  "volume":0.4,
 }

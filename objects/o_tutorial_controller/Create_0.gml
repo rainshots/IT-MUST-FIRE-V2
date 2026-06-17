@@ -30,7 +30,7 @@ tutorial_items = [
 	{
 		id: "welcome",
 		title: "Welcome",
-		body: "Greetings, Great Pontiff! This is the prototype of IT MUST FIRE. You lead a cult that worships a colossal cannon with a demon sealed inside.\n\nYour goal: taint 2 shrines while keeping your settlement walls from falling."
+		body: "Greetings, Great Pontiff! This is the prototype of IT MUST FIRE. You lead a cult that worships a possessed cannon with a demon sealed inside.\n\nYour goal: taint 1 shrine while keeping your settlement walls from falling."
 	},
 	{
 		id: "construction_start",

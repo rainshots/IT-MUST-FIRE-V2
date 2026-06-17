@@ -10,12 +10,13 @@ resource_icon_text_gap = 12;
 resource_text_padding = 20;
 
 // Cannon HP follows the wide bottom-bar concept from the HUD design.
-cannon_hp_bar_width_share = 0.6375;
-cannon_hp_fill_height_share = 0.0472;
-cannon_hp_background_height_share = 0.0241;
+cannon_hp_bar_width_share = 0.31875;
+cannon_hp_fill_height_share = 0.0236;
+cannon_hp_background_height_share = 0.01205;
 cannon_hp_bottom_margin_share = 0.0185;
-cannon_hp_background_offset_share = 0.012;
+cannon_hp_background_offset_share = 0.006;
 cannon_hp_label = "CANNON HP";
+cannon_hp_label_scale = 0.5;
 
 // Day cycle and shrine objective display in the top-right corner.
 day_phase_item_width = 260;

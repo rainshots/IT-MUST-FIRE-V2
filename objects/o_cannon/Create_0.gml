@@ -74,6 +74,13 @@ volley_launch_delay_min = BALANCE_CANNON_VOLLEY_LAUNCH_DELAY_MIN;
 volley_launch_delay_max = BALANCE_CANNON_VOLLEY_LAUNCH_DELAY_MAX;
 projectile_spawn_offset_y = -20;
 projectile_layer_name = "Instances";
+agony_radial_bomb_count = BALANCE_CANNON_AGONY_RADIAL_BOMB_COUNT;
+agony_radial_bomb_radius = BALANCE_CANNON_AGONY_RADIAL_BOMB_RADIUS;
+agony_radial_bomb_jitter = BALANCE_CANNON_AGONY_RADIAL_BOMB_JITTER;
+agony_enemy_bomb_count = BALANCE_CANNON_AGONY_ENEMY_BOMB_COUNT;
+agony_enemy_skeleton_count = BALANCE_CANNON_AGONY_ENEMY_SKELETON_COUNT;
+agony_enemy_target_jitter = BALANCE_CANNON_AGONY_ENEMY_TARGET_JITTER;
+agony_launch_time = BALANCE_CANNON_AGONY_LAUNCH_TIME;
 
 // Cannon starts with corrupted ground around it.
 starting_corruption_radius_in_cells = BALANCE_CANNON_STARTING_CORRUPTION_RADIUS_IN_CELLS;
@@ -95,6 +102,126 @@ cannon_agony_sound_play = function()
 	if (variable_global_exists("cannon_agony_sounds") && variable_global_exists("sound_play_random"))
 	{
 		global.sound_play_random(global.cannon_agony_sounds);
+	}
+};
+
+cannon_agony_projectile_create = function(_target_x, _target_y, _projectile_type, _launch_delay_seconds)
+{
+	var _projectile_x = x;
+	var _projectile_y = y + projectile_spawn_offset_y;
+	var _projectile = instance_create_layer(_projectile_x, _projectile_y, projectile_layer_name, o_projectile);
+	var _projectile_distance = point_distance(_projectile_x, _projectile_y, _target_x, _target_y);
+	var _flight_time_seconds = clamp(
+		_projectile_distance / _projectile.projectile_speed,
+		_projectile.minimum_flight_time,
+		_projectile.maximum_flight_time
+	);
+
+	_projectile.start_x = _projectile_x;
+	_projectile.start_y = _projectile_y;
+	_projectile.target_x = _target_x;
+	_projectile.target_y = _target_y;
+	_projectile.projectile_type = _projectile_type;
+	_projectile.ignore_pause = global.pause;
+	_projectile.launch_delay_timer = _launch_delay_seconds * room_speed;
+	_projectile.flight_time = _flight_time_seconds * room_speed;
+
+	if (_projectile_type == PROJECTILE_TYPE.BOMB)
+	{
+		_projectile.effect_radius = BALANCE_PROJECTILE_BOMB_RADIUS;
+		_projectile.damage_amount = BALANCE_PROJECTILE_BOMB_DAMAGE_AMOUNT;
+	}
+	else if (_projectile_type == PROJECTILE_TYPE.SKELETONS)
+	{
+		_projectile.effect_radius = BALANCE_PROJECTILE_SKELETON_RADIUS;
+	}
+
+	return _projectile;
+};
+
+cannon_alive_enemy_targets_get = function()
+{
+	var _targets = [];
+	var _enemy_count = instance_number(o_enemy_units);
+
+	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	{
+		var _enemy = instance_find(o_enemy_units, _enemy_index);
+
+		if (!instance_exists(_enemy)
+			|| (variable_instance_exists(_enemy, "hp") && _enemy.hp <= 0))
+		{
+			continue;
+		}
+
+		array_push(_targets, _enemy);
+	}
+
+	return _targets;
+};
+
+cannon_agony_radial_bomb_volley_fire = function()
+{
+	var _angle_offset = random(360);
+	var _safe_count = max(1, agony_radial_bomb_count);
+
+	for (var _bomb_index = 0; _bomb_index < agony_radial_bomb_count; ++_bomb_index)
+	{
+		var _direction = _angle_offset + (360 * (_bomb_index / _safe_count));
+		var _distance_offset = random_range(-agony_radial_bomb_jitter, agony_radial_bomb_jitter);
+		var _distance = max(0, agony_radial_bomb_radius + _distance_offset);
+		var _target_x = x + lengthdir_x(_distance, _direction);
+		var _target_y = y + lengthdir_y(_distance, _direction);
+		var _launch_delay_seconds = random(agony_launch_time);
+
+		cannon_agony_projectile_create(_target_x, _target_y, PROJECTILE_TYPE.BOMB, _launch_delay_seconds);
+	}
+};
+
+cannon_agony_enemy_volley_fire = function(_projectile_type, _projectile_count)
+{
+	var _enemy_targets = cannon_alive_enemy_targets_get();
+	var _enemy_count = array_length(_enemy_targets);
+
+	if (_enemy_count <= 0)
+	{
+		return;
+	}
+
+	for (var _projectile_index = 0; _projectile_index < _projectile_count; ++_projectile_index)
+	{
+		var _enemy = _enemy_targets[_projectile_index mod _enemy_count];
+
+		if (!instance_exists(_enemy))
+		{
+			continue;
+		}
+
+		var _target_direction = random(360);
+		var _target_distance = sqrt(random(1)) * agony_enemy_target_jitter;
+		var _target_x = _enemy.x + lengthdir_x(_target_distance, _target_direction);
+		var _target_y = _enemy.y + lengthdir_y(_target_distance, _target_direction);
+		var _launch_delay_seconds = random(agony_launch_time);
+
+		cannon_agony_projectile_create(_target_x, _target_y, _projectile_type, _launch_delay_seconds);
+	}
+};
+
+cannon_agony_projectile_volley_fire = function()
+{
+	if (agony_radial_bomb_count > 0)
+	{
+		cannon_agony_radial_bomb_volley_fire();
+	}
+
+	if (agony_enemy_bomb_count > 0)
+	{
+		cannon_agony_enemy_volley_fire(PROJECTILE_TYPE.BOMB, agony_enemy_bomb_count);
+	}
+
+	if (agony_enemy_skeleton_count > 0)
+	{
+		cannon_agony_enemy_volley_fire(PROJECTILE_TYPE.SKELETONS, agony_enemy_skeleton_count);
 	}
 };
 
@@ -126,6 +253,7 @@ cannon_night_damage_agony_update = function()
 	for (var _threshold_index = _previous_threshold_index + 1; _threshold_index <= _current_threshold_index; ++_threshold_index)
 	{
 		cannon_agony_sound_play();
+		cannon_agony_projectile_volley_fire();
 	}
 
 	night_damage_agony_threshold_index = _current_threshold_index;

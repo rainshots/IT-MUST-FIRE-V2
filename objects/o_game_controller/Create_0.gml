@@ -5206,6 +5206,7 @@ night_attack_plan_create = function()
 				wave_index: 0,
 				wave_timer: 0,
 				spawn_timer: 0,
+				spawn_limit_wait_timer: 0,
 				current_wave_units: [],
 				current_wave_spawn_index: 0
 			}
@@ -5237,6 +5238,7 @@ night_attack_direction_wave_start = function(_direction_index)
 	);
 	_direction_data.current_wave_spawn_index = 0;
 	_direction_data.spawn_timer = 0;
+	_direction_data.spawn_limit_wait_timer = 0;
 	night_attack_directions[_direction_index] = _direction_data;
 };
 
@@ -5336,16 +5338,33 @@ night_attack_spawning_update = function()
 
 		var _wave_unit_count = array_length(_direction_data.current_wave_units);
 		var _alive_enemy_count = night_attack_direction_alive_enemy_count_get(_direction_index);
-		var _spawn_slot_count = max(0, BALANCE_NIGHT_ATTACK_DIRECTION_ALIVE_ENEMY_LIMIT - _alive_enemy_count);
+		var _soft_limit = BALANCE_NIGHT_ATTACK_DIRECTION_ALIVE_ENEMY_LIMIT;
+		var _hard_limit = max(_soft_limit, BALANCE_NIGHT_ATTACK_DIRECTION_HARD_ALIVE_ENEMY_LIMIT);
+		var _spawn_slot_count = max(0, _soft_limit - _alive_enemy_count);
+		var _spawn_limit_check_time = BALANCE_NIGHT_ATTACK_UNIT_SPAWN_INTERVAL * room_speed;
+		var _max_limit_wait_time = BALANCE_NIGHT_ATTACK_MAX_LIMIT_WAIT_TIME * room_speed;
+		var _limit_wait_is_over = _direction_data.spawn_limit_wait_timer >= _max_limit_wait_time;
+		var _batch_spawn_count = 0;
 
-		if (_spawn_slot_count <= 0)
+		if (_alive_enemy_count < _soft_limit)
 		{
+			_direction_data.spawn_limit_wait_timer = 0;
+			_batch_spawn_count = min(BALANCE_NIGHT_ATTACK_SPAWN_BATCH_COUNT, _spawn_slot_count);
+		}
+		else if (_alive_enemy_count < _hard_limit || _limit_wait_is_over)
+		{
+			_direction_data.spawn_limit_wait_timer = 0;
+			_batch_spawn_count = BALANCE_NIGHT_ATTACK_SOFT_LIMIT_BATCH_COUNT;
+		}
+		else
+		{
+			_direction_data.spawn_limit_wait_timer += _spawn_limit_check_time;
 			_direction_data.spawn_timer = BALANCE_NIGHT_ATTACK_UNIT_SPAWN_INTERVAL * room_speed;
 			night_attack_directions[_direction_index] = _direction_data;
 			continue;
 		}
 
-		var _batch_spawn_count = min(BALANCE_NIGHT_ATTACK_SPAWN_BATCH_COUNT, _spawn_slot_count);
+		_batch_spawn_count = max(0, _batch_spawn_count);
 
 		for (var _batch_index = 0; _batch_index < _batch_spawn_count; ++_batch_index)
 		{

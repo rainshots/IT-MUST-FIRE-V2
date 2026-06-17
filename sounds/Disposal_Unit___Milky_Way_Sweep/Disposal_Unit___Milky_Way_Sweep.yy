@@ -1,6 +1,6 @@
 {
   "$GMSound":"v2",
-  "%Name":"ambient01",
+  "%Name":"Disposal_Unit___Milky_Way_Sweep",
   "audioGroupId":{
     "name":"audiogroup_default",
     "path":"audiogroups/audiogroup_default",
@@ -10,17 +10,17 @@
   "compression":0,
   "compressionQuality":4,
   "conversionMode":0,
-  "duration":182.66747,
+  "duration":124.17599,
   "exportDir":"",
-  "name":"ambient01",
+  "name":"Disposal_Unit___Milky_Way_Sweep",
   "parent":{
-    "name":"Music",
-    "path":"folders/Sounds/Music.yy",
+    "name":"Night",
+    "path":"folders/Sounds/Music/Night.yy",
   },
   "preload":false,
   "resourceType":"GMSound",
   "resourceVersion":"2.0",
   "sampleRate":44100,
-  "soundFile":"ambient01.ogg",
-  "volume":0.77,
+  "soundFile":"Disposal_Unit___Milky_Way_Sweep.mp3",
+  "volume":0.4,
 }
