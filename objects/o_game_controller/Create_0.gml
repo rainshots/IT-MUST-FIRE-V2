@@ -16,6 +16,7 @@ global.day_cycle_enabled = true;
 global.legacy_building_logic_enabled = false;
 global.cultists = array_create(0);
 global.shrine_objective_complete = false;
+global.first_night_cultist_projectile_fired = false;
 global.tutorial_popup_active = false;
 global.tutorial_welcome_closed = false;
 global.cursed_point_structure_selection_source = noone;

@@ -213,6 +213,7 @@
     {"id":{"name":"s_building_slot_empty","path":"sprites/s_building_slot_empty/s_building_slot_empty.yy",},},
     {"id":{"name":"s_building_slot","path":"sprites/s_building_slot/s_building_slot.yy",},},
     {"id":{"name":"s_cannon_awake","path":"sprites/s_cannon_awake/s_cannon_awake.yy",},},
+    {"id":{"name":"s_cannon_icon","path":"sprites/s_cannon_icon/s_cannon_icon.yy",},},
     {"id":{"name":"s_cannon_sleep","path":"sprites/s_cannon_sleep/s_cannon_sleep.yy",},},
     {"id":{"name":"s_cannon","path":"sprites/s_cannon/s_cannon.yy",},},
     {"id":{"name":"s_cell","path":"sprites/s_cell/s_cell.yy",},},

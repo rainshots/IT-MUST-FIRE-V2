@@ -1,4 +1,4 @@
-// Draw current music track label in the bottom-right corner.
+// Draw current music track label in the bottom-left corner.
 var _track_name = "none";
 
 if (current_music_name != "")
@@ -14,10 +14,10 @@ var _track_width = string_width(_track_text) + (_track_padding_x * 2);
 var _track_height = string_height(_track_text) + (_track_padding_y * 2);
 var _gui_width = display_get_gui_width();
 var _gui_height = display_get_gui_height();
-var _track_x = _gui_width - _track_margin - _track_width;
+var _track_x = _track_margin;
 var _track_y = _gui_height - _track_margin - _track_height;
 
-draw_set_halign(fa_left);
+draw_set_halign(fa_right);
 draw_set_valign(fa_top);
 draw_set_alpha(0.72);
 draw_set_color(c_black);
@@ -25,7 +25,7 @@ draw_rectangle(_track_x, _track_y, _track_x + _track_width, _track_y + _track_he
 
 draw_set_alpha(1);
 draw_set_color(c_white);
-draw_text(_track_x + _track_padding_x, _track_y + _track_padding_y, _track_text);
+draw_text(_track_x + _track_width - _track_padding_x, _track_y + _track_padding_y, _track_text);
 
 // Temporary audio diagnostics while music playback is being verified.
 if (!music_debug_visible)

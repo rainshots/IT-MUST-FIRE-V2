@@ -109,6 +109,7 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 
 			if (target_projectile_type == PROJECTILE_TYPE.CULTIST)
 			{
+				global.first_night_cultist_projectile_fired = true;
 				_projectile.effect_radius = BALANCE_CULTIST_PROJECTILE_EFFECT_RADIUS;
 				_projectile.damage_amount = BALANCE_CULTIST_PROJECTILE_DAMAGE_AMOUNT;
 				_projectile.ground_corruption_amount = BALANCE_CULTIST_PROJECTILE_CORRUPTION_AMOUNT;

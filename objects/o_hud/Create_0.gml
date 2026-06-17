@@ -1,6 +1,7 @@
 // HUD layout in GUI coordinates.
 hud_margin_x = 18;
 hud_margin_y = 16;
+hud_sidebar_width = 431;
 resource_item_width = 150;
 resource_item_height = 34;
 resource_item_gap = 10;
@@ -8,6 +9,11 @@ resource_icon_radius = 8;
 resource_icon_size = 22;
 resource_icon_text_gap = 12;
 resource_text_padding = 20;
+resource_sidebar_y = 48;
+resource_sidebar_icon_size = 30;
+resource_sidebar_first_icon_offset_x = 49;
+resource_sidebar_item_gap = 128;
+resource_sidebar_value_offset_x = 50;
 
 // Cannon HP follows the wide bottom-bar concept from the HUD design.
 cannon_hp_bar_width_share = 0.31875;
@@ -18,14 +24,20 @@ cannon_hp_background_offset_share = 0.006;
 cannon_hp_label = "CANNON HP";
 cannon_hp_label_scale = 0.5;
 
+// First night prompt nudges the player to select the starting cultist projectile.
+first_night_cultist_prompt_text = "PRESS 1";
+first_night_cultist_aim_prompt_text = "AIM AND PRESS LMB";
+first_night_cultist_prompt_scale = 3;
+first_night_cultist_prompt_shadow_offset = 4;
+
 // Day cycle and shrine objective display in the top-right corner.
-day_phase_item_width = 260;
-day_phase_item_height = 102;
-day_phase_margin_right = 18;
-day_phase_text_padding = 14;
-day_phase_bar_height = 8;
-day_phase_bar_margin_x = 14;
-day_phase_bar_margin_bottom = 12;
+day_phase_text_offset_x = 85;
+day_phase_text_y = 83;
+day_phase_bar_offset_x = 47;
+day_phase_bar_y = 120;
+day_phase_bar_width = 336;
+day_phase_bar_height = 35;
+day_phase_objective_y = 1027;
 shrine_icon_size = 30;
 shrine_icon_gap = 8;
 shrine_icon_y_offset = 55;
@@ -33,9 +45,10 @@ shrine_icon_y_offset = 55;
 // Compact cultist status cards shown when no focus window is open.
 cultist_status_card_width = 334;
 cultist_status_card_height = 152;
-cultist_status_card_margin_right = 18;
-cultist_status_card_y = 132;
+cultist_status_card_margin_right = 48;
+cultist_status_card_y = 126;
 cultist_status_card_gap = 18;
+cultist_status_card_slot_count = 3;
 cultist_status_card_padding_x = 24;
 cultist_status_card_portrait_width = 64;
 cultist_status_card_portrait_height = 90;
@@ -56,6 +69,20 @@ cultist_status_card_hp_color = COLOR_HUD_CULTIST_STATUS_HP;
 cultist_status_card_exp_color = COLOR_HUD_CULTIST_STATUS_EXP;
 cultist_status_card_fatigue_color = COLOR_HUD_CULTIST_STATUS_FATIGUE;
 cultist_status_card_label_color = COLOR_HUD_TEXT;
+
+// Minimap mirrors the current battle around the cannon in the right HUD sidebar.
+minimap_size = 334;
+minimap_margin_right = 48;
+minimap_y = 683;
+minimap_world_radius = 5600;
+minimap_base_size = 74;
+minimap_enemy_size = 11;
+minimap_cultist_width = 24;
+minimap_cultist_height = 36;
+minimap_cultist_bar_width = 19;
+minimap_cultist_bar_height = 7;
+minimap_cultist_bar_gap = 2;
+minimap_view_alpha = 0.2;
 
 // Cannon satiety is filled by hauling corpses to the cannon.
 cannon_satiety_width = 368;

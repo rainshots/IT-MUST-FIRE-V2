@@ -1,4 +1,4 @@
-// Draw global resources in the top-left HUD.
+// Draw global resources in the right HUD sidebar.
 if (!variable_global_exists("resources"))
 {
 	exit;
@@ -18,7 +18,18 @@ if (!_regular_hud_is_visible && !_projectile_queue_stays_visible)
 
 if (_regular_hud_is_visible)
 {
-	draw_set_halign(fa_left);
+	var _sidebar_gui_width = display_get_gui_width();
+	var _sidebar_gui_height = display_get_gui_height();
+	var _sidebar_scale = clamp(_sidebar_gui_height / 1080, 0.6, 1);
+	var _sidebar_width = hud_sidebar_width * _sidebar_scale;
+	var _sidebar_x = _sidebar_gui_width - _sidebar_width;
+
+	// Draw the right-side HUD panel from the concept layout.
+	draw_set_alpha(1);
+	draw_set_color(COLOR_HUD_SIDEBAR);
+	draw_rectangle(_sidebar_x, 0, _sidebar_gui_width, _sidebar_gui_height, false);
+
+	draw_set_halign(fa_center);
 	draw_set_valign(fa_middle);
 
 	var _resource_count = array_length(resource_order);
@@ -26,207 +37,109 @@ if (_regular_hud_is_visible)
 	for (var _resource_index = 0; _resource_index < _resource_count; ++_resource_index)
 	{
 		var _resource = resource_order[_resource_index];
-		var _draw_x = hud_margin_x + ((resource_item_width + resource_item_gap) * _resource_index);
-		var _draw_y = hud_margin_y;
 		var _value = global.resources[_resource];
-		var _icon_x = _draw_x + resource_text_padding;
-		var _icon_y = _draw_y + (resource_item_height * 0.5);
+		var _icon_x = _sidebar_x + ((resource_sidebar_first_icon_offset_x + (resource_sidebar_item_gap * _resource_index)) * _sidebar_scale);
+		var _icon_y = resource_sidebar_y * _sidebar_scale;
 		var _icon_sprite = resource_icon_sprites[_resource];
-		var _text_x = _icon_x + (resource_icon_size * 0.5) + resource_icon_text_gap;
+		var _icon_size = resource_sidebar_icon_size * _sidebar_scale;
+		var _text_x = _icon_x + (resource_sidebar_value_offset_x * _sidebar_scale);
 		var _text_y = _icon_y;
-
-		// Draw resource panel background.
-		draw_set_alpha(0.72);
-		draw_set_color(COLOR_HUD_BACKGROUND);
-		draw_rectangle(_draw_x, _draw_y, _draw_x + resource_item_width, _draw_y + resource_item_height, false);
 
 		// Draw resource icon, falling back to a color dot if the sprite is unavailable.
 		draw_set_alpha(1);
 		if (sprite_exists(_icon_sprite))
 		{
-			var _icon_left = _icon_x - (resource_icon_size * 0.5);
-			var _icon_top = _icon_y - (resource_icon_size * 0.5);
+			var _icon_left = _icon_x - (_icon_size * 0.5);
+			var _icon_top = _icon_y - (_icon_size * 0.5);
 
-			draw_sprite_stretched_ext(_icon_sprite, 0, _icon_left, _icon_top, resource_icon_size, resource_icon_size, c_white, 1);
+			draw_sprite_stretched_ext(_icon_sprite, 0, _icon_left, _icon_top, _icon_size, _icon_size, c_white, 1);
 		}
 		else
 		{
 			draw_set_color(resource_colors[_resource]);
-			draw_circle(_icon_x, _icon_y, resource_icon_radius, false);
+			draw_circle(_icon_x, _icon_y, resource_icon_radius * _sidebar_scale, false);
 		}
 
 		draw_set_color(COLOR_HUD_TEXT);
 		draw_text(_text_x, _text_y, string(_value));
 	}
 
-// Draw derived ground corruption after regular resources.
-var _corruption_index = _resource_count;
-var _corruption_x = hud_margin_x + ((resource_item_width + resource_item_gap) * _corruption_index);
-var _corruption_y = hud_margin_y;
-var _corruption_value = string_format(corruption_display_value, 0, corruption_display_decimals);
-var _corruption_label = corruption_display_name + ": " + _corruption_value;
-var _corruption_icon_x = _corruption_x + resource_text_padding;
-var _corruption_icon_y = _corruption_y + (resource_item_height * 0.5);
-var _corruption_text_x = _corruption_x + (resource_text_padding * 1.8);
-var _corruption_text_y = _corruption_icon_y;
-
-draw_set_alpha(0.72);
-draw_set_color(COLOR_HUD_BACKGROUND);
-draw_rectangle(_corruption_x, _corruption_y, _corruption_x + resource_item_width, _corruption_y + resource_item_height, false);
-
-draw_set_alpha(1);
-draw_set_color(corruption_display_color);
-draw_circle(_corruption_icon_x, _corruption_icon_y, resource_icon_radius, false);
-
-draw_set_color(COLOR_HUD_TEXT);
-draw_text(_corruption_text_x, _corruption_text_y, _corruption_label);
-
-// Draw day phase in the top-right HUD.
-if (variable_global_exists("day_phase"))
-{
-	var _gui_width = display_get_gui_width();
-	var _phase_x = _gui_width - day_phase_margin_right - day_phase_item_width;
-	var _phase_y = hud_margin_y;
-	var _current_day = 1;
-	var _day_progress = 0;
-	var _shrine_corrupted_count = 0;
-	var _shrine_required = BALANCE_SHRINE_OBJECTIVE_REQUIRED;
-	var _shrine_total = BALANCE_SHRINE_OBJECTIVE_TOTAL;
-	var _shrine_instances = noone;
-	var _shrine_instance_count = 0;
-
-	if (instance_exists(o_game_controller))
+	// Draw day phase and shrine objective inside the right HUD sidebar.
+	if (variable_global_exists("day_phase"))
 	{
-		var _game_controller = instance_find(o_game_controller, 0);
+		var _current_day = 1;
+		var _day_progress = 0;
+		var _shrine_required = BALANCE_SHRINE_OBJECTIVE_REQUIRED;
 
-		if (variable_instance_exists(_game_controller, "night_attack_night_index"))
+		if (instance_exists(o_game_controller))
 		{
-			_current_day = max(1, _game_controller.night_attack_night_index);
+			var _game_controller = instance_find(o_game_controller, 0);
+
+			if (variable_instance_exists(_game_controller, "night_attack_night_index"))
+			{
+				_current_day = max(1, _game_controller.night_attack_night_index);
+			}
+
+			if (variable_instance_exists(_game_controller, "shrine_objective_required"))
+			{
+				_shrine_required = _game_controller.shrine_objective_required;
+			}
 		}
 
-		if (variable_instance_exists(_game_controller, "shrine_objective_required"))
+		if (variable_global_exists("day_cycle_enabled") && global.day_cycle_enabled)
 		{
-			_shrine_required = _game_controller.shrine_objective_required;
+			if (global.day_phase == DAY_PHASE.DAY)
+			{
+				var _day_duration_frames = max(1, global.day_duration * room_speed);
+
+				_day_progress = 1 - clamp(global.day_timer / _day_duration_frames, 0, 1);
+			}
+			else
+			{
+				_day_progress = 1;
+			}
 		}
 
-		if (variable_instance_exists(_game_controller, "shrine_objective_total"))
+		var _day_text_x = _sidebar_x + (day_phase_text_offset_x * _sidebar_scale);
+		var _day_text_y = day_phase_text_y * _sidebar_scale;
+		var _day_bar_x = _sidebar_x + (day_phase_bar_offset_x * _sidebar_scale);
+		var _day_bar_y = day_phase_bar_y * _sidebar_scale;
+		var _day_bar_width = day_phase_bar_width * _sidebar_scale;
+		var _day_bar_height = day_phase_bar_height * _sidebar_scale;
+		var _objective_text_x = _sidebar_x + (_sidebar_width * 0.5);
+		var _objective_text_y = day_phase_objective_y * _sidebar_scale;
+
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_top);
+		draw_set_alpha(1);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text(_day_text_x, _day_text_y, "DAY " + string(_current_day));
+
+		var _objective_label = "TAINT AT LEAST " + string(_shrine_required) + " SHRINE";
+
+		if (_shrine_required != 1)
 		{
-			_shrine_total = _game_controller.shrine_objective_total;
+			_objective_label = "TAINT AT LEAST " + string(_shrine_required) + " SHRINES";
 		}
 
-		if (variable_instance_exists(_game_controller, "shrine_instances"))
-		{
-			_shrine_instances = _game_controller.shrine_instances;
-			_shrine_instance_count = array_length(_shrine_instances);
-		}
-
-		if (variable_instance_exists(_game_controller, "shrine_corrupted_count_get"))
-		{
-			_shrine_corrupted_count = _game_controller.shrine_corrupted_count_get();
-		}
-	}
-
-	if (variable_global_exists("day_cycle_enabled") && global.day_cycle_enabled)
-	{
-		if (global.day_phase == DAY_PHASE.DAY)
-		{
-			var _day_duration_frames = max(1, global.day_duration * room_speed);
-
-			_day_progress = 1 - clamp(global.day_timer / _day_duration_frames, 0, 1);
-		}
-		else
-		{
-			_day_progress = 1;
-		}
-	}
-
-	draw_set_halign(fa_left);
-	draw_set_valign(fa_top);
-	draw_set_alpha(0.72);
-	draw_set_color(COLOR_HUD_BACKGROUND);
-	draw_rectangle(_phase_x, _phase_y, _phase_x + day_phase_item_width, _phase_y + day_phase_item_height, false);
-
-	draw_set_alpha(1);
-	draw_set_color(COLOR_HUD_TEXT);
-	draw_text(_phase_x + day_phase_text_padding, _phase_y + 10, "DAY " + string(_current_day));
-
-	var _shrine_goal_progress = min(_shrine_corrupted_count, _shrine_required);
-
-	draw_text(
-		_phase_x + day_phase_text_padding,
-		_phase_y + 32,
-		"INFECT " + string(_shrine_goal_progress) + "/" + string(_shrine_required) + " SHRINES"
-	);
-
-	var _shrine_normal_sprite = s_shrine_normal;
-	var _shrine_cursed_sprite = s_shrine_cursed;
-	var _shrine_icon_start_x = _phase_x + day_phase_text_padding;
-	var _shrine_icon_y = _phase_y + shrine_icon_y_offset;
-
-	for (var _shrine_icon_index = 0; _shrine_icon_index < _shrine_total; ++_shrine_icon_index)
-	{
-		var _shrine_icon_x = _shrine_icon_start_x + ((shrine_icon_size + shrine_icon_gap) * _shrine_icon_index);
-		var _shrine_icon_sprite = _shrine_normal_sprite;
-		var _shrine_is_corrupted = _shrine_icon_index < _shrine_corrupted_count;
-
-		if (_shrine_icon_index < _shrine_instance_count)
-		{
-			var _shrine_instance = _shrine_instances[_shrine_icon_index];
-
-			_shrine_is_corrupted = instance_exists(_shrine_instance)
-				&& variable_instance_exists(_shrine_instance, "is_corrupted")
-				&& _shrine_instance.is_corrupted;
-		}
-
-		if (_shrine_is_corrupted)
-		{
-			_shrine_icon_sprite = _shrine_cursed_sprite;
-		}
-
-		draw_set_alpha(0.35);
+		draw_set_alpha(0.8);
 		draw_set_color(c_black);
-		draw_rectangle(
-			_shrine_icon_x - 2,
-			_shrine_icon_y - 2,
-			_shrine_icon_x + shrine_icon_size + 2,
-			_shrine_icon_y + shrine_icon_size + 2,
-			false
-		);
+		draw_rectangle(_day_bar_x, _day_bar_y, _day_bar_x + _day_bar_width, _day_bar_y + _day_bar_height, false);
 
 		draw_set_alpha(1);
-		draw_sprite_stretched_ext(
-			_shrine_icon_sprite,
-			0,
-			_shrine_icon_x,
-			_shrine_icon_y,
-			shrine_icon_size,
-			shrine_icon_size,
-			c_white,
-			1
-		);
+		draw_set_color(COLOR_HUD_DAY_PROGRESS);
+		draw_rectangle(_day_bar_x, _day_bar_y, _day_bar_x + (_day_bar_width * _day_progress), _day_bar_y + _day_bar_height, false);
+
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text(_objective_text_x, _objective_text_y, _objective_label);
 	}
 
-	var _bar_x = _phase_x + day_phase_bar_margin_x;
-	var _bar_y = _phase_y + day_phase_item_height - day_phase_bar_margin_bottom - day_phase_bar_height;
-	var _bar_width = day_phase_item_width - (day_phase_bar_margin_x * 2);
-
-	draw_set_alpha(0.55);
-	draw_set_color(c_black);
-	draw_rectangle(_bar_x, _bar_y, _bar_x + _bar_width, _bar_y + day_phase_bar_height, false);
-
-	draw_set_alpha(1);
-	draw_set_color(COLOR_HUD_DAY_PROGRESS);
-	draw_rectangle(_bar_x, _bar_y, _bar_x + (_bar_width * _day_progress), _bar_y + day_phase_bar_height, false);
-	draw_set_color(COLOR_HUD_TEXT);
-	draw_rectangle(_bar_x, _bar_y, _bar_x + _bar_width, _bar_y + day_phase_bar_height, true);
-}
-
-// Draw compact cultist status cards while gameplay is unobstructed.
-if (variable_global_exists("cultists")
-	&& variable_global_exists("focus_window")
-	&& global.focus_window == FOCUS_WINDOW.NOONE
-	&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active))
-{
+	// Draw compact cultist status cards while gameplay is unobstructed.
+	if (variable_global_exists("cultists")
+		&& variable_global_exists("focus_window")
+		&& global.focus_window == FOCUS_WINDOW.NOONE
+		&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active))
+	{
 	var _cultist_card_gui_width = display_get_gui_width();
 	var _cultist_card_gui_height = display_get_gui_height();
 	var _cultist_card_scale = clamp(_cultist_card_gui_height / 1080, 0.6, 1);
@@ -246,21 +159,21 @@ if (variable_global_exists("cultists")
 	var _cultist_card_bar_height = cultist_status_card_bar_height * _cultist_card_scale;
 	var _cultist_card_bar_gap = cultist_status_card_bar_gap * _cultist_card_scale;
 	var _cultist_card_label_gap = cultist_status_card_label_gap * _cultist_card_scale;
-	var _cultist_card_x = _cultist_card_gui_width - cultist_status_card_margin_right - _cultist_card_width;
+	var _cultist_card_x = _sidebar_x + ((_sidebar_width - _cultist_card_width) * 0.5);
 	var _cultist_card_count = array_length(global.cultists);
-	var _cultist_card_draw_index = 0;
+	var _cultist_card_slot_count = cultist_status_card_slot_count;
 
-	for (var _cultist_card_index = 0; _cultist_card_index < _cultist_card_count; ++_cultist_card_index)
+	for (var _cultist_card_index = 0; _cultist_card_index < _cultist_card_slot_count; ++_cultist_card_index)
 	{
-		var _cultist = global.cultists[_cultist_card_index];
+		var _cultist = noone;
 
-		if (!instance_exists(_cultist))
+		if (_cultist_card_index < _cultist_card_count)
 		{
-			continue;
+			_cultist = global.cultists[_cultist_card_index];
 		}
 
 		var _cultist_card_y = cultist_status_card_y
-			+ ((_cultist_card_height + _cultist_card_gap) * _cultist_card_draw_index);
+			+ ((_cultist_card_height + _cultist_card_gap) * _cultist_card_index);
 
 		if (_cultist_card_y + _cultist_card_height > _cultist_card_gui_height - hud_margin_y)
 		{
@@ -278,6 +191,11 @@ if (variable_global_exists("cultists")
 			_cultist_card_y + _cultist_card_height,
 			false
 		);
+
+		if (!instance_exists(_cultist))
+		{
+			continue;
+		}
 
 		var _portrait_sprite = _cultist.sprite_index;
 
@@ -407,8 +325,186 @@ if (variable_global_exists("cultists")
 				_bar_labels[_bar_index]
 			);
 		}
+	}
+}
 
-		_cultist_card_draw_index++;
+// Draw minimap in the lower part of the right HUD sidebar.
+if (instance_exists(o_cannon))
+{
+	var _minimap_gui_width = display_get_gui_width();
+	var _minimap_gui_height = display_get_gui_height();
+	var _minimap_scale = clamp(_minimap_gui_height / 1080, 0.6, 1);
+	var _minimap_sidebar_width = hud_sidebar_width * _minimap_scale;
+	var _minimap_sidebar_x = _minimap_gui_width - _minimap_sidebar_width;
+	var _minimap_size = minimap_size * _minimap_scale;
+	var _minimap_x = _minimap_sidebar_x + ((_minimap_sidebar_width - _minimap_size) * 0.5);
+	var _minimap_y = minimap_y * _minimap_scale;
+	var _minimap_right = _minimap_x + _minimap_size;
+	var _minimap_bottom = _minimap_y + _minimap_size;
+	var _minimap_center_x = _minimap_x + (_minimap_size * 0.5);
+	var _minimap_center_y = _minimap_y + (_minimap_size * 0.5);
+	var _minimap_cannon = instance_find(o_cannon, 0);
+	var _world_center_x = _minimap_cannon.x;
+	var _world_center_y = _minimap_cannon.y;
+	var _world_to_minimap_scale = (_minimap_size * 0.5) / max(1, minimap_world_radius);
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_alpha(1);
+	draw_set_color(COLOR_HUD_MINIMAP_BACKGROUND);
+	draw_rectangle(_minimap_x, _minimap_y, _minimap_right, _minimap_bottom, false);
+
+	// Draw enemy units as red tactical markers.
+	var _enemy_count = instance_number(o_enemy_units);
+	var _enemy_size = minimap_enemy_size * _minimap_scale;
+	var _enemy_half_size = _enemy_size * 0.5;
+
+	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	{
+		var _enemy = instance_find(o_enemy_units, _enemy_index);
+
+		if (!instance_exists(_enemy)
+			|| (variable_instance_exists(_enemy, "hp") && _enemy.hp <= 0))
+		{
+			continue;
+		}
+
+		var _enemy_map_x = _minimap_center_x + ((_enemy.x - _world_center_x) * _world_to_minimap_scale);
+		var _enemy_map_y = _minimap_center_y + ((_enemy.y - _world_center_y) * _world_to_minimap_scale);
+
+		_enemy_map_x = clamp(_enemy_map_x, _minimap_x + _enemy_half_size, _minimap_right - _enemy_half_size);
+		_enemy_map_y = clamp(_enemy_map_y, _minimap_y + _enemy_half_size, _minimap_bottom - _enemy_half_size);
+
+		draw_set_alpha(1);
+		draw_set_color(COLOR_HUD_MINIMAP_ENEMY);
+		draw_rectangle(
+			_enemy_map_x - _enemy_half_size,
+			_enemy_map_y - _enemy_half_size,
+			_enemy_map_x + _enemy_half_size,
+			_enemy_map_y + _enemy_half_size,
+			false
+		);
+	}
+
+	// Draw the cannon base at the center of the minimap.
+	var _base_size = minimap_base_size * _minimap_scale;
+	var _base_left = _minimap_center_x - (_base_size * 0.5);
+	var _base_top = _minimap_center_y - (_base_size * 0.5);
+	var _base_sprite = s_cannon_icon;
+
+	if (sprite_exists(_base_sprite))
+	{
+		draw_sprite_stretched_ext(_base_sprite, 0, _base_left, _base_top, _base_size, _base_size, c_white, 1);
+	}
+	else
+	{
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_circle(_minimap_center_x, _minimap_center_y, _base_size * 0.35, false);
+	}
+
+	// Draw cultists with their icons and compact health bars.
+	if (variable_global_exists("cultists"))
+	{
+		var _minimap_cultist_count = array_length(global.cultists);
+		var _cultist_width = minimap_cultist_width * _minimap_scale;
+		var _cultist_height = minimap_cultist_height * _minimap_scale;
+		var _cultist_half_width = _cultist_width * 0.5;
+		var _cultist_half_height = _cultist_height * 0.5;
+		var _cultist_bar_width = minimap_cultist_bar_width * _minimap_scale;
+		var _cultist_bar_height = minimap_cultist_bar_height * _minimap_scale;
+		var _cultist_bar_gap = minimap_cultist_bar_gap * _minimap_scale;
+
+		for (var _minimap_cultist_index = 0; _minimap_cultist_index < _minimap_cultist_count; ++_minimap_cultist_index)
+		{
+			var _minimap_cultist = global.cultists[_minimap_cultist_index];
+
+			if (!instance_exists(_minimap_cultist))
+			{
+				continue;
+			}
+
+			var _cultist_map_x = _minimap_center_x + ((_minimap_cultist.x - _world_center_x) * _world_to_minimap_scale);
+			var _cultist_map_y = _minimap_center_y + ((_minimap_cultist.y - _world_center_y) * _world_to_minimap_scale);
+
+			_cultist_map_x = clamp(_cultist_map_x, _minimap_x + _cultist_half_width, _minimap_right - _cultist_half_width);
+			_cultist_map_y = clamp(_cultist_map_y, _minimap_y + _cultist_half_height, _minimap_bottom - _cultist_half_height - _cultist_bar_height);
+
+			var _cultist_sprite = _minimap_cultist.sprite_index;
+
+			if (variable_instance_exists(_minimap_cultist, "cultist_sprite_index")
+				&& sprite_exists(_minimap_cultist.cultist_sprite_index))
+			{
+				_cultist_sprite = _minimap_cultist.cultist_sprite_index;
+			}
+
+			if (sprite_exists(_cultist_sprite))
+			{
+				draw_sprite_stretched_ext(
+					_cultist_sprite,
+					0,
+					_cultist_map_x - _cultist_half_width,
+					_cultist_map_y - _cultist_half_height,
+					_cultist_width,
+					_cultist_height,
+					c_white,
+					1
+				);
+			}
+			else
+			{
+				draw_set_color(COLOR_CULTIST_BODY);
+				draw_circle(_cultist_map_x, _cultist_map_y, _cultist_half_width, false);
+			}
+
+			var _cultist_hp_progress = 0;
+
+			if (variable_instance_exists(_minimap_cultist, "hp") && variable_instance_exists(_minimap_cultist, "max_hp"))
+			{
+				_cultist_hp_progress = clamp(_minimap_cultist.hp / max(1, _minimap_cultist.max_hp), 0, 1);
+			}
+
+			var _cultist_bar_x = _cultist_map_x - (_cultist_bar_width * 0.5);
+			var _cultist_bar_y = _cultist_map_y + _cultist_half_height + _cultist_bar_gap;
+
+			draw_set_color(COLOR_HUD_MINIMAP_HEALTH_BACKGROUND);
+			draw_rectangle(_cultist_bar_x, _cultist_bar_y, _cultist_bar_x + _cultist_bar_width, _cultist_bar_y + _cultist_bar_height, false);
+
+			draw_set_color(cultist_status_card_hp_color);
+			draw_rectangle(
+				_cultist_bar_x,
+				_cultist_bar_y,
+				_cultist_bar_x + (_cultist_bar_width * _cultist_hp_progress),
+				_cultist_bar_y + _cultist_bar_height,
+				false
+			);
+		}
+	}
+
+	// Draw the current camera rectangle over the minimap.
+	if (array_length(view_camera) > 0 && view_camera[0] != -1)
+	{
+		var _camera = view_camera[0];
+		var _camera_left = camera_get_view_x(_camera);
+		var _camera_top = camera_get_view_y(_camera);
+		var _camera_width = camera_get_view_width(_camera);
+		var _camera_height = camera_get_view_height(_camera);
+		var _camera_map_left = _minimap_center_x + ((_camera_left - _world_center_x) * _world_to_minimap_scale);
+		var _camera_map_top = _minimap_center_y + ((_camera_top - _world_center_y) * _world_to_minimap_scale);
+		var _camera_map_right = _camera_map_left + (_camera_width * _world_to_minimap_scale);
+		var _camera_map_bottom = _camera_map_top + (_camera_height * _world_to_minimap_scale);
+
+		_camera_map_left = clamp(_camera_map_left, _minimap_x, _minimap_right);
+		_camera_map_top = clamp(_camera_map_top, _minimap_y, _minimap_bottom);
+		_camera_map_right = clamp(_camera_map_right, _minimap_x, _minimap_right);
+		_camera_map_bottom = clamp(_camera_map_bottom, _minimap_y, _minimap_bottom);
+
+		draw_set_alpha(minimap_view_alpha);
+		draw_set_color(COLOR_HUD_MINIMAP_VIEW_FILL);
+		draw_rectangle(_camera_map_left, _camera_map_top, _camera_map_right, _camera_map_bottom, false);
+
+		draw_set_alpha(1);
+		draw_set_color(COLOR_HUD_MINIMAP_VIEW_BORDER);
+		draw_rectangle(_camera_map_left, _camera_map_top, _camera_map_right, _camera_map_bottom, true);
 	}
 }
 
@@ -624,6 +720,70 @@ if (instance_exists(o_cannon))
 	}
 }
 
+}
+
+// Draw the first-night cultist projectile prompt until the player fires it.
+if (variable_global_exists("first_night_cultist_projectile_fired")
+	&& variable_global_exists("day_phase")
+	&& variable_global_exists("cannon_projectile_queue")
+	&& global.day_phase == DAY_PHASE.NIGHT
+	&& !global.first_night_cultist_projectile_fired
+	&& array_length(global.cannon_projectile_queue) > 0
+	&& global.cannon_projectile_queue[0] == PROJECTILE_TYPE.CULTIST
+	&& instance_exists(o_game_controller))
+{
+	var _prompt_game_controller = instance_find(o_game_controller, 0);
+
+	if (variable_instance_exists(_prompt_game_controller, "night_attack_night_index")
+		&& _prompt_game_controller.night_attack_night_index == 1)
+	{
+		var _prompt_x = display_get_gui_width() * 0.5;
+		var _prompt_y = display_get_gui_height() * 0.5;
+		var _prompt_text = first_night_cultist_prompt_text;
+		var _prompt_shadow_offset = first_night_cultist_prompt_shadow_offset;
+
+		if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION
+			&& variable_instance_exists(_prompt_game_controller, "target_selection_projectile_type")
+			&& _prompt_game_controller.target_selection_projectile_type == PROJECTILE_TYPE.CULTIST)
+		{
+			_prompt_text = first_night_cultist_aim_prompt_text;
+		}
+
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_middle);
+
+		if (variable_global_exists("ui_heading_font") && font_exists(global.ui_heading_font))
+		{
+			draw_set_font(global.ui_heading_font);
+		}
+
+		draw_set_alpha(0.82);
+		draw_set_color(c_black);
+		draw_text_transformed(
+			_prompt_x + _prompt_shadow_offset,
+			_prompt_y + _prompt_shadow_offset,
+			_prompt_text,
+			first_night_cultist_prompt_scale,
+			first_night_cultist_prompt_scale,
+			0
+		);
+
+		draw_set_alpha(1);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text_transformed(
+			_prompt_x,
+			_prompt_y,
+			_prompt_text,
+			first_night_cultist_prompt_scale,
+			first_night_cultist_prompt_scale,
+			0
+		);
+
+		if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+		{
+			draw_set_font(global.ui_font);
+		}
+	}
 }
 
 // Draw queued cannon projectiles at the bottom center of the HUD.
