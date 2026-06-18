@@ -207,6 +207,14 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 	}
 	else if (mouse_check_button_pressed(mb_left))
 	{
+		var _levelup_cultist = cultist_levelup_button_find_at_gui(_mouse_gui_x, _mouse_gui_y);
+
+		if (instance_exists(_levelup_cultist))
+		{
+			open_cultist_levelup_for_cultist(_levelup_cultist);
+			exit;
+		}
+
 		var _cultist_count = array_length(global.cultists);
 		var _closest_cultist = noone;
 		var _closest_distance = infinity;
@@ -536,7 +544,7 @@ if (global.cheats_enabled)
 		{
 			if (cultist_exp_add(_target_instance, BALANCE_CULTIST_NIGHT_EXP_REWARD))
 			{
-				open_cultist_levelup();
+				ensure_cultist_levelup_options(_target_instance);
 			}
 		}
 	}
@@ -702,7 +710,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION && mouse_check_but
 		var _close_x = _panel_x + building_window_width - _close_size - 14;
 		var _close_y = _panel_y + 14;
 		var _grid_x = _panel_x + 44;
-		var _grid_y = _panel_y + 94;
+		var _grid_y = _panel_y + building_window_grid_y;
 		var _choice_count = array_length(building_choices);
 
 		if (_mouse_x >= _close_x && _mouse_x <= _close_x + _close_size
@@ -741,7 +749,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE && mouse_check_button_p
 	var _close_x = _panel_x + building_upgrade_window_width - _close_size - 14;
 	var _close_y = _panel_y + 14;
 	var _tile_start_x = _panel_x + 38;
-	var _tile_y = _panel_y + 104;
+	var _tile_y = _panel_y + building_upgrade_tile_y;
 
 	if (_mouse_x >= _close_x && _mouse_x <= _close_x + _close_size
 		&& _mouse_y >= _close_y && _mouse_y <= _close_y + _close_size)

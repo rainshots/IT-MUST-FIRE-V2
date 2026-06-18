@@ -87,6 +87,38 @@ if (variable_global_exists("ui_font") && font_exists(global.ui_font))
 	draw_set_font(global.ui_font);
 }
 
+// Mark available day workers that are not assigned to any work.
+if (global.day_phase == DAY_PHASE.DAY
+	&& hp > 0
+	&& !is_assigned_to_building
+	&& !is_being_dragged
+	&& !cannon_loading
+	&& !cannon_loaded)
+{
+	var _idle_label_x = x;
+	var _idle_label_y = bbox_top - idle_work_label_offset_y;
+	var _idle_label_width = string_width(idle_work_label_text) + (idle_work_label_padding_x * 2);
+	var _idle_label_height = string_height(idle_work_label_text) + (idle_work_label_padding_y * 2);
+	var _idle_label_left = _idle_label_x - (_idle_label_width * 0.5);
+	var _idle_label_top = _idle_label_y - (_idle_label_height * 0.5);
+
+	draw_set_alpha(idle_work_label_background_alpha);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_roundrect(
+		_idle_label_left,
+		_idle_label_top,
+		_idle_label_left + _idle_label_width,
+		_idle_label_top + _idle_label_height,
+		false
+	);
+
+	draw_set_alpha(1);
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
+	draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+	draw_text(_idle_label_x, _idle_label_y, idle_work_label_text);
+}
+
 // Draw a warning when a cannon worker has no free corpse to haul.
 if (variable_instance_exists(id, "cannon_no_corpse_warning_active") && cannon_no_corpse_warning_active)
 {
@@ -189,34 +221,34 @@ if (max_hp > 0)
 	draw_set_color(COLOR_HEALTH_BAR);
 	draw_rectangle(_bar_x, _bar_y, _bar_x + (bar_width * _hp_progress), _bar_y + bar_height, false);
 
-	var _next_status_bar_y = _bar_y + bar_height + fatigue_bar_gap;
+	var _next_status_bar_y = _bar_y + bar_height + stamina_bar_gap;
 
-	if (global.day_phase == DAY_PHASE.DAY && variable_instance_exists(id, "fatigue_amount"))
+	if (global.day_phase == DAY_PHASE.DAY && variable_instance_exists(id, "stamina_amount"))
 	{
-		var _fatigue_progress = clamp(fatigue_amount / max(1, BALANCE_CULTIST_FATIGUE_MAX), 0, 1);
-		var _fatigue_bar_y = _next_status_bar_y;
+		var _stamina_progress = clamp(stamina_amount / max(1, BALANCE_CULTIST_STAMINA_MAX), 0, 1);
+		var _stamina_bar_y = _next_status_bar_y;
 
 		draw_set_alpha(0.75);
 		draw_set_color(c_black);
-		draw_rectangle(_bar_x, _fatigue_bar_y, _bar_x + bar_width, _fatigue_bar_y + fatigue_bar_height, false);
+		draw_rectangle(_bar_x, _stamina_bar_y, _bar_x + bar_width, _stamina_bar_y + stamina_bar_height, false);
 
 		draw_set_alpha(1);
-		draw_set_color(COLOR_STATUS_NEGATIVE_RED);
-		draw_rectangle(_bar_x, _fatigue_bar_y, _bar_x + (bar_width * _fatigue_progress), _fatigue_bar_y + fatigue_bar_height, false);
+		draw_set_color(COLOR_HUD_CULTIST_STATUS_STAMINA);
+		draw_rectangle(_bar_x, _stamina_bar_y, _bar_x + (bar_width * _stamina_progress), _stamina_bar_y + stamina_bar_height, false);
 
-		_next_status_bar_y += fatigue_bar_height + fatigue_bar_gap;
+		_next_status_bar_y += stamina_bar_height + stamina_bar_gap;
 
-		if (fatigue_amount >= BALANCE_CULTIST_FATIGUE_MAX)
+		if (stamina_amount <= 0)
 		{
-			var _exhausted_text = "Exhausted";
-			var _exhausted_y = _next_status_bar_y;
+			var _empty_stamina_text = "No Stamina";
+			var _empty_stamina_y = _next_status_bar_y;
 
 			draw_set_halign(fa_center);
 			draw_set_valign(fa_top);
 			draw_set_color(COLOR_STATUS_NEGATIVE_RED);
-			draw_text(x, _exhausted_y, _exhausted_text);
+			draw_text(x, _empty_stamina_y, _empty_stamina_text);
 
-			_next_status_bar_y += string_height(_exhausted_text) + fatigue_bar_gap;
+			_next_status_bar_y += string_height(_empty_stamina_text) + stamina_bar_gap;
 		}
 	}
 
@@ -226,11 +258,11 @@ if (max_hp > 0)
 
 		draw_set_alpha(0.75);
 		draw_set_color(c_black);
-		draw_rectangle(_bar_x, _next_status_bar_y, _bar_x + bar_width, _next_status_bar_y + fatigue_bar_height, false);
+		draw_rectangle(_bar_x, _next_status_bar_y, _bar_x + bar_width, _next_status_bar_y + stamina_bar_height, false);
 
 		draw_set_alpha(1);
 		draw_set_color(COLOR_CULTIST_FERVOR);
-		draw_rectangle(_bar_x, _next_status_bar_y, _bar_x + (bar_width * _whip_progress), _next_status_bar_y + fatigue_bar_height, false);
+		draw_rectangle(_bar_x, _next_status_bar_y, _bar_x + (bar_width * _whip_progress), _next_status_bar_y + stamina_bar_height, false);
 	}
 }
 

@@ -35,7 +35,8 @@ night_music_tracks = [
 	Berserk_OST_Sign_1___Guts,
 	BERSERK__Forces____Susumu_Hirasawa,
 	Disposal_Unit___Milky_Way_Sweep,
-	UltraChurch__ULTRAKILL___Original_Game_Soundtrack____Keygen_Church
+	UltraChurch__ULTRAKILL___Original_Game_Soundtrack____Keygen_Church,
+	Berserk_Aria_Ash_Crow___Guts,
 ];
 night_music_track_names = [
 	"Alpha Omega - Monasterium Imperium",

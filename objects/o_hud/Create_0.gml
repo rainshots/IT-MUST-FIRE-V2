@@ -67,7 +67,7 @@ cultist_status_card_background_alpha = 0.3;
 cultist_status_card_bar_background_color = c_black;
 cultist_status_card_hp_color = COLOR_HUD_CULTIST_STATUS_HP;
 cultist_status_card_exp_color = COLOR_HUD_CULTIST_STATUS_EXP;
-cultist_status_card_fatigue_color = COLOR_HUD_CULTIST_STATUS_FATIGUE;
+cultist_status_card_stamina_color = COLOR_HUD_CULTIST_STATUS_STAMINA;
 cultist_status_card_label_color = COLOR_HUD_TEXT;
 
 // Minimap mirrors the current battle around the cannon in the right HUD sidebar.
@@ -83,15 +83,37 @@ minimap_cultist_bar_width = 19;
 minimap_cultist_bar_height = 7;
 minimap_cultist_bar_gap = 2;
 minimap_view_alpha = 0.2;
+minimap_view_border_width = 4;
+minimap_view_min_size = 10;
+
+// Control hints stay visible only during unobstructed gameplay.
+control_hints_x = 32;
+control_hints_bottom_margin = 118;
+control_hints_row_height = 28;
+control_hints_row_gap = 8;
+control_hints_key_min_width = 112;
+control_hints_key_height = 24;
+control_hints_key_padding_x = 10;
+control_hints_key_text_gap = 12;
+control_hints_padding_x = 12;
+control_hints_padding_y = 10;
+control_hints_background_alpha = 0.52;
+control_hints_key_alpha = 0.18;
+control_hint_keys = ["SPACE", "WASD", "MOUSE WHEEL"];
+control_hint_actions = ["pause", "move camera", "zoom camera"];
 
 // Cannon satiety is filled by hauling corpses to the cannon.
-cannon_satiety_width = 368;
+cannon_satiety_width = 460;
 cannon_satiety_height = 34;
 cannon_satiety_bar_offset_x = 92;
 cannon_satiety_bar_width = 156;
 cannon_satiety_bar_height = 8;
 cannon_satiety_bar_gap = 5;
 cannon_satiety_bar_label_gap = 8;
+cannon_satiety_reward_icon_gap = 10;
+cannon_satiety_reward_icon_radius = 7;
+cannon_satiety_reward_group_gap = 18;
+cannon_satiety_reward_label_gap = 3;
 cannon_satiety_padding_x = 14;
 cannon_satiety_label = "SATIETY";
 

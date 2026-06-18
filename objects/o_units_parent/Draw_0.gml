@@ -102,6 +102,42 @@ else if (variable_instance_exists(id, "carried_corpse") && is_struct(carried_cor
 	}
 }
 
+// Mark available day worker summons that are not assigned to any work.
+if (object_index == o_goblin
+	&& global.day_phase == DAY_PHASE.DAY
+	&& hp > 0
+	&& !is_assigned_to_building
+	&& !is_being_dragged)
+{
+	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+	{
+		draw_set_font(global.ui_font);
+	}
+
+	var _idle_label_x = x;
+	var _idle_label_y = bbox_top - idle_work_label_offset_y;
+	var _idle_label_width = string_width(idle_work_label_text) + (idle_work_label_padding_x * 2);
+	var _idle_label_height = string_height(idle_work_label_text) + (idle_work_label_padding_y * 2);
+	var _idle_label_left = _idle_label_x - (_idle_label_width * 0.5);
+	var _idle_label_top = _idle_label_y - (_idle_label_height * 0.5);
+
+	draw_set_alpha(idle_work_label_background_alpha);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_roundrect(
+		_idle_label_left,
+		_idle_label_top,
+		_idle_label_left + _idle_label_width,
+		_idle_label_top + _idle_label_height,
+		false
+	);
+
+	draw_set_alpha(1);
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
+	draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+	draw_text(_idle_label_x, _idle_label_y, idle_work_label_text);
+}
+
 // Draw a warning when a cannon worker has no free corpse to haul.
 if (variable_instance_exists(id, "cannon_no_corpse_warning_active") && cannon_no_corpse_warning_active)
 {

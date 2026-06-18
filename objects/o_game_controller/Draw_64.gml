@@ -2064,7 +2064,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 	var _close_x = _panel_x + building_window_width - _close_size - 14;
 	var _close_y = _panel_y + 14;
 	var _grid_x = _panel_x + 44;
-	var _grid_y = _panel_y + 94;
+	var _grid_y = _panel_y + building_window_grid_y;
 	var _choice_count = array_length(building_choices);
 	var _hovered_choice = -1;
 
@@ -2093,9 +2093,11 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 		draw_set_font(global.ui_font);
 	}
 
+	building_resource_summary_draw(_panel_x + (building_window_width * 0.5), _panel_y + building_window_resource_y);
+
 	draw_set_halign(fa_left);
 	draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
-	draw_text(_panel_x + 44, _panel_y + 68, "Building costs vary by structure");
+	draw_text(_panel_x + 44, _panel_y + building_window_description_y, "Building costs vary by structure");
 
 	draw_set_halign(fa_center);
 	draw_set_color(c_white);
@@ -2280,7 +2282,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE)
 	var _close_x = _panel_x + building_upgrade_window_width - _close_size - 14;
 	var _close_y = _panel_y + 14;
 	var _tile_start_x = _panel_x + 38;
-	var _tile_y = _panel_y + 104;
+	var _tile_y = _panel_y + building_upgrade_tile_y;
 
 	draw_set_alpha(0.55);
 	draw_set_color(c_black);
@@ -2307,6 +2309,10 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE)
 		draw_set_font(global.ui_font);
 	}
 
+	building_resource_summary_draw(_panel_x + (building_upgrade_window_width * 0.5), _panel_y + building_upgrade_resource_y);
+
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
 	draw_set_color(c_white);
 	draw_rectangle(_close_x, _close_y, _close_x + _close_size, _close_y + _close_size, true);
 	draw_text(_close_x + (_close_size * 0.5), _close_y + (_close_size * 0.5), "X");
@@ -2315,7 +2321,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE)
 	{
 		draw_set_halign(fa_left);
 		draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
-		draw_text(_panel_x + 38, _panel_y + 68, building_upgrade_window_building.building_tooltip_description);
+		draw_text(_panel_x + 38, _panel_y + building_upgrade_description_y, building_upgrade_window_building.building_tooltip_description);
 
 		var _upgrade_count = 0;
 		var _uses_levels = variable_instance_exists(building_upgrade_window_building, "building_upgrade_levels");
@@ -2437,6 +2443,57 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE)
 }
 
 // Draw cultist stat hover in regular gameplay.
+if (global.focus_window == FOCUS_WINDOW.NOONE
+	&& variable_global_exists("cultists")
+	&& instance_exists(o_camera_controller)
+	&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active))
+{
+	var _levelup_cultist_count = array_length(global.cultists);
+
+	for (var _levelup_cultist_index = 0; _levelup_cultist_index < _levelup_cultist_count; ++_levelup_cultist_index)
+	{
+		var _levelup_cultist = global.cultists[_levelup_cultist_index];
+
+		if (!cultist_has_pending_levelup(_levelup_cultist)
+			|| (variable_instance_exists(_levelup_cultist, "hp") && _levelup_cultist.hp <= 0)
+			|| (variable_instance_exists(_levelup_cultist, "cannon_loading") && _levelup_cultist.cannon_loading)
+			|| (variable_instance_exists(_levelup_cultist, "cannon_loaded") && _levelup_cultist.cannon_loaded))
+		{
+			continue;
+		}
+
+		var _button_rect = cultist_levelup_button_rect_get(_levelup_cultist);
+		var _button_x = _button_rect[0];
+		var _button_y = _button_rect[1];
+		var _button_width = _button_rect[2];
+		var _button_height = _button_rect[3];
+		var _mouse_x = device_mouse_x_to_gui(0);
+		var _mouse_y = device_mouse_y_to_gui(0);
+		var _is_hovered = _mouse_x >= _button_x
+			&& _mouse_x <= _button_x + _button_width
+			&& _mouse_y >= _button_y
+			&& _mouse_y <= _button_y + _button_height;
+
+		draw_set_alpha(0.94);
+		draw_set_color(_is_hovered ? COLOR_HUD_LEVEL_UP_HOVER : COLOR_HUD_LEVEL_UP);
+		draw_rectangle(_button_x, _button_y, _button_x + _button_width, _button_y + _button_height, false);
+
+		draw_set_alpha(1);
+		draw_set_color(c_black);
+		draw_rectangle(_button_x, _button_y, _button_x + _button_width, _button_y + _button_height, true);
+
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_middle);
+		draw_set_color(c_black);
+		draw_text(_button_x + (_button_width * 0.5), _button_y + (_button_height * 0.5), "LEVEL UP");
+	}
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+}
+
 if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultists") && instance_exists(o_camera_controller))
 {
 	var _camera_controller = instance_find(o_camera_controller, 0);

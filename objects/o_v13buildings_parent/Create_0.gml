@@ -33,6 +33,7 @@ y_sort_enabled = true;
 // Resource warning shown by assigned cultists when this building cannot work.
 missing_work_resource = noone;
 missing_work_resource_name = "";
+missing_work_resource_amount = 0;
 missing_work_resource_color = c_white;
 building_warning_text = "";
 building_warning_color = COLOR_STATUS_NEGATIVE_RED;
@@ -42,6 +43,8 @@ building_warning_offset_y = 148;
 building_warning_padding_x = 7;
 building_warning_padding_y = 4;
 building_warning_background_alpha = 0.84;
+goblin_status_offset_y = 166;
+goblin_status_line_height = 14;
 
 // Production bar visual settings.
 production_bar_width = 62;
@@ -51,7 +54,7 @@ production_bar_outline_alpha = 0.85;
 production_bar_background_alpha = 0.72;
 production_icon_size = 18;
 production_icon_gap = 8;
-production_multiplier_gap = 10;
+production_multiplier_bar_gap_y = 4;
 assignment_preview_padding = 5;
 assignment_preview_alpha = 0.22;
 assignment_preview_outline_alpha = 0.95;
@@ -319,7 +322,7 @@ else if (object_index == o_meat_bath)
 	production_resource_icon = s_flesh_icon;
 	production_resource_color = COLOR_HUD_FLESH;
 	building_tooltip_title = "Healing";
-	building_tooltip_description = "Heals assigned cultists";
+	building_tooltip_description = "Heals assigned workers";
 	building_tooltip_detail = "Uses " + string(BALANCE_MEAT_BATH_FLESH_COST) + " Flesh for " + string(BALANCE_MEAT_BATH_FLESH_HEAL_AMOUNT) + " HP";
 	building_tooltip_detail_color = COLOR_HUD_FLESH;
 }
@@ -329,12 +332,12 @@ else if (object_index == o_ritual_circle)
 	production_resource_icon = noone;
 	production_resource_color = COLOR_CULTIST_SPIRIT;
 	building_tooltip_title = "Training";
-	building_tooltip_description = "Recovers fatigue and gives assigned cultists XP";
-	building_tooltip_detail = "Recovers fatigue. Gives " + string(BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT) + " XP chunks. Daily reserve: " + string(BALANCE_RITUAL_CIRCLE_DAILY_EXP_LIMIT) + " XP";
+	building_tooltip_description = "Restores Stamina and gives assigned workers XP";
+	building_tooltip_detail = "Restores Stamina. Gives " + string(BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT) + " XP chunks. Daily reserve: " + string(BALANCE_RITUAL_CIRCLE_DAILY_EXP_LIMIT) + " XP";
 	building_tooltip_detail_color = COLOR_CULTIST_SPIRIT;
 	building_has_upgrades = true;
 	building_upgrade_names[0] = "Deeper Rest";
-	building_upgrade_descriptions[0] = "Cultists recover fatigue " + string(BALANCE_RITUAL_CIRCLE_REST_UPGRADE_MULTIPLIER) + "x faster.";
+	building_upgrade_descriptions[0] = "Workers recover Stamina " + string(BALANCE_RITUAL_CIRCLE_REST_UPGRADE_MULTIPLIER) + "x faster.";
 	building_upgrade_names[1] = "Endless Chant";
 	building_upgrade_descriptions[1] = "Daily XP reserve is increased " + string(BALANCE_RITUAL_CIRCLE_DAILY_EXP_UPGRADE_MULTIPLIER) + "x.";
 	building_upgrade_resources[1] = RESOURCES.SOULS;
@@ -454,7 +457,7 @@ recalculate_production_speed_multiplier = function()
 			_worker_speed_multiplier *= _worker.whip_work_multiplier;
 		}
 
-		_worker_speed_multiplier *= building_worker_fatigue_multiplier_get(_worker);
+		_worker_speed_multiplier *= building_worker_stamina_multiplier_get(_worker);
 		_total_speed_multiplier += _worker_speed_multiplier;
 	}
 
@@ -468,31 +471,78 @@ recalculate_production_speed_multiplier = function()
 	production_speed_multiplier = _total_speed_multiplier * BALANCE_RESOURCE_BUILDING_PRODUCTION_SPEED_MULTIPLIER;
 };
 
-building_worker_fatigue_multiplier_get = function(_worker)
+production_speed_multiplier_draw = function(_text_x, _text_y)
+{
+	var _multiplier_text = string_format(production_speed_multiplier, 0, 1) + "x";
+
+	if (variable_global_exists("building_speed_font") && font_exists(global.building_speed_font))
+	{
+		draw_set_font(global.building_speed_font);
+	}
+
+	draw_set_alpha(1);
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_bottom);
+	draw_set_color(c_black);
+	draw_text(_text_x - 2, _text_y, _multiplier_text);
+	draw_text(_text_x + 2, _text_y, _multiplier_text);
+	draw_text(_text_x, _text_y - 2, _multiplier_text);
+	draw_text(_text_x, _text_y + 2, _multiplier_text);
+	draw_text(_text_x - 2, _text_y + 2, _multiplier_text);
+	draw_text(_text_x + 2, _text_y + 2, _multiplier_text);
+	draw_set_color(production_bonus_stat_color);
+	draw_text(_text_x - 1, _text_y, _multiplier_text);
+	draw_text(_text_x + 1, _text_y, _multiplier_text);
+	draw_text(_text_x, _text_y, _multiplier_text);
+
+	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+	{
+		draw_set_font(global.ui_font);
+	}
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+};
+
+building_worker_stamina_multiplier_get = function(_worker)
 {
 	if (!instance_exists(_worker)
 		|| _worker.object_index != o_cultist
-		|| !variable_instance_exists(_worker, "fatigue_amount"))
+		|| !variable_instance_exists(_worker, "stamina_amount"))
 	{
 		return 1;
 	}
 
-	if (_worker.fatigue_amount >= BALANCE_CULTIST_FATIGUE_MAX)
+	if (_worker.stamina_amount <= 0)
 	{
-		return BALANCE_CULTIST_FATIGUE_EXHAUSTED_EFFICIENCY;
+		return BALANCE_CULTIST_STAMINA_EMPTY_EFFICIENCY;
 	}
 
 	return 1;
 };
 
-building_adds_cultist_fatigue = function()
+building_spends_cultist_stamina = function()
 {
 	return object_index == o_quarry
 		|| object_index == o_slaughter_table
-		|| object_index == o_souls_well;
+		|| object_index == o_souls_well
+		|| object_index == o_workshop
+		|| summon_unit_object != noone;
 };
 
-building_recovers_cultist_fatigue = function()
+building_stamina_drain_multiplier_get = function()
+{
+	if (summon_unit_object != noone)
+	{
+		return BALANCE_CULTIST_SUMMON_STAMINA_DRAIN_MULTIPLIER;
+	}
+
+	return 1;
+};
+
+building_recovers_cultist_stamina = function()
 {
 	return object_index == o_ritual_circle;
 };
@@ -509,23 +559,25 @@ ritual_circle_daily_exp_limit_get = function()
 	return _daily_exp_limit;
 };
 
-building_cultist_fatigue_update = function()
+building_cultist_stamina_update = function()
 {
 	if (global.day_phase != DAY_PHASE.DAY
-		|| (!building_adds_cultist_fatigue() && !building_recovers_cultist_fatigue()))
+		|| (!building_spends_cultist_stamina() && !building_recovers_cultist_stamina()))
 	{
 		return;
 	}
 
-	var _fatigue_delta = BALANCE_CULTIST_FATIGUE_GAIN_PER_SECOND / max(1, room_speed);
+	var _stamina_delta = -BALANCE_CULTIST_STAMINA_DRAIN_PER_SECOND
+		* building_stamina_drain_multiplier_get()
+		/ max(1, room_speed);
 
-	if (building_recovers_cultist_fatigue())
+	if (building_recovers_cultist_stamina())
 	{
-		_fatigue_delta = -BALANCE_CULTIST_FATIGUE_RECOVERY_PER_SECOND / max(1, room_speed);
+		_stamina_delta = BALANCE_CULTIST_STAMINA_RECOVERY_PER_SECOND / max(1, room_speed);
 
 		if (building_upgrade_flags[0])
 		{
-			_fatigue_delta *= BALANCE_RITUAL_CIRCLE_REST_UPGRADE_MULTIPLIER;
+			_stamina_delta *= BALANCE_RITUAL_CIRCLE_REST_UPGRADE_MULTIPLIER;
 		}
 	}
 
@@ -537,26 +589,26 @@ building_cultist_fatigue_update = function()
 
 		if (instance_exists(_worker)
 			&& _worker.object_index == o_cultist
-			&& variable_instance_exists(_worker, "fatigue_amount"))
+			&& variable_instance_exists(_worker, "stamina_amount"))
 		{
-			var _worker_fatigue_delta = _fatigue_delta;
+			var _worker_stamina_delta = _stamina_delta;
 
-			if (_worker_fatigue_delta > 0
+			if (_worker_stamina_delta < 0
 				&& variable_instance_exists(_worker, "whip_timer")
 				&& _worker.whip_timer > 0
 				&& variable_instance_exists(_worker, "whip_work_multiplier"))
 			{
-				_worker_fatigue_delta *= _worker.whip_work_multiplier;
+				_worker_stamina_delta *= _worker.whip_work_multiplier;
 			}
 
-			var _fatigue_before = _worker.fatigue_amount;
-			_worker.fatigue_amount = clamp(_worker.fatigue_amount + _worker_fatigue_delta, 0, BALANCE_CULTIST_FATIGUE_MAX);
+			var _stamina_before = _worker.stamina_amount;
+			_worker.stamina_amount = clamp(_worker.stamina_amount + _worker_stamina_delta, 0, BALANCE_CULTIST_STAMINA_MAX);
 
-			if (_fatigue_before < BALANCE_CULTIST_FATIGUE_MAX
-				&& _worker.fatigue_amount >= BALANCE_CULTIST_FATIGUE_MAX
+			if (_stamina_before > 0
+				&& _worker.stamina_amount <= 0
 				&& variable_global_exists("tutorial_hint_trigger"))
 			{
-				global.tutorial_hint_trigger("fatigue");
+				global.tutorial_hint_trigger("stamina");
 			}
 		}
 	}
@@ -691,9 +743,9 @@ building_demolish = function()
 		_slot.depth = depth;
 	}
 
-	if (variable_global_exists("construction_sounds"))
+	if (variable_global_exists("construction_sound_play"))
 	{
-		global.sound_play_random(global.construction_sounds);
+		global.construction_sound_play();
 	}
 
 	if (variable_global_exists("cultist_assignment_preview_building")

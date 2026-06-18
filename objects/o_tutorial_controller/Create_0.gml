@@ -40,7 +40,7 @@ tutorial_items = [
 	{
 		id: "buildings",
 		title: "Buildings",
-		body: "There are several building types. Some produce the three main resources: iron, flesh, and souls. Others summon unholy creatures, heal cultists, repair walls, and provide other services in exchange for resources.\n\nTo begin, I recommend building a Ritual Circle so your cultists can recover after work and gain some XP."
+		body: "There are several building types. Some produce the three main resources: iron, flesh, and souls. Others summon unholy creatures, heal cultists, repair walls, and provide other services in exchange for resources.\n\nTo begin, I recommend building a Ritual Circle so your workers can restore Stamina after work and gain some XP."
 	},
 	{
 		id: "meat_bath_needed",
@@ -68,9 +68,9 @@ tutorial_items = [
 		body: "The cannon is hungry! Assign workers directly to the cannon so they carry corpses into it. Later, this will give you Taint Shells at night, letting you spread Taint over much more ground."
 	},
 	{
-		id: "fatigue",
-		title: "Fatigue",
-		body: "The red bar under the HP bar is cultist fatigue. When it fills completely, the cultist becomes less productive. To recover, build a Ritual Circle and assign the cultist there. They can rest and gain XP by worshipping our lords of the abyss."
+		id: "stamina",
+		title: "Stamina",
+		body: "The yellow bar under the HP bar is worker Stamina. It decreases while a worker works. When it is empty, the worker becomes less productive. To restore Stamina, build a Ritual Circle and assign the worker there."
 	},
 	{
 		id: "night",

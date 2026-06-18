@@ -80,8 +80,8 @@ has_warlock_demonic_infusion = false;
 max_hp = 10;
 hp = max_hp;
 
-// Fatigue rises while working resource buildings and recovers in Ritual Circle.
-fatigue_amount = 0;
+// Stamina is spent while working resource buildings and restored in Ritual Circle.
+stamina_amount = BALANCE_CULTIST_STAMINA_MAX;
 
 // Worker whip temporarily improves day productivity at the cost of health.
 whip_timer = 0;
@@ -93,12 +93,17 @@ name_offset_y = 8;
 bar_width = 34;
 bar_height = 4;
 name_health_bar_gap = 8;
-fatigue_bar_gap = 2;
-fatigue_bar_height = 3;
+stamina_bar_gap = 2;
+stamina_bar_height = 3;
 resource_warning_offset_y = 18;
 resource_warning_padding_x = 6;
 resource_warning_padding_y = 3;
 resource_warning_background_alpha = 0.82;
+idle_work_label_text = "NO WORK";
+idle_work_label_offset_y = 34;
+idle_work_label_padding_x = 6;
+idle_work_label_padding_y = 3;
+idle_work_label_background_alpha = 0.82;
 
 // Drag state is controlled by o_game_controller during manual cultist repositioning.
 is_being_dragged = false;

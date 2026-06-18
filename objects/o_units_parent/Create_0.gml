@@ -131,6 +131,11 @@ warlock_skeleton_dies_at_morning = false;
 // Building work assignment lets valid friendly units stay at production buildings.
 assigned_building = noone;
 is_assigned_to_building = false;
+idle_work_label_text = "NO WORK";
+idle_work_label_offset_y = 34;
+idle_work_label_padding_x = 6;
+idle_work_label_padding_y = 3;
+idle_work_label_background_alpha = 0.82;
 
 // Worker whip temporarily improves day productivity at the cost of health.
 whip_timer = 0;

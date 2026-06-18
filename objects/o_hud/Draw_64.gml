@@ -267,7 +267,7 @@ if (_regular_hud_is_visible)
 
 		var _hp_progress = 0;
 		var _exp_progress = 0;
-		var _fatigue_progress = 0;
+		var _stamina_progress = 0;
 
 		if (variable_instance_exists(_cultist, "hp") && variable_instance_exists(_cultist, "max_hp"))
 		{
@@ -280,17 +280,17 @@ if (_regular_hud_is_visible)
 			_exp_progress = clamp(_cultist.current_exp / _required_exp, 0, 1);
 		}
 
-		if (variable_instance_exists(_cultist, "fatigue_amount"))
+		if (variable_instance_exists(_cultist, "stamina_amount"))
 		{
-			_fatigue_progress = clamp(_cultist.fatigue_amount / max(1, BALANCE_CULTIST_FATIGUE_MAX), 0, 1);
+			_stamina_progress = clamp(_cultist.stamina_amount / max(1, BALANCE_CULTIST_STAMINA_MAX), 0, 1);
 		}
 
-		var _bar_labels = ["HP", "XP", "Fatigue"];
-		var _bar_values = [_hp_progress, _exp_progress, _fatigue_progress];
+		var _bar_labels = ["HP", "XP", "Stamina"];
+		var _bar_values = [_hp_progress, _exp_progress, _stamina_progress];
 		var _bar_colors = [
 			cultist_status_card_hp_color,
 			cultist_status_card_exp_color,
-			cultist_status_card_fatigue_color
+			cultist_status_card_stamina_color
 		];
 		var _bar_count = array_length(_bar_labels);
 
@@ -353,6 +353,47 @@ if (instance_exists(o_cannon))
 	draw_set_alpha(1);
 	draw_set_color(COLOR_HUD_MINIMAP_BACKGROUND);
 	draw_rectangle(_minimap_x, _minimap_y, _minimap_right, _minimap_bottom, false);
+
+	// Draw tainted ground cells under minimap units.
+	if (instance_exists(o_corruption_grid))
+	{
+		var _corruption_grid_object = instance_find(o_corruption_grid, 0);
+		var _corruption_cell_size = _corruption_grid_object.cell_size;
+		var _corruption_left_cell = clamp(floor((_world_center_x - minimap_world_radius) / _corruption_cell_size), 0, _corruption_grid_object.grid_width - 1);
+		var _corruption_right_cell = clamp(floor((_world_center_x + minimap_world_radius) / _corruption_cell_size), 0, _corruption_grid_object.grid_width - 1);
+		var _corruption_top_cell = clamp(floor((_world_center_y - minimap_world_radius) / _corruption_cell_size), 0, _corruption_grid_object.grid_height - 1);
+		var _corruption_bottom_cell = clamp(floor((_world_center_y + minimap_world_radius) / _corruption_cell_size), 0, _corruption_grid_object.grid_height - 1);
+
+		draw_set_color(COLOR_HUD_MINIMAP_TAINT);
+
+		for (var _corruption_cell_x = _corruption_left_cell; _corruption_cell_x <= _corruption_right_cell; ++_corruption_cell_x)
+		{
+			for (var _corruption_cell_y = _corruption_top_cell; _corruption_cell_y <= _corruption_bottom_cell; ++_corruption_cell_y)
+			{
+				var _corruption = ds_grid_get(_corruption_grid_object.corruption_grid, _corruption_cell_x, _corruption_cell_y);
+
+				if (_corruption < _corruption_grid_object.minimum_draw_corruption)
+				{
+					continue;
+				}
+
+				var _taint_left = _minimap_center_x + (((_corruption_cell_x * _corruption_cell_size) - _world_center_x) * _world_to_minimap_scale);
+				var _taint_top = _minimap_center_y + (((_corruption_cell_y * _corruption_cell_size) - _world_center_y) * _world_to_minimap_scale);
+				var _taint_right = _minimap_center_x + (((_corruption_cell_x + 1) * _corruption_cell_size - _world_center_x) * _world_to_minimap_scale);
+				var _taint_bottom = _minimap_center_y + (((_corruption_cell_y + 1) * _corruption_cell_size - _world_center_y) * _world_to_minimap_scale);
+
+				_taint_left = clamp(_taint_left, _minimap_x, _minimap_right);
+				_taint_top = clamp(_taint_top, _minimap_y, _minimap_bottom);
+				_taint_right = clamp(_taint_right, _minimap_x, _minimap_right);
+				_taint_bottom = clamp(_taint_bottom, _minimap_y, _minimap_bottom);
+
+				draw_set_alpha(clamp(_corruption, 0.35, 1));
+				draw_rectangle(_taint_left, _taint_top, _taint_right, _taint_bottom, false);
+			}
+		}
+
+		draw_set_alpha(1);
+	}
 
 	// Draw enemy units as red tactical markers.
 	var _enemy_count = instance_number(o_enemy_units);
@@ -481,9 +522,10 @@ if (instance_exists(o_cannon))
 	}
 
 	// Draw the current camera rectangle over the minimap.
-	if (array_length(view_camera) > 0 && view_camera[0] != -1)
+	if (instance_exists(o_camera_controller))
 	{
-		var _camera = view_camera[0];
+		var _camera_controller = instance_find(o_camera_controller, 0);
+		var _camera = _camera_controller.camera_id;
 		var _camera_left = camera_get_view_x(_camera);
 		var _camera_top = camera_get_view_y(_camera);
 		var _camera_width = camera_get_view_width(_camera);
@@ -498,14 +540,159 @@ if (instance_exists(o_cannon))
 		_camera_map_right = clamp(_camera_map_right, _minimap_x, _minimap_right);
 		_camera_map_bottom = clamp(_camera_map_bottom, _minimap_y, _minimap_bottom);
 
+		var _camera_min_size = minimap_view_min_size * _minimap_scale;
+
+		if (_camera_map_right - _camera_map_left < _camera_min_size)
+		{
+			var _camera_map_center_x = clamp(
+				(_camera_map_left + _camera_map_right) * 0.5,
+				_minimap_x + (_camera_min_size * 0.5),
+				_minimap_right - (_camera_min_size * 0.5)
+			);
+
+			_camera_map_left = _camera_map_center_x - (_camera_min_size * 0.5);
+			_camera_map_right = _camera_map_center_x + (_camera_min_size * 0.5);
+		}
+
+		if (_camera_map_bottom - _camera_map_top < _camera_min_size)
+		{
+			var _camera_map_center_y = clamp(
+				(_camera_map_top + _camera_map_bottom) * 0.5,
+				_minimap_y + (_camera_min_size * 0.5),
+				_minimap_bottom - (_camera_min_size * 0.5)
+			);
+
+			_camera_map_top = _camera_map_center_y - (_camera_min_size * 0.5);
+			_camera_map_bottom = _camera_map_center_y + (_camera_min_size * 0.5);
+		}
+
 		draw_set_alpha(minimap_view_alpha);
 		draw_set_color(COLOR_HUD_MINIMAP_VIEW_FILL);
 		draw_rectangle(_camera_map_left, _camera_map_top, _camera_map_right, _camera_map_bottom, false);
 
+		draw_set_alpha(0.85);
+		draw_set_color(c_black);
+
+		for (var _camera_shadow_index = 0; _camera_shadow_index < minimap_view_border_width + 2; ++_camera_shadow_index)
+		{
+			draw_rectangle(
+				clamp(_camera_map_left + _camera_shadow_index, _minimap_x, _minimap_right),
+				clamp(_camera_map_top + _camera_shadow_index, _minimap_y, _minimap_bottom),
+				clamp(_camera_map_right - _camera_shadow_index, _minimap_x, _minimap_right),
+				clamp(_camera_map_bottom - _camera_shadow_index, _minimap_y, _minimap_bottom),
+				true
+			);
+		}
+
 		draw_set_alpha(1);
 		draw_set_color(COLOR_HUD_MINIMAP_VIEW_BORDER);
-		draw_rectangle(_camera_map_left, _camera_map_top, _camera_map_right, _camera_map_bottom, true);
+
+		for (var _camera_border_index = 0; _camera_border_index < minimap_view_border_width; ++_camera_border_index)
+		{
+			draw_rectangle(
+				clamp(_camera_map_left + _camera_border_index + 1, _minimap_x, _minimap_right),
+				clamp(_camera_map_top + _camera_border_index + 1, _minimap_y, _minimap_bottom),
+				clamp(_camera_map_right - _camera_border_index - 1, _minimap_x, _minimap_right),
+				clamp(_camera_map_bottom - _camera_border_index - 1, _minimap_y, _minimap_bottom),
+				true
+			);
+		}
 	}
+}
+
+// Draw unobtrusive control hints while no modal window is open.
+if (_regular_hud_is_visible)
+{
+	var _control_hint_gui_height = display_get_gui_height();
+	var _control_hint_scale = clamp(_control_hint_gui_height / 1080, 0.6, 1);
+	var _control_hint_count = array_length(control_hint_keys);
+	var _control_hint_x = control_hints_x * _control_hint_scale;
+	var _control_hint_row_height = control_hints_row_height * _control_hint_scale;
+	var _control_hint_row_gap = control_hints_row_gap * _control_hint_scale;
+	var _control_hint_key_height = control_hints_key_height * _control_hint_scale;
+	var _control_hint_key_padding_x = control_hints_key_padding_x * _control_hint_scale;
+	var _control_hint_key_text_gap = control_hints_key_text_gap * _control_hint_scale;
+	var _control_hint_padding_x = control_hints_padding_x * _control_hint_scale;
+	var _control_hint_padding_y = control_hints_padding_y * _control_hint_scale;
+	var _control_hint_action_width = 116 * _control_hint_scale;
+	var _control_hint_key_width = control_hints_key_min_width * _control_hint_scale;
+
+	for (var _control_hint_measure_index = 0; _control_hint_measure_index < _control_hint_count; ++_control_hint_measure_index)
+	{
+		_control_hint_key_width = max(
+			_control_hint_key_width,
+			string_width(control_hint_keys[_control_hint_measure_index]) + (_control_hint_key_padding_x * 2)
+		);
+	}
+
+	var _control_hint_height = (_control_hint_row_height * _control_hint_count)
+		+ (_control_hint_row_gap * (_control_hint_count - 1))
+		+ (_control_hint_padding_y * 2);
+	var _control_hint_y = _control_hint_gui_height
+		- (control_hints_bottom_margin * _control_hint_scale)
+		- _control_hint_height;
+	var _control_hint_width = (_control_hint_padding_x * 2)
+		+ _control_hint_key_width
+		+ _control_hint_key_text_gap
+		+ _control_hint_action_width;
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_middle);
+	draw_set_alpha(control_hints_background_alpha);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_rectangle(
+		_control_hint_x,
+		_control_hint_y,
+		_control_hint_x + _control_hint_width,
+		_control_hint_y + _control_hint_height,
+		false
+	);
+
+	for (var _control_hint_index = 0; _control_hint_index < _control_hint_count; ++_control_hint_index)
+	{
+		var _control_hint_row_y = _control_hint_y
+			+ _control_hint_padding_y
+			+ ((_control_hint_row_height + _control_hint_row_gap) * _control_hint_index);
+		var _control_hint_key_x = _control_hint_x + _control_hint_padding_x;
+		var _control_hint_key_y = _control_hint_row_y + ((_control_hint_row_height - _control_hint_key_height) * 0.5);
+
+		draw_set_alpha(control_hints_key_alpha);
+		draw_set_color(c_white);
+		draw_rectangle(
+			_control_hint_key_x,
+			_control_hint_key_y,
+			_control_hint_key_x + _control_hint_key_width,
+			_control_hint_key_y + _control_hint_key_height,
+			false
+		);
+
+		draw_set_alpha(0.86);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_rectangle(
+			_control_hint_key_x,
+			_control_hint_key_y,
+			_control_hint_key_x + _control_hint_key_width,
+			_control_hint_key_y + _control_hint_key_height,
+			true
+		);
+
+		draw_set_alpha(1);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text(
+			_control_hint_key_x + _control_hint_key_padding_x,
+			_control_hint_row_y + (_control_hint_row_height * 0.5),
+			control_hint_keys[_control_hint_index]
+		);
+
+		draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+		draw_text(
+			_control_hint_key_x + _control_hint_key_width + _control_hint_key_text_gap,
+			_control_hint_row_y + (_control_hint_row_height * 0.5),
+			control_hint_actions[_control_hint_index]
+		);
+	}
+
+	draw_set_alpha(1);
 }
 
 // Draw objective complete notice once the shrine goal is finished.
@@ -577,6 +764,18 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 	var _satiety_bar_x = _satiety_x + cannon_satiety_bar_offset_x;
 	var _satiety_bar_y = _satiety_y + ((cannon_satiety_height - cannon_satiety_bar_height) * 0.5);
 	var _satiety_bar_label_x = _satiety_bar_x + cannon_satiety_bar_width + cannon_satiety_bar_label_gap;
+	var _satiety_bonus_count = 0;
+	var _satiety_pending_bonus_type = noone;
+
+	if (variable_global_exists("cannon_satiety_bonus_projectile_types"))
+	{
+		_satiety_bonus_count = array_length(global.cannon_satiety_bonus_projectile_types);
+	}
+
+	if (variable_global_exists("cannon_satiety_pending_bonus_projectile_type"))
+	{
+		_satiety_pending_bonus_type = global.cannon_satiety_pending_bonus_projectile_type;
+	}
 
 	draw_set_halign(fa_left);
 	draw_set_valign(fa_middle);
@@ -595,6 +794,8 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 		var _satiety_current_bar_y = _satiety_bar_y + (_satiety_bar_index * (cannon_satiety_bar_height + cannon_satiety_bar_gap));
 		var _satiety_bar_corpses = ceil(clamp(_satiety_bar_value, 0, _satiety_max) / _satiety_per_corpse);
 		var _satiety_bar_label = string(_satiety_bar_corpses) + "/" + string(_satiety_max_corpses) + " corpses";
+		var _satiety_reward_projectile_type = noone;
+		var _satiety_reward_alpha = 0.35;
 
 		draw_set_alpha(0.75);
 		draw_set_color(c_black);
@@ -618,7 +819,96 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 
 		draw_set_color(COLOR_HUD_TEXT);
 		draw_text(_satiety_bar_label_x, _satiety_current_bar_y + (cannon_satiety_bar_height * 0.5), _satiety_bar_label);
+
+		if (_satiety_bar_index < _satiety_bonus_count)
+		{
+			_satiety_reward_projectile_type = global.cannon_satiety_bonus_projectile_types[_satiety_bar_index];
+			_satiety_reward_alpha = 1;
+		}
+		else if (_satiety_bar_index == _satiety_bonus_count)
+		{
+			_satiety_reward_projectile_type = _satiety_pending_bonus_type;
+		}
+
+		if (_satiety_reward_projectile_type != noone)
+		{
+			var _satiety_reward_start_x = _satiety_bar_label_x
+				+ string_width(_satiety_bar_label)
+				+ cannon_satiety_reward_icon_gap
+				+ 18;
+			var _satiety_reward_y = _satiety_current_bar_y + (cannon_satiety_bar_height * 0.5);
+			var _taint_shell_icon_x = _satiety_reward_start_x
+				+ string_width("+1")
+				+ cannon_satiety_reward_label_gap
+				+ cannon_satiety_reward_icon_radius;
+			var _bonus_icon_x = _taint_shell_icon_x
+				+ (cannon_satiety_reward_icon_radius * 2)
+				+ cannon_satiety_reward_group_gap
+				+ string_width("+1")
+				+ cannon_satiety_reward_label_gap
+				+ cannon_satiety_reward_icon_radius;
+			var _satiety_reward_color = COLOR_PROJECTILE_DAMAGE;
+
+			if (_satiety_reward_projectile_type == PROJECTILE_TYPE.CORRUPTION
+				|| _satiety_reward_projectile_type == PROJECTILE_TYPE.FEAST)
+			{
+				_satiety_reward_color = COLOR_PROJECTILE_CORRUPTION;
+			}
+			else if (_satiety_reward_projectile_type == PROJECTILE_TYPE.SUMMON)
+			{
+				_satiety_reward_color = COLOR_PROJECTILE_SUMMON;
+			}
+			else if (_satiety_reward_projectile_type == PROJECTILE_TYPE.RALLY)
+			{
+				_satiety_reward_color = COLOR_PROJECTILE_RALLY;
+			}
+			else if (_satiety_reward_projectile_type == PROJECTILE_TYPE.CULTIST)
+			{
+				_satiety_reward_color = COLOR_PROJECTILE_CULTIST;
+			}
+			else if (_satiety_reward_projectile_type == PROJECTILE_TYPE.HEAL)
+			{
+				_satiety_reward_color = COLOR_PROJECTILE_HEAL;
+			}
+			else if (_satiety_reward_projectile_type == PROJECTILE_TYPE.BOMB)
+			{
+				_satiety_reward_color = COLOR_PROJECTILE_BOMB;
+			}
+			else if (_satiety_reward_projectile_type == PROJECTILE_TYPE.SKELETONS)
+			{
+				_satiety_reward_color = COLOR_PROJECTILE_SKELETONS;
+			}
+
+			draw_set_alpha(_satiety_reward_alpha);
+			draw_set_color(COLOR_HUD_TEXT);
+			draw_text(_satiety_reward_start_x, _satiety_reward_y, "+1");
+
+			draw_set_color(COLOR_PROJECTILE_CORRUPTION);
+			draw_circle(
+				_taint_shell_icon_x,
+				_satiety_reward_y,
+				cannon_satiety_reward_icon_radius,
+				false
+			);
+
+			var _bonus_label_x = _taint_shell_icon_x
+				+ cannon_satiety_reward_icon_radius
+				+ cannon_satiety_reward_group_gap;
+
+			draw_set_color(COLOR_HUD_TEXT);
+			draw_text(_bonus_label_x, _satiety_reward_y, "+1");
+
+			draw_set_color(_satiety_reward_color);
+			draw_circle(
+				_bonus_icon_x,
+				_satiety_reward_y,
+				cannon_satiety_reward_icon_radius,
+				false
+			);
+		}
 	}
+
+	draw_set_alpha(1);
 }
 
 // Draw defeat notice when the cannon wall has no HP left.

@@ -100,6 +100,52 @@ if (building_warning_timer > 0 && building_warning_text != "")
 	draw_text(_warning_x, _warning_y, building_warning_text);
 }
 
+// Show Goblins Pit capacity and missing resource state above the building.
+if (object_index == o_goblins_pit)
+{
+	var _goblin_count = goblins_pit_goblin_count_get();
+	var _goblin_limit = goblins_pit_goblin_limit_get();
+	var _status_text = "Goblins " + string(_goblin_count) + "/" + string(_goblin_limit);
+	var _resource_text = "";
+	var _status_color = _goblin_count >= _goblin_limit ? COLOR_STATUS_NEGATIVE_RED : COLOR_HUD_TEXT;
+
+	if (missing_work_resource != noone)
+	{
+		_resource_text = "Need " + string(missing_work_resource_amount) + " " + missing_work_resource_name;
+		_status_color = missing_work_resource_color;
+	}
+
+	var _status_x = x;
+	var _status_y = y - goblin_status_offset_y;
+	var _status_text_width = max(string_width(_status_text), string_width(_resource_text));
+	var _status_line_count = 1 + (missing_work_resource != noone);
+	var _status_width = _status_text_width + (building_warning_padding_x * 2);
+	var _status_height = (goblin_status_line_height * _status_line_count) + (building_warning_padding_y * 2);
+	var _status_left = _status_x - (_status_width * 0.5);
+	var _status_top = _status_y - (_status_height * 0.5);
+
+	draw_set_alpha(building_warning_background_alpha);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_roundrect(
+		_status_left,
+		_status_top,
+		_status_left + _status_width,
+		_status_top + _status_height,
+		false
+	);
+
+	draw_set_alpha(1);
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
+	draw_set_color(_status_color);
+	draw_text(_status_x, _status_top + building_warning_padding_y + (goblin_status_line_height * 0.5), _status_text);
+
+	if (_resource_text != "")
+	{
+		draw_text(_status_x, _status_top + building_warning_padding_y + (goblin_status_line_height * 1.5), _resource_text);
+	}
+}
+
 // Draw remaining paid healing for the current Flesh chunk.
 if (object_index == o_meat_bath)
 {
@@ -195,15 +241,6 @@ if (object_index == o_workshop)
 {
 	var _bar_x = x - (production_bar_width * 0.5);
 	var _bar_y = y - production_bar_offset_y;
-	var _multiplier_text = string_format(production_speed_multiplier, 0, 1) + "x";
-	var _multiplier_x = _bar_x - production_multiplier_gap - string_width(_multiplier_text);
-	var _multiplier_y = _bar_y + (production_bar_height * 0.5);
-
-	draw_set_alpha(1);
-	draw_set_halign(fa_left);
-	draw_set_valign(fa_middle);
-	draw_set_color(production_bonus_stat_color);
-	draw_text(_multiplier_x, _multiplier_y, _multiplier_text);
 
 	if (workshop_repair_pool > 0)
 	{
@@ -254,9 +291,6 @@ if (summon_unit_object != noone)
 		var _bar_x = x - (production_bar_width * 0.5);
 		var _bar_y = y - production_bar_offset_y;
 		var _progress = clamp(summon_progress, 0, 1);
-		var _multiplier_text = string_format(production_speed_multiplier, 0, 1) + "x";
-		var _multiplier_x = _bar_x - production_multiplier_gap - string_width(_multiplier_text);
-		var _multiplier_y = _bar_y + (production_bar_height * 0.5);
 		var _icon_x = _bar_x + production_bar_width + production_icon_gap;
 		var _icon_y = _bar_y + (production_bar_height * 0.5);
 
@@ -273,10 +307,6 @@ if (summon_unit_object != noone)
 		draw_rectangle(_bar_x, _bar_y, _bar_x + production_bar_width, _bar_y + production_bar_height, true);
 
 		draw_set_alpha(1);
-		draw_set_halign(fa_left);
-		draw_set_valign(fa_middle);
-		draw_set_color(production_bonus_stat_color);
-		draw_text(_multiplier_x, _multiplier_y, _multiplier_text);
 
 		var _cost_count = array_length(summon_resource_costs);
 
@@ -324,9 +354,6 @@ if (production_resource == noone)
 var _bar_x = x - (production_bar_width * 0.5);
 var _bar_y = y - production_bar_offset_y;
 var _progress = clamp(production_progress, 0, 1);
-var _multiplier_text = string_format(production_speed_multiplier, 0, 1) + "x";
-var _multiplier_x = _bar_x - production_multiplier_gap - string_width(_multiplier_text);
-var _multiplier_y = _bar_y + (production_bar_height * 0.5);
 var _icon_x = _bar_x + production_bar_width + production_icon_gap;
 var _icon_y = _bar_y + (production_bar_height * 0.5);
 
@@ -343,10 +370,6 @@ draw_set_color(COLOR_HUD_TEXT);
 draw_rectangle(_bar_x, _bar_y, _bar_x + production_bar_width, _bar_y + production_bar_height, true);
 
 draw_set_alpha(1);
-draw_set_halign(fa_left);
-draw_set_valign(fa_middle);
-draw_set_color(production_bonus_stat_color);
-draw_text(_multiplier_x, _multiplier_y, _multiplier_text);
 
 if (sprite_exists(production_resource_icon))
 {

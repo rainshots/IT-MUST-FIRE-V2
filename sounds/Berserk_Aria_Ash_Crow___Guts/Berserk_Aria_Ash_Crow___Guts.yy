@@ -1,0 +1,26 @@
+{
+  "$GMSound":"v2",
+  "%Name":"Berserk_Aria_Ash_Crow___Guts",
+  "audioGroupId":{
+    "name":"audiogroup_default",
+    "path":"audiogroups/audiogroup_default",
+  },
+  "bitDepth":1,
+  "channelFormat":1,
+  "compression":0,
+  "compressionQuality":4,
+  "conversionMode":0,
+  "duration":289.2,
+  "exportDir":"",
+  "name":"Berserk_Aria_Ash_Crow___Guts",
+  "parent":{
+    "name":"Night",
+    "path":"folders/Sounds/Music/Night.yy",
+  },
+  "preload":false,
+  "resourceType":"GMSound",
+  "resourceVersion":"2.0",
+  "sampleRate":44100,
+  "soundFile":"Berserk_Aria_Ash_Crow___Guts.mp3",
+  "volume":1.0,
+}

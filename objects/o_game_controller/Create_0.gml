@@ -476,6 +476,15 @@ global.cannon_projectile_cheat_enabled = global.cheats_enabled;
 global.rally_projectile_group_id = 0;
 global.cannon_satiety = 0;
 global.cannon_satiety_max = BALANCE_CANNON_SATIETY_MAX;
+global.cannon_satiety_bonus_projectile_types = [];
+global.cannon_satiety_pending_bonus_projectile_type = noone;
+
+var _initial_feast_bonus_projectile_count = array_length(global.cannon_feast_bonus_projectile_types);
+
+if (_initial_feast_bonus_projectile_count > 0)
+{
+	global.cannon_satiety_pending_bonus_projectile_type = global.cannon_feast_bonus_projectile_types[irandom(_initial_feast_bonus_projectile_count - 1)];
+}
 
 // Global one-shot sound groups used by gameplay feedback.
 global.night_start_sounds = [
@@ -625,8 +634,22 @@ global.damage_sound_play = function()
 	global.damage_sound_handle = global.sound_play_random_with_gain(global.damage_sounds, _gain);
 };
 
+global.ui_confirm_sound_play = function()
+{
+	if (audio_exists(global.ui_confirm_sound))
+	{
+		audio_play_sound(global.ui_confirm_sound, global.sound_priority_ui, false);
+	}
+};
+
+global.construction_sound_play = function()
+{
+	global.sound_play_random(global.construction_sounds, global.sound_priority_gameplay);
+};
+
 // UI audio is centralized so hover sounds fire once when entering a button.
 ui_hover_button_key = "";
+ui_click_sound_blocked = false;
 
 ui_mouse_is_inside_rect = function(_mouse_x, _mouse_y, _left, _top, _width, _height)
 {
@@ -681,7 +704,7 @@ ui_hover_candidate_get = function(_mouse_x, _mouse_y)
 		var _construction_close_x = _construction_panel_x + building_window_width - _construction_close_size - 14;
 		var _construction_close_y = _construction_panel_y + 14;
 		var _grid_x = _construction_panel_x + 44;
-		var _grid_y = _construction_panel_y + 94;
+		var _grid_y = _construction_panel_y + building_window_grid_y;
 		var _choice_count = array_length(building_choices);
 
 		if (ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _construction_close_x, _construction_close_y, _construction_close_size, _construction_close_size))
@@ -710,7 +733,7 @@ ui_hover_candidate_get = function(_mouse_x, _mouse_y)
 		var _upgrade_close_x = _upgrade_panel_x + building_upgrade_window_width - _upgrade_close_size - 14;
 		var _upgrade_close_y = _upgrade_panel_y + 14;
 		var _upgrade_tile_start_x = _upgrade_panel_x + 38;
-		var _upgrade_tile_y = _upgrade_panel_y + 104;
+		var _upgrade_tile_y = _upgrade_panel_y + building_upgrade_tile_y;
 
 		if (ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _upgrade_close_x, _upgrade_close_y, _upgrade_close_size, _upgrade_close_size))
 		{
@@ -849,6 +872,36 @@ ui_hover_candidate_get = function(_mouse_x, _mouse_y)
 			return _cursed_point.cursed_point_structure_choice_hover_key_get(_mouse_x, _mouse_y);
 		}
 	}
+	else if (global.focus_window == FOCUS_WINDOW.NOONE
+		&& !instance_exists(global.dragged_cultist)
+		&& instance_exists(o_camera_controller))
+	{
+		var _levelup_cultist = cultist_levelup_button_find_at_gui(_mouse_x, _mouse_y);
+
+		if (instance_exists(_levelup_cultist))
+		{
+			return "cultist_levelup_" + string(_levelup_cultist);
+		}
+
+		if (global.pause)
+		{
+			return "";
+		}
+
+		var _camera_controller = instance_find(o_camera_controller, 0);
+		var _camera_x = camera_get_view_x(_camera_controller.camera_id);
+		var _camera_y = camera_get_view_y(_camera_controller.camera_id);
+		var _camera_width = camera_get_view_width(_camera_controller.camera_id);
+		var _camera_height = camera_get_view_height(_camera_controller.camera_id);
+		var _mouse_world_x = _camera_x + ((_mouse_x / camera_view_width) * _camera_width);
+		var _mouse_world_y = _camera_y + ((_mouse_y / camera_view_height) * _camera_height);
+		var _building_slot = find_building_slot_at_position(_mouse_world_x, _mouse_world_y);
+
+		if (instance_exists(_building_slot))
+		{
+			return "building_slot_" + string(_building_slot);
+		}
+	}
 
 	return "";
 };
@@ -857,6 +910,7 @@ ui_audio_update = function()
 {
 	var _mouse_x = device_mouse_x_to_gui(0);
 	var _mouse_y = device_mouse_y_to_gui(0);
+	var _mouse_pressed = mouse_check_button_pressed(mb_left);
 	var _hover_button_key = ui_hover_candidate_get(_mouse_x, _mouse_y);
 
 	if (_hover_button_key != "" && _hover_button_key != ui_hover_button_key)
@@ -864,9 +918,13 @@ ui_audio_update = function()
 		global.sound_play_random(global.ui_hover_sounds, global.sound_priority_ui);
 	}
 
-	if (_hover_button_key != "" && mouse_check_button_pressed(mb_left))
+	if (_mouse_pressed && ui_click_sound_blocked)
 	{
-		audio_play_sound(global.ui_confirm_sound, global.sound_priority_ui, false);
+		ui_click_sound_blocked = false;
+	}
+	else if (_hover_button_key != "" && _mouse_pressed)
+	{
+		global.ui_confirm_sound_play();
 	}
 
 	ui_hover_button_key = _hover_button_key;
@@ -1353,6 +1411,9 @@ building_window_slot = noone;
 building_window_input_blocked = false;
 building_window_width = 760;
 building_window_height = 560;
+building_window_resource_y = 68;
+building_window_description_y = 92;
+building_window_grid_y = 124;
 building_tile_width = 150;
 building_tile_height = 178;
 building_tile_gap = 18;
@@ -1366,6 +1427,9 @@ building_upgrade_window_building = noone;
 building_upgrade_previous_pause_state = false;
 building_upgrade_window_width = 760;
 building_upgrade_window_height = 350;
+building_upgrade_resource_y = 68;
+building_upgrade_description_y = 92;
+building_upgrade_tile_y = 128;
 building_upgrade_tile_width = 220;
 building_upgrade_tile_height = 170;
 building_upgrade_tile_gap = 18;
@@ -1402,7 +1466,7 @@ building_choices = [
 		building_object: o_ritual_circle,
 		building_sprite: s_ritual_circle,
 		building_name: "Ritual Circle",
-		building_description: "Lets assigned cultists recover fatigue and gain XP over time.",
+		building_description: "Lets assigned workers restore Stamina and gain XP over time.",
 		iron_cost: BALANCE_RITUAL_CIRCLE_BUILDING_IRON_COST
 	},
 	{
@@ -1581,6 +1645,13 @@ cultist_demon_selection_panel_width = 900;
 cultist_panel_height = 836;
 cultist_levelup_open = false;
 cultist_levelup_index = 0;
+cultist_levelup_previous_pause_state = false;
+cultist_levelup_previous_player_pause_state = false;
+cultist_levelup_button_width = 92;
+cultist_levelup_button_height = 28;
+cultist_levelup_button_offset_y = 48;
+cultist_levelup_button_pulse_amount = 0.16;
+cultist_levelup_button_pulse_speed = 0.008;
 cultist_drag_lift_offset_y = -30;
 cultist_drag_drop_offset_y = 30;
 pickup_hand_drag_offset_y = BALANCE_PICKUP_HAND_DRAG_OFFSET_Y;
@@ -2105,7 +2176,16 @@ worker_whip_apply = function(_unit)
 
 	_unit.hp -= _damage_amount;
 	_unit.whip_duration = _whip_duration_frames;
-	_unit.whip_timer = min(_unit.whip_timer + _whip_gain_frames, _unit.whip_duration);
+
+	if (_whip_was_inactive)
+	{
+		_unit.whip_timer = _unit.whip_duration;
+	}
+	else
+	{
+		_unit.whip_timer = min(_unit.whip_timer + _whip_gain_frames, _unit.whip_duration);
+	}
+
 	_unit.whip_work_multiplier = BALANCE_WORKER_WHIP_SPEED_MULTIPLIER;
 
 	var _damage_popup = instance_create_layer(_unit.x, _unit.y, "Instances", o_damage_popup);
@@ -2261,6 +2341,8 @@ open_building_window = function(_slot)
 	player_pause_active = false;
 	global.pause = true;
 	global.focus_window = FOCUS_WINDOW.BUILDING_CONSTRUCTION;
+	global.ui_confirm_sound_play();
+	ui_click_sound_blocked = true;
 
 	return true;
 };
@@ -2377,6 +2459,68 @@ resource_color_get = function(_resource)
 	return c_white;
 };
 
+building_resource_summary_draw = function(_center_x, _y)
+{
+	if (!variable_global_exists("resources"))
+	{
+		return;
+	}
+
+	// Draw current resources inside modal windows where the regular HUD is hidden.
+	var _resource_order = [RESOURCES.FLESH, RESOURCES.SOULS, RESOURCES.IRON];
+	var _resource_count = array_length(_resource_order);
+	var _icon_size = 22;
+	var _icon_text_gap = 6;
+	var _item_gap = 28;
+	var _item_widths = array_create(_resource_count, 0);
+	var _total_width = 0;
+
+	for (var _resource_index = 0; _resource_index < _resource_count; ++_resource_index)
+	{
+		var _resource = _resource_order[_resource_index];
+		var _resource_value_text = string(global.resources[_resource]);
+		var _item_width = _icon_size + _icon_text_gap + string_width(_resource_value_text);
+
+		_item_widths[_resource_index] = _item_width;
+		_total_width += _item_width;
+
+		if (_resource_index < _resource_count - 1)
+		{
+			_total_width += _item_gap;
+		}
+	}
+
+	var _draw_x = _center_x - (_total_width * 0.5);
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_middle);
+	draw_set_alpha(1);
+
+	for (var _resource_index = 0; _resource_index < _resource_count; ++_resource_index)
+	{
+		var _resource = _resource_order[_resource_index];
+		var _resource_icon = resource_icon_get(_resource);
+		var _resource_color = resource_color_get(_resource);
+		var _resource_value_text = string(global.resources[_resource]);
+		var _icon_y = _y - (_icon_size * 0.5);
+
+		if (_resource_icon != noone && sprite_exists(_resource_icon))
+		{
+			draw_sprite_stretched_ext(_resource_icon, 0, _draw_x, _icon_y, _icon_size, _icon_size, c_white, 1);
+		}
+		else
+		{
+			draw_set_color(_resource_color);
+			draw_circle(_draw_x + (_icon_size * 0.5), _y, _icon_size * 0.35, false);
+		}
+
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text(_draw_x + _icon_size + _icon_text_gap, _y, _resource_value_text);
+
+		_draw_x += _item_widths[_resource_index] + _item_gap;
+	}
+};
+
 building_choice_costs_get = function(_choice)
 {
 	if (variable_struct_exists(_choice, "construction_costs"))
@@ -2478,7 +2622,7 @@ construct_building_from_choice = function(_choice)
 		_built_object.depth = _slot.depth;
 	}
 
-	global.sound_play_random(global.construction_sounds);
+	global.construction_sound_play();
 
 	if (variable_global_exists("tutorial_hint_trigger"))
 	{
@@ -2724,6 +2868,13 @@ cannon_satiety_spend_feast = function()
 	}
 
 	global.cannon_satiety -= global.cannon_satiety_max;
+
+	if (variable_global_exists("cannon_satiety_bonus_projectile_types")
+		&& array_length(global.cannon_satiety_bonus_projectile_types) > 0)
+	{
+		array_delete(global.cannon_satiety_bonus_projectile_types, 0, 1);
+	}
+
 	return true;
 };
 
@@ -2742,17 +2893,47 @@ cannon_projectile_queue_add = function(_projectile_type, _payload = noone)
 	return true;
 };
 
-cannon_random_feast_bonus_projectile_queue_add = function()
+cannon_feast_bonus_projectile_roll = function()
 {
 	var _bonus_projectile_count = array_length(global.cannon_feast_bonus_projectile_types);
 
 	if (_bonus_projectile_count <= 0)
 	{
+		return noone;
+	}
+
+	return global.cannon_feast_bonus_projectile_types[irandom(_bonus_projectile_count - 1)];
+};
+
+cannon_satiety_pending_bonus_projectile_ensure = function()
+{
+	if (!variable_global_exists("cannon_satiety_pending_bonus_projectile_type")
+		|| global.cannon_satiety_pending_bonus_projectile_type == noone)
+	{
+		global.cannon_satiety_pending_bonus_projectile_type = cannon_feast_bonus_projectile_roll();
+	}
+
+	return global.cannon_satiety_pending_bonus_projectile_type;
+};
+
+cannon_random_feast_bonus_projectile_queue_add = function()
+{
+	var _bonus_projectile_type = cannon_satiety_pending_bonus_projectile_ensure();
+
+	if (_bonus_projectile_type == noone)
+	{
 		return false;
 	}
 
-	var _bonus_projectile_type = global.cannon_feast_bonus_projectile_types[irandom(_bonus_projectile_count - 1)];
-	return cannon_projectile_queue_add(_bonus_projectile_type);
+	if (!cannon_projectile_queue_add(_bonus_projectile_type))
+	{
+		return false;
+	}
+
+	array_push(global.cannon_satiety_bonus_projectile_types, _bonus_projectile_type);
+	global.cannon_satiety_pending_bonus_projectile_type = cannon_feast_bonus_projectile_roll();
+
+	return true;
 };
 
 cannon_feast_projectile_queue_add = function()
@@ -3049,8 +3230,10 @@ cannon_corpse_workers_drop_all = function()
 // Runtime UI font includes Cyrillic glyphs for cultist names.
 var _ui_font_size = 11;
 var _ui_heading_font_size = 28;
+var _building_speed_font_size = 44;
 var _should_create_ui_font = !variable_global_exists("ui_font") || !font_exists(global.ui_font);
 var _should_create_ui_heading_font = !variable_global_exists("ui_heading_font") || !font_exists(global.ui_heading_font);
+var _should_create_building_speed_font = !variable_global_exists("building_speed_font") || !font_exists(global.building_speed_font);
 
 if (!_should_create_ui_font && (!variable_global_exists("ui_font_size") || global.ui_font_size != _ui_font_size))
 {
@@ -3065,6 +3248,13 @@ if (!_should_create_ui_heading_font
 	_should_create_ui_heading_font = true;
 }
 
+if (!_should_create_building_speed_font
+	&& (!variable_global_exists("building_speed_font_size") || global.building_speed_font_size != _building_speed_font_size))
+{
+	font_delete(global.building_speed_font);
+	_should_create_building_speed_font = true;
+}
+
 if (_should_create_ui_font)
 {
 	global.ui_font = font_add("Arial", _ui_font_size, false, false, 32, 1279);
@@ -3075,6 +3265,12 @@ if (_should_create_ui_heading_font)
 {
 	global.ui_heading_font = font_add("Arial", _ui_heading_font_size, true, false, 32, 1279);
 	global.ui_heading_font_size = _ui_heading_font_size;
+}
+
+if (_should_create_building_speed_font)
+{
+	global.building_speed_font = font_add("Arial Black", _building_speed_font_size, true, false, 32, 1279);
+	global.building_speed_font_size = _building_speed_font_size;
 }
 
 open_starting_cultist_selection = function()
@@ -3329,16 +3525,9 @@ assign_current_cultist_demon = function()
 
 	if (cultist_selection_index >= array_length(global.cultists))
 	{
-		if (cultist_levelup_find_next(0) >= 0)
-		{
-			open_cultist_levelup();
-		}
-		else
-		{
-			global.pause = false;
-			global.focus_window = FOCUS_WINDOW.NOONE;
-			worker_assignment_hint_delay_start();
-		}
+		global.pause = false;
+		global.focus_window = FOCUS_WINDOW.NOONE;
+		worker_assignment_hint_delay_start();
 	}
 };
 
@@ -3382,9 +3571,9 @@ transform_cultists_to_demons = function()
 		_demon.demon_type = _cultist.demon_type;
 		_demon.demon_ability = _cultist.demon_ability;
 
-		if (variable_instance_exists(_cultist, "fatigue_amount"))
+		if (variable_instance_exists(_cultist, "stamina_amount"))
 		{
-			_demon.fatigue_amount = _cultist.fatigue_amount;
+			_demon.stamina_amount = _cultist.stamina_amount;
 		}
 
 		if (variable_instance_exists(_cultist, "adaptive_night_hp_start"))
@@ -4010,15 +4199,15 @@ restore_dead_cultists_at_morning = function()
 			continue;
 		}
 
-		var _fatigue_amount = 0;
+		var _stamina_amount = BALANCE_CULTIST_STAMINA_MAX;
 
-		if (variable_instance_exists(_cultist, "fatigue_amount"))
+		if (variable_instance_exists(_cultist, "stamina_amount"))
 		{
-			_fatigue_amount = _cultist.fatigue_amount;
+			_stamina_amount = _cultist.stamina_amount;
 		}
 
 		cultist_day_health_apply(_cultist, false);
-		_cultist.fatigue_amount = _fatigue_amount;
+		_cultist.stamina_amount = _stamina_amount;
 		_cultist.hp = _cultist.max_hp * BALANCE_CULTIST_MORNING_RESPAWN_HP_SHARE;
 		_cultist.visible = true;
 		_cultist.image_alpha = 1;
@@ -4074,9 +4263,9 @@ transform_demons_to_cultists = function()
 		_cultist.demon_type = _unit.demon_type;
 		_cultist.demon_ability = _unit.demon_ability;
 
-		if (variable_instance_exists(_unit, "fatigue_amount"))
+		if (variable_instance_exists(_unit, "stamina_amount"))
 		{
-			_cultist.fatigue_amount = _unit.fatigue_amount;
+			_cultist.stamina_amount = _unit.stamina_amount;
 		}
 
 		if (variable_instance_exists(_unit, "adaptive_night_hp_start"))
@@ -4164,6 +4353,118 @@ cultist_levelup_find_next = function(_start_index)
 	return -1;
 };
 
+cultist_has_pending_levelup = function(_cultist)
+{
+	if (!instance_exists(_cultist))
+	{
+		return false;
+	}
+
+	if (variable_instance_exists(_cultist, "pending_ability_upgrade_choices")
+		&& _cultist.pending_ability_upgrade_choices > 0
+		&& array_length(cultist_ability_upgrade_options_roll(_cultist)) <= 0)
+	{
+		_cultist.pending_ability_upgrade_choices = 0;
+	}
+
+	return (variable_instance_exists(_cultist, "pending_level_points") && _cultist.pending_level_points > 0)
+		|| (variable_instance_exists(_cultist, "pending_passive_choices") && _cultist.pending_passive_choices > 0)
+		|| (variable_instance_exists(_cultist, "pending_active_choices") && _cultist.pending_active_choices > 0)
+		|| (variable_instance_exists(_cultist, "pending_ability_upgrade_choices") && _cultist.pending_ability_upgrade_choices > 0);
+};
+
+cultist_levelup_button_rect_get = function(_cultist)
+{
+	if (!instance_exists(_cultist) || !instance_exists(o_camera_controller))
+	{
+		return [0, 0, 0, 0];
+	}
+
+	var _camera_controller = instance_find(o_camera_controller, 0);
+	var _camera_x = camera_get_view_x(_camera_controller.camera_id);
+	var _camera_y = camera_get_view_y(_camera_controller.camera_id);
+	var _camera_width = camera_get_view_width(_camera_controller.camera_id);
+	var _camera_height = camera_get_view_height(_camera_controller.camera_id);
+	var _anchor_world_x = _cultist.x;
+	var _anchor_world_y = _cultist.bbox_top - cultist_levelup_button_offset_y;
+	var _anchor_gui_x = ((_anchor_world_x - _camera_x) / _camera_width) * camera_view_width;
+	var _anchor_gui_y = ((_anchor_world_y - _camera_y) / _camera_height) * camera_view_height;
+	var _pulse = 1 + (sin(current_time * cultist_levelup_button_pulse_speed) * cultist_levelup_button_pulse_amount);
+	var _button_width = cultist_levelup_button_width * _pulse;
+	var _button_height = cultist_levelup_button_height * _pulse;
+	var _button_x = _anchor_gui_x - (_button_width * 0.5);
+	var _button_y = _anchor_gui_y - (_button_height * 0.5);
+
+	return [_button_x, _button_y, _button_width, _button_height];
+};
+
+cultist_levelup_button_find_at_gui = function(_mouse_x, _mouse_y)
+{
+	if (!variable_global_exists("cultists"))
+	{
+		return noone;
+	}
+
+	var _cultist_count = array_length(global.cultists);
+	var _target_cultist = noone;
+	var _target_depth = infinity;
+
+	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+	{
+		var _cultist = global.cultists[_cultist_index];
+
+		if (!cultist_has_pending_levelup(_cultist)
+			|| (variable_instance_exists(_cultist, "hp") && _cultist.hp <= 0)
+			|| (variable_instance_exists(_cultist, "cannon_loading") && _cultist.cannon_loading)
+			|| (variable_instance_exists(_cultist, "cannon_loaded") && _cultist.cannon_loaded))
+		{
+			continue;
+		}
+
+		var _button_rect = cultist_levelup_button_rect_get(_cultist);
+
+		if (_mouse_x >= _button_rect[0]
+			&& _mouse_x <= _button_rect[0] + _button_rect[2]
+			&& _mouse_y >= _button_rect[1]
+			&& _mouse_y <= _button_rect[1] + _button_rect[3]
+			&& _cultist.depth < _target_depth)
+		{
+			_target_cultist = _cultist;
+			_target_depth = _cultist.depth;
+		}
+	}
+
+	return _target_cultist;
+};
+
+open_cultist_levelup_for_cultist = function(_cultist)
+{
+	if (!cultist_has_pending_levelup(_cultist))
+	{
+		return false;
+	}
+
+	var _cultist_count = array_length(global.cultists);
+
+	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+	{
+		if (global.cultists[_cultist_index] == _cultist)
+		{
+			cultist_levelup_open = true;
+			cultist_levelup_index = _cultist_index;
+			cultist_levelup_previous_pause_state = global.pause;
+			cultist_levelup_previous_player_pause_state = player_pause_active;
+			player_pause_active = false;
+			global.pause = true;
+			global.focus_window = FOCUS_WINDOW.CULTIST_LEVEL_UP;
+			global.ui_confirm_sound_play();
+			return true;
+		}
+	}
+
+	return false;
+};
+
 open_cultist_levelup = function()
 {
 	var _next_levelup_index = cultist_levelup_find_next(0);
@@ -4175,6 +4476,8 @@ open_cultist_levelup = function()
 
 	cultist_levelup_open = true;
 	cultist_levelup_index = _next_levelup_index;
+	cultist_levelup_previous_pause_state = global.pause;
+	cultist_levelup_previous_player_pause_state = player_pause_active;
 	player_pause_active = false;
 	global.pause = true;
 	global.focus_window = FOCUS_WINDOW.CULTIST_LEVEL_UP;
@@ -4184,7 +4487,6 @@ open_cultist_levelup = function()
 
 award_cultist_night_exp = function()
 {
-	var _has_levelup = false;
 	var _cultist_count = array_length(global.cultists);
 	var _valid_cultists = [];
 
@@ -4220,13 +4522,8 @@ award_cultist_night_exp = function()
 
 		if (cultist_exp_add(_cultist, _exp_reward))
 		{
-			_has_levelup = true;
+			ensure_cultist_levelup_options(_cultist);
 		}
-	}
-
-	if (_has_levelup)
-	{
-		open_cultist_levelup();
 	}
 };
 
@@ -4320,12 +4617,60 @@ night_attack_total_difficulty_get = function()
 		+ (_late_night_count * BALANCE_NIGHT_ATTACK_DIFFICULTY_LATE_INCREASE_PER_NIGHT)
 		+ (_extra_cultist_count * BALANCE_NIGHT_ATTACK_DIFFICULTY_PER_EXTRA_CULTIST);
 
-	if (BALANCE_ADAPTIVE_DIFFICULTY_ENABLED)
+	return _difficulty;
+};
+
+night_attack_difficulty_debug_log = function(_total_difficulty, _direction_count, _direction_difficulty)
+{
+	if (!global.cheats_enabled)
 	{
-		_difficulty *= adaptive_difficulty_multiplier;
+		return;
 	}
 
-	return _difficulty;
+	var _extra_cultist_count = max(0, array_length(global.cultists) - BALANCE_STARTING_CULTIST_COUNT);
+	var _night_index = max(1, night_attack_night_index);
+	var _early_night_count = max(0, min(_night_index - 1, BALANCE_NIGHT_ATTACK_DIFFICULTY_LATE_START_NIGHT - 2));
+	var _late_night_count = max(0, _night_index - BALANCE_NIGHT_ATTACK_DIFFICULTY_LATE_START_NIGHT + 1);
+	var _base_difficulty = BALANCE_NIGHT_ATTACK_DIFFICULTY_BASE;
+	var _early_night_difficulty = _early_night_count * BALANCE_NIGHT_ATTACK_DIFFICULTY_INCREASE_PER_NIGHT;
+	var _late_night_difficulty = _late_night_count * BALANCE_NIGHT_ATTACK_DIFFICULTY_LATE_INCREASE_PER_NIGHT;
+	var _extra_cultist_difficulty = _extra_cultist_count * BALANCE_NIGHT_ATTACK_DIFFICULTY_PER_EXTRA_CULTIST;
+	var _raw_difficulty = _base_difficulty
+		+ _early_night_difficulty
+		+ _late_night_difficulty
+		+ _extra_cultist_difficulty;
+	var _enemy_hp_multiplier = enemy_night_hp_multiplier_get();
+	var _enemy_hp_night_multiplier = 1 + (_night_index - 1) * BALANCE_ENEMY_HP_INCREASE_PER_NIGHT;
+
+	var _difficulty_text = "[Night Difficulty] Night " + string(_night_index)
+		+ "\n  Base: +" + string_format(_base_difficulty, 0, 2)
+		+ "\n  Early nights: +" + string_format(_early_night_difficulty, 0, 2)
+		+ " (" + string(_early_night_count) + " x " + string_format(BALANCE_NIGHT_ATTACK_DIFFICULTY_INCREASE_PER_NIGHT, 0, 2) + ")"
+		+ "\n  Late nights: +" + string_format(_late_night_difficulty, 0, 2)
+		+ " (" + string(_late_night_count) + " x " + string_format(BALANCE_NIGHT_ATTACK_DIFFICULTY_LATE_INCREASE_PER_NIGHT, 0, 2) + ")"
+		+ "\n  Extra cultists: +" + string_format(_extra_cultist_difficulty, 0, 2)
+		+ " (" + string(_extra_cultist_count) + " x " + string_format(BALANCE_NIGHT_ATTACK_DIFFICULTY_PER_EXTRA_CULTIST, 0, 2) + ")"
+		+ "\n  Adaptive unit-count modifier: none"
+		+ "\n  Raw difficulty: " + string_format(_raw_difficulty, 0, 2);
+
+	_difficulty_text += "\n  Total difficulty: " + string_format(_total_difficulty, 0, 2)
+		+ "\n  Directions: " + string(_direction_count)
+		+ "\n  Difficulty per direction: " + string_format(_direction_difficulty, 0, 2)
+		+ " (cap " + string_format(BALANCE_NIGHT_ATTACK_DIRECTION_DIFFICULTY_MAX, 0, 2) + ")"
+		+ "\n  Enemy HP night multiplier: x" + string_format(_enemy_hp_night_multiplier, 0, 2);
+
+	if (BALANCE_ADAPTIVE_DIFFICULTY_ENABLED)
+	{
+		_difficulty_text += "\n  Enemy HP adaptive multiplier: x" + string_format(adaptive_difficulty_multiplier, 0, 2);
+	}
+	else
+	{
+		_difficulty_text += "\n  Enemy HP adaptive multiplier: disabled";
+	}
+
+	_difficulty_text += "\n  Enemy HP total multiplier: x" + string_format(_enemy_hp_multiplier, 0, 2);
+
+	show_debug_message(_difficulty_text);
 };
 
 adaptive_difficulty_low_hp_cultist_count_get = function()
@@ -4427,6 +4772,7 @@ adaptive_difficulty_evaluate_night = function()
 
 	var _difficulty_delta = 0;
 	var _cannon_hp_loss_share = 0;
+	var _debug_delta_lines = [];
 
 	if (instance_exists(o_cannon))
 	{
@@ -4443,14 +4789,17 @@ adaptive_difficulty_evaluate_night = function()
 		if (_cannon_hp_loss_share <= 0)
 		{
 			_difficulty_delta += BALANCE_ADAPTIVE_DIFFICULTY_EASY_INCREASE;
+			array_push(_debug_delta_lines, "Cannon took no damage: +" + string_format(BALANCE_ADAPTIVE_DIFFICULTY_EASY_INCREASE, 0, 2));
 		}
 		else if (_cannon_hp_loss_share > BALANCE_ADAPTIVE_DIFFICULTY_CANNON_HARD_HP_LOSS_SHARE)
 		{
 			_difficulty_delta -= BALANCE_ADAPTIVE_DIFFICULTY_HARD_DECREASE;
+			array_push(_debug_delta_lines, "Cannon lost " + string_format(_cannon_hp_loss_share * 100, 0, 1) + "% HP: -" + string_format(BALANCE_ADAPTIVE_DIFFICULTY_HARD_DECREASE, 0, 2));
 		}
 		else
 		{
 			_difficulty_delta += BALANCE_ADAPTIVE_DIFFICULTY_NORMAL_INCREASE;
+			array_push(_debug_delta_lines, "Cannon damage was moderate: +" + string_format(BALANCE_ADAPTIVE_DIFFICULTY_NORMAL_INCREASE, 0, 2));
 		}
 	}
 
@@ -4459,14 +4808,17 @@ adaptive_difficulty_evaluate_night = function()
 	if (_low_hp_cultist_count <= 0)
 	{
 		_difficulty_delta += BALANCE_ADAPTIVE_DIFFICULTY_EASY_INCREASE;
+		array_push(_debug_delta_lines, "No low HP cultists: +" + string_format(BALANCE_ADAPTIVE_DIFFICULTY_EASY_INCREASE, 0, 2));
 	}
 	else if (_low_hp_cultist_count > BALANCE_ADAPTIVE_DIFFICULTY_CULTIST_NORMAL_LOW_HP_MAX)
 	{
 		_difficulty_delta -= BALANCE_ADAPTIVE_DIFFICULTY_HARD_DECREASE;
+		array_push(_debug_delta_lines, string(_low_hp_cultist_count) + " low HP cultists: -" + string_format(BALANCE_ADAPTIVE_DIFFICULTY_HARD_DECREASE, 0, 2));
 	}
 	else
 	{
 		_difficulty_delta += BALANCE_ADAPTIVE_DIFFICULTY_NORMAL_INCREASE;
+		array_push(_debug_delta_lines, string(_low_hp_cultist_count) + " low HP cultists: +" + string_format(BALANCE_ADAPTIVE_DIFFICULTY_NORMAL_INCREASE, 0, 2));
 	}
 
 	var _heavy_damage_cultist_count = adaptive_difficulty_heavy_damage_cultist_count_get();
@@ -4474,13 +4826,25 @@ adaptive_difficulty_evaluate_night = function()
 	if (adaptive_night_tracked_cultist_count > 0 && _heavy_damage_cultist_count <= 0)
 	{
 		_difficulty_delta += BALANCE_ADAPTIVE_DIFFICULTY_NO_HEAVY_CULTIST_DAMAGE_INCREASE;
+		array_push(_debug_delta_lines, "No heavy cultist damage: +" + string_format(BALANCE_ADAPTIVE_DIFFICULTY_NO_HEAVY_CULTIST_DAMAGE_INCREASE, 0, 2));
 	}
+
+	var _difficulty_delta_before_knockout_cap = _difficulty_delta;
 
 	// A knockout means the previous night was already punishing enough.
 	if (adaptive_night_cultist_knocked_out && _difficulty_delta > BALANCE_ADAPTIVE_DIFFICULTY_KNOCKOUT_MAX_INCREASE)
 	{
 		_difficulty_delta = BALANCE_ADAPTIVE_DIFFICULTY_KNOCKOUT_MAX_INCREASE;
+		array_push(
+			_debug_delta_lines,
+			"Cultist knockout cap: "
+				+ string_format(_difficulty_delta_before_knockout_cap, 0, 2)
+				+ " -> "
+				+ string_format(BALANCE_ADAPTIVE_DIFFICULTY_KNOCKOUT_MAX_INCREASE, 0, 2)
+		);
 	}
+
+	var _adaptive_difficulty_multiplier_before = adaptive_difficulty_multiplier;
 
 	adaptive_difficulty_multiplier = clamp(
 		adaptive_difficulty_multiplier + _difficulty_delta,
@@ -4492,11 +4856,41 @@ adaptive_difficulty_evaluate_night = function()
 	adaptive_last_night_heavy_damage_cultists = _heavy_damage_cultist_count;
 	adaptive_last_night_cultist_knocked_out = adaptive_night_cultist_knocked_out;
 	adaptive_last_night_delta = _difficulty_delta;
+
+	if (global.cheats_enabled)
+	{
+		var _debug_text = "[Adaptive Difficulty] Previous night result"
+			+ "\n  Cannon HP loss: " + string_format(_cannon_hp_loss_share * 100, 0, 1) + "%"
+			+ "\n  Low HP cultists: " + string(_low_hp_cultist_count)
+			+ "\n  Heavy damage cultists: " + string(_heavy_damage_cultist_count)
+			+ "\n  Cultist knocked out: " + string(adaptive_night_cultist_knocked_out);
+		var _debug_line_count = array_length(_debug_delta_lines);
+
+		for (var _debug_line_index = 0; _debug_line_index < _debug_line_count; ++_debug_line_index)
+		{
+			_debug_text += "\n  " + _debug_delta_lines[_debug_line_index];
+		}
+
+		_debug_text += "\n  Total multiplier delta: " + string_format(_difficulty_delta, 0, 2)
+			+ "\n  Multiplier: "
+			+ string_format(_adaptive_difficulty_multiplier_before, 0, 2)
+			+ " -> "
+			+ string_format(adaptive_difficulty_multiplier, 0, 2);
+
+		show_debug_message(_debug_text);
+	}
 };
 
 enemy_night_hp_multiplier_get = function()
 {
-	return 1 + (max(1, night_attack_night_index) - 1) * BALANCE_ENEMY_HP_INCREASE_PER_NIGHT;
+	var _night_hp_multiplier = 1 + (max(1, night_attack_night_index) - 1) * BALANCE_ENEMY_HP_INCREASE_PER_NIGHT;
+
+	if (BALANCE_ADAPTIVE_DIFFICULTY_ENABLED)
+	{
+		_night_hp_multiplier *= adaptive_difficulty_multiplier;
+	}
+
+	return _night_hp_multiplier;
 };
 
 enemy_night_hp_scale_apply = function(_enemy)
@@ -5176,6 +5570,8 @@ night_attack_plan_create = function()
 	);
 	var _directions = [];
 
+	night_attack_difficulty_debug_log(_total_difficulty, _direction_count, _direction_difficulty);
+
 	for (var _roll_index = 0; _roll_index < _direction_count; ++_roll_index)
 	{
 		array_push(_directions, night_attack_shrine_direction_roll());
@@ -5685,14 +6081,11 @@ add_cultist_level_point = function(_stat_index)
 		}
 	}
 
-	cultist_levelup_index = cultist_levelup_find_next(cultist_levelup_index);
-
-	if (cultist_levelup_index < 0)
-	{
-		cultist_levelup_open = false;
-		global.pause = false;
-		global.focus_window = FOCUS_WINDOW.NOONE;
-	}
+	cultist_levelup_open = false;
+	cultist_levelup_index = -1;
+	global.pause = cultist_levelup_previous_pause_state;
+	player_pause_active = cultist_levelup_previous_player_pause_state;
+	global.focus_window = FOCUS_WINDOW.NOONE;
 };
 
 ensure_cultist_levelup_options = function(_cultist)
@@ -5756,14 +6149,11 @@ add_cultist_level_ability = function(_ability)
 		_cultist.ability_upgrade_choice_options = [];
 	}
 
-	cultist_levelup_index = cultist_levelup_find_next(cultist_levelup_index);
-
-	if (cultist_levelup_index < 0)
-	{
-		cultist_levelup_open = false;
-		global.pause = false;
-		global.focus_window = FOCUS_WINDOW.NOONE;
-	}
+	cultist_levelup_open = false;
+	cultist_levelup_index = -1;
+	global.pause = cultist_levelup_previous_pause_state;
+	player_pause_active = cultist_levelup_previous_player_pause_state;
+	global.focus_window = FOCUS_WINDOW.NOONE;
 };
 
 // The first daytime preview is available immediately when the room starts.

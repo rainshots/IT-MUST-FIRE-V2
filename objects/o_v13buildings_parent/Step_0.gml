@@ -1,6 +1,7 @@
 // Worker buildings run only while gameplay is active.
 missing_work_resource = noone;
 missing_work_resource_name = "";
+missing_work_resource_amount = 0;
 missing_work_resource_color = c_white;
 
 if (building_warning_timer > 0)
@@ -48,7 +49,7 @@ if (_valid_worker_count <= 0)
 	exit;
 }
 
-building_cultist_fatigue_update();
+building_cultist_stamina_update();
 recalculate_production_speed_multiplier();
 
 // Resource building upgrades add free secondary work at a fraction of specialist buildings.
@@ -249,8 +250,7 @@ if (object_index == o_ritual_circle)
 		{
 			var _game_controller = instance_find(o_game_controller, 0);
 
-			_game_controller.open_cultist_levelup();
-			break;
+			_game_controller.ensure_cultist_levelup_options(_exp_worker);
 		}
 	}
 
@@ -326,6 +326,7 @@ if (summon_unit_object != noone)
 		{
 			missing_work_resource = _missing_cost.resource;
 			missing_work_resource_name = _missing_cost.name;
+			missing_work_resource_amount = _missing_cost.cost;
 			missing_work_resource_color = _missing_cost.color;
 		}
 

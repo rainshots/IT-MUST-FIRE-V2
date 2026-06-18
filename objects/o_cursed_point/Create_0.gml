@@ -324,6 +324,11 @@ cursed_point_structure_build = function(_choice)
 		}
 	}
 
+	if (variable_global_exists("construction_sound_play"))
+	{
+		global.construction_sound_play();
+	}
+
 	cursed_point_structure_selection_close();
 	instance_destroy();
 };
