@@ -173,6 +173,12 @@ make_circle_holy = function(_center_x, _center_y, _radius)
 	change_circle_holy(_center_x, _center_y, _radius, _holy_delta);
 };
 
+remove_circle_holy = function(_center_x, _center_y, _radius)
+{
+	var _holy_delta = -1;
+	change_circle_holy(_center_x, _center_y, _radius, _holy_delta);
+};
+
 remove_circle_holy_and_corrupt = function(_center_x, _center_y, _radius, _corruption)
 {
 	var _safe_radius = max(_radius, 1);

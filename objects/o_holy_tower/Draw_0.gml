@@ -1,3 +1,10 @@
+// Destroyed towers are inert landmarks without combat bars or ranges.
+if (is_destroyed)
+{
+	draw_self();
+	exit;
+}
+
 // Draw inherited map object visuals.
 event_inherited();
 

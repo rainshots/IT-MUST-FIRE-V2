@@ -15,6 +15,11 @@ unit_can_attack_cannon = false;
 target_detection_radius = 0;
 vision_radius = 0;
 
+// Spawned goblins return to their own pit at night when it still exists.
+owner_goblins_pit = noone;
+home_offset_x = 0;
+home_offset_y = 0;
+
 // Goblin health and lifetime markers sit near the sprite pivot.
 bar_offset_y = -2;
 summon_nights_remaining = irandom_range(BALANCE_GOBLIN_DAY_LIFE_MIN, BALANCE_GOBLIN_DAY_LIFE_MAX);

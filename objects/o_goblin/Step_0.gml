@@ -35,7 +35,12 @@ if (global.day_phase == DAY_PHASE.NIGHT)
 	var _target_x = regroup_target_x;
 	var _target_y = regroup_target_y;
 
-	if (!regroup_is_active && instance_exists(o_cannon))
+	if (instance_exists(owner_goblins_pit))
+	{
+		_target_x = owner_goblins_pit.x + home_offset_x;
+		_target_y = owner_goblins_pit.y + home_offset_y;
+	}
+	else if (!regroup_is_active && instance_exists(o_cannon))
 	{
 		var _cannon = instance_find(o_cannon, 0);
 		_target_x = _cannon.x;

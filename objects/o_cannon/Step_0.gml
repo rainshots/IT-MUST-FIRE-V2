@@ -131,16 +131,17 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			else if (target_projectile_type == PROJECTILE_TYPE.HEAL)
 			{
 				_projectile.effect_radius = BALANCE_PROJECTILE_HEAL_RADIUS;
-				_projectile.damage_amount = BALANCE_PROJECTILE_HEAL_AMOUNT;
+				_projectile.damage_amount = cannon_projectile_heal_amount_get();
 			}
 			else if (target_projectile_type == PROJECTILE_TYPE.BOMB)
 			{
 				_projectile.effect_radius = BALANCE_PROJECTILE_BOMB_RADIUS;
-				_projectile.damage_amount = BALANCE_PROJECTILE_BOMB_DAMAGE_AMOUNT;
+				_projectile.damage_amount = cannon_projectile_bomb_damage_get();
 			}
 			else if (target_projectile_type == PROJECTILE_TYPE.SKELETONS)
 			{
 				_projectile.effect_radius = BALANCE_PROJECTILE_SKELETON_RADIUS;
+				_projectile.summon_count = cannon_projectile_skeleton_count_get();
 			}
 		}
 

@@ -63,6 +63,12 @@ combat_separation_multiplier = 0.45;
 is_attacking_target = false;
 attack_ring_slot_seed = irandom(999999);
 
+// Panic flee makes fragile enemies briefly run away from a specific attacker.
+panic_flee_source = noone;
+panic_flee_timer = 0;
+panic_flee_cooldown_timer = 0;
+panic_flee_speed_multiplier = 1;
+
 // Attack feedback shows who hit whom for a short moment.
 attack_feedback_time = 0.16 * room_speed;
 attack_feedback_timer = 0;
@@ -919,16 +925,49 @@ warlock_skeleton_death_effect_apply = function()
 
 unit_corpse_snapshot_create = function()
 {
-	if (unit_faction == UNIT_FACTION.ENEMY && random(1) >= BALANCE_ENEMY_CORPSE_DROP_CHANCE)
+	var _game_controller = noone;
+
+	if (instance_exists(o_game_controller))
 	{
-		corpse_visual_created = true;
-		return;
+		_game_controller = instance_find(o_game_controller, 0);
 	}
 
-	if (!corpse_visual_created && instance_exists(o_game_controller))
+	if (unit_faction == UNIT_FACTION.ENEMY)
 	{
-		var _game_controller = instance_find(o_game_controller, 0);
+		var _corpse_drop_chance = BALANCE_ENEMY_CORPSE_DROP_CHANCE;
 
+		// Reduce new enemy corpse clutter when too many corpses already exist.
+		if (instance_exists(_game_controller)
+			&& variable_instance_exists(_game_controller, "corpse_draw_data"))
+		{
+			var _corpse_count = array_length(_game_controller.corpse_draw_data);
+			var _corpse_drop_divisor = 1;
+
+			if (_corpse_count > BALANCE_ENEMY_CORPSE_DROP_HARD_COUNT)
+			{
+				_corpse_drop_divisor = BALANCE_ENEMY_CORPSE_DROP_HARD_DIVISOR;
+			}
+			else if (_corpse_count > BALANCE_ENEMY_CORPSE_DROP_MEDIUM_COUNT)
+			{
+				_corpse_drop_divisor = BALANCE_ENEMY_CORPSE_DROP_MEDIUM_DIVISOR;
+			}
+			else if (_corpse_count > BALANCE_ENEMY_CORPSE_DROP_SOFT_COUNT)
+			{
+				_corpse_drop_divisor = BALANCE_ENEMY_CORPSE_DROP_SOFT_DIVISOR;
+			}
+
+			_corpse_drop_chance /= _corpse_drop_divisor;
+		}
+
+		if (random(1) >= _corpse_drop_chance)
+		{
+			corpse_visual_created = true;
+			return;
+		}
+	}
+
+	if (!corpse_visual_created && instance_exists(_game_controller))
+	{
 		if (variable_instance_exists(_game_controller, "corpse_snapshot_add"))
 		{
 			_game_controller.corpse_snapshot_add(id);
@@ -1130,9 +1169,60 @@ target_is_inside_cannon_wall = function(_target)
 	return point_distance(_target.x, _target.y, _cannon.x, _cannon.y) < BALANCE_CANNON_WALL_RADIUS;
 };
 
+panic_flee_apply = function(_source, _duration_seconds, _cooldown_seconds, _speed_multiplier)
+{
+	if (!instance_exists(_source) || panic_flee_cooldown_timer > 0)
+	{
+		return false;
+	}
+
+	panic_flee_source = _source;
+	panic_flee_timer = max(1, _duration_seconds * room_speed);
+	panic_flee_cooldown_timer = max(1, _cooldown_seconds * room_speed);
+	panic_flee_speed_multiplier = max(0, _speed_multiplier);
+	target_instance = noone;
+	is_attacking_target = false;
+	is_walking = false;
+
+	return true;
+};
+
+panic_flee_update = function()
+{
+	if (panic_flee_timer <= 0)
+	{
+		panic_flee_source = noone;
+		return false;
+	}
+
+	panic_flee_timer--;
+
+	if (!target_can_be_attacked(panic_flee_source))
+	{
+		panic_flee_timer = 0;
+		panic_flee_source = noone;
+		return false;
+	}
+
+	var _flee_direction = point_direction(panic_flee_source.x, panic_flee_source.y, x, y);
+	var _current_move_speed = move_speed * unit_move_speed_multiplier_get() * panic_flee_speed_multiplier;
+
+	if (point_distance(x, y, panic_flee_source.x, panic_flee_source.y) <= 0)
+	{
+		_flee_direction = irandom(359);
+	}
+
+	is_walking = true;
+	face_world_x(x + lengthdir_x(1, _flee_direction));
+	x += lengthdir_x(_current_move_speed, _flee_direction);
+	y += lengthdir_y(_current_move_speed, _flee_direction);
+
+	return true;
+};
+
 unit_special_behavior_update = function()
 {
-	return false;
+	return panic_flee_update();
 };
 
 unit_attack_landed = function(_target, _is_critical_hit = false, _target_was_killed = false)
@@ -1348,9 +1438,21 @@ attack_ring_should_use = function(_target, _attack_radius)
 attack_ring_point_get = function(_target, _attack_radius)
 {
 	var _slot_count = max(1, BALANCE_UNIT_ATTACK_RING_SLOT_COUNT);
-	var _slot_index = attack_ring_slot_seed mod _slot_count;
-	var _slot_angle = 360 * (_slot_index / _slot_count);
+	var _slot_angle_size = 360 / _slot_count;
+	var _direction_from_target = point_direction(_target.x, _target.y, x, y);
+	var _base_slot_index = round(_direction_from_target / _slot_angle_size);
+	var _nearby_slot_spread = 3; // Previous, current, and next nearest slots.
+	var _slot_offset = (attack_ring_slot_seed mod _nearby_slot_spread) - 1;
+	var _slot_index = (_base_slot_index + _slot_offset) mod _slot_count;
 	var _ring_radius = min(BALANCE_UNIT_ATTACK_RING_MAX_RADIUS, max(0, _attack_radius - BALANCE_UNIT_ATTACK_RING_ATTACK_PADDING));
+
+	if (_slot_index < 0)
+	{
+		_slot_index += _slot_count;
+	}
+
+	// Use a nearby slot so moving melee targets do not make enemies run to the far side.
+	var _slot_angle = _slot_angle_size * _slot_index;
 
 	return [
 		_target.x + lengthdir_x(_ring_radius, _slot_angle),

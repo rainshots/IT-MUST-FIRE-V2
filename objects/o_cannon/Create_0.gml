@@ -26,12 +26,12 @@ worker_indicator_background_alpha = 0.78;
 
 // Cannon upgrade branches use the shared building upgrade window.
 building_has_upgrades = true;
-building_tooltip_description = "Improves cannon Taint, corpse revival, and Taint Shell volleys.";
+building_tooltip_description = "Improves cannon Taint, corpse revival, and special projectile payloads.";
 building_upgrade_levels = array_create(CANNON_UPGRADE.COUNT, 0);
 building_upgrade_names = [
 	"Tainted Ground",
 	"Morning Rising",
-	"Taint Barrage"
+	"Payload Mastery"
 ];
 building_upgrade_costs = [
 	BALANCE_CANNON_UPGRADE_COST_LEVEL_1,
@@ -129,11 +129,12 @@ cannon_agony_projectile_create = function(_target_x, _target_y, _projectile_type
 	if (_projectile_type == PROJECTILE_TYPE.BOMB)
 	{
 		_projectile.effect_radius = BALANCE_PROJECTILE_BOMB_RADIUS;
-		_projectile.damage_amount = BALANCE_PROJECTILE_BOMB_DAMAGE_AMOUNT;
+		_projectile.damage_amount = cannon_projectile_bomb_damage_get();
 	}
 	else if (_projectile_type == PROJECTILE_TYPE.SKELETONS)
 	{
 		_projectile.effect_radius = BALANCE_PROJECTILE_SKELETON_RADIUS;
+		_projectile.summon_count = cannon_projectile_skeleton_count_get();
 	}
 
 	return _projectile;
@@ -278,6 +279,87 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 	return _applied_damage;
 };
 
+cannon_upgrade_level_max_get = function(_upgrade_index)
+{
+	return BALANCE_CANNON_UPGRADE_LEVEL_MAX;
+};
+
+cannon_upgrade_display_level_get = function(_upgrade_index)
+{
+	if (_upgrade_index == CANNON_UPGRADE.PAYLOAD_MASTERY)
+	{
+		return building_upgrade_levels[_upgrade_index] + 1;
+	}
+
+	return building_upgrade_levels[_upgrade_index];
+};
+
+cannon_upgrade_next_display_level_get = function(_upgrade_index)
+{
+	if (_upgrade_index == CANNON_UPGRADE.PAYLOAD_MASTERY)
+	{
+		return min(building_upgrade_levels[_upgrade_index] + 2, 4);
+	}
+
+	return building_upgrade_levels[_upgrade_index] + 1;
+};
+
+cannon_upgrade_display_level_max_get = function(_upgrade_index)
+{
+	if (_upgrade_index == CANNON_UPGRADE.PAYLOAD_MASTERY)
+	{
+		return 4;
+	}
+
+	return cannon_upgrade_level_max_get(_upgrade_index);
+};
+
+cannon_upgrade_resource_get = function(_upgrade_index)
+{
+	if (_upgrade_index == CANNON_UPGRADE.MORNING_SKELETONS)
+	{
+		return RESOURCES.SOULS;
+	}
+
+	return RESOURCES.FLESH;
+};
+
+resource_name_get = function(_resource)
+{
+	if (_resource == RESOURCES.FLESH)
+	{
+		return "Flesh";
+	}
+	else if (_resource == RESOURCES.SOULS)
+	{
+		return "Souls";
+	}
+	else if (_resource == RESOURCES.IRON)
+	{
+		return "Iron";
+	}
+
+	return "Resource";
+};
+
+resource_color_get = function(_resource)
+{
+	if (_resource == RESOURCES.FLESH)
+	{
+		return COLOR_HUD_FLESH;
+	}
+	else if (_resource == RESOURCES.SOULS)
+	{
+		return COLOR_HUD_SOULS;
+	}
+	else if (_resource == RESOURCES.IRON)
+	{
+		return COLOR_HUD_IRON;
+	}
+
+	return COLOR_HUD_TEXT;
+};
+
 cannon_upgrade_next_cost_get = function(_upgrade_index)
 {
 	var _level = building_upgrade_levels[_upgrade_index];
@@ -334,40 +416,85 @@ cannon_morning_skeleton_count_range_get = function()
 	return [0, 0];
 };
 
-cannon_feast_upgrade_multiplier_get = function()
-{
-	var _level = building_upgrade_levels[CANNON_UPGRADE.FEAST_VOLLEY];
-
-	if (_level == 1)
-	{
-		return BALANCE_CANNON_FEAST_UPGRADE_LEVEL_1_MULTIPLIER;
-	}
-	else if (_level == 2)
-	{
-		return BALANCE_CANNON_FEAST_UPGRADE_LEVEL_2_MULTIPLIER;
-	}
-	else if (_level >= 3)
-	{
-		return BALANCE_CANNON_FEAST_UPGRADE_LEVEL_3_MULTIPLIER;
-	}
-
-	return 1;
-};
-
 cannon_feast_radius_get = function()
 {
-	return BALANCE_CANNON_FEAST_RADIUS * cannon_feast_upgrade_multiplier_get();
+	return BALANCE_CANNON_FEAST_RADIUS;
 };
 
 cannon_feast_projectile_count_get = function()
 {
-	return ceil(BALANCE_CANNON_FEAST_PROJECTILE_COUNT * cannon_feast_upgrade_multiplier_get());
+	return BALANCE_CANNON_FEAST_PROJECTILE_COUNT;
+};
+
+cannon_payload_upgrade_level_get = function()
+{
+	return building_upgrade_levels[CANNON_UPGRADE.PAYLOAD_MASTERY];
+};
+
+cannon_projectile_bomb_damage_get = function()
+{
+	var _level = cannon_payload_upgrade_level_get();
+
+	if (_level >= 3)
+	{
+		return BALANCE_PROJECTILE_BOMB_DAMAGE_AMOUNT_LEVEL_4;
+	}
+	else if (_level == 2)
+	{
+		return BALANCE_PROJECTILE_BOMB_DAMAGE_AMOUNT_LEVEL_3;
+	}
+	else if (_level == 1)
+	{
+		return BALANCE_PROJECTILE_BOMB_DAMAGE_AMOUNT_LEVEL_2;
+	}
+
+	return BALANCE_PROJECTILE_BOMB_DAMAGE_AMOUNT;
+};
+
+cannon_projectile_skeleton_count_get = function()
+{
+	var _level = cannon_payload_upgrade_level_get();
+
+	if (_level >= 3)
+	{
+		return BALANCE_PROJECTILE_SKELETON_COUNT_LEVEL_4;
+	}
+	else if (_level == 2)
+	{
+		return BALANCE_PROJECTILE_SKELETON_COUNT_LEVEL_3;
+	}
+	else if (_level == 1)
+	{
+		return BALANCE_PROJECTILE_SKELETON_COUNT_LEVEL_2;
+	}
+
+	return BALANCE_PROJECTILE_SKELETON_COUNT;
+};
+
+cannon_projectile_heal_amount_get = function()
+{
+	var _level = cannon_payload_upgrade_level_get();
+
+	if (_level >= 3)
+	{
+		return BALANCE_PROJECTILE_HEAL_AMOUNT_LEVEL_4;
+	}
+	else if (_level == 2)
+	{
+		return BALANCE_PROJECTILE_HEAL_AMOUNT_LEVEL_3;
+	}
+	else if (_level == 1)
+	{
+		return BALANCE_PROJECTILE_HEAL_AMOUNT_LEVEL_2;
+	}
+
+	return BALANCE_PROJECTILE_HEAL_AMOUNT;
 };
 
 building_upgrade_description_get = function(_upgrade_index)
 {
 	var _level = building_upgrade_levels[_upgrade_index];
-	var _next_level = min(_level + 1, BALANCE_CANNON_UPGRADE_LEVEL_MAX);
+	var _next_level = min(_level + 1, cannon_upgrade_level_max_get(_upgrade_index));
 
 	if (_upgrade_index == CANNON_UPGRADE.CORRUPTED_GROUND_DAMAGE)
 	{
@@ -407,24 +534,33 @@ building_upgrade_description_get = function(_upgrade_index)
 
 		return "At morning, corpses can rise as " + string(_range[0]) + "-" + string(_range[1]) + " Skeletons.";
 	}
-	else if (_upgrade_index == CANNON_UPGRADE.FEAST_VOLLEY)
+	else if (_upgrade_index == CANNON_UPGRADE.PAYLOAD_MASTERY)
 	{
-		var _multiplier = 1;
+		var _payload_level = min(_level + 2, 4);
+		var _bomb_damage = BALANCE_PROJECTILE_BOMB_DAMAGE_AMOUNT;
+		var _skeleton_count = BALANCE_PROJECTILE_SKELETON_COUNT;
+		var _heal_amount = BALANCE_PROJECTILE_HEAL_AMOUNT;
 
-		if (_next_level == 1)
+		if (_payload_level >= 4)
 		{
-			_multiplier = BALANCE_CANNON_FEAST_UPGRADE_LEVEL_1_MULTIPLIER;
+			_bomb_damage = BALANCE_PROJECTILE_BOMB_DAMAGE_AMOUNT_LEVEL_4;
+			_skeleton_count = BALANCE_PROJECTILE_SKELETON_COUNT_LEVEL_4;
+			_heal_amount = BALANCE_PROJECTILE_HEAL_AMOUNT_LEVEL_4;
 		}
-		else if (_next_level == 2)
+		else if (_payload_level == 3)
 		{
-			_multiplier = BALANCE_CANNON_FEAST_UPGRADE_LEVEL_2_MULTIPLIER;
+			_bomb_damage = BALANCE_PROJECTILE_BOMB_DAMAGE_AMOUNT_LEVEL_3;
+			_skeleton_count = BALANCE_PROJECTILE_SKELETON_COUNT_LEVEL_3;
+			_heal_amount = BALANCE_PROJECTILE_HEAL_AMOUNT_LEVEL_3;
 		}
-		else
+		else if (_payload_level == 2)
 		{
-			_multiplier = BALANCE_CANNON_FEAST_UPGRADE_LEVEL_3_MULTIPLIER;
+			_bomb_damage = BALANCE_PROJECTILE_BOMB_DAMAGE_AMOUNT_LEVEL_2;
+			_skeleton_count = BALANCE_PROJECTILE_SKELETON_COUNT_LEVEL_2;
+			_heal_amount = BALANCE_PROJECTILE_HEAL_AMOUNT_LEVEL_2;
 		}
 
-		return "Taint Shell radius and shell count become " + string(round(_multiplier * 100)) + "%.";
+		return "Bomb " + string(_bomb_damage) + " damage, Skeletons x" + string(_skeleton_count) + ", Heal " + string(_heal_amount) + " HP.";
 	}
 
 	return "";
@@ -437,8 +573,10 @@ building_upgrade_can_buy = function(_upgrade_index)
 		return false;
 	}
 
-	return building_upgrade_levels[_upgrade_index] < BALANCE_CANNON_UPGRADE_LEVEL_MAX
-		&& global.resources[RESOURCES.IRON] >= cannon_upgrade_next_cost_get(_upgrade_index);
+	var _upgrade_resource = cannon_upgrade_resource_get(_upgrade_index);
+
+	return building_upgrade_levels[_upgrade_index] < cannon_upgrade_level_max_get(_upgrade_index)
+		&& global.resources[_upgrade_resource] >= cannon_upgrade_next_cost_get(_upgrade_index);
 };
 
 building_upgrade_buy = function(_upgrade_index)
@@ -450,17 +588,19 @@ building_upgrade_buy = function(_upgrade_index)
 
 	if (!building_upgrade_can_buy(_upgrade_index))
 	{
-		if (building_upgrade_levels[_upgrade_index] < BALANCE_CANNON_UPGRADE_LEVEL_MAX)
+		if (building_upgrade_levels[_upgrade_index] < cannon_upgrade_level_max_get(_upgrade_index))
 		{
-			building_warning_show("Need " + string(cannon_upgrade_next_cost_get(_upgrade_index)) + " Iron", COLOR_STATUS_NEGATIVE_RED);
+			var _missing_resource = cannon_upgrade_resource_get(_upgrade_index);
+			building_warning_show("Need " + string(cannon_upgrade_next_cost_get(_upgrade_index)) + " " + resource_name_get(_missing_resource), COLOR_STATUS_NEGATIVE_RED);
 		}
 
 		return false;
 	}
 
 	var _upgrade_cost = cannon_upgrade_next_cost_get(_upgrade_index);
-	global.resources[RESOURCES.IRON] -= _upgrade_cost;
-	resource_popup_create(x, y - upgrade_prompt_offset_y, RESOURCES.IRON, -_upgrade_cost);
+	var _upgrade_resource = cannon_upgrade_resource_get(_upgrade_index);
+	global.resources[_upgrade_resource] -= _upgrade_cost;
+	resource_popup_create(x, y - upgrade_prompt_offset_y, _upgrade_resource, -_upgrade_cost);
 	building_upgrade_levels[_upgrade_index]++;
 	building_upgrade_costs[_upgrade_index] = cannon_upgrade_next_cost_get(_upgrade_index);
 

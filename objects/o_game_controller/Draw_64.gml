@@ -2344,6 +2344,9 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE)
 				&& _mouse_y <= _tile_y + building_upgrade_tile_height;
 			var _upgrade_level = 0;
 			var _upgrade_level_max = 1;
+			var _upgrade_display_level = 0;
+			var _upgrade_display_level_max = 1;
+			var _upgrade_next_display_level = 1;
 			var _upgrade_description = "";
 			var _upgrade_cost = 0;
 			var _upgrade_resource_name = "Iron";
@@ -2354,9 +2357,33 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE)
 			{
 				_upgrade_level = building_upgrade_window_building.building_upgrade_levels[_upgrade_index];
 				_upgrade_level_max = BALANCE_CANNON_UPGRADE_LEVEL_MAX;
+
+				if (variable_instance_exists(building_upgrade_window_building, "cannon_upgrade_level_max_get"))
+				{
+					_upgrade_level_max = building_upgrade_window_building.cannon_upgrade_level_max_get(_upgrade_index);
+				}
+
+				_upgrade_display_level = _upgrade_level;
+				_upgrade_display_level_max = _upgrade_level_max;
+				_upgrade_next_display_level = _upgrade_level + 1;
+
+				if (variable_instance_exists(building_upgrade_window_building, "cannon_upgrade_display_level_get"))
+				{
+					_upgrade_display_level = building_upgrade_window_building.cannon_upgrade_display_level_get(_upgrade_index);
+					_upgrade_next_display_level = building_upgrade_window_building.cannon_upgrade_next_display_level_get(_upgrade_index);
+					_upgrade_display_level_max = building_upgrade_window_building.cannon_upgrade_display_level_max_get(_upgrade_index);
+				}
+
 				_upgrade_description = building_upgrade_window_building.building_upgrade_description_get(_upgrade_index);
 				_upgrade_cost = building_upgrade_window_building.cannon_upgrade_next_cost_get(_upgrade_index);
 				_is_bought = _upgrade_level >= _upgrade_level_max;
+
+				if (variable_instance_exists(building_upgrade_window_building, "cannon_upgrade_resource_get"))
+				{
+					var _upgrade_resource = building_upgrade_window_building.cannon_upgrade_resource_get(_upgrade_index);
+					_upgrade_resource_name = building_upgrade_window_building.resource_name_get(_upgrade_resource);
+					_upgrade_resource_color = building_upgrade_window_building.resource_color_get(_upgrade_resource);
+				}
 			}
 			else
 			{
@@ -2414,7 +2441,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE)
 			{
 				if (_uses_levels)
 				{
-					draw_text(_tile_x + 12, _tile_y + building_upgrade_tile_height - 24, "Level " + string(_upgrade_level) + "/" + string(_upgrade_level_max));
+					draw_text(_tile_x + 12, _tile_y + building_upgrade_tile_height - 24, "Level " + string(_upgrade_display_level) + "/" + string(_upgrade_display_level_max));
 				}
 				else
 				{
@@ -2425,7 +2452,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE)
 			{
 				if (_uses_levels)
 				{
-					draw_text(_tile_x + 12, _tile_y + building_upgrade_tile_height - 24, "Lvl " + string(_upgrade_level + 1) + ": " + string(_upgrade_cost) + " Iron");
+					draw_text(_tile_x + 12, _tile_y + building_upgrade_tile_height - 24, "Lvl " + string(_upgrade_next_display_level) + ": " + string(_upgrade_cost) + " " + _upgrade_resource_name);
 				}
 				else
 				{

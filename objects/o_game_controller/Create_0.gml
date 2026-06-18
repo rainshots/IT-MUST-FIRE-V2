@@ -269,7 +269,7 @@ part_type_size(
 	0
 );
 part_type_color1(global.particle_type_imp_blood_frenzy_smoke, COLOR_IMP_BLOOD_FRENZY);
-part_type_alpha2(global.particle_type_imp_blood_frenzy_smoke, 0.75, 0);
+part_type_alpha2(global.particle_type_imp_blood_frenzy_smoke, BALANCE_IMP_BLOOD_FRENZY_SMOKE_MAX_ALPHA, 0);
 part_type_speed(
 	global.particle_type_imp_blood_frenzy_smoke,
 	BALANCE_BRUTE_PASSIVE_PARTICLE_SPEED_MIN,
@@ -2177,14 +2177,8 @@ worker_whip_apply = function(_unit)
 	_unit.hp -= _damage_amount;
 	_unit.whip_duration = _whip_duration_frames;
 
-	if (_whip_was_inactive)
-	{
-		_unit.whip_timer = _unit.whip_duration;
-	}
-	else
-	{
-		_unit.whip_timer = min(_unit.whip_timer + _whip_gain_frames, _unit.whip_duration);
-	}
+	// Each hit adds a chunk of boost time up to the shared maximum duration.
+	_unit.whip_timer = min(_unit.whip_timer + _whip_gain_frames, _unit.whip_duration);
 
 	_unit.whip_work_multiplier = BALANCE_WORKER_WHIP_SPEED_MULTIPLIER;
 
@@ -3950,7 +3944,32 @@ unload_cultist_projectiles_to_day = function()
 	clear_cannon_projectile_queues();
 };
 
-cannon_inner_position_get = function(_unit_index, _unit_count)
+cannon_inner_regroup_offset_x_get = function(_unit_object)
+{
+	if (_unit_object == o_skeleton)
+	{
+		return BALANCE_DAY_CANNON_SKELETON_REGROUP_OFFSET_X;
+	}
+
+	if (_unit_object == o_pitling)
+	{
+		return BALANCE_DAY_CANNON_PITLING_REGROUP_OFFSET_X;
+	}
+
+	return 0;
+};
+
+cannon_inner_regroup_offset_y_get = function(_unit_object)
+{
+	if (_unit_object == o_skeleton || _unit_object == o_pitling)
+	{
+		return BALANCE_DAY_CANNON_COMBAT_REGROUP_OFFSET_Y;
+	}
+
+	return 0;
+};
+
+cannon_inner_position_get = function(_unit_index, _unit_count, _unit_object = noone)
 {
 	if (!instance_exists(o_cannon))
 	{
@@ -3962,8 +3981,10 @@ cannon_inner_position_get = function(_unit_index, _unit_count)
 	var _column = _unit_index mod _safe_column_count;
 	var _row = _unit_index div _safe_column_count;
 	var _row_count = ceil(max(1, _unit_count) / _safe_column_count);
-	var _regroup_x = _cannon.x - (((_safe_column_count - 1) * BALANCE_DAY_CANNON_REGROUP_SPACING) * 0.5);
-	var _regroup_y = _cannon.y + BALANCE_DAY_CANNON_REGROUP_OFFSET_Y;
+	var _regroup_offset_x = cannon_inner_regroup_offset_x_get(_unit_object);
+	var _regroup_offset_y = cannon_inner_regroup_offset_y_get(_unit_object);
+	var _regroup_x = _cannon.x + _regroup_offset_x - (((_safe_column_count - 1) * BALANCE_DAY_CANNON_REGROUP_SPACING) * 0.5);
+	var _regroup_y = _cannon.y + BALANCE_DAY_CANNON_REGROUP_OFFSET_Y + _regroup_offset_y;
 
 	return [
 		_regroup_x + (_column * BALANCE_DAY_CANNON_REGROUP_SPACING),
@@ -3978,7 +3999,7 @@ move_unit_to_cannon_inner = function(_unit, _unit_index, _unit_count)
 		return;
 	}
 
-	var _position = cannon_inner_position_get(_unit_index, _unit_count);
+	var _position = cannon_inner_position_get(_unit_index, _unit_count, _unit.object_index);
 
 	_unit.x = _position[0];
 	_unit.y = _position[1];
@@ -3995,20 +4016,27 @@ move_spawned_summoned_unit_to_cannon_inner = function(_unit)
 
 	var _friendly_count = instance_number(o_friendly_units);
 	var _summoned_count = 0;
+	var _regroup_object = _unit.object_index;
+
+	if (_regroup_object != o_skeleton && _regroup_object != o_pitling)
+	{
+		_regroup_object = noone;
+	}
 
 	for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_index)
 	{
 		var _friendly_unit = instance_find(o_friendly_units, _friendly_index);
 
 		if (instance_exists(_friendly_unit)
-			&& variable_instance_exists(_friendly_unit, "summon_nights_remaining"))
+			&& variable_instance_exists(_friendly_unit, "summon_nights_remaining")
+			&& (_regroup_object == noone || _friendly_unit.object_index == _regroup_object))
 		{
 			_summoned_count++;
 		}
 	}
 
 	var _unit_index = max(0, _summoned_count - 1);
-	var _position = cannon_inner_position_get(_unit_index, max(1, _summoned_count));
+	var _position = cannon_inner_position_get(_unit_index, max(1, _summoned_count), _unit.object_index);
 
 	clear_cultist_building_assignment(_unit);
 
@@ -4046,7 +4074,9 @@ move_unit_outside_cannon_wall = function(_unit, _unit_index, _unit_count)
 move_summoned_units_to_cannon_inner = function()
 {
 	var _friendly_count = instance_number(o_friendly_units);
-	var _summoned_units = array_create(0);
+	var _skeleton_units = array_create(0);
+	var _pitling_units = array_create(0);
+	var _other_summoned_units = array_create(0);
 
 	for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_index)
 	{
@@ -4056,15 +4086,39 @@ move_summoned_units_to_cannon_inner = function()
 			&& variable_instance_exists(_friendly_unit, "summon_nights_remaining"))
 		{
 			clear_cultist_building_assignment(_friendly_unit);
-			array_push(_summoned_units, _friendly_unit);
+
+			if (_friendly_unit.object_index == o_skeleton)
+			{
+				array_push(_skeleton_units, _friendly_unit);
+			}
+			else if (_friendly_unit.object_index == o_pitling)
+			{
+				array_push(_pitling_units, _friendly_unit);
+			}
+			else
+			{
+				array_push(_other_summoned_units, _friendly_unit);
+			}
 		}
 	}
 
-	var _summoned_count = array_length(_summoned_units);
+	var _skeleton_count = array_length(_skeleton_units);
+	var _pitling_count = array_length(_pitling_units);
+	var _other_summoned_count = array_length(_other_summoned_units);
 
-	for (var _summoned_index = 0; _summoned_index < _summoned_count; ++_summoned_index)
+	for (var _skeleton_index = 0; _skeleton_index < _skeleton_count; ++_skeleton_index)
 	{
-		move_unit_to_cannon_inner(_summoned_units[_summoned_index], _summoned_index, _summoned_count);
+		move_unit_to_cannon_inner(_skeleton_units[_skeleton_index], _skeleton_index, _skeleton_count);
+	}
+
+	for (var _pitling_index = 0; _pitling_index < _pitling_count; ++_pitling_index)
+	{
+		move_unit_to_cannon_inner(_pitling_units[_pitling_index], _pitling_index, _pitling_count);
+	}
+
+	for (var _other_summoned_index = 0; _other_summoned_index < _other_summoned_count; ++_other_summoned_index)
+	{
+		move_unit_to_cannon_inner(_other_summoned_units[_other_summoned_index], _other_summoned_index, _other_summoned_count);
 	}
 };
 

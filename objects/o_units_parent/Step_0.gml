@@ -111,6 +111,12 @@ if (armor_debuff_timer > 0)
 	}
 }
 
+// Panic cooldown prevents the same unit from chain-fleeing every hit.
+if (panic_flee_cooldown_timer > 0)
+{
+	panic_flee_cooldown_timer--;
+}
+
 // Demonic Infusion is refreshed by nearby Warlocks.
 if (demonic_infusion_timer > 0)
 {
@@ -272,6 +278,7 @@ if (!_special_behavior_handled && instance_exists(target_instance) && !target_ca
 if (!_special_behavior_handled && instance_exists(target_instance))
 {
 	var _target_distance = point_distance(x, y, target_instance.x, target_instance.y);
+	var _direct_target_distance = _target_distance;
 	var _current_attack_radius = attack_radius;
 	var _use_attack_ring = false;
 	var _attack_move_x = target_instance.x;
@@ -298,7 +305,7 @@ if (!_special_behavior_handled && instance_exists(target_instance))
 		_target_distance = point_distance(x, y, _attack_move_x, _attack_move_y);
 	}
 
-	if ((!_use_attack_ring && _target_distance <= _current_attack_radius)
+	if (_direct_target_distance <= _current_attack_radius
 		|| (_use_attack_ring && _target_distance <= BALANCE_UNIT_ATTACK_RING_ARRIVE_RADIUS))
 	{
 		if (target_instance == guard_target)

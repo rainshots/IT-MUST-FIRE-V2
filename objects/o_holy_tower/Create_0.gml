@@ -2,10 +2,11 @@
 event_inherited();
 
 // Holy tower durability.
-max_hp = 1600;
+max_hp = BALANCE_HOLY_TOWER_MAX_HP;
 hp = max_hp;
 max_corruption = 100;
 corruption = 0;
+is_destroyed = false;
 
 // Holy tower combat settings.
 shoot_radius = BALANCE_HOLY_TOWER_SHOOT_RADIUS;
@@ -18,7 +19,6 @@ assist_call_radius = BALANCE_UNIT_ASSIST_CALL_RADIUS;
 // Holy ground settings.
 holy_radius_in_cells = BALANCE_HOLY_TOWER_HOLY_RADIUS_IN_CELLS;
 holy_radius = holy_radius_in_cells * 100;
-death_corruption_amount = BALANCE_HOLY_TOWER_DEATH_CORRUPTION_AMOUNT;
 is_holy_area_active = false;
 
 // Range drawing settings.
@@ -52,15 +52,26 @@ make_nearby_ground_holy = function()
 
 destroy_holy_tower = function()
 {
+	if (is_destroyed)
+	{
+		return;
+	}
+
 	if (is_holy_area_active && instance_exists(o_corruption_grid))
 	{
 		var _corruption_grid = instance_find(o_corruption_grid, 0);
-		_corruption_grid.remove_circle_holy_and_corrupt(x, y, holy_radius, death_corruption_amount);
+		_corruption_grid.remove_circle_holy(x, y, holy_radius);
 		is_holy_area_active = false;
 	}
 
-	instance_create_layer(x, y, "Instances", o_tower_ruins);
-	instance_destroy();
+	// The destroyed tower remains as a landmark but no longer blocks or attacks.
+	is_destroyed = true;
+	hp = 0;
+	target_instance = noone;
+	attack_feedback_timer = 0;
+	sprite_index = s_holy_tower_destroyed;
+	image_index = 0;
+	image_speed = 0;
 };
 
 // Holy tower creates protected holy ground when it appears.
@@ -69,11 +80,24 @@ make_nearby_ground_holy();
 // Damage projectiles can destroy the holy tower.
 on_damage_projectile_hit = function()
 {
+	if (is_destroyed)
+	{
+		return;
+	}
+
 	hp = max(hp - BALANCE_PROJECTILE_DAMAGE_AMOUNT, 0);
 
 	if (hp <= 0)
 	{
 		destroy_holy_tower();
+	}
+};
+
+on_projectile_hit = function(_projectile_type)
+{
+	if (_projectile_type == PROJECTILE_TYPE.DAMAGE)
+	{
+		on_damage_projectile_hit();
 	}
 };
 

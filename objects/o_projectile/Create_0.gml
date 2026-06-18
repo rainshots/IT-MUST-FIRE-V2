@@ -10,6 +10,7 @@ cultist_deploy_units = [];
 // Explosion and effect settings.
 effect_radius = BALANCE_PROJECTILE_EFFECT_RADIUS;
 damage_amount = BALANCE_PROJECTILE_DAMAGE_AMOUNT;
+summon_count = BALANCE_PROJECTILE_SKELETON_COUNT;
 corruption_amount = 1;
 ground_corruption_amount = BALANCE_PROJECTILE_GROUND_CORRUPTION_AMOUNT;
 ground_corruption_radius = effect_radius;

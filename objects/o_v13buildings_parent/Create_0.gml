@@ -683,6 +683,44 @@ goblins_pit_can_summon_goblin = function()
 	return goblins_pit_goblin_count_get() < goblins_pit_goblin_limit_get();
 };
 
+goblins_pit_release_workers_if_limit_full = function()
+{
+	if (object_index != o_goblins_pit || goblins_pit_can_summon_goblin())
+	{
+		return false;
+	}
+
+	if (instance_exists(o_game_controller))
+	{
+		var _game_controller = instance_find(o_game_controller, 0);
+		var _worker_count = array_length(worker_cultists);
+		var _workers = array_create(_worker_count);
+
+		for (var _copy_index = 0; _copy_index < _worker_count; ++_copy_index)
+		{
+			_workers[_copy_index] = worker_cultists[_copy_index];
+		}
+
+		// Release every assigned worker because the pit cannot produce another goblin.
+		for (var _worker_index = 0; _worker_index < _worker_count; ++_worker_index)
+		{
+			var _worker = _workers[_worker_index];
+
+			if (instance_exists(_worker)
+				&& variable_instance_exists(_game_controller, "clear_cultist_building_assignment"))
+			{
+				_game_controller.clear_cultist_building_assignment(_worker);
+			}
+		}
+	}
+	else
+	{
+		worker_cultists = array_create(0);
+	}
+
+	return true;
+};
+
 building_warning_show = function(_text, _color)
 {
 	building_warning_text = _text;
@@ -722,7 +760,12 @@ building_demolish = function()
 	{
 		var _game_controller = instance_find(o_game_controller, 0);
 		var _worker_count = array_length(worker_cultists);
-		var _workers = worker_cultists;
+		var _workers = array_create(_worker_count);
+
+		for (var _copy_index = 0; _copy_index < _worker_count; ++_copy_index)
+		{
+			_workers[_copy_index] = worker_cultists[_copy_index];
+		}
 
 		for (var _worker_index = 0; _worker_index < _worker_count; ++_worker_index)
 		{

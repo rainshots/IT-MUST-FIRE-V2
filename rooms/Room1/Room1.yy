@@ -406,6 +406,7 @@
     {"name":"inst_66EFF2F5","path":"rooms/Room1/Room1.yy",},
     {"name":"inst_3F60ACB3","path":"rooms/Room1/Room1.yy",},
     {"name":"inst_E2E789A","path":"rooms/Room1/Room1.yy",},
+    {"name":"inst_253AB172","path":"rooms/Room1/Room1.yy",},
   ],
   "isDnd":false,
   "layers":[
@@ -841,6 +842,7 @@
         {"$GMRInstance":"v4","%Name":"inst_66EFF2F5","colour":4294967295,"frozen":false,"hasCreationCode":false,"ignore":false,"imageIndex":0,"imageSpeed":1.0,"inheritCode":false,"inheritedItemId":null,"inheritItemSettings":false,"isDnd":false,"name":"inst_66EFF2F5","objectId":{"name":"o_cursed_point","path":"objects/o_cursed_point/o_cursed_point.yy",},"properties":[],"resourceType":"GMRInstance","resourceVersion":"2.0","rotation":0.0,"scaleX":1.0,"scaleY":1.0,"x":13078.5,"y":6638.0,},
         {"$GMRInstance":"v4","%Name":"inst_3F60ACB3","colour":4294967295,"frozen":false,"hasCreationCode":false,"ignore":false,"imageIndex":0,"imageSpeed":1.0,"inheritCode":false,"inheritedItemId":null,"inheritItemSettings":false,"isDnd":false,"name":"inst_3F60ACB3","objectId":{"name":"o_cursed_point","path":"objects/o_cursed_point/o_cursed_point.yy",},"properties":[],"resourceType":"GMRInstance","resourceVersion":"2.0","rotation":0.0,"scaleX":1.0,"scaleY":1.0,"x":10954.5,"y":10097.95,},
         {"$GMRInstance":"v4","%Name":"inst_E2E789A","colour":4294967295,"frozen":false,"hasCreationCode":false,"ignore":false,"imageIndex":0,"imageSpeed":1.0,"inheritCode":false,"inheritedItemId":null,"inheritItemSettings":false,"isDnd":false,"name":"inst_E2E789A","objectId":{"name":"o_meat_bath","path":"objects/o_meat_bath/o_meat_bath.yy",},"properties":[],"resourceType":"GMRInstance","resourceVersion":"2.0","rotation":0.0,"scaleX":1.0,"scaleY":1.0,"x":8328.326,"y":7920.5,},
+        {"$GMRInstance":"v4","%Name":"inst_253AB172","colour":4294967295,"frozen":false,"hasCreationCode":false,"ignore":false,"imageIndex":0,"imageSpeed":1.0,"inheritCode":false,"inheritedItemId":null,"inheritItemSettings":false,"isDnd":false,"name":"inst_253AB172","objectId":{"name":"o_holy_tower","path":"objects/o_holy_tower/o_holy_tower.yy",},"properties":[],"resourceType":"GMRInstance","resourceVersion":"2.0","rotation":0.0,"scaleX":1.0,"scaleY":1.0,"x":7300.0,"y":6500.0,},
       ],"layers":[],"name":"Instances","properties":[],"resourceType":"GMRInstanceLayer","resourceVersion":"2.0","userdefinedDepth":false,"visible":true,},
     {"$GMRAssetLayer":"","%Name":"Assets_1","assets":[
         {"$GMRSpriteGraphic":"v1","%Name":"graphic_721B30C2","animationSpeed":1.0,"colour":4294967295,"frozen":false,"headPosition":0.0,"ignore":true,"inheritedItemId":null,"inheritItemSettings":false,"name":"graphic_721B30C2","resourceType":"GMRSpriteGraphic","resourceVersion":"2.0","rotation":0.0,"scaleX":1.0,"scaleY":1.0,"spriteId":{"name":"s_wall_top","path":"sprites/s_wall_top/s_wall_top.yy",},"x":7836.0,"y":7500.0,},

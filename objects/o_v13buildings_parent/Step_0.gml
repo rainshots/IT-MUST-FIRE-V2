@@ -49,6 +49,15 @@ if (_valid_worker_count <= 0)
 	exit;
 }
 
+if (object_index == o_goblins_pit && !goblins_pit_can_summon_goblin())
+{
+	var _goblin_limit = goblins_pit_goblin_limit_get();
+	goblins_pit_release_workers_if_limit_full();
+	production_speed_multiplier = 0;
+	building_warning_show("Goblin limit " + string(_goblin_limit) + "/" + string(_goblin_limit), COLOR_STATUS_NEGATIVE_RED);
+	exit;
+}
+
 building_cultist_stamina_update();
 recalculate_production_speed_multiplier();
 
@@ -305,13 +314,6 @@ if (object_index == o_workshop)
 // Summoning buildings spend their configured resource to create temporary friendly units.
 if (summon_unit_object != noone)
 {
-	if (object_index == o_goblins_pit && !goblins_pit_can_summon_goblin())
-	{
-		var _goblin_limit = goblins_pit_goblin_limit_get();
-		building_warning_show("Goblin limit " + string(_goblin_limit) + "/" + string(_goblin_limit), COLOR_STATUS_NEGATIVE_RED);
-		exit;
-	}
-
 	if (!summon_has_paid_cost && summon_costs_can_pay())
 	{
 		summon_costs_pay();
@@ -355,6 +357,15 @@ if (summon_unit_object != noone)
 			var _spawn_y = y + lengthdir_y(_spawn_distance, _spawn_direction);
 
 			var _summoned_unit = instance_create_layer(_spawn_x, _spawn_y, "Instances", summon_unit_object);
+
+			if (instance_exists(_summoned_unit)
+				&& object_index == o_goblins_pit
+				&& _summoned_unit.object_index == o_goblin)
+			{
+				_summoned_unit.owner_goblins_pit = id;
+				_summoned_unit.home_offset_x = _spawn_x - x;
+				_summoned_unit.home_offset_y = _spawn_y - y;
+			}
 
 			if (instance_exists(_summoned_unit)
 				&& object_index == o_goblins_pit

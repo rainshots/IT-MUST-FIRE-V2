@@ -4,8 +4,8 @@ if (global.pause)
 	exit;
 }
 
-// V13 keeps legacy hostile building combat disabled for now.
-if (variable_global_exists("legacy_building_logic_enabled") && !global.legacy_building_logic_enabled)
+// Destroyed holy towers stay on the map as inert ruins.
+if (is_destroyed)
 {
 	exit;
 }
@@ -23,6 +23,13 @@ if (attack_feedback_timer > 0)
 	attack_feedback_timer--;
 }
 
+// Holy towers only attack during the night.
+if (global.day_phase != DAY_PHASE.NIGHT)
+{
+	target_instance = noone;
+	exit;
+}
+
 // Find the closest friendly unit inside shooting radius.
 target_instance = noone;
 var _nearest_distance = shoot_radius;
@@ -33,6 +40,7 @@ for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_ind
 	var _friendly_unit = instance_find(o_friendly_units, _friendly_index);
 
 	if (instance_exists(_friendly_unit)
+		&& (!variable_instance_exists(_friendly_unit, "hp") || _friendly_unit.hp > 0)
 		&& (!variable_instance_exists(_friendly_unit, "is_being_dragged") || !_friendly_unit.is_being_dragged)
 		&& (!variable_instance_exists(_friendly_unit, "ignored_by_enemies") || !_friendly_unit.ignored_by_enemies))
 	{

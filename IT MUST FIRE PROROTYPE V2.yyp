@@ -255,6 +255,7 @@
     {"id":{"name":"s_heal_tower_b","path":"sprites/s_heal_tower_b/s_heal_tower_b.yy",},},
     {"id":{"name":"s_heal_tower","path":"sprites/s_heal_tower/s_heal_tower.yy",},},
     {"id":{"name":"s_hell_pit","path":"sprites/s_hell_pit/s_hell_pit.yy",},},
+    {"id":{"name":"s_holy_tower_destroyed","path":"sprites/s_holy_tower_destroyed/s_holy_tower_destroyed.yy",},},
     {"id":{"name":"s_holy_tower","path":"sprites/s_holy_tower/s_holy_tower.yy",},},
     {"id":{"name":"s_immortal_particle","path":"sprites/s_immortal_particle/s_immortal_particle.yy",},},
     {"id":{"name":"s_imp","path":"sprites/s_imp/s_imp.yy",},},

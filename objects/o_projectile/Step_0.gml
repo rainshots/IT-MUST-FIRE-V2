@@ -214,7 +214,7 @@ if (_flight_progress >= 1)
 	}
 	else if (projectile_type == PROJECTILE_TYPE.SKELETONS)
 	{
-		for (var _skeleton_index = 0; _skeleton_index < BALANCE_PROJECTILE_SKELETON_COUNT; ++_skeleton_index)
+		for (var _skeleton_index = 0; _skeleton_index < summon_count; ++_skeleton_index)
 		{
 			var _spawn_direction = random(360);
 			var _spawn_distance = sqrt(random(1)) * effect_radius;
