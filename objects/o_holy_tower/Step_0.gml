@@ -10,6 +10,8 @@ if (is_destroyed)
 	exit;
 }
 
+holy_tower_reinforcement_thresholds_update();
+
 // Destroy the tower safely if any damage source reduced HP to zero.
 if (hp <= 0)
 {

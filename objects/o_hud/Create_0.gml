@@ -70,6 +70,66 @@ cultist_status_card_exp_color = COLOR_HUD_CULTIST_STATUS_EXP;
 cultist_status_card_stamina_color = COLOR_HUD_CULTIST_STATUS_STAMINA;
 cultist_status_card_label_color = COLOR_HUD_TEXT;
 
+cultist_status_card_rect_get = function(_card_index)
+{
+	var _gui_width = display_get_gui_width();
+	var _gui_height = display_get_gui_height();
+	var _card_scale = clamp(_gui_height / 1080, 0.6, 1);
+	var _sidebar_width = hud_sidebar_width * _card_scale;
+	var _sidebar_x = _gui_width - _sidebar_width;
+	var _card_width = cultist_status_card_width * _card_scale;
+	var _card_height = cultist_status_card_height * _card_scale;
+	var _card_gap = cultist_status_card_gap * _card_scale;
+	var _card_x = _sidebar_x + ((_sidebar_width - _card_width) * 0.5);
+	var _card_y = cultist_status_card_y + ((_card_height + _card_gap) * _card_index);
+
+	return [_card_x, _card_y, _card_width, _card_height];
+};
+
+cultist_status_card_find_at_gui = function(_mouse_x, _mouse_y)
+{
+	if (!variable_global_exists("cultists")
+		|| !variable_global_exists("focus_window")
+		|| global.focus_window != FOCUS_WINDOW.NOONE
+		|| (variable_global_exists("tutorial_popup_active") && global.tutorial_popup_active))
+	{
+		return noone;
+	}
+
+	var _gui_height = display_get_gui_height();
+	var _cultist_count = array_length(global.cultists);
+	var _slot_count = min(cultist_status_card_slot_count, _cultist_count);
+
+	for (var _card_index = 0; _card_index < _slot_count; ++_card_index)
+	{
+		var _card_rect = cultist_status_card_rect_get(_card_index);
+		var _card_x = _card_rect[0];
+		var _card_y = _card_rect[1];
+		var _card_width = _card_rect[2];
+		var _card_height = _card_rect[3];
+
+		if (_card_y + _card_height > _gui_height - hud_margin_y)
+		{
+			break;
+		}
+
+		if (_mouse_x >= _card_x
+			&& _mouse_x <= _card_x + _card_width
+			&& _mouse_y >= _card_y
+			&& _mouse_y <= _card_y + _card_height)
+		{
+			var _cultist = global.cultists[_card_index];
+
+			if (instance_exists(_cultist))
+			{
+				return _cultist;
+			}
+		}
+	}
+
+	return noone;
+};
+
 // Minimap mirrors the current battle around the cannon in the right HUD sidebar.
 minimap_size = 334;
 minimap_margin_right = 48;
@@ -85,6 +145,59 @@ minimap_cultist_bar_gap = 2;
 minimap_view_alpha = 0.2;
 minimap_view_border_width = 4;
 minimap_view_min_size = 10;
+
+minimap_geometry_get = function()
+{
+	if (!instance_exists(o_cannon))
+	{
+		return noone;
+	}
+
+	var _gui_width = display_get_gui_width();
+	var _gui_height = display_get_gui_height();
+	var _minimap_scale = clamp(_gui_height / 1080, 0.6, 1);
+	var _sidebar_width = hud_sidebar_width * _minimap_scale;
+	var _sidebar_x = _gui_width - _sidebar_width;
+	var _minimap_size = minimap_size * _minimap_scale;
+	var _minimap_x = _sidebar_x + ((_sidebar_width - _minimap_size) * 0.5);
+	var _minimap_y = minimap_y * _minimap_scale;
+	var _minimap_cannon = instance_find(o_cannon, 0);
+
+	return {
+		x: _minimap_x,
+		y: _minimap_y,
+		right: _minimap_x + _minimap_size,
+		bottom: _minimap_y + _minimap_size,
+		center_x: _minimap_x + (_minimap_size * 0.5),
+		center_y: _minimap_y + (_minimap_size * 0.5),
+		size: _minimap_size,
+		scale: _minimap_scale,
+		world_center_x: _minimap_cannon.x,
+		world_center_y: _minimap_cannon.y,
+		world_to_minimap_scale: (_minimap_size * 0.5) / max(1, minimap_world_radius)
+	};
+};
+
+minimap_world_position_from_gui = function(_mouse_x, _mouse_y)
+{
+	var _geometry = minimap_geometry_get();
+
+	if (!is_struct(_geometry)
+		|| _mouse_x < _geometry.x
+		|| _mouse_x > _geometry.right
+		|| _mouse_y < _geometry.y
+		|| _mouse_y > _geometry.bottom)
+	{
+		return [false, 0, 0];
+	}
+
+	var _clamped_mouse_x = clamp(_mouse_x, _geometry.x, _geometry.right);
+	var _clamped_mouse_y = clamp(_mouse_y, _geometry.y, _geometry.bottom);
+	var _world_x = _geometry.world_center_x + ((_clamped_mouse_x - _geometry.center_x) / _geometry.world_to_minimap_scale);
+	var _world_y = _geometry.world_center_y + ((_clamped_mouse_y - _geometry.center_y) / _geometry.world_to_minimap_scale);
+
+	return [true, _world_x, _world_y];
+};
 
 // Control hints stay visible only during unobstructed gameplay.
 control_hints_x = 32;

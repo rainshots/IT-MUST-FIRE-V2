@@ -535,6 +535,11 @@ brute_grave_slam_use = function()
 	brute_aoe_circle_show(x, y, _slam_radius, false);
 	brute_grave_slam_camera_shake_try(x, y);
 
+	if (variable_global_exists("explosion_sounds") && variable_global_exists("sound_play_random"))
+	{
+		global.sound_play_random(global.explosion_sounds);
+	}
+
 	if (variable_global_exists("particle_type_brute_grave_slam_smoke"))
 	{
 		brute_smoke_burst_create(

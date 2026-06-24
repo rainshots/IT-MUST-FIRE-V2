@@ -6,6 +6,14 @@ if (!building_accepts_workers
 	exit;
 }
 
+var _tutorial_popup_blocks_world_hover = variable_global_exists("tutorial_popup_active")
+	&& global.tutorial_popup_active;
+
+if (_tutorial_popup_blocks_world_hover)
+{
+	exit;
+}
+
 var _camera_controller = instance_find(o_camera_controller, 0);
 var _mouse_gui_x = device_mouse_x_to_gui(0);
 var _mouse_gui_y = device_mouse_y_to_gui(0);
@@ -23,8 +31,6 @@ var _is_hovered = (
 	&& _mouse_world_y >= bbox_top
 	&& _mouse_world_y <= bbox_bottom
 );
-var _tutorial_popup_blocks_speed_label = variable_global_exists("tutorial_popup_active")
-	&& global.tutorial_popup_active;
 var _building_tooltip_blocks_speed_label = false;
 var _building_count = instance_number(o_v13buildings_parent);
 
@@ -51,7 +57,6 @@ var _draw_speed_multiplier = object_index == o_workshop
 	|| production_resource != noone;
 
 if (_draw_speed_multiplier
-	&& !_tutorial_popup_blocks_speed_label
 	&& (!_building_tooltip_blocks_speed_label || _is_hovered))
 {
 	var _speed_world_x = x;

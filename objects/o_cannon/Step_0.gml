@@ -43,6 +43,25 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 		global.cannon_fire_version++;
 		global.sound_play_random(global.cannon_shot_sounds);
 
+		var _is_taint_projectile = target_projectile_type == PROJECTILE_TYPE.CORRUPTION
+			|| target_projectile_type == PROJECTILE_TYPE.FEAST;
+
+		if (_is_taint_projectile)
+		{
+			if (!variable_global_exists("cannon_taint_projectiles_fired"))
+			{
+				global.cannon_taint_projectiles_fired = 0;
+			}
+
+			global.cannon_taint_projectiles_fired++;
+
+			if (global.cannon_taint_projectiles_fired >= 3
+				&& variable_global_exists("tutorial_hint_trigger"))
+			{
+				global.tutorial_hint_trigger("holy_towers");
+			}
+		}
+
 		if (instance_exists(o_camera_controller))
 		{
 			var _camera_controller = instance_find(o_camera_controller, 0);

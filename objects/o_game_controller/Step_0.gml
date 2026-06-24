@@ -128,6 +128,66 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 	var _camera_height = camera_get_view_height(_camera_controller.camera_id);
 	var _mouse_world_x = _camera_x + ((_mouse_gui_x / camera_view_width) * _camera_width);
 	var _mouse_world_y = _camera_y + ((_mouse_gui_y / camera_view_height) * _camera_height);
+	var _cultist_status_card_clicked = false;
+	var _minimap_camera_clicked = false;
+
+	if (!instance_exists(global.dragged_cultist)
+		&& mouse_check_button_pressed(mb_left)
+		&& instance_exists(o_hud))
+	{
+		var _hud = instance_find(o_hud, 0);
+
+		if (variable_instance_exists(_hud, "cultist_status_card_find_at_gui"))
+		{
+			var _status_card_cultist = _hud.cultist_status_card_find_at_gui(_mouse_gui_x, _mouse_gui_y);
+
+			if (instance_exists(_status_card_cultist))
+			{
+				if (variable_instance_exists(_camera_controller, "camera_center_on_instance"))
+				{
+					_camera_controller.camera_center_on_instance(_status_card_cultist);
+				}
+				else
+				{
+					_camera_controller.x = _status_card_cultist.x;
+					_camera_controller.y = _status_card_cultist.y;
+					_camera_controller.velocity_x = 0;
+					_camera_controller.velocity_y = 0;
+				}
+
+				_cultist_status_card_clicked = true;
+			}
+		}
+	}
+
+	if (!instance_exists(global.dragged_cultist)
+		&& mouse_check_button(mb_left)
+		&& instance_exists(o_hud))
+	{
+		var _minimap_hud = instance_find(o_hud, 0);
+
+		if (variable_instance_exists(_minimap_hud, "minimap_world_position_from_gui"))
+		{
+			var _minimap_position = _minimap_hud.minimap_world_position_from_gui(_mouse_gui_x, _mouse_gui_y);
+
+			if (_minimap_position[0])
+			{
+				if (variable_instance_exists(_camera_controller, "camera_center_on_position"))
+				{
+					_camera_controller.camera_center_on_position(_minimap_position[1], _minimap_position[2]);
+				}
+				else
+				{
+					_camera_controller.x = _minimap_position[1];
+					_camera_controller.y = _minimap_position[2];
+					_camera_controller.velocity_x = 0;
+					_camera_controller.velocity_y = 0;
+				}
+
+				_minimap_camera_clicked = true;
+			}
+		}
+	}
 
 	if (global.day_phase == DAY_PHASE.DAY
 		&& !instance_exists(global.dragged_cultist)
@@ -205,7 +265,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 			global.cultist_assignment_preview_building = noone;
 		}
 	}
-	else if (mouse_check_button_pressed(mb_left))
+	else if (mouse_check_button_pressed(mb_left) && !_cultist_status_card_clicked && !_minimap_camera_clicked)
 	{
 		var _levelup_cultist = cultist_levelup_button_find_at_gui(_mouse_gui_x, _mouse_gui_y);
 
@@ -223,10 +283,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 		{
 			var _cultist = global.cultists[_cultist_index];
 
-			if (instance_exists(_cultist)
-				&& (!variable_instance_exists(_cultist, "hp") || _cultist.hp > 0)
-				&& (!variable_instance_exists(_cultist, "cannon_loading") || !_cultist.cannon_loading)
-				&& (!variable_instance_exists(_cultist, "cannon_loaded") || !_cultist.cannon_loaded)
+			if (drag_cultist_can_be_picked(_cultist)
 				&& _mouse_world_x >= _cultist.bbox_left
 				&& _mouse_world_x <= _cultist.bbox_right
 				&& _mouse_world_y >= _cultist.bbox_top
@@ -645,6 +702,18 @@ if (!global.pause && global.day_cycle_enabled)
 	else if (global.day_phase == DAY_PHASE.NIGHT)
 	{
 		global.day_timer = max(global.day_timer - 1, 0);
+
+		if (!night_force_end_active)
+		{
+			night_force_end_timer = max(night_force_end_timer - 1, 0);
+
+			if (night_force_end_timer <= 0)
+			{
+				night_force_end_active = true;
+				night_timeout_enemy_retreat_start();
+				start_day_phase();
+			}
+		}
 	}
 }
 
@@ -1125,34 +1194,43 @@ if (pause_menu_open && mouse_check_button_pressed(mb_left))
 {
 	var _mouse_x = device_mouse_x_to_gui(0);
 	var _mouse_y = device_mouse_y_to_gui(0);
-	var _button_x = (camera_view_width - button_width) * 0.5;
-	var _button_y = (camera_view_height - ((button_height * pause_button_count) + (button_gap * (pause_button_count - 1)))) * 0.5;
-	var _button_step = button_height + button_gap;
 
 	if (!settings_open)
 	{
-		if (_mouse_x >= _button_x && _mouse_x <= _button_x + button_width)
+		for (var _pause_button_index = 0; _pause_button_index < pause_button_count; ++_pause_button_index)
 		{
-			var _continue_button_y = _button_y + (_button_step * continue_button_index);
-			var _settings_button_y = _button_y + (_button_step * settings_button_index);
-			var _quit_button_y = _button_y + (_button_step * quit_button_index);
+			var _pause_button_x = pause_button_x_get(_pause_button_index);
+			var _pause_button_y = pause_button_y_get(_pause_button_index);
+			var _pause_button_width = pause_button_width_get(_pause_button_index);
+			var _pause_button_height = pause_button_height_get(_pause_button_index);
 
-			if (_mouse_y >= _continue_button_y && _mouse_y <= _continue_button_y + button_height)
+			if (!ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _pause_button_x, _pause_button_y, _pause_button_width, _pause_button_height))
+			{
+				continue;
+			}
+
+			if (_pause_button_index == continue_button_index)
 			{
 				pause_menu_open = false;
 				global.pause = false;
 				player_pause_active = false;
 				global.focus_window = FOCUS_WINDOW.NOONE;
 			}
-			else if (_mouse_y >= _settings_button_y && _mouse_y <= _settings_button_y + button_height)
+			else if (_pause_button_index == settings_button_index)
 			{
 				settings_open = true;
 				global.focus_window = FOCUS_WINDOW.SETTINGS;
 			}
-			else if (_mouse_y >= _quit_button_y && _mouse_y <= _quit_button_y + button_height)
+			else if (_pause_button_index == feedback_button_index)
+			{
+				url_open(pause_feedback_url);
+			}
+			else if (_pause_button_index == quit_button_index)
 			{
 				game_end();
 			}
+
+			break;
 		}
 	}
 	else

@@ -26,6 +26,7 @@ if (variable_global_exists("cultist_assignment_preview_building")
 }
 
 var _building_is_hovered = global.focus_window == FOCUS_WINDOW.NOONE
+	&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active)
 	&& building_is_mouse_hovered();
 
 // Show upgrade prompt while the cursor hovers upgradeable buildings.

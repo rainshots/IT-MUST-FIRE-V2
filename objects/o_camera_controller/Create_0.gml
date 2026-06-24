@@ -57,6 +57,27 @@ camera_shake_start = function(_duration_seconds, _strength)
 	shake_strength = max(shake_strength, _strength);
 };
 
+camera_center_on_instance = function(_target)
+{
+	if (!instance_exists(_target))
+	{
+		return false;
+	}
+
+	return camera_center_on_position(_target.x, _target.y);
+};
+
+camera_center_on_position = function(_target_x, _target_y)
+{
+	// Stop keyboard drift so the requested target stays centered immediately.
+	x = _target_x;
+	y = _target_y;
+	velocity_x = 0;
+	velocity_y = 0;
+
+	return true;
+};
+
 // Camera centering helpers.
 half_view_width = view_width * 0.5;
 half_view_height = view_height * 0.5;

@@ -168,6 +168,7 @@ if (cannon_should_show_hauler_prompt())
 
 // Show the upgrade key when the cannon is hovered during regular gameplay.
 if (global.focus_window == FOCUS_WINDOW.NOONE
+	&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active)
 	&& (!variable_global_exists("dragged_cultist") || !instance_exists(global.dragged_cultist))
 	&& mouse_x >= bbox_left
 	&& mouse_x <= bbox_right

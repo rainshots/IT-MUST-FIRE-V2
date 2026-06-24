@@ -3,6 +3,7 @@ draw_self();
 
 if (global.focus_window == FOCUS_WINDOW.NOONE
 	&& !global.pause
+	&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active)
 	&& instance_exists(o_camera_controller))
 {
 	var _camera_controller = instance_find(o_camera_controller, 0);

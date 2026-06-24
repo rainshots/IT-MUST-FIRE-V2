@@ -69,6 +69,12 @@ panic_flee_timer = 0;
 panic_flee_cooldown_timer = 0;
 panic_flee_speed_multiplier = 1;
 
+// Forced retreat makes remaining enemies leave the battlefield after the night limit.
+forced_retreat_active = false;
+forced_retreat_target_x = x;
+forced_retreat_target_y = y;
+forced_retreat_speed_multiplier = 1;
+
 // Attack feedback shows who hit whom for a short moment.
 attack_feedback_time = 0.16 * room_speed;
 attack_feedback_timer = 0;
@@ -1220,9 +1226,59 @@ panic_flee_update = function()
 	return true;
 };
 
+forced_retreat_start = function(_target_x, _target_y, _speed_multiplier)
+{
+	forced_retreat_active = true;
+	forced_retreat_target_x = _target_x;
+	forced_retreat_target_y = _target_y;
+	forced_retreat_speed_multiplier = max(0, _speed_multiplier);
+	target_instance = noone;
+	alert_target = noone;
+	forced_attack_target = noone;
+	forced_attack_target_timer = 0;
+	panic_flee_timer = 0;
+	panic_flee_source = noone;
+	is_attacking_target = false;
+	is_walking = false;
+};
+
+forced_retreat_update = function()
+{
+	if (!forced_retreat_active)
+	{
+		return false;
+	}
+
+	if (unit_is_hidden_by_fog())
+	{
+		instance_destroy();
+		return true;
+	}
+
+	var _retreat_distance = point_distance(x, y, forced_retreat_target_x, forced_retreat_target_y);
+	var _current_move_speed = move_speed * unit_move_speed_multiplier_get() * forced_retreat_speed_multiplier;
+
+	if (_retreat_distance <= max(_current_move_speed, 8))
+	{
+		instance_destroy();
+		return true;
+	}
+
+	var _retreat_direction = point_direction(x, y, forced_retreat_target_x, forced_retreat_target_y);
+	var _move_distance = min(_current_move_speed, _retreat_distance);
+
+	is_walking = true;
+	face_world_x(forced_retreat_target_x);
+	x += lengthdir_x(_move_distance, _retreat_direction);
+	y += lengthdir_y(_move_distance, _retreat_direction);
+
+	return true;
+};
+
 unit_special_behavior_update = function()
 {
-	return panic_flee_update();
+	return forced_retreat_update()
+		|| panic_flee_update();
 };
 
 unit_attack_landed = function(_target, _is_critical_hit = false, _target_was_killed = false)

@@ -96,6 +96,11 @@ tutorial_items = [
 		id: "cursed_buildings",
 		title: "Tainted Buildings",
 		body: "The map contains many different buildings that can help you spread even more Taint. To awaken them, taint the ground underneath them."
+	},
+	{
+		id: "holy_towers",
+		title: "Holy Towers",
+		body: "Holy Towers make the ground around them Holy. It cannot be tainted until the tower is destroyed."
 	}
 ];
 

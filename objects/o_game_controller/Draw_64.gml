@@ -2435,7 +2435,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE)
 			);
 
 			draw_set_valign(fa_middle);
-			draw_set_color(_is_bought ? COLOR_HUD_PROJECTILE_DESCRIPTION : (_can_buy ? _upgrade_resource_color : COLOR_PROJECTILE_DAMAGE));
+			draw_set_color(_is_bought ? COLOR_HUD_PROJECTILE_DESCRIPTION : _upgrade_resource_color);
 
 			if (_is_bought)
 			{
@@ -2521,7 +2521,10 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 	draw_set_alpha(1);
 }
 
-if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultists") && instance_exists(o_camera_controller))
+if (global.focus_window == FOCUS_WINDOW.NOONE
+	&& variable_global_exists("cultists")
+	&& instance_exists(o_camera_controller)
+	&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active))
 {
 	var _camera_controller = instance_find(o_camera_controller, 0);
 	var _mouse_gui_x = device_mouse_x_to_gui(0);
@@ -2803,7 +2806,9 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 }
 
 // Draw combat unit stats on hover.
-if (global.focus_window == FOCUS_WINDOW.NOONE && instance_exists(o_camera_controller))
+if (global.focus_window == FOCUS_WINDOW.NOONE
+	&& instance_exists(o_camera_controller)
+	&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active))
 {
 	var _camera_controller = instance_find(o_camera_controller, 0);
 	var _mouse_gui_x = device_mouse_x_to_gui(0);
@@ -3030,7 +3035,9 @@ if (player_pause_active && global.focus_window == FOCUS_WINDOW.NOONE)
 }
 
 // Draw pickup hand over the cursor when a draggable unit can be grabbed or is being dragged.
-if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultists"))
+if (global.focus_window == FOCUS_WINDOW.NOONE
+	&& variable_global_exists("cultists")
+	&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active))
 {
 	var _should_draw_pickup_hand = instance_exists(global.dragged_cultist);
 	var _should_draw_whip_prompt = false;
@@ -3056,10 +3063,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 		{
 			var _cultist = global.cultists[_cultist_index];
 
-			if (instance_exists(_cultist)
-				&& (!variable_instance_exists(_cultist, "hp") || _cultist.hp > 0)
-				&& (!variable_instance_exists(_cultist, "cannon_loading") || !_cultist.cannon_loading)
-				&& (!variable_instance_exists(_cultist, "cannon_loaded") || !_cultist.cannon_loaded)
+			if (drag_cultist_can_be_picked(_cultist)
 				&& _mouse_world_x >= _cultist.bbox_left
 				&& _mouse_world_x <= _cultist.bbox_right
 				&& _mouse_world_y >= _cultist.bbox_top
@@ -3420,19 +3424,18 @@ draw_set_valign(fa_middle);
 if (!settings_open)
 {
 	// Draw main pause menu buttons.
-	var _button_x = (camera_view_width - button_width) * 0.5;
-	var _button_y = (camera_view_height - ((button_height * pause_button_count) + (button_gap * (pause_button_count - 1)))) * 0.5;
-	var _button_step = button_height + button_gap;
-
 	for (var _button_index = 0; _button_index < pause_button_count; ++_button_index)
 	{
-		var _draw_y = _button_y + (_button_step * _button_index);
+		var _button_x = pause_button_x_get(_button_index);
+		var _button_y = pause_button_y_get(_button_index);
+		var _button_width = pause_button_width_get(_button_index);
+		var _button_height = pause_button_height_get(_button_index);
 
 		draw_set_color(c_white);
-		draw_rectangle(_button_x, _draw_y, _button_x + button_width, _draw_y + button_height, false);
+		draw_rectangle(_button_x, _button_y, _button_x + _button_width, _button_y + _button_height, false);
 
 		draw_set_color(c_black);
-		draw_text(_button_x + (button_width * 0.5), _draw_y + (button_height * 0.5), pause_button_labels[_button_index]);
+		draw_text(_button_x + (_button_width * 0.5), _button_y + (_button_height * 0.5), pause_button_labels[_button_index]);
 	}
 }
 else

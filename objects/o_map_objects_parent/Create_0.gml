@@ -79,6 +79,11 @@ transform_into = function(_object_index)
 
 map_object_is_hovered = function()
 {
+	if (variable_global_exists("tutorial_popup_active") && global.tutorial_popup_active)
+	{
+		return false;
+	}
+
 	if (!instance_exists(o_camera_controller))
 	{
 		return false;
