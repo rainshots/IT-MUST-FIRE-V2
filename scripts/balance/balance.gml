@@ -1,6 +1,6 @@
 /// @description Balance constants used across gameplay systems.
-#macro BALANCE_CHEATS_ENABLED false//false
-#macro BALANCE_PLAY_MUSIC true// true
+#macro BALANCE_CHEATS_ENABLED true//false
+#macro BALANCE_PLAY_MUSIC false// true
 #macro BALANCE_MUSIC_TRACK_GAP_TIME 20
 #macro BALANCE_DEBUG_MOUSE_DAMAGE 100
 #macro BALANCE_DEBUG_RESOURCE_CHEAT_AMOUNT 100
