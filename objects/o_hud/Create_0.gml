@@ -305,6 +305,7 @@ projectile_names[PROJECTILE_TYPE.FEAST] = "TAINT SHELL";
 projectile_names[PROJECTILE_TYPE.HEAL] = "HEAL";
 projectile_names[PROJECTILE_TYPE.BOMB] = "BOMB";
 projectile_names[PROJECTILE_TYPE.SKELETONS] = "SKELETONS";
+projectile_names[PROJECTILE_TYPE.BUILDING_SHELL] = "STRUCTURE";
 
 projectile_descriptions = array_create(PROJECTILE_TYPE.COUNT, "");
 projectile_descriptions[PROJECTILE_TYPE.DAMAGE] = "Damages units and buildings inside the impact area.";
@@ -316,3 +317,4 @@ projectile_descriptions[PROJECTILE_TYPE.FEAST] = "Fires " + string(BALANCE_CANNO
 projectile_descriptions[PROJECTILE_TYPE.HEAL] = "Restores " + string(BALANCE_PROJECTILE_HEAL_AMOUNT) + " health to all friendly units inside a " + string(BALANCE_PROJECTILE_HEAL_RADIUS) + " pixel radius. Payload Mastery improves it.";
 projectile_descriptions[PROJECTILE_TYPE.BOMB] = "Deals " + string(BALANCE_PROJECTILE_BOMB_DAMAGE_AMOUNT) + " damage to every unit inside a " + string(BALANCE_PROJECTILE_BOMB_RADIUS) + " pixel radius. Payload Mastery improves it.";
 projectile_descriptions[PROJECTILE_TYPE.SKELETONS] = "Summons " + string(BALANCE_PROJECTILE_SKELETON_COUNT) + " skeleton inside a " + string(BALANCE_PROJECTILE_SKELETON_RADIUS) + " pixel radius. Payload Mastery improves it.";
+projectile_descriptions[PROJECTILE_TYPE.BUILDING_SHELL] = "Builds its stored structure where it lands. Must be fired onto tainted ground.";

@@ -76,6 +76,45 @@ if (global.cheats_enabled && keyboard_check_pressed(ord("L")))
 	exit;
 }
 
+// Backtick toggles the in-game debug menu.
+if (global.cheats_enabled
+	&& (keyboard_check_pressed(ord("`")) || keyboard_check_pressed(192)))
+{
+	debug_menu_open = !debug_menu_open;
+}
+
+if (global.cheats_enabled && debug_menu_open && mouse_check_button_pressed(mb_left))
+{
+	var _debug_mouse_x = device_mouse_x_to_gui(0);
+	var _debug_mouse_y = device_mouse_y_to_gui(0);
+	var _debug_menu_height = debug_menu_height_get();
+	var _debug_menu_contains_mouse = _debug_mouse_x >= debug_menu_x
+		&& _debug_mouse_x <= debug_menu_x + debug_menu_width
+		&& _debug_mouse_y >= debug_menu_y
+		&& _debug_mouse_y <= debug_menu_y + _debug_menu_height;
+
+	if (_debug_menu_contains_mouse)
+	{
+		var _debug_choice_count = array_length(debug_shell_choices);
+
+		for (var _debug_choice_index = 0; _debug_choice_index < _debug_choice_count; ++_debug_choice_index)
+		{
+			var _debug_rect = debug_shell_choice_rect_get(_debug_choice_index);
+
+			if (_debug_mouse_x >= _debug_rect.x
+				&& _debug_mouse_x <= _debug_rect.x + _debug_rect.width
+				&& _debug_mouse_y >= _debug_rect.y
+				&& _debug_mouse_y <= _debug_rect.y + _debug_rect.height)
+			{
+				debug_shell_give(debug_shell_choices[_debug_choice_index]);
+				break;
+			}
+		}
+
+		exit;
+	}
+}
+
 // Space toggles gameplay pause without opening a blocking focus window.
 if (keyboard_check_pressed(vk_space)
 	&& global.focus_window == FOCUS_WINDOW.NOONE
@@ -353,6 +392,15 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 			if (instance_exists(_building_slot))
 			{
 				open_building_window(_building_slot);
+			}
+			else
+			{
+				var _foundry = find_foundry_at_position(_mouse_world_x, _mouse_world_y);
+
+				if (instance_exists(_foundry))
+				{
+					open_foundry_window(_foundry);
+				}
 			}
 		}
 	}
@@ -779,13 +827,31 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION && mouse_check_but
 		var _close_x = _panel_x + building_window_width - _close_size - 14;
 		var _close_y = _panel_y + 14;
 		var _grid_x = _panel_x + 44;
-		var _grid_y = _panel_y + building_window_grid_y;
-		var _choice_count = array_length(building_choices);
+		var _is_foundry_window = instance_exists(building_window_foundry);
+		var _grid_y = _panel_y + building_window_grid_y + (_is_foundry_window ? 112 : 0);
+		var _foundry_current_x = _panel_x + 44;
+		var _foundry_current_y = _panel_y + 118;
+		var _foundry_current_width = building_window_width - 88;
+		var _foundry_current_height = 78;
+		var _choice_count = array_length(building_window_choices);
 
 		if (_mouse_x >= _close_x && _mouse_x <= _close_x + _close_size
 			&& _mouse_y >= _close_y && _mouse_y <= _close_y + _close_size)
 		{
 			close_building_window();
+		}
+		else if (_is_foundry_window
+			&& instance_exists(building_window_foundry)
+			&& is_struct(building_window_foundry.foundry_selected_shell)
+			&& _mouse_x >= _foundry_current_x
+			&& _mouse_x <= _foundry_current_x + _foundry_current_width
+			&& _mouse_y >= _foundry_current_y
+			&& _mouse_y <= _foundry_current_y + _foundry_current_height)
+		{
+			if (variable_instance_exists(building_window_foundry, "foundry_shell_cancel"))
+			{
+				building_window_foundry.foundry_shell_cancel(true);
+			}
 		}
 		else
 		{
@@ -799,7 +865,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION && mouse_check_but
 				if (_mouse_x >= _tile_x && _mouse_x <= _tile_x + building_tile_width
 					&& _mouse_y >= _tile_y && _mouse_y <= _tile_y + building_tile_height)
 				{
-					construct_building_from_choice(building_choices[_choice_index]);
+					construct_building_from_choice(building_window_choices[_choice_index]);
 					break;
 				}
 			}
@@ -1163,6 +1229,11 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && mouse_check_button_p
 		{
 			_target_can_be_confirmed = false;
 		}
+		else if (target_selection_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL
+			&& !ground_cell_is_tainted_at_position(_target_world_x, _target_world_y))
+		{
+			_target_can_be_confirmed = false;
+		}
 
 		if (_target_can_be_confirmed)
 		{
@@ -1189,13 +1260,13 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && mouse_check_button_p
 	}
 }
 
-// Handle pause menu buttons.
-if (pause_menu_open && mouse_check_button_pressed(mb_left))
+// Handle pause menu buttons and settings sliders.
+if (pause_menu_open && (mouse_check_button_pressed(mb_left) || settings_open))
 {
 	var _mouse_x = device_mouse_x_to_gui(0);
 	var _mouse_y = device_mouse_y_to_gui(0);
 
-	if (!settings_open)
+	if (!settings_open && mouse_check_button_pressed(mb_left))
 	{
 		for (var _pause_button_index = 0; _pause_button_index < pause_button_count; ++_pause_button_index)
 		{
@@ -1239,8 +1310,34 @@ if (pause_menu_open && mouse_check_button_pressed(mb_left))
 		var _panel_y = (camera_view_height - settings_panel_height) * 0.5;
 		var _close_button_x = _panel_x + ((settings_panel_width - button_width) * 0.5);
 		var _close_button_y = _panel_y + settings_panel_height - button_height - settings_close_bottom_padding;
+		var _settings_slider_index = settings_slider_find_at_gui(_mouse_x, _mouse_y);
 
-		if (_mouse_x >= _close_button_x && _mouse_x <= _close_button_x + button_width && _mouse_y >= _close_button_y && _mouse_y <= _close_button_y + button_height)
+		if (mouse_check_button_pressed(mb_left) && _settings_slider_index >= 0)
+		{
+			settings_drag_slider_index = _settings_slider_index;
+			settings_slider_value_set(
+				settings_drag_slider_index,
+				settings_slider_value_from_gui(settings_drag_slider_index, _mouse_x)
+			);
+		}
+		else if (settings_drag_slider_index >= 0 && mouse_check_button(mb_left))
+		{
+			settings_slider_value_set(
+				settings_drag_slider_index,
+				settings_slider_value_from_gui(settings_drag_slider_index, _mouse_x)
+			);
+		}
+		else if (!mouse_check_button(mb_left))
+		{
+			settings_drag_slider_index = -1;
+		}
+
+		if (settings_drag_slider_index < 0
+			&& mouse_check_button_pressed(mb_left)
+			&& _mouse_x >= _close_button_x
+			&& _mouse_x <= _close_button_x + button_width
+			&& _mouse_y >= _close_button_y
+			&& _mouse_y <= _close_button_y + button_height)
 		{
 			settings_open = false;
 			global.focus_window = FOCUS_WINDOW.PAUSE_MENU;

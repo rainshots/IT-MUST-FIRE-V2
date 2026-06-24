@@ -69,7 +69,8 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 		}
 
 		if (target_projectile_type == PROJECTILE_TYPE.RALLY
-			|| target_projectile_type == PROJECTILE_TYPE.CULTIST)
+			|| target_projectile_type == PROJECTILE_TYPE.CULTIST
+			|| target_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
 		{
 			_fired_projectile_count = 1;
 		}
@@ -97,7 +98,8 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			var _projectile = instance_create_layer(_projectile_x, _projectile_y, projectile_layer_name, o_projectile);
 
 			if (target_projectile_type == PROJECTILE_TYPE.RALLY
-				|| target_projectile_type == PROJECTILE_TYPE.CULTIST)
+				|| target_projectile_type == PROJECTILE_TYPE.CULTIST
+				|| target_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
 			{
 				_spread_target_x = target_x;
 				_spread_target_y = target_y;
@@ -122,6 +124,7 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			_projectile.projectile_type = target_projectile_type;
 			_projectile.effect_radius = projectile_effect_radius;
 			_projectile.cultist_payload = _projectile_payload;
+			_projectile.building_payload = _projectile_payload;
 			_projectile.ignore_pause = global.pause;
 			_projectile.launch_delay_timer = _launch_delay_seconds * room_speed;
 			_projectile.flight_time = _flight_time_seconds * room_speed;
@@ -133,6 +136,13 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 				_projectile.damage_amount = BALANCE_CULTIST_PROJECTILE_DAMAGE_AMOUNT;
 				_projectile.ground_corruption_amount = BALANCE_CULTIST_PROJECTILE_CORRUPTION_AMOUNT;
 				_projectile.ground_corruption_radius = BALANCE_CULTIST_PROJECTILE_CORRUPTION_RADIUS;
+
+				if (instance_exists(_projectile_payload))
+				{
+					_projectile_payload.cannon_loading = false;
+					_projectile_payload.cannon_loaded = true;
+					_projectile_payload.visible = false;
+				}
 
 				if (instance_exists(o_game_controller))
 				{

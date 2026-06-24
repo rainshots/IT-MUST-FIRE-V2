@@ -76,6 +76,10 @@ demolish_prompt_offset_y = 50;
 demolish_prompt_padding_x = 7;
 demolish_prompt_padding_y = 4;
 demolish_prompt_background_alpha = 0.78;
+foundry_click_icon_size = 68;
+foundry_click_icon_offset_y = 28;
+foundry_click_icon_alpha = 0.95;
+foundry_click_icon_pulse_scale = 0.08;
 building_upgrade_flags = [false, false];
 building_upgrade_names = ["", ""];
 building_upgrade_descriptions = ["", ""];
@@ -94,6 +98,13 @@ ritual_circle_daily_exp_remaining = BALANCE_RITUAL_CIRCLE_DAILY_EXP_LIMIT;
 
 // Workshop stores paid repair here before applying it to the cannon wall.
 workshop_repair_pool = 0;
+
+// Foundry stores the selected structure shell before producing a cannon projectile.
+foundry_selected_shell = noone;
+foundry_shell_progress = 0;
+foundry_shell_duration = BALANCE_FOUNDRY_SHELL_PRODUCTION_TIME;
+foundry_prompt_text = "Choose Structure";
+foundry_product_offset_y = 176;
 
 resource_name_get = function(_resource)
 {
@@ -352,8 +363,21 @@ else if (object_index == o_workshop)
 	production_bonus_stat_name = "BODY";
 	production_bonus_stat_color = COLOR_CULTIST_BODY;
 	building_tooltip_title = "Repair";
-	building_tooltip_description = "Repairs the cannon wall";
-	building_tooltip_detail = "Uses " + string(BALANCE_WORKSHOP_IRON_COST) + " Iron for " + string(BALANCE_WORKSHOP_IRON_REPAIR_AMOUNT) + " HP. Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
+	building_tooltip_description = "Repairs the cannon wall and damaged structures";
+	building_tooltip_detail = "Structures receive " + string(BALANCE_WORKSHOP_BUILDING_REPAIR_MULTIPLIER * 100) + "% repair. Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
+	building_tooltip_detail_color = production_bonus_stat_color;
+}
+else if (object_index == o_foundry)
+{
+	building_accepts_workers = true;
+	production_resource_icon = s_foundry;
+	production_resource_color = COLOR_PROJECTILE_BUILDING_SHELL;
+	production_bonus_stat = CULTIST_STAT.BODY;
+	production_bonus_stat_name = "BODY";
+	production_bonus_stat_color = COLOR_CULTIST_BODY;
+	building_tooltip_title = "Foundry";
+	building_tooltip_description = "Produces structure shells for the cannon";
+	building_tooltip_detail = "Click Foundry, choose a structure, then assign workers to forge its shell. Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
 	building_tooltip_detail_color = production_bonus_stat_color;
 }
 else if (object_index == o_graveyardv13)
@@ -545,6 +569,107 @@ building_stamina_drain_multiplier_get = function()
 building_recovers_cultist_stamina = function()
 {
 	return object_index == o_ritual_circle;
+};
+
+foundry_shell_select = function(_choice)
+{
+	if (object_index != o_foundry)
+	{
+		return false;
+	}
+
+	var _construction_costs = [];
+
+	if (variable_struct_exists(_choice, "construction_costs"))
+	{
+		_construction_costs = _choice.construction_costs;
+	}
+
+	foundry_selected_shell = {
+		building_object: _choice.building_object,
+		building_sprite: _choice.building_sprite,
+		building_name: _choice.building_name,
+		construction_costs: _construction_costs
+	};
+	foundry_shell_progress = 0;
+	building_warning_show("Selected " + _choice.building_name, COLOR_PROJECTILE_BUILDING_SHELL);
+
+	return true;
+};
+
+foundry_shell_cancel = function(_refund_resources = true)
+{
+	if (object_index != o_foundry
+		|| !is_struct(foundry_selected_shell))
+	{
+		return false;
+	}
+
+	if (_refund_resources
+		&& variable_struct_exists(foundry_selected_shell, "construction_costs"))
+	{
+		var _costs = foundry_selected_shell.construction_costs;
+		var _cost_count = array_length(_costs);
+		var _popup_gap = 46;
+		var _popup_start_x = x - ((_cost_count - 1) * _popup_gap * 0.5);
+
+		for (var _cost_index = 0; _cost_index < _cost_count; ++_cost_index)
+		{
+			var _cost_data = _costs[_cost_index];
+			var _resource = _cost_data.resource;
+			var _cost = _cost_data.cost;
+			var _cost_popup_x = _popup_start_x + (_cost_index * _popup_gap);
+
+			global.resources[_resource] += _cost;
+			resource_popup_create(_cost_popup_x, y - 40, _resource, _cost);
+		}
+	}
+
+	building_warning_show("Forging canceled", COLOR_PROJECTILE_BUILDING_SHELL);
+	foundry_selected_shell = noone;
+	foundry_shell_progress = 0;
+	return true;
+};
+
+foundry_workers_release = function()
+{
+	if (object_index != o_foundry)
+	{
+		return;
+	}
+
+	var _worker_count = array_length(worker_cultists);
+
+	if (_worker_count <= 0)
+	{
+		return;
+	}
+
+	var _workers = array_create(_worker_count);
+
+	for (var _copy_index = 0; _copy_index < _worker_count; ++_copy_index)
+	{
+		_workers[_copy_index] = worker_cultists[_copy_index];
+	}
+
+	if (instance_exists(o_game_controller))
+	{
+		var _game_controller = instance_find(o_game_controller, 0);
+
+		for (var _worker_index = 0; _worker_index < _worker_count; ++_worker_index)
+		{
+			var _worker = _workers[_worker_index];
+
+			if (instance_exists(_worker)
+				&& variable_instance_exists(_game_controller, "clear_cultist_building_assignment"))
+			{
+				_game_controller.clear_cultist_building_assignment(_worker);
+			}
+		}
+	}
+
+	worker_cultists = array_create(0);
+	recalculate_production_speed_multiplier();
 };
 
 ritual_circle_daily_exp_limit_get = function()

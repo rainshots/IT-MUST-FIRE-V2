@@ -1326,6 +1326,36 @@ find_nearest_target = function(_object_index, _max_distance)
 	return _nearest_target;
 };
 
+find_nearest_attackable_player_structure = function(_max_distance)
+{
+	var _nearest_target = noone;
+	var _nearest_distance = _max_distance;
+	var _structure_count = instance_number(o_map_objects_parent);
+
+	for (var _structure_index = 0; _structure_index < _structure_count; ++_structure_index)
+	{
+		var _structure = instance_find(o_map_objects_parent, _structure_index);
+
+		if (!target_can_be_attacked(_structure)
+			|| !variable_instance_exists(_structure, "building_constructed_by_shell")
+			|| !_structure.building_constructed_by_shell
+			|| !variable_instance_exists(_structure, "hp"))
+		{
+			continue;
+		}
+
+		var _structure_distance = point_distance(x, y, _structure.x, _structure.y);
+
+		if (_structure_distance <= _nearest_distance)
+		{
+			_nearest_target = _structure;
+			_nearest_distance = _structure_distance;
+		}
+	}
+
+	return _nearest_target;
+};
+
 find_nearest_cannon_attacker = function()
 {
 	if (!instance_exists(o_cannon))
@@ -1799,6 +1829,16 @@ attack_target = function(_target)
 			if (variable_instance_exists(_target, "unit_faction"))
 			{
 				damage_popup_create(_target.x, _target.y, _damage_amount, _target.unit_faction, _is_critical_hit);
+			}
+
+			if (variable_instance_exists(_target, "building_constructed_by_shell")
+				&& _target.building_constructed_by_shell
+				&& _target.hp <= 0)
+			{
+				with (_target)
+				{
+					instance_destroy();
+				}
 			}
 		}
 

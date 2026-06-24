@@ -5,6 +5,9 @@ global.focus_window = FOCUS_WINDOW.NOONE;
 global.fog_of_war_visible = true;
 global.cheats_enabled = BALANCE_CHEATS_ENABLED;
 global.play_music = BALANCE_PLAY_MUSIC;
+global.music_volume = 0.8;
+global.ambient_volume = 0.8;
+global.sound_volume = 0.8;
 
 // Global day cycle uses fixed day and night timers.
 global.day_phase = DAY_PHASE.DAY;
@@ -604,7 +607,14 @@ global.sound_play_random = function(_sounds, _priority = global.sound_priority_g
 
 		if (audio_exists(_sound))
 		{
-			return audio_play_sound(_sound, _priority, false);
+			var _handle = audio_play_sound(_sound, _priority, false);
+
+			if (_handle >= 0)
+			{
+				audio_sound_gain(_handle, global.sound_volume, 0);
+			}
+
+			return _handle;
 		}
 	}
 
@@ -617,7 +627,7 @@ global.sound_play_random_with_gain = function(_sounds, _gain, _priority = global
 
 	if (_handle >= 0)
 	{
-		audio_sound_gain(_handle, _gain, 0);
+		audio_sound_gain(_handle, _gain * global.sound_volume, 0);
 	}
 
 	return _handle;
@@ -639,7 +649,12 @@ global.ui_confirm_sound_play = function()
 {
 	if (audio_exists(global.ui_confirm_sound))
 	{
-		audio_play_sound(global.ui_confirm_sound, global.sound_priority_ui, false);
+		var _handle = audio_play_sound(global.ui_confirm_sound, global.sound_priority_ui, false);
+
+		if (_handle >= 0)
+		{
+			audio_sound_gain(_handle, global.sound_volume, 0);
+		}
 	}
 };
 
@@ -685,6 +700,12 @@ ui_hover_candidate_get = function(_mouse_x, _mouse_y)
 			var _settings_panel_y = (camera_view_height - settings_panel_height) * 0.5;
 			var _close_button_x = _settings_panel_x + ((settings_panel_width - button_width) * 0.5);
 			var _close_button_y = _settings_panel_y + settings_panel_height - button_height - settings_close_bottom_padding;
+			var _settings_slider_index = settings_slider_find_at_gui(_mouse_x, _mouse_y);
+
+			if (_settings_slider_index >= 0)
+			{
+				return "settings_slider_" + string(_settings_slider_index);
+			}
 
 			if (ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _close_button_x, _close_button_y, button_width, button_height))
 			{
@@ -700,13 +721,26 @@ ui_hover_candidate_get = function(_mouse_x, _mouse_y)
 		var _construction_close_size = 34;
 		var _construction_close_x = _construction_panel_x + building_window_width - _construction_close_size - 14;
 		var _construction_close_y = _construction_panel_y + 14;
+		var _is_foundry_window = instance_exists(building_window_foundry);
 		var _grid_x = _construction_panel_x + 44;
-		var _grid_y = _construction_panel_y + building_window_grid_y;
-		var _choice_count = array_length(building_choices);
+		var _grid_y = _construction_panel_y + building_window_grid_y + (_is_foundry_window ? 112 : 0);
+		var _foundry_current_x = _construction_panel_x + 44;
+		var _foundry_current_y = _construction_panel_y + 118;
+		var _foundry_current_width = building_window_width - 88;
+		var _foundry_current_height = 78;
+		var _choice_count = array_length(building_window_choices);
 
 		if (ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _construction_close_x, _construction_close_y, _construction_close_size, _construction_close_size))
 		{
 			return "building_close";
+		}
+
+		if (_is_foundry_window
+			&& instance_exists(building_window_foundry)
+			&& is_struct(building_window_foundry.foundry_selected_shell)
+			&& ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _foundry_current_x, _foundry_current_y, _foundry_current_width, _foundry_current_height))
+		{
+			return "foundry_cancel_forging";
 		}
 
 		for (var _choice_index = 0; _choice_index < _choice_count; ++_choice_index)
@@ -1405,6 +1439,8 @@ cannon_worker_carried_corpse_add = function(_worker, _corpse)
 
 // Building construction menu stores the clicked slot and available building tiles.
 building_window_slot = noone;
+building_window_foundry = noone;
+building_window_choices = [];
 building_window_input_blocked = false;
 building_window_width = 760;
 building_window_height = 560;
@@ -1470,7 +1506,14 @@ building_choices = [
 		building_object: o_workshop,
 		building_sprite: s_workshop,
 		building_name: "Workshop",
-		building_description: "Repairs the cannon by spending Iron.",
+		building_description: "Repairs the cannon and damaged structures by spending Iron.",
+		iron_cost: BALANCE_BUILDING_IRON_COST
+	},
+	{
+		building_object: o_foundry,
+		building_sprite: s_foundry,
+		building_name: "Foundry",
+		building_description: "Produces structure shells that the cannon can fire onto tainted ground.",
 		iron_cost: BALANCE_BUILDING_IRON_COST
 	},
 	{
@@ -1523,6 +1566,273 @@ building_choices = [
 	}
 ];
 
+foundry_shell_choices = [
+	{
+		building_object: o_tower_damage,
+		building_sprite: s_damage_tower,
+		building_name: "Damage Tower",
+		building_description: "Forges a shell that builds a tower shooting enemies around itself.",
+		construction_costs: [
+			{
+				resource: RESOURCES.IRON,
+				cost: BALANCE_FOUNDRY_DAMAGE_TOWER_SHELL_IRON_COST
+			}
+		]
+	},
+	{
+		building_object: o_tower_heal,
+		building_sprite: s_heal_tower,
+		building_name: "Heal Tower",
+		building_description: "Forges a shell that builds a tower healing friendly troops nearby.",
+		construction_costs: [
+			{
+				resource: RESOURCES.SOULS,
+				cost: BALANCE_FOUNDRY_HEAL_TOWER_SHELL_SOUL_COST
+			}
+		]
+	},
+	{
+		building_object: o_orcs_hut,
+		building_sprite: s_orks_hut,
+		building_name: "Orcs Pit",
+		building_description: "Forges a shell that builds a pit with two neutral corpse-hauling orcs.",
+		construction_costs: [
+			{
+				resource: RESOURCES.FLESH,
+				cost: BALANCE_FOUNDRY_ORCS_PIT_SHELL_FLESH_COST
+			}
+		]
+	},
+	{
+		building_object: o_grave_spire,
+		building_sprite: s_grave_spire,
+		building_name: "Grave Spire",
+		building_description: "Forges a shell that builds a spire spawning Skeletons every morning.",
+		construction_costs: [
+			{
+				resource: RESOURCES.SOULS,
+				cost: BALANCE_FOUNDRY_GRAVE_SPIRE_SHELL_SOUL_COST
+			}
+		]
+	}
+];
+
+building_window_choices = building_choices;
+
+// Debug menu gives projectiles directly for fast gameplay testing.
+debug_menu_open = false;
+debug_menu_width = 330;
+debug_menu_padding = 14;
+debug_menu_button_width = 142;
+debug_menu_button_height = 32;
+debug_menu_button_gap = 8;
+debug_menu_section_gap = 36;
+debug_menu_x = 18;
+debug_menu_y = 84;
+debug_menu_title_height = 34;
+
+debug_shell_choices = [
+	{
+		label: "Damage",
+		projectile_type: PROJECTILE_TYPE.DAMAGE,
+		payload: noone
+	},
+	{
+		label: "Taint",
+		projectile_type: PROJECTILE_TYPE.CORRUPTION,
+		payload: noone
+	},
+	{
+		label: "Heal",
+		projectile_type: PROJECTILE_TYPE.HEAL,
+		payload: noone
+	},
+	{
+		label: "Bomb",
+		projectile_type: PROJECTILE_TYPE.BOMB,
+		payload: noone
+	},
+	{
+		label: "Skeletons",
+		projectile_type: PROJECTILE_TYPE.SKELETONS,
+		payload: noone
+	},
+	{
+		label: "Taint Shell",
+		projectile_type: PROJECTILE_TYPE.FEAST,
+		payload: noone
+	},
+	{
+		label: "Damage Tower",
+		projectile_type: PROJECTILE_TYPE.BUILDING_SHELL,
+		payload: {
+			building_object: o_tower_damage,
+			building_sprite: s_damage_tower,
+			building_name: "Damage Tower"
+		}
+	},
+	{
+		label: "Heal Tower",
+		projectile_type: PROJECTILE_TYPE.BUILDING_SHELL,
+		payload: {
+			building_object: o_tower_heal,
+			building_sprite: s_heal_tower,
+			building_name: "Heal Tower"
+		}
+	},
+	{
+		label: "Orcs Pit",
+		projectile_type: PROJECTILE_TYPE.BUILDING_SHELL,
+		payload: {
+			building_object: o_orcs_hut,
+			building_sprite: s_orks_hut,
+			building_name: "Orcs Pit"
+		}
+	},
+	{
+		label: "Grave Spire",
+		projectile_type: PROJECTILE_TYPE.BUILDING_SHELL,
+		payload: {
+			building_object: o_grave_spire,
+			building_sprite: s_grave_spire,
+			building_name: "Grave Spire"
+		}
+	}
+];
+
+debug_menu_height_get = function()
+{
+	var _button_count = array_length(debug_shell_choices);
+	var _column_count = 2;
+	var _row_count = ceil(_button_count / _column_count);
+	return debug_menu_padding
+		+ debug_menu_title_height
+		+ debug_menu_section_gap
+		+ (_row_count * debug_menu_button_height)
+		+ (max(0, _row_count - 1) * debug_menu_button_gap)
+		+ debug_menu_padding;
+};
+
+debug_shell_choice_rect_get = function(_choice_index)
+{
+	var _column_count = 2;
+	var _column = _choice_index mod _column_count;
+	var _row = _choice_index div _column_count;
+	var _button_x = debug_menu_x + debug_menu_padding + ((debug_menu_button_width + debug_menu_button_gap) * _column);
+	var _button_y = debug_menu_y + debug_menu_padding + debug_menu_title_height + debug_menu_section_gap
+		+ ((debug_menu_button_height + debug_menu_button_gap) * _row);
+
+	return {
+		x: _button_x,
+		y: _button_y,
+		width: debug_menu_button_width,
+		height: debug_menu_button_height
+	};
+};
+
+debug_shell_give = function(_choice)
+{
+	if (!variable_struct_exists(_choice, "projectile_type"))
+	{
+		return false;
+	}
+
+	var _payload = noone;
+
+	if (variable_struct_exists(_choice, "payload"))
+	{
+		_payload = _choice.payload;
+	}
+
+	return cannon_projectile_queue_add(_choice.projectile_type, _payload);
+};
+
+debug_menu_draw = function()
+{
+	if (!global.cheats_enabled || !debug_menu_open)
+	{
+		return;
+	}
+
+	var _mouse_x = device_mouse_x_to_gui(0);
+	var _mouse_y = device_mouse_y_to_gui(0);
+	var _menu_height = debug_menu_height_get();
+	var _choice_count = array_length(debug_shell_choices);
+	var _queue_count = 0;
+
+	if (variable_global_exists("cannon_projectile_queue"))
+	{
+		_queue_count = array_length(global.cannon_projectile_queue);
+	}
+
+	draw_set_alpha(0.9);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_rectangle(debug_menu_x, debug_menu_y, debug_menu_x + debug_menu_width, debug_menu_y + _menu_height, false);
+
+	draw_set_alpha(1);
+	draw_set_color(COLOR_PROJECTILE_BUILDING_SHELL);
+	draw_rectangle(debug_menu_x, debug_menu_y, debug_menu_x + debug_menu_width, debug_menu_y + _menu_height, true);
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(COLOR_HUD_TEXT);
+
+	if (variable_global_exists("ui_heading_font") && font_exists(global.ui_heading_font))
+	{
+		draw_set_font(global.ui_heading_font);
+	}
+
+	draw_text(debug_menu_x + debug_menu_padding, debug_menu_y + debug_menu_padding, "Debug Menu");
+
+	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+	{
+		draw_set_font(global.ui_font);
+	}
+
+	draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+	draw_text(
+		debug_menu_x + debug_menu_padding,
+		debug_menu_y + debug_menu_padding + 28,
+		"Queue: " + string(_queue_count) + "/" + string(global.cannon_projectile_queue_max)
+	);
+
+	draw_set_color(COLOR_PROJECTILE_BUILDING_SHELL);
+	draw_text(
+		debug_menu_x + debug_menu_padding,
+		debug_menu_y + debug_menu_padding + debug_menu_title_height + 10,
+		"Give Shell"
+	);
+
+	for (var _choice_index = 0; _choice_index < _choice_count; ++_choice_index)
+	{
+		var _choice = debug_shell_choices[_choice_index];
+		var _rect = debug_shell_choice_rect_get(_choice_index);
+		var _is_hovered = _mouse_x >= _rect.x
+			&& _mouse_x <= _rect.x + _rect.width
+			&& _mouse_y >= _rect.y
+			&& _mouse_y <= _rect.y + _rect.height;
+		var _queue_full = _queue_count >= global.cannon_projectile_queue_max;
+
+		draw_set_alpha(_queue_full ? 0.42 : 0.78);
+		draw_set_color(c_black);
+		draw_rectangle(_rect.x, _rect.y, _rect.x + _rect.width, _rect.y + _rect.height, false);
+
+		draw_set_alpha(1);
+		draw_set_color(_queue_full ? COLOR_HUD_PROJECTILE_DESCRIPTION : (_is_hovered ? COLOR_PROJECTILE_BUILDING_SHELL : c_white));
+		draw_rectangle(_rect.x, _rect.y, _rect.x + _rect.width, _rect.y + _rect.height, true);
+
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_middle);
+		draw_set_color(_queue_full ? COLOR_HUD_PROJECTILE_DESCRIPTION : COLOR_HUD_TEXT);
+		draw_text(_rect.x + (_rect.width * 0.5), _rect.y + (_rect.height * 0.5), _choice.label);
+	}
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+};
+
 // Base window and GUI size for the strategy view.
 base_view_width = 1366;
 base_view_height = 768;
@@ -1553,6 +1863,70 @@ target_selection_projectile_type = PROJECTILE_TYPE.DAMAGE;
 target_selection_radius = BALANCE_PROJECTILE_EFFECT_RADIUS;
 target_selection_alpha = 0.35;
 target_selection_outline_alpha = 0.85;
+
+// Building shell previews use the future structure's gameplay radius when it has one.
+building_shell_preview_radius_get = function(_building_payload)
+{
+	if (!is_struct(_building_payload)
+		|| !variable_struct_exists(_building_payload, "building_object"))
+	{
+		return 0;
+	}
+
+	if (_building_payload.building_object == o_tower_damage)
+	{
+		return BALANCE_TOWER_DAMAGE_RADIUS;
+	}
+
+	if (_building_payload.building_object == o_tower_heal)
+	{
+		return BALANCE_TOWER_HEAL_RADIUS;
+	}
+
+	if (_building_payload.building_object == o_orcs_hut)
+	{
+		return BALANCE_ORCS_HUT_CORPSE_SEARCH_RADIUS;
+	}
+
+	if (_building_payload.building_object == o_grave_spire)
+	{
+		return BALANCE_GRAVE_SPIRE_RADIUS;
+	}
+
+	return 0;
+};
+
+// Building shell preview circles match the hover radius colors of built structures.
+building_shell_preview_color_get = function(_building_payload)
+{
+	if (!is_struct(_building_payload)
+		|| !variable_struct_exists(_building_payload, "building_object"))
+	{
+		return COLOR_PROJECTILE_BUILDING_SHELL;
+	}
+
+	if (_building_payload.building_object == o_tower_damage)
+	{
+		return COLOR_TOWER_DAMAGE_RADIUS;
+	}
+
+	if (_building_payload.building_object == o_tower_heal)
+	{
+		return COLOR_TOWER_HEAL_RADIUS;
+	}
+
+	if (_building_payload.building_object == o_orcs_hut)
+	{
+		return COLOR_ORCS_HUT_RADIUS;
+	}
+
+	if (_building_payload.building_object == o_grave_spire)
+	{
+		return COLOR_PROJECTILE_DAMAGE;
+	}
+
+	return COLOR_PROJECTILE_BUILDING_SHELL;
+};
 
 projectile_target_selection_radius_get = function(_projectile_type)
 {
@@ -1591,6 +1965,11 @@ projectile_target_selection_radius_get = function(_projectile_type)
 		return BALANCE_PROJECTILE_SKELETON_RADIUS;
 	}
 
+	if (_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
+	{
+		return BALANCE_PROJECTILE_EFFECT_RADIUS;
+	}
+
 	return BALANCE_PROJECTILE_EFFECT_RADIUS;
 };
 
@@ -1609,8 +1988,17 @@ button_width = 280;
 button_height = 58;
 button_gap = 18;
 settings_panel_width = 420;
-settings_panel_height = 220;
+settings_panel_height = 340;
 settings_close_bottom_padding = 28;
+settings_slider_count = 3;
+settings_slider_labels = ["Music", "Ambient", "Sounds"];
+settings_slider_x = 150;
+settings_slider_y = 104;
+settings_slider_width = 200;
+settings_slider_height = 12;
+settings_slider_gap_y = 54;
+settings_slider_knob_radius = 10;
+settings_drag_slider_index = -1;
 pause_feedback_button_width = 460;
 pause_feedback_button_height = 76;
 pause_button_labels = ["CONTINUE", "SETTINGS", "PLEASE LEAVE A FEEDBACK", "QUIT"];
@@ -1658,6 +2046,83 @@ pause_button_y_get = function(_button_index)
 pause_button_x_get = function(_button_index)
 {
 	return (camera_view_width - pause_button_width_get(_button_index)) * 0.5;
+};
+
+settings_slider_rect_get = function(_slider_index)
+{
+	var _panel_x = (camera_view_width - settings_panel_width) * 0.5;
+	var _panel_y = (camera_view_height - settings_panel_height) * 0.5;
+	var _slider_x = _panel_x + settings_slider_x;
+	var _slider_y = _panel_y + settings_slider_y + ((settings_slider_height + settings_slider_gap_y) * _slider_index);
+
+	return {
+		x: _slider_x,
+		y: _slider_y,
+		width: settings_slider_width,
+		height: settings_slider_height
+	};
+};
+
+settings_slider_value_get = function(_slider_index)
+{
+	if (_slider_index == 0)
+	{
+		return global.music_volume;
+	}
+
+	if (_slider_index == 1)
+	{
+		return global.ambient_volume;
+	}
+
+	return global.sound_volume;
+};
+
+settings_slider_value_set = function(_slider_index, _value)
+{
+	var _clamped_value = clamp(_value, 0, 1);
+
+	if (_slider_index == 0)
+	{
+		global.music_volume = _clamped_value;
+	}
+	else if (_slider_index == 1)
+	{
+		global.ambient_volume = _clamped_value;
+	}
+	else
+	{
+		global.sound_volume = _clamped_value;
+	}
+};
+
+settings_slider_find_at_gui = function(_mouse_x, _mouse_y)
+{
+	for (var _slider_index = 0; _slider_index < settings_slider_count; ++_slider_index)
+	{
+		var _rect = settings_slider_rect_get(_slider_index);
+		var _hit_padding = settings_slider_knob_radius + 4;
+
+		if (ui_mouse_is_inside_rect(
+			_mouse_x,
+			_mouse_y,
+			_rect.x - _hit_padding,
+			_rect.y - _hit_padding,
+			_rect.width + (_hit_padding * 2),
+			_rect.height + (_hit_padding * 2)
+		))
+		{
+			return _slider_index;
+		}
+	}
+
+	return -1;
+};
+
+settings_slider_value_from_gui = function(_slider_index, _mouse_x)
+{
+	var _rect = settings_slider_rect_get(_slider_index);
+	return clamp((_mouse_x - _rect.x) / max(1, _rect.width), 0, 1);
 };
 
 // Cultist prototype state.
@@ -2401,6 +2866,103 @@ find_demolishable_building_at_position = function(_world_x, _world_y)
 	return _target_building;
 };
 
+find_foundry_at_position = function(_world_x, _world_y)
+{
+	var _foundry_count = instance_number(o_foundry);
+	var _target_foundry = noone;
+	var _target_depth = infinity;
+
+	for (var _foundry_index = 0; _foundry_index < _foundry_count; ++_foundry_index)
+	{
+		var _foundry = instance_find(o_foundry, _foundry_index);
+
+		if (instance_exists(_foundry)
+			&& _world_x >= _foundry.bbox_left
+			&& _world_x <= _foundry.bbox_right
+			&& _world_y >= _foundry.bbox_top
+			&& _world_y <= _foundry.bbox_bottom
+			&& _foundry.depth < _target_depth)
+		{
+			_target_foundry = _foundry;
+			_target_depth = _foundry.depth;
+		}
+	}
+
+	return _target_foundry;
+};
+
+ground_cell_has_full_corruption_at_position = function(_world_x, _world_y)
+{
+	if (!instance_exists(o_corruption_grid))
+	{
+		return false;
+	}
+
+	var _corruption_grid_object = instance_find(o_corruption_grid, 0);
+	var _cell_x = floor(_world_x / _corruption_grid_object.cell_size);
+	var _cell_y = floor(_world_y / _corruption_grid_object.cell_size);
+	var _is_inside_grid = _cell_x >= 0
+		&& _cell_x < _corruption_grid_object.grid_width
+		&& _cell_y >= 0
+		&& _cell_y < _corruption_grid_object.grid_height;
+
+	if (!_is_inside_grid)
+	{
+		return false;
+	}
+
+	return ds_grid_get(_corruption_grid_object.corruption_grid, _cell_x, _cell_y)
+		>= _corruption_grid_object.full_corruption_value;
+};
+
+ground_cell_is_tainted_at_position = function(_world_x, _world_y)
+{
+	if (!instance_exists(o_corruption_grid))
+	{
+		return false;
+	}
+
+	var _corruption_grid_object = instance_find(o_corruption_grid, 0);
+	var _cell_x = floor(_world_x / _corruption_grid_object.cell_size);
+	var _cell_y = floor(_world_y / _corruption_grid_object.cell_size);
+	var _is_inside_grid = _cell_x >= 0
+		&& _cell_x < _corruption_grid_object.grid_width
+		&& _cell_y >= 0
+		&& _cell_y < _corruption_grid_object.grid_height;
+
+	if (!_is_inside_grid)
+	{
+		return false;
+	}
+
+	return ds_grid_get(_corruption_grid_object.corruption_grid, _cell_x, _cell_y) > 0;
+};
+
+grave_spire_morning_skeleton_count_preview = function(_world_x, _world_y)
+{
+	var _skeleton_count = 1;
+	var _grave_count = instance_number(o_grave);
+
+	for (var _grave_index = 0; _grave_index < _grave_count; ++_grave_index)
+	{
+		var _grave = instance_find(o_grave, _grave_index);
+
+		if (!instance_exists(_grave)
+			|| point_distance(_world_x, _world_y, _grave.x, _grave.y) > BALANCE_GRAVE_SPIRE_RADIUS)
+		{
+			continue;
+		}
+
+		if (!variable_instance_exists(_grave, "assigned_grave_spire")
+			|| !instance_exists(_grave.assigned_grave_spire))
+		{
+			_skeleton_count++;
+		}
+	}
+
+	return _skeleton_count;
+};
+
 open_building_window = function(_slot)
 {
 	if (!instance_exists(_slot))
@@ -2409,6 +2971,29 @@ open_building_window = function(_slot)
 	}
 
 	building_window_slot = _slot;
+	building_window_foundry = noone;
+	building_window_choices = building_choices;
+	building_window_input_blocked = true;
+	player_pause_active = false;
+	global.pause = true;
+	global.focus_window = FOCUS_WINDOW.BUILDING_CONSTRUCTION;
+	global.ui_confirm_sound_play();
+	ui_click_sound_blocked = true;
+
+	return true;
+};
+
+open_foundry_window = function(_foundry)
+{
+	if (!instance_exists(_foundry)
+		|| _foundry.object_index != o_foundry)
+	{
+		return false;
+	}
+
+	building_window_slot = noone;
+	building_window_foundry = _foundry;
+	building_window_choices = foundry_shell_choices;
 	building_window_input_blocked = true;
 	player_pause_active = false;
 	global.pause = true;
@@ -2439,6 +3024,8 @@ open_building_upgrade_window = function(_building)
 close_building_window = function()
 {
 	building_window_slot = noone;
+	building_window_foundry = noone;
+	building_window_choices = building_choices;
 	global.pause = false;
 	global.focus_window = FOCUS_WINDOW.NOONE;
 };
@@ -2453,6 +3040,11 @@ close_building_upgrade_window = function()
 
 building_choice_limit_get = function(_choice)
 {
+	if (instance_exists(building_window_foundry))
+	{
+		return 999;
+	}
+
 	if (_choice.building_object == o_goblins_pit)
 	{
 		return BALANCE_BUILDING_GOBLINS_PIT_LIMIT;
@@ -2463,6 +3055,11 @@ building_choice_limit_get = function(_choice)
 
 building_choice_count_get = function(_choice)
 {
+	if (instance_exists(building_window_foundry))
+	{
+		return 0;
+	}
+
 	return instance_number(_choice.building_object);
 };
 
@@ -2668,6 +3265,31 @@ building_choice_costs_pay = function(_choice, _popup_x, _popup_y)
 
 construct_building_from_choice = function(_choice)
 {
+	if (instance_exists(building_window_foundry))
+	{
+		if (variable_instance_exists(building_window_foundry, "foundry_shell_cancel")
+			&& is_struct(building_window_foundry.foundry_selected_shell))
+		{
+			building_window_foundry.foundry_shell_cancel(true);
+		}
+
+		if (!building_choice_can_pay(_choice))
+		{
+			return false;
+		}
+
+		if (variable_instance_exists(building_window_foundry, "foundry_shell_select"))
+		{
+			building_choice_costs_pay(_choice, building_window_foundry.x, building_window_foundry.y - 40);
+			building_window_foundry.foundry_shell_select(_choice);
+			close_building_window();
+			return true;
+		}
+
+		close_building_window();
+		return false;
+	}
+
 	if (!instance_exists(building_window_slot))
 	{
 		close_building_window();
@@ -3970,6 +4592,7 @@ start_cultists_loading_into_cannon = function()
 		_cultist.cannon_loaded = false;
 		_cultist.visible = true;
 		_cultist.is_being_dragged = false;
+		queue_cultist_projectile(_cultist);
 	}
 };
 
@@ -4007,7 +4630,6 @@ update_cultists_loading_into_cannon = function()
 			_cultist.y = _cannon.y;
 			_cultist.drag_drop_x = _cannon.x;
 			_cultist.drag_drop_y = _cannon.y;
-			queue_cultist_projectile(_cultist);
 			continue;
 		}
 
@@ -4054,7 +4676,7 @@ unload_cultist_projectiles_to_day = function()
 		}
 	}
 
-	clear_cannon_projectile_queues();
+	clear_cannon_projectile_queues(false);
 };
 
 cannon_inner_regroup_offset_x_get = function(_unit_object)
@@ -6290,6 +6912,11 @@ start_day_phase = function()
 	with (o_pitlings_house)
 	{
 		pitlings_house_spawn_morning_units();
+	}
+
+	with (o_grave_spire)
+	{
+		grave_spire_spawn_morning_units();
 	}
 
 	with (o_ritual_circle)

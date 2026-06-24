@@ -7,6 +7,21 @@ if (global.pause)
 // Check whether the ground under the tower has fully corrupted.
 tower_capture_update();
 
+if (variable_instance_exists(id, "building_constructed_by_shell") && building_constructed_by_shell)
+{
+	corruption = ground_cell_corruption_get(x, y) * max_corruption;
+	is_captured = corruption > 0;
+
+	if (is_captured)
+	{
+		sprite_index = captured_sprite_index;
+	}
+	else
+	{
+		sprite_index = uncaptured_sprite_index;
+	}
+}
+
 if (!is_captured)
 {
 	exit;

@@ -26,9 +26,9 @@ if (popup_active)
 
 	if (_button_hovered && mouse_check_button_pressed(mb_left))
 	{
-		if (variable_global_exists("ui_confirm_sound") && variable_global_exists("sound_priority_ui"))
+		if (variable_global_exists("ui_confirm_sound_play"))
 		{
-			audio_play_sound(global.ui_confirm_sound, global.sound_priority_ui, false);
+			global.ui_confirm_sound_play();
 		}
 
 		tutorial_close();

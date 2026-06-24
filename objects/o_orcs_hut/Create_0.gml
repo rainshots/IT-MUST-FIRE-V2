@@ -18,7 +18,7 @@ owned_orcs = array_create(0);
 // Tooltip lines describe captured hut behavior.
 tooltip_lines = [
 	"Captured: 2 neutral orcs haul corpses to the cannon during the day",
-	"Range: orcs use corpses within 900px of the hut",
+	"Range: orcs use corpses within 500px of the hut",
 	"Night: orcs return home"
 ];
 

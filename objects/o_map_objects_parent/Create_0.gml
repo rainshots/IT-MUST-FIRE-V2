@@ -24,6 +24,40 @@ tooltip_offset_y = 72;
 
 // Transform target. noone means the object does not transform by default.
 transform_object = noone;
+building_constructed_by_shell = false;
+
+// Shell-built player structures use the cannon hit sound when enemies damage them.
+player_building_damage_sound_play = function()
+{
+	if (variable_global_exists("cannon_damage_sounds") && variable_global_exists("sound_play_random"))
+	{
+		global.sound_play_random(global.cannon_damage_sounds);
+	}
+};
+
+// Shared damage receiver keeps player structure damage feedback consistent.
+unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true)
+{
+	if (hp <= 0 || _damage_amount <= 0)
+	{
+		return 0;
+	}
+
+	var _applied_damage = min(_damage_amount, hp);
+	hp = max(hp - _damage_amount, 0);
+
+	if (_applied_damage > 0 && building_constructed_by_shell)
+	{
+		player_building_damage_sound_play();
+	}
+
+	if (building_constructed_by_shell && hp <= 0)
+	{
+		instance_destroy();
+	}
+
+	return _applied_damage;
+};
 
 // Optional tower capture state. Children enable it when they need corruption-based activation.
 tower_capture_enabled = false;

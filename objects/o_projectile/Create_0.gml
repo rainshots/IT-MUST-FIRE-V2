@@ -6,6 +6,7 @@ target_y = y;
 projectile_type = PROJECTILE_TYPE.DAMAGE;
 cultist_payload = noone;
 cultist_deploy_units = [];
+building_payload = noone;
 
 // Explosion and effect settings.
 effect_radius = BALANCE_PROJECTILE_EFFECT_RADIUS;
@@ -15,6 +16,8 @@ corruption_amount = 1;
 ground_corruption_amount = BALANCE_PROJECTILE_GROUND_CORRUPTION_AMOUNT;
 ground_corruption_radius = effect_radius;
 smoke_particle_count = 22;
+building_smoke_radius = 150;
+building_smoke_particle_count = 44;
 particle_layer_name = "Instances";
 
 // Flight settings.

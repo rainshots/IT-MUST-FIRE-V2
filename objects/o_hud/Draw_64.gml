@@ -1249,6 +1249,10 @@ if (variable_global_exists("cannon_projectile_queue")
 		{
 			_projectile_color = COLOR_PROJECTILE_SKELETONS;
 		}
+		else if (_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
+		{
+			_projectile_color = COLOR_PROJECTILE_BUILDING_SHELL;
+		}
 
 		if (_is_current_projectile)
 		{
@@ -1294,6 +1298,18 @@ if (variable_global_exists("cannon_projectile_queue")
 				&& _cultist_payload.cultist_name != "")
 			{
 				_projectile_name = string_copy(_cultist_payload.cultist_name, 1, 10);
+			}
+		}
+		else if (_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL
+			&& variable_global_exists("cannon_projectile_payload_queue")
+			&& _projectile_index < array_length(global.cannon_projectile_payload_queue))
+		{
+			var _building_payload = global.cannon_projectile_payload_queue[_projectile_index];
+
+			if (is_struct(_building_payload)
+				&& variable_struct_exists(_building_payload, "building_name"))
+			{
+				_projectile_name = string_copy(_building_payload.building_name, 1, 12);
 			}
 		}
 
@@ -1489,6 +1505,18 @@ if (variable_global_exists("cannon_projectile_queue")
 					&& _description_payload.cultist_name != "")
 				{
 					_description_name = _description_payload.cultist_name;
+				}
+			}
+			else if (_description_type == PROJECTILE_TYPE.BUILDING_SHELL
+				&& variable_global_exists("cannon_projectile_payload_queue")
+				&& _description_projectile_index < array_length(global.cannon_projectile_payload_queue))
+			{
+				_description_payload = global.cannon_projectile_payload_queue[_description_projectile_index];
+
+				if (is_struct(_description_payload)
+					&& variable_struct_exists(_description_payload, "building_name"))
+				{
+					_description_name = _description_payload.building_name;
 				}
 			}
 

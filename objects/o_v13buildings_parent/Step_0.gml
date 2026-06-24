@@ -269,16 +269,52 @@ if (object_index == o_ritual_circle)
 // Workshop converts Iron into stored repair and applies it to the cannon wall.
 if (object_index == o_workshop)
 {
-	if (!instance_exists(o_cannon))
+	var _repair_target = noone;
+	var _repair_amount_multiplier = 1;
+
+	if (instance_exists(o_cannon))
 	{
-		exit;
+		var _cannon = instance_find(o_cannon, 0);
+
+		if (variable_instance_exists(_cannon, "hp")
+			&& variable_instance_exists(_cannon, "max_hp")
+			&& _cannon.hp < _cannon.max_hp)
+		{
+			_repair_target = _cannon;
+		}
 	}
 
-	var _cannon = instance_find(o_cannon, 0);
+	if (!instance_exists(_repair_target))
+	{
+		var _structure_count = instance_number(o_map_objects_parent);
+		var _nearest_distance = infinity;
 
-	if (!variable_instance_exists(_cannon, "hp")
-		|| !variable_instance_exists(_cannon, "max_hp")
-		|| _cannon.hp >= _cannon.max_hp)
+		for (var _structure_index = 0; _structure_index < _structure_count; ++_structure_index)
+		{
+			var _structure = instance_find(o_map_objects_parent, _structure_index);
+
+			if (!instance_exists(_structure)
+				|| !variable_instance_exists(_structure, "building_constructed_by_shell")
+				|| !_structure.building_constructed_by_shell
+				|| !variable_instance_exists(_structure, "hp")
+				|| !variable_instance_exists(_structure, "max_hp")
+				|| _structure.hp >= _structure.max_hp)
+			{
+				continue;
+			}
+
+			var _distance_to_structure = point_distance(x, y, _structure.x, _structure.y);
+
+			if (_distance_to_structure < _nearest_distance)
+			{
+				_nearest_distance = _distance_to_structure;
+				_repair_target = _structure;
+				_repair_amount_multiplier = BALANCE_WORKSHOP_BUILDING_REPAIR_MULTIPLIER;
+			}
+		}
+	}
+
+	if (!instance_exists(_repair_target))
 	{
 		exit;
 	}
@@ -302,11 +338,49 @@ if (object_index == o_workshop)
 	}
 
 	var _repair_step = (BALANCE_WORKSHOP_IRON_REPAIR_AMOUNT * production_speed_multiplier) / max(1, BALANCE_WORKSHOP_REPAIR_TIME * room_speed);
-	var _missing_hp = _cannon.max_hp - _cannon.hp;
+	_repair_step *= _repair_amount_multiplier;
+
+	var _missing_hp = _repair_target.max_hp - _repair_target.hp;
 	var _repair_amount = min(_repair_step, min(workshop_repair_pool, _missing_hp));
 
-	_cannon.hp += _repair_amount;
+	_repair_target.hp += _repair_amount;
 	workshop_repair_pool -= _repair_amount;
+
+	exit;
+}
+
+// Foundry forges selected structure shells into permanent cannon projectiles.
+if (object_index == o_foundry)
+{
+	if (!is_struct(foundry_selected_shell))
+	{
+		exit;
+	}
+
+	var _foundry_step = production_speed_multiplier / max(1, foundry_shell_duration * room_speed);
+	foundry_shell_progress += _foundry_step;
+
+	if (foundry_shell_progress >= 1)
+	{
+		if (instance_exists(o_game_controller))
+		{
+			var _game_controller = instance_find(o_game_controller, 0);
+
+			if (variable_instance_exists(_game_controller, "cannon_projectile_queue_add")
+				&& _game_controller.cannon_projectile_queue_add(PROJECTILE_TYPE.BUILDING_SHELL, foundry_selected_shell))
+			{
+				building_warning_show(foundry_selected_shell.building_name + " shell ready", COLOR_PROJECTILE_BUILDING_SHELL);
+				foundry_selected_shell = noone;
+				foundry_shell_progress = 0;
+				foundry_workers_release();
+			}
+			else
+			{
+				foundry_shell_progress = 1;
+				building_warning_show("Projectile queue full", COLOR_STATUS_NEGATIVE_RED);
+			}
+		}
+	}
 
 	exit;
 }

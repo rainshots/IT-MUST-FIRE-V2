@@ -9,6 +9,16 @@ if (!variable_global_exists("cheats_enabled"))
 	global.cheats_enabled = BALANCE_CHEATS_ENABLED;
 }
 
+if (!variable_global_exists("music_volume"))
+{
+	global.music_volume = 0.8;
+}
+
+if (!variable_global_exists("ambient_volume"))
+{
+	global.ambient_volume = 0.8;
+}
+
 ambient_sound = ambient01;
 ambient_handle = noone;
 ambient_priority = 100;
@@ -93,6 +103,26 @@ music_sound_can_play = function(_sound)
 	return audio_exists(_sound);
 };
 
+music_volume_get = function()
+{
+	if (!variable_global_exists("music_volume"))
+	{
+		return 1;
+	}
+
+	return clamp(global.music_volume, 0, 1);
+};
+
+ambient_volume_get = function()
+{
+	if (!variable_global_exists("ambient_volume"))
+	{
+		return 1;
+	}
+
+	return clamp(global.ambient_volume, 0, 1);
+};
+
 music_ambient_start = function()
 {
 	if (!music_auto_enabled)
@@ -109,7 +139,7 @@ music_ambient_start = function()
 	{
 		music_debug_play_attempts++;
 		ambient_handle = audio_play_sound(ambient_sound, ambient_priority, true);
-		audio_sound_gain(ambient_handle, ambient_gain, 0);
+		audio_sound_gain(ambient_handle, ambient_gain * ambient_volume_get(), 0);
 	}
 };
 
@@ -261,13 +291,15 @@ music_night_next_roll = function()
 
 music_target_gain_update = function()
 {
-	day_music_target_gain = music_day_gain;
+	var _music_volume = music_volume_get();
+
+	day_music_target_gain = music_day_gain * _music_volume;
 	night_music_target_gain = music_muted_gain;
 
 	if (variable_global_exists("day_phase") && global.day_phase == DAY_PHASE.NIGHT)
 	{
 		day_music_target_gain = music_muted_gain;
-		night_music_target_gain = music_night_gain;
+		night_music_target_gain = music_night_gain * _music_volume;
 	}
 };
 
@@ -295,6 +327,8 @@ music_active_track_state_update = function()
 
 music_gain_update = function()
 {
+	music_target_gain_update();
+
 	var _fade_step = 1 / max(1, music_fade_time);
 
 	if (day_music_current_gain < day_music_target_gain)
@@ -323,6 +357,11 @@ music_gain_update = function()
 	if (night_music_handle != noone)
 	{
 		audio_sound_gain(night_music_handle, night_music_current_gain, 0);
+	}
+
+	if (ambient_handle != noone)
+	{
+		audio_sound_gain(ambient_handle, ambient_gain * ambient_volume_get(), 0);
 	}
 
 	music_active_track_state_update();

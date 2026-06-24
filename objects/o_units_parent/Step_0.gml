@@ -206,6 +206,11 @@ else if (!_special_behavior_handled && _is_enemy_unit)
 		}
 	}
 
+	if (!instance_exists(target_instance))
+	{
+		target_instance = find_nearest_attackable_player_structure(target_detection_radius);
+	}
+
 	if (!instance_exists(target_instance) && unit_can_attack_cannon && instance_exists(o_cannon))
 	{
 		target_instance = instance_find(o_cannon, 0);

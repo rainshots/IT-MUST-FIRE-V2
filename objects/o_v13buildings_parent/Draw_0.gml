@@ -29,6 +29,21 @@ var _building_is_hovered = global.focus_window == FOCUS_WINDOW.NOONE
 	&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active)
 	&& building_is_mouse_hovered();
 
+// Foundry is directly clickable, so show the build icon on hover.
+if (_building_is_hovered && object_index == o_foundry && sprite_exists(s_build_icon))
+{
+	var _icon_pulse = 1 + (sin(current_time * 0.008) * foundry_click_icon_pulse_scale);
+	var _icon_scale = (foundry_click_icon_size * _icon_pulse) / max(1, sprite_get_width(s_build_icon));
+	var _icon_alpha = foundry_click_icon_alpha + (sin(current_time * 0.007) * 0.05);
+	var _icon_x = x;
+	var _icon_top_y = bbox_top - foundry_click_icon_offset_y;
+	var _icon_y = lerp(_icon_top_y, y, 0.5);
+
+	draw_set_alpha(clamp(_icon_alpha, 0, 1));
+	draw_sprite_ext(s_build_icon, 0, _icon_x, _icon_y, _icon_scale, _icon_scale, 0, c_white, 1);
+	draw_set_alpha(1);
+}
+
 // Show upgrade prompt while the cursor hovers upgradeable buildings.
 if (_building_is_hovered && building_has_upgrades)
 {
@@ -277,6 +292,80 @@ if (object_index == o_workshop)
 	}
 
 	// Restore default draw state.
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+	exit;
+}
+
+// Draw Foundry shell progress and current assignment text.
+if (object_index == o_foundry)
+{
+	var _bar_x = x - (production_bar_width * 0.5);
+	var _bar_y = y - production_bar_offset_y;
+	var _label_text = "";
+
+	if (is_struct(foundry_selected_shell))
+	{
+		_label_text = "Forging: " + foundry_selected_shell.building_name;
+	}
+	else if (array_length(worker_cultists) > 0)
+	{
+		_label_text = foundry_prompt_text;
+	}
+
+	if (_label_text != "")
+	{
+		var _label_width = string_width(_label_text) + (building_warning_padding_x * 2);
+		var _label_height = string_height(_label_text) + (building_warning_padding_y * 2);
+		var _label_x = x - (_label_width * 0.5);
+		var _label_y = y - foundry_product_offset_y;
+
+		draw_set_alpha(building_warning_background_alpha);
+		draw_set_color(COLOR_HUD_BACKGROUND);
+		draw_roundrect(_label_x, _label_y, _label_x + _label_width, _label_y + _label_height, false);
+
+		draw_set_alpha(1);
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_middle);
+		draw_set_color(COLOR_PROJECTILE_BUILDING_SHELL);
+		draw_text(x, _label_y + (_label_height * 0.5), _label_text);
+	}
+
+	if (is_struct(foundry_selected_shell))
+	{
+		var _progress = clamp(foundry_shell_progress, 0, 1);
+		var _icon_x = _bar_x + production_bar_width + production_icon_gap;
+		var _icon_y = _bar_y + (production_bar_height * 0.5);
+
+		draw_set_alpha(production_bar_background_alpha);
+		draw_set_color(COLOR_HUD_BACKGROUND);
+		draw_rectangle(_bar_x, _bar_y, _bar_x + production_bar_width, _bar_y + production_bar_height, false);
+
+		draw_set_alpha(1);
+		draw_set_color(COLOR_PROJECTILE_BUILDING_SHELL);
+		draw_rectangle(_bar_x, _bar_y, _bar_x + (production_bar_width * _progress), _bar_y + production_bar_height, false);
+
+		draw_set_alpha(production_bar_outline_alpha);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_rectangle(_bar_x, _bar_y, _bar_x + production_bar_width, _bar_y + production_bar_height, true);
+
+		if (sprite_exists(foundry_selected_shell.building_sprite))
+		{
+			draw_sprite_stretched_ext(
+				foundry_selected_shell.building_sprite,
+				0,
+				_icon_x,
+				_icon_y - (production_icon_size * 0.5),
+				production_icon_size,
+				production_icon_size,
+				c_white,
+				1
+			);
+		}
+	}
+
 	draw_set_halign(fa_left);
 	draw_set_valign(fa_top);
 	draw_set_color(c_white);

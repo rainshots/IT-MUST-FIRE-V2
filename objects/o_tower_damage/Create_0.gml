@@ -4,7 +4,7 @@ event_inherited();
 // Capture state changes the tower sprite and unlocks combat.
 tower_capture_enabled = true;
 is_captured = false;
-uncaptured_sprite_index = s_damage_tower_b ;
+uncaptured_sprite_index = s_damage_tower_b;
 captured_sprite_index = s_damage_tower;
 sprite_index = uncaptured_sprite_index;
 image_speed = 0;

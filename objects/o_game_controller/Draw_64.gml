@@ -253,6 +253,9 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 	var _radius_scale = camera_view_width / _camera_controller.view_width;
 	var _draw_radius = target_selection_radius * _radius_scale;
 	var _target_color = COLOR_PROJECTILE_DAMAGE;
+	var _projectile_payload = noone;
+	var _building_preview_radius = 0;
+	var _building_preview_radius_draw = 0;
 
 	if (target_selection_projectile_type == PROJECTILE_TYPE.CORRUPTION)
 	{
@@ -299,12 +302,105 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 	{
 		_target_color = COLOR_PROJECTILE_SKELETONS;
 	}
+	else if (target_selection_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
+	{
+		_target_color = COLOR_PROJECTILE_BUILDING_SHELL;
+		var _projectile_queue_count = array_length(global.cannon_projectile_queue);
+		var _selected_projectile_index = clamp(global.cannon_selected_projectile_index, 0, max(0, _projectile_queue_count - 1));
+
+		if (_projectile_queue_count > 0
+			&& _selected_projectile_index < array_length(global.cannon_projectile_payload_queue))
+		{
+			_projectile_payload = global.cannon_projectile_payload_queue[_selected_projectile_index];
+			_building_preview_radius = building_shell_preview_radius_get(_projectile_payload);
+			_building_preview_radius_draw = _building_preview_radius * _radius_scale;
+
+			if (_building_preview_radius > 0)
+			{
+				_target_color = building_shell_preview_color_get(_projectile_payload);
+				_draw_radius = _building_preview_radius_draw;
+			}
+		}
+
+		if (!ground_cell_is_tainted_at_position(_mouse_world_x, _mouse_world_y))
+		{
+			_target_color = COLOR_STATUS_NEGATIVE_RED;
+			_target_hint_text = "Must land on Taint";
+		}
+	}
 
 	draw_set_color(_target_color);
 	draw_set_alpha(target_selection_alpha);
 	draw_circle(_mouse_x, _mouse_y, _draw_radius, false);
 	draw_set_alpha(target_selection_outline_alpha);
 	draw_circle(_mouse_x, _mouse_y, _draw_radius, true);
+
+	if (target_selection_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
+	{
+		if (is_struct(_projectile_payload)
+			&& variable_struct_exists(_projectile_payload, "building_object")
+			&& _projectile_payload.building_object == o_grave_spire)
+		{
+			var _skeleton_count = grave_spire_morning_skeleton_count_preview(_mouse_world_x, _mouse_world_y);
+			var _skeleton_word = (_skeleton_count == 1) ? "skeleton" : "skeletons";
+			var _count_text = string(_skeleton_count) + " " + _skeleton_word + " every morning";
+
+			var _grave_count = instance_number(o_grave);
+
+			for (var _grave_index = 0; _grave_index < _grave_count; ++_grave_index)
+			{
+				var _grave = instance_find(o_grave, _grave_index);
+
+				if (!instance_exists(_grave)
+					|| point_distance(_mouse_world_x, _mouse_world_y, _grave.x, _grave.y) > BALANCE_GRAVE_SPIRE_RADIUS)
+				{
+					continue;
+				}
+
+				if (variable_instance_exists(_grave, "assigned_grave_spire")
+					&& instance_exists(_grave.assigned_grave_spire))
+				{
+					continue;
+				}
+
+				var _grave_gui_x = ((_grave.x - _camera_x) / _camera_width) * camera_view_width;
+				var _grave_gui_y = ((_grave.y - _camera_y) / _camera_height) * camera_view_height;
+				var _grave_highlight_radius = 14;
+
+				draw_set_alpha(0.82);
+				draw_set_color(COLOR_PROJECTILE_DAMAGE);
+				draw_line_width(_mouse_x, _mouse_y, _grave_gui_x, _grave_gui_y, 2);
+
+				draw_set_alpha(0.18);
+				draw_circle(_grave_gui_x, _grave_gui_y, _grave_highlight_radius, false);
+
+				draw_set_alpha(0.95);
+				draw_circle(_grave_gui_x, _grave_gui_y, _grave_highlight_radius, true);
+			}
+
+			draw_set_alpha(1);
+			draw_set_halign(fa_center);
+			draw_set_valign(fa_middle);
+			var _count_padding_x = 8;
+			var _count_padding_y = 5;
+			var _count_width = string_width(_count_text) + (_count_padding_x * 2);
+			var _count_height = string_height(_count_text) + (_count_padding_y * 2);
+
+			draw_set_alpha(0.86);
+			draw_set_color(COLOR_HUD_BACKGROUND);
+			draw_rectangle(
+				_mouse_x - (_count_width * 0.5),
+				_mouse_y - (_count_height * 0.5),
+				_mouse_x + (_count_width * 0.5),
+				_mouse_y + (_count_height * 0.5),
+				false
+			);
+
+			draw_set_alpha(1);
+			draw_set_color(COLOR_PROJECTILE_SKELETONS);
+			draw_text(_mouse_x, _mouse_y, _count_text);
+		}
+	}
 
 	if (_target_hint_text != "")
 	{
@@ -2064,8 +2160,20 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 	var _close_x = _panel_x + building_window_width - _close_size - 14;
 	var _close_y = _panel_y + 14;
 	var _grid_x = _panel_x + 44;
-	var _grid_y = _panel_y + building_window_grid_y;
-	var _choice_count = array_length(building_choices);
+	var _is_foundry_window = instance_exists(building_window_foundry);
+	var _grid_y = _panel_y + building_window_grid_y + (_is_foundry_window ? 112 : 0);
+	var _foundry_current_x = _panel_x + 44;
+	var _foundry_current_y = _panel_y + 118;
+	var _foundry_current_width = building_window_width - 88;
+	var _foundry_current_height = 78;
+	var _hovered_foundry_current = _is_foundry_window
+		&& instance_exists(building_window_foundry)
+		&& is_struct(building_window_foundry.foundry_selected_shell)
+		&& _mouse_x >= _foundry_current_x
+		&& _mouse_x <= _foundry_current_x + _foundry_current_width
+		&& _mouse_y >= _foundry_current_y
+		&& _mouse_y <= _foundry_current_y + _foundry_current_height;
+	var _choice_count = array_length(building_window_choices);
 	var _hovered_choice = -1;
 
 	draw_set_alpha(0.55);
@@ -2086,7 +2194,8 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 		draw_set_font(global.ui_heading_font);
 	}
 
-	draw_text(_panel_x + (building_window_width * 0.5), _panel_y + 36, "Construction");
+	var _window_title = instance_exists(building_window_foundry) ? "Foundry" : "Construction";
+	draw_text(_panel_x + (building_window_width * 0.5), _panel_y + 36, _window_title);
 
 	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
 	{
@@ -2097,16 +2206,82 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 
 	draw_set_halign(fa_left);
 	draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
-	draw_text(_panel_x + 44, _panel_y + building_window_description_y, "Building costs vary by structure");
+	var _window_description = instance_exists(building_window_foundry)
+		? "Choose the structure shell this Foundry should produce"
+		: "Building costs vary by structure";
+	draw_text(_panel_x + 44, _panel_y + building_window_description_y, _window_description);
+
+	if (_is_foundry_window)
+	{
+		draw_set_alpha(0.78);
+		draw_set_color(c_black);
+		draw_rectangle(_foundry_current_x, _foundry_current_y, _foundry_current_x + _foundry_current_width, _foundry_current_y + _foundry_current_height, false);
+
+		draw_set_alpha(1);
+		draw_set_color(_hovered_foundry_current ? COLOR_PROJECTILE_BUILDING_SHELL : COLOR_HUD_PROJECTILE_DESCRIPTION);
+		draw_rectangle(_foundry_current_x, _foundry_current_y, _foundry_current_x + _foundry_current_width, _foundry_current_y + _foundry_current_height, true);
+
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_middle);
+
+		if (instance_exists(building_window_foundry)
+			&& is_struct(building_window_foundry.foundry_selected_shell))
+		{
+			var _current_shell = building_window_foundry.foundry_selected_shell;
+			var _progress = clamp(building_window_foundry.foundry_shell_progress, 0, 1);
+			var _icon_size = 48;
+			var _icon_x = _foundry_current_x + 16;
+			var _icon_y = _foundry_current_y + ((_foundry_current_height - _icon_size) * 0.5);
+			var _bar_x = _foundry_current_x + 86;
+			var _bar_y = _foundry_current_y + 48;
+			var _bar_width = _foundry_current_width - 188;
+			var _bar_height = 10;
+			var _action_text = _hovered_foundry_current ? "Cancel Forging" : "Forging";
+
+			if (sprite_exists(_current_shell.building_sprite))
+			{
+				draw_sprite_stretched_ext(_current_shell.building_sprite, 0, _icon_x, _icon_y, _icon_size, _icon_size, c_white, 1);
+			}
+
+			draw_set_color(COLOR_HUD_TEXT);
+			draw_text(_bar_x, _foundry_current_y + 24, _current_shell.building_name);
+			draw_set_halign(fa_right);
+			draw_set_color(_hovered_foundry_current ? COLOR_PROJECTILE_DAMAGE : COLOR_PROJECTILE_BUILDING_SHELL);
+			draw_text(_foundry_current_x + _foundry_current_width - 16, _foundry_current_y + 24, _action_text);
+
+			draw_set_alpha(0.85);
+			draw_set_color(COLOR_HUD_BACKGROUND);
+			draw_rectangle(_bar_x, _bar_y, _bar_x + _bar_width, _bar_y + _bar_height, false);
+			draw_set_alpha(1);
+			draw_set_color(COLOR_PROJECTILE_BUILDING_SHELL);
+			draw_rectangle(_bar_x, _bar_y, _bar_x + (_bar_width * _progress), _bar_y + _bar_height, false);
+			draw_set_color(COLOR_HUD_TEXT);
+			draw_rectangle(_bar_x, _bar_y, _bar_x + _bar_width, _bar_y + _bar_height, true);
+			draw_set_halign(fa_left);
+			draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+			draw_text(_bar_x, _foundry_current_y + 66, string(floor(_progress * 100)) + "% complete");
+		}
+		else
+		{
+			draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+			draw_text(_foundry_current_x + 16, _foundry_current_y + (_foundry_current_height * 0.5), "No active forging");
+		}
+
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_color(c_white);
+		draw_set_alpha(1);
+	}
 
 	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
 	draw_set_color(c_white);
 	draw_rectangle(_close_x, _close_y, _close_x + _close_size, _close_y + _close_size, true);
 	draw_text(_close_x + (_close_size * 0.5), _close_y + (_close_size * 0.5), "X");
 
 	for (var _choice_index = 0; _choice_index < _choice_count; ++_choice_index)
 	{
-		var _choice = building_choices[_choice_index];
+		var _choice = building_window_choices[_choice_index];
 		var _column = _choice_index mod building_tile_columns;
 		var _row = _choice_index div building_tile_columns;
 		var _tile_x = _grid_x + ((building_tile_width + building_tile_gap) * _column);
@@ -2215,7 +2390,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 
 	if (_hovered_choice >= 0)
 	{
-		var _choice = building_choices[_hovered_choice];
+		var _choice = building_window_choices[_hovered_choice];
 		var _limit_count = building_choice_count_get(_choice);
 		var _limit_max = building_choice_limit_get(_choice);
 		var _limit_reached = _limit_count >= _limit_max;
@@ -2247,6 +2422,10 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 		if (_limit_reached)
 		{
 			draw_text(_tooltip_x + building_tooltip_padding, _tooltip_y + building_tooltip_height - 28, "Limit reached: " + string(_limit_count) + "/" + string(_limit_max));
+		}
+		else if (instance_exists(building_window_foundry))
+		{
+			draw_text(_tooltip_x + building_tooltip_padding, _tooltip_y + building_tooltip_height - 28, "Cost: " + building_choice_cost_text_get(_choice) + " | Click to assign shell");
 		}
 		else
 		{
@@ -3408,6 +3587,7 @@ if (instance_exists(o_tutorial_controller))
 // Draw nothing while the pause menu is closed.
 if (!pause_menu_open)
 {
+	debug_menu_draw();
 	exit;
 }
 
@@ -3462,6 +3642,57 @@ else
 		draw_set_font(global.ui_font);
 	}
 
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_middle);
+
+	for (var _slider_index = 0; _slider_index < settings_slider_count; ++_slider_index)
+	{
+		var _slider_rect = settings_slider_rect_get(_slider_index);
+		var _slider_value = settings_slider_value_get(_slider_index);
+		var _slider_label_x = _panel_x + 48;
+		var _slider_label_y = _slider_rect.y + (settings_slider_height * 0.5);
+		var _knob_x = _slider_rect.x + (_slider_rect.width * _slider_value);
+		var _knob_y = _slider_rect.y + (settings_slider_height * 0.5);
+		var _percent_text = string(round(_slider_value * 100)) + "%";
+
+		draw_set_color(c_black);
+		draw_text(_slider_label_x, _slider_label_y, settings_slider_labels[_slider_index]);
+		draw_text(_slider_rect.x + _slider_rect.width + 22, _slider_label_y, _percent_text);
+
+		draw_set_alpha(0.55);
+		draw_rectangle(
+			_slider_rect.x,
+			_slider_rect.y,
+			_slider_rect.x + _slider_rect.width,
+			_slider_rect.y + _slider_rect.height,
+			false
+		);
+
+		draw_set_alpha(1);
+		draw_set_color(COLOR_PROJECTILE_BUILDING_SHELL);
+		draw_rectangle(
+			_slider_rect.x,
+			_slider_rect.y,
+			_knob_x,
+			_slider_rect.y + _slider_rect.height,
+			false
+		);
+
+		draw_set_color(c_black);
+		draw_rectangle(
+			_slider_rect.x,
+			_slider_rect.y,
+			_slider_rect.x + _slider_rect.width,
+			_slider_rect.y + _slider_rect.height,
+			true
+		);
+
+		draw_set_color(c_white);
+		draw_circle(_knob_x, _knob_y, settings_slider_knob_radius, false);
+		draw_set_color(c_black);
+		draw_circle(_knob_x, _knob_y, settings_slider_knob_radius, true);
+	}
+
 	draw_set_halign(fa_center);
 	draw_rectangle(_close_button_x, _close_button_y, _close_button_x + button_width, _close_button_y + button_height, true);
 	draw_text(_close_button_x + (button_width * 0.5), _close_button_y + (button_height * 0.5), "BACK");
@@ -3475,6 +3706,8 @@ if (instance_exists(o_tutorial_controller))
 		tutorial_draw();
 	}
 }
+
+debug_menu_draw();
 
 // Restore default draw state.
 draw_set_halign(fa_left);

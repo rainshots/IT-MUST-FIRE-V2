@@ -4,8 +4,8 @@ event_inherited();
 // Capture state changes the tower sprite and unlocks healing.
 tower_capture_enabled = true;
 is_captured = false;
-uncaptured_sprite_index =s_heal_tower_b;
-captured_sprite_index =  s_heal_tower;
+uncaptured_sprite_index = s_heal_tower_b;
+captured_sprite_index = s_heal_tower;
 sprite_index = uncaptured_sprite_index;
 image_speed = 0;
 

@@ -31,11 +31,34 @@ if (_flight_progress >= 1)
 	// Spawn the main explosion flash at the impact point.
 	instance_create_layer(target_x, target_y, particle_layer_name, o_particle_explosion);
 
+	// Structure shells land with extra weight, even before the building appears.
+	if (projectile_type == PROJECTILE_TYPE.BUILDING_SHELL && instance_exists(o_camera_controller))
+	{
+		var _camera_controller = instance_find(o_camera_controller, 0);
+
+		if (variable_instance_exists(_camera_controller, "camera_shake_start"))
+		{
+			_camera_controller.camera_shake_start(
+				BALANCE_BUILDING_SHELL_LAND_SHAKE_TIME,
+				BALANCE_BUILDING_SHELL_LAND_SHAKE_STRENGTH
+			);
+		}
+	}
+
 	// Spawn smoke particles across the explosion radius.
-	for (var _smoke_index = 0; _smoke_index < smoke_particle_count; ++_smoke_index)
+	var _smoke_radius = effect_radius;
+	var _smoke_count = smoke_particle_count;
+
+	if (projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
+	{
+		_smoke_radius = building_smoke_radius;
+		_smoke_count = building_smoke_particle_count;
+	}
+
+	for (var _smoke_index = 0; _smoke_index < _smoke_count; ++_smoke_index)
 	{
 		var _smoke_direction = random(360);
-		var _smoke_distance = sqrt(random(1)) * effect_radius;
+		var _smoke_distance = sqrt(random(1)) * _smoke_radius;
 		var _smoke_x = target_x + lengthdir_x(_smoke_distance, _smoke_direction);
 		var _smoke_y = target_y + lengthdir_y(_smoke_distance, _smoke_direction);
 
@@ -231,12 +254,57 @@ if (_flight_progress >= 1)
 			}
 		}
 	}
+	else if (projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
+	{
+		if (is_struct(building_payload)
+			&& variable_struct_exists(building_payload, "building_object")
+			&& instance_exists(o_game_controller))
+		{
+			var _game_controller = instance_find(o_game_controller, 0);
+
+			if (variable_instance_exists(_game_controller, "ground_cell_is_tainted_at_position")
+				&& _game_controller.ground_cell_is_tainted_at_position(target_x, target_y))
+			{
+				var _building = instance_create_layer(target_x, target_y, "Instances", building_payload.building_object);
+
+				if (instance_exists(_building))
+				{
+					_building.building_constructed_by_shell = true;
+
+					if (variable_instance_exists(_building, "max_hp"))
+					{
+						_building.max_hp = max(_building.max_hp, BALANCE_PLAYER_BUILDING_MAX_HP);
+						_building.hp = _building.max_hp;
+					}
+
+					if (variable_instance_exists(_building, "is_captured"))
+					{
+						_building.is_captured = true;
+					}
+
+					if (variable_instance_exists(_building, "captured_sprite_index")
+						&& _building.captured_sprite_index != noone)
+					{
+						_building.sprite_index = _building.captured_sprite_index;
+						_building.image_index = 0;
+						_building.image_speed = 0;
+					}
+
+					if (variable_global_exists("construction_sound_play"))
+					{
+						global.construction_sound_play();
+					}
+				}
+			}
+		}
+	}
 
 	if (projectile_type != PROJECTILE_TYPE.RALLY
 		&& projectile_type != PROJECTILE_TYPE.FEAST
 		&& projectile_type != PROJECTILE_TYPE.HEAL
 		&& projectile_type != PROJECTILE_TYPE.BOMB
-		&& projectile_type != PROJECTILE_TYPE.SKELETONS)
+		&& projectile_type != PROJECTILE_TYPE.SKELETONS
+		&& projectile_type != PROJECTILE_TYPE.BUILDING_SHELL)
 	{
 		with (all)
 		{
@@ -271,6 +339,13 @@ if (_flight_progress >= 1)
 							if (variable_instance_exists(id, "unit_faction"))
 							{
 								damage_popup_create(x, y, other.damage_amount, unit_faction);
+							}
+
+							if (variable_instance_exists(id, "building_constructed_by_shell")
+								&& building_constructed_by_shell
+								&& hp <= 0)
+							{
+								instance_destroy();
 							}
 						}
 					}

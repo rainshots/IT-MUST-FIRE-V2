@@ -103,10 +103,26 @@ captured_building_rifts_draw = function()
 		var _map_object = instance_find(o_map_objects_parent, _map_object_index);
 
 		if (!instance_exists(_map_object)
-			|| !variable_instance_exists(_map_object, "tower_capture_enabled")
-			|| !_map_object.tower_capture_enabled
 			|| !variable_instance_exists(_map_object, "is_captured")
 			|| !_map_object.is_captured)
+		{
+			continue;
+		}
+
+		var _draws_base_rift = false;
+
+		if (variable_instance_exists(_map_object, "tower_capture_enabled")
+			&& _map_object.tower_capture_enabled)
+		{
+			_draws_base_rift = true;
+		}
+
+		if (_map_object.object_index == o_grave_spire)
+		{
+			_draws_base_rift = true;
+		}
+
+		if (!_draws_base_rift)
 		{
 			continue;
 		}
@@ -129,6 +145,48 @@ captured_building_rifts_draw = function()
 			BALANCE_CAPTURED_BUILDING_RIFT_CORE_WIDTH,
 			BALANCE_CAPTURED_BUILDING_RIFT_CORE_ALPHA
 		);
+
+		if (_map_object.object_index == o_grave_spire
+			&& variable_instance_exists(_map_object, "grave_spire_grave_count_get"))
+		{
+			_map_object.grave_spire_grave_count_get();
+
+			var _map_object_id = _map_object.id;
+			var _grave_count = instance_number(o_grave);
+
+			for (var _grave_index = 0; _grave_index < _grave_count; ++_grave_index)
+			{
+				var _grave = instance_find(o_grave, _grave_index);
+
+				if (!instance_exists(_grave)
+					|| !variable_instance_exists(_grave, "assigned_grave_spire")
+					|| _grave.assigned_grave_spire != _map_object_id)
+				{
+					continue;
+				}
+
+				var _grave_seed = _map_object.x + (_map_object.y * 13) + (_grave.x * 7) + (_grave.y * 3);
+
+				captured_building_rift_line_draw(
+					_grave.x,
+					_grave.y,
+					_map_object.x,
+					_map_object.y,
+					_grave_seed,
+					BALANCE_CAPTURED_BUILDING_RIFT_WIDTH,
+					BALANCE_CAPTURED_BUILDING_RIFT_ALPHA
+				);
+				captured_building_rift_line_draw(
+					_grave.x,
+					_grave.y,
+					_map_object.x,
+					_map_object.y,
+					_grave_seed,
+					BALANCE_CAPTURED_BUILDING_RIFT_CORE_WIDTH,
+					BALANCE_CAPTURED_BUILDING_RIFT_CORE_ALPHA
+				);
+			}
+		}
 	}
 };
 
