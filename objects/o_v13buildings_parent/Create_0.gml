@@ -29,6 +29,7 @@ worker_max = BALANCE_RESOURCE_BUILDING_WORKER_MAX;
 worker_stand_offset_y = 12;
 worker_stand_spacing = BALANCE_RESOURCE_BUILDING_WORKER_STAND_SPACING;
 y_sort_enabled = true;
+corruption_bar_visible = false;
 
 // Resource warning shown by assigned cultists when this building cannot work.
 missing_work_resource = noone;

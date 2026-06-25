@@ -9,6 +9,11 @@ if (is_corrupted)
 	exit;
 }
 
+if (!is_attackable)
+{
+	exit;
+}
+
 shrine_defender_spawner_update();
 
 // A shrine is infected when the ground directly beneath it becomes fully corrupted.

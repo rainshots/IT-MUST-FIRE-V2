@@ -20,6 +20,7 @@ full_corruption_value = 1;
 reveal_radius_in_cells = BALANCE_FOG_REVEAL_RADIUS_IN_CELLS;
 demon_reveal_radius_in_pixels = BALANCE_DEMON_FOG_REVEAL_RADIUS_IN_PIXELS;
 demon_reveal_radius_in_cells = ceil(demon_reveal_radius_in_pixels / cell_size);
+enemy_tower_reveal_radius = BALANCE_ENEMY_TOWER_FOG_REVEAL_RADIUS;
 neighbor_offset_min = -1;
 neighbor_offset_max = 1;
 
@@ -49,4 +50,49 @@ fog_circle_reveal = function(_center_cell_x, _center_cell_y, _radius_in_cells)
 			}
 		}
 	}
+};
+
+// Reveal a small world-space circle around a discovered object.
+fog_world_circle_reveal = function(_world_x, _world_y, _radius)
+{
+	var _radius_in_cells = ceil(_radius / cell_size);
+	var _center_cell_x = floor(_world_x / cell_size);
+	var _center_cell_y = floor(_world_y / cell_size);
+	var _left_cell = clamp(_center_cell_x - _radius_in_cells, 0, grid_width - 1);
+	var _right_cell = clamp(_center_cell_x + _radius_in_cells, 0, grid_width - 1);
+	var _top_cell = clamp(_center_cell_y - _radius_in_cells, 0, grid_height - 1);
+	var _bottom_cell = clamp(_center_cell_y + _radius_in_cells, 0, grid_height - 1);
+
+	for (var _reveal_cell_x = _left_cell; _reveal_cell_x <= _right_cell; ++_reveal_cell_x)
+	{
+		for (var _reveal_cell_y = _top_cell; _reveal_cell_y <= _bottom_cell; ++_reveal_cell_y)
+		{
+			var _cell_center_x = (_reveal_cell_x * cell_size) + (cell_size * 0.5);
+			var _cell_center_y = (_reveal_cell_y * cell_size) + (cell_size * 0.5);
+			var _cell_distance = point_distance(_world_x, _world_y, _cell_center_x, _cell_center_y);
+			var _is_center_cell = (_reveal_cell_x == _center_cell_x && _reveal_cell_y == _center_cell_y);
+
+			if (_cell_distance <= _radius || _is_center_cell)
+			{
+				ds_grid_set(fog_grid, _reveal_cell_x, _reveal_cell_y, revealed_alpha);
+			}
+		}
+	}
+};
+
+fog_cell_is_seen = function(_world_x, _world_y)
+{
+	var _cell_x = floor(_world_x / cell_size);
+	var _cell_y = floor(_world_y / cell_size);
+	var _is_inside_grid = _cell_x >= 0
+		&& _cell_x < grid_width
+		&& _cell_y >= 0
+		&& _cell_y < grid_height;
+
+	if (!_is_inside_grid)
+	{
+		return false;
+	}
+
+	return ds_grid_get(fog_grid, _cell_x, _cell_y) < hidden_alpha;
 };

@@ -9,14 +9,18 @@ image_speed = 0;
 max_hp = BALANCE_PLAYER_BUILDING_MAX_HP;
 hp = max_hp;
 effect_radius = BALANCE_GRAVE_SPIRE_RADIUS;
+corruption_bar_visible = false;
 morning_spawn_radius = BALANCE_CAPTURED_SPAWN_BUILDING_RADIUS;
 corruption_check_interval = BALANCE_PLAYER_BUILDING_CORRUPTION_CHECK_INTERVAL;
 corruption_check_timer = irandom(corruption_check_interval - 1);
 morning_unit_object = o_skeleton;
 
+var _base_skeleton_count_text = string(BALANCE_GRAVE_SPIRE_BASE_SKELETON_COUNT);
+var _skeletons_per_grave_text = string(BALANCE_GRAVE_SPIRE_SKELETONS_PER_GRAVE);
+
 tooltip_lines = [
 	"Grave Spire: spawns Skeletons every morning",
-	"Base: 1 Skeleton. Each nearby Grave adds +1",
+	"Base: " + _base_skeleton_count_text + " Skeleton. Each nearby Grave adds +" + _skeletons_per_grave_text,
 	"Stops working if its ground is cleansed"
 ];
 
@@ -59,12 +63,20 @@ grave_spire_morning_skeleton_count_get = function()
 		return 0;
 	}
 
-	return 1 + grave_spire_grave_count_get();
+	return BALANCE_GRAVE_SPIRE_BASE_SKELETON_COUNT
+		+ (grave_spire_grave_count_get() * BALANCE_GRAVE_SPIRE_SKELETONS_PER_GRAVE);
 };
 
 grave_spire_spawn_morning_units = function()
 {
-	var _unit_count = grave_spire_morning_skeleton_count_get();
+	var _expected_unit_count = grave_spire_morning_skeleton_count_get();
+	var _unit_count = floor(_expected_unit_count);
+	var _fractional_unit_chance = _expected_unit_count - _unit_count;
+
+	if (random(1) < _fractional_unit_chance)
+	{
+		_unit_count++;
+	}
 
 	for (var _unit_index = 0; _unit_index < _unit_count; ++_unit_index)
 	{

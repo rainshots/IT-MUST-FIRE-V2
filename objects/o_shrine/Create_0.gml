@@ -3,6 +3,9 @@ event_inherited();
 
 // Shrine objective state is updated by corruption projectiles and infected ground.
 is_corrupted = false;
+is_attackable = false;
+protection_towers = [];
+protection_towers_destroyed = 0;
 shrine_normal_sprite = s_shrine_normal;
 shrine_cursed_sprite = s_shrine_cursed;
 corruption_radius = BALANCE_SHRINE_CORRUPTION_RADIUS;
@@ -18,9 +21,50 @@ defender_spawn_timer = defender_spawn_interval;
 // Shrine tooltip describes the run objective.
 tooltip_lines = [
 	"Shrine",
-	"Spawns soldiers while enemies are within " + string(BALANCE_SHRINE_DEFENDER_TRIGGER_RADIUS) + "px",
-	"Every " + string(BALANCE_SHRINE_DEFENDER_SPAWN_INTERVAL) + "s: summons Knights"
+	"Destroy its Holy Towers to make it vulnerable",
+	"Then taint or attack the Shrine"
 ];
+
+unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true)
+{
+	if (!is_attackable || is_corrupted)
+	{
+		return 0;
+	}
+
+	var _applied_damage = min(_damage_amount, hp);
+	hp = max(hp - _damage_amount, 0);
+
+	if (hp <= 0)
+	{
+		shrine_corrupt();
+	}
+
+	return _applied_damage;
+};
+
+shrine_protection_tower_add = function(_tower)
+{
+	if (instance_exists(_tower))
+	{
+		array_push(protection_towers, _tower);
+	}
+};
+
+shrine_protection_tower_destroyed = function(_tower)
+{
+	if (is_attackable)
+	{
+		return;
+	}
+
+	protection_towers_destroyed++;
+
+	if (protection_towers_destroyed >= array_length(protection_towers))
+	{
+		is_attackable = true;
+	}
+};
 
 shrine_defender_target_is_valid = function(_target)
 {
@@ -141,8 +185,17 @@ shrine_corrupt = function()
 
 on_projectile_hit = function(_projectile_type)
 {
+	if (!is_attackable)
+	{
+		return;
+	}
+
 	if (_projectile_type == PROJECTILE_TYPE.CORRUPTION)
 	{
 		shrine_corrupt();
+	}
+	else if (_projectile_type == PROJECTILE_TYPE.DAMAGE)
+	{
+		unit_damage_receive(BALANCE_PROJECTILE_DAMAGE_AMOUNT, UNIT_FACTION.NOONE);
 	}
 };

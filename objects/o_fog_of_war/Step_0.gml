@@ -106,6 +106,25 @@ if (instance_exists(o_tower_vision))
 	}
 }
 
+// Once the player has seen an enemy tower, reveal a tiny area around it.
+if (enemy_tower_reveal_radius > 0 && instance_exists(o_holy_tower))
+{
+	var _holy_tower_count = instance_number(o_holy_tower);
+
+	for (var _holy_tower_index = 0; _holy_tower_index < _holy_tower_count; ++_holy_tower_index)
+	{
+		var _holy_tower = instance_find(o_holy_tower, _holy_tower_index);
+		var _tower_can_reveal = instance_exists(_holy_tower)
+			&& (!variable_instance_exists(_holy_tower, "hp") || _holy_tower.hp > 0)
+			&& fog_cell_is_seen(_holy_tower.x, _holy_tower.y);
+
+		if (_tower_can_reveal)
+		{
+			fog_world_circle_reveal(_holy_tower.x, _holy_tower.y, enemy_tower_reveal_radius);
+		}
+	}
+}
+
 // Revealed cells soften the edge by turning directly neighboring hidden cells into half-transparent fog.
 for (var _cell_x = 0; _cell_x < grid_width; ++_cell_x)
 {

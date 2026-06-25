@@ -10,6 +10,8 @@ bar_width = 72;
 bar_height = 6;
 bar_gap = 3;
 bar_offset_y = 48;
+health_bar_visible = true;
+corruption_bar_visible = true;
 
 // Tooltip text and visual settings.
 tooltip_lines = [

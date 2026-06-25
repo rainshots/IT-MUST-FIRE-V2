@@ -41,17 +41,12 @@ for (var _cell_x = 0; _cell_x < grid_width; ++_cell_x)
 
 						if (_is_inside_grid)
 						{
-							var _holy_count = ds_grid_get(holy_grid, _target_cell_x, _target_cell_y);
+							var _target_corruption = ds_grid_get(corruption_grid, _target_cell_x, _target_cell_y);
 
-							if (_holy_count <= 0)
+							if (_target_corruption < passive_spread_limit)
 							{
-								var _target_corruption = ds_grid_get(corruption_grid, _target_cell_x, _target_cell_y);
-
-								if (_target_corruption < passive_spread_limit)
-								{
-									var _new_corruption = min(_target_corruption + _spread_corruption, passive_spread_limit);
-									ds_grid_set(corruption_grid, _target_cell_x, _target_cell_y, _new_corruption);
-								}
+								var _new_corruption = min(_target_corruption + _spread_corruption, passive_spread_limit);
+								ds_grid_set(corruption_grid, _target_cell_x, _target_cell_y, _new_corruption);
 							}
 						}
 					}

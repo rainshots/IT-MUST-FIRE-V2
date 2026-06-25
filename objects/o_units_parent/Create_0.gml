@@ -245,6 +245,11 @@ target_can_be_attacked = function(_target)
 		return false;
 	}
 
+	if (variable_instance_exists(_target, "is_attackable") && !_target.is_attackable)
+	{
+		return false;
+	}
+
 	return true;
 };
 
@@ -1416,6 +1421,28 @@ find_nearest_enemy_object = function(_max_distance)
 				{
 					_nearest_distance = _tower_distance;
 					_nearest_target = _tower;
+				}
+			}
+		}
+	}
+
+	// Shrines become hostile objectives only after their protective towers fall.
+	if (instance_exists(o_shrine))
+	{
+		var _shrine_count = instance_number(o_shrine);
+
+		for (var _shrine_index = 0; _shrine_index < _shrine_count; ++_shrine_index)
+		{
+			var _shrine = instance_find(o_shrine, _shrine_index);
+
+			if (target_can_be_attacked(_shrine))
+			{
+				var _shrine_distance = point_distance(x, y, _shrine.x, _shrine.y);
+
+				if (_shrine_distance <= _nearest_distance)
+				{
+					_nearest_distance = _shrine_distance;
+					_nearest_target = _shrine;
 				}
 			}
 		}

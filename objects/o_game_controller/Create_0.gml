@@ -70,18 +70,6 @@ shrine_instances = array_create(0);
 shrines_spawned = false;
 shrine_objective_total = BALANCE_SHRINE_OBJECTIVE_TOTAL;
 shrine_objective_required = BALANCE_SHRINE_OBJECTIVE_REQUIRED;
-shrine_spawn_distances = [
-	BALANCE_SHRINE_DISTANCE_NEAR,
-	BALANCE_SHRINE_DISTANCE_FAR,
-	BALANCE_SHRINE_DISTANCE_MID,
-	BALANCE_SHRINE_DISTANCE_FAR
-];
-shrine_spawn_angle_ranges = [
-	[BALANCE_SHRINE_ANGLE_FIRST_MIN, BALANCE_SHRINE_ANGLE_FIRST_MAX],
-	[BALANCE_SHRINE_ANGLE_SECOND_MIN, BALANCE_SHRINE_ANGLE_SECOND_MAX],
-	[BALANCE_SHRINE_ANGLE_THIRD_MIN, BALANCE_SHRINE_ANGLE_THIRD_MAX],
-	[BALANCE_SHRINE_ANGLE_FOURTH_MIN, BALANCE_SHRINE_ANGLE_FOURTH_MAX]
-];
 
 // Global particle system used by lightweight world effects.
 global.particle_system_effects = part_system_create();
@@ -468,7 +456,6 @@ global.cannon_projectile_gain_timer = 0;
 global.cannon_projectile_gain_enabled = false;
 global.cannon_projectile_drop_types = [
 	PROJECTILE_TYPE.DAMAGE,
-	PROJECTILE_TYPE.CORRUPTION,
 	PROJECTILE_TYPE.SUMMON,
 	PROJECTILE_TYPE.RALLY
 ];
@@ -1585,6 +1572,10 @@ foundry_shell_choices = [
 			{
 				resource: RESOURCES.IRON,
 				cost: BALANCE_FOUNDRY_DAMAGE_TOWER_SHELL_IRON_COST
+			},
+			{
+				resource: RESOURCES.IHOR,
+				cost: BALANCE_FOUNDRY_DAMAGE_TOWER_SHELL_IHOR_COST
 			}
 		]
 	},
@@ -1597,6 +1588,10 @@ foundry_shell_choices = [
 			{
 				resource: RESOURCES.SOULS,
 				cost: BALANCE_FOUNDRY_HEAL_TOWER_SHELL_SOUL_COST
+			},
+			{
+				resource: RESOURCES.IHOR,
+				cost: BALANCE_FOUNDRY_HEAL_TOWER_SHELL_IHOR_COST
 			}
 		]
 	},
@@ -1621,6 +1616,22 @@ foundry_shell_choices = [
 			{
 				resource: RESOURCES.SOULS,
 				cost: BALANCE_FOUNDRY_GRAVE_SPIRE_SHELL_SOUL_COST
+			},
+			{
+				resource: RESOURCES.IHOR,
+				cost: BALANCE_FOUNDRY_GRAVE_SPIRE_SHELL_IHOR_COST
+			}
+		]
+	},
+	{
+		building_object: o_ihor_extractor,
+		building_sprite: s_ihor_extractor,
+		building_name: "Ihor Extractor",
+		building_description: "Forges a shell that builds an extractor producing Ihor from nearby veins.",
+		construction_costs: [
+			{
+				resource: RESOURCES.SOULS,
+				cost: BALANCE_FOUNDRY_IHOR_EXTRACTOR_SHELL_SOUL_COST
 			}
 		]
 	}
@@ -1644,11 +1655,6 @@ debug_shell_choices = [
 	{
 		label: "Damage",
 		projectile_type: PROJECTILE_TYPE.DAMAGE,
-		payload: noone
-	},
-	{
-		label: "Taint",
-		projectile_type: PROJECTILE_TYPE.CORRUPTION,
 		payload: noone
 	},
 	{
@@ -1760,6 +1766,20 @@ debug_shell_give = function(_choice)
 	if (variable_struct_exists(_choice, "payload"))
 	{
 		_payload = _choice.payload;
+	}
+
+	// Taint Shells are owned by satiety, so cheats fill it just like corpse delivery.
+	if (_choice.projectile_type == PROJECTILE_TYPE.FEAST)
+	{
+		var _satiety_to_next_feast = global.cannon_satiety_max - (global.cannon_satiety mod global.cannon_satiety_max);
+
+		if (_satiety_to_next_feast <= 0)
+		{
+			_satiety_to_next_feast = global.cannon_satiety_max;
+		}
+
+		cannon_satiety_add(_satiety_to_next_feast);
+		return true;
 	}
 
 	return cannon_projectile_queue_add(_choice.projectile_type, _payload);
@@ -2993,7 +3013,7 @@ ground_cell_is_tainted_at_position = function(_world_x, _world_y)
 
 grave_spire_morning_skeleton_count_preview = function(_world_x, _world_y)
 {
-	var _skeleton_count = 1;
+	var _skeleton_count = BALANCE_GRAVE_SPIRE_BASE_SKELETON_COUNT;
 	var _grave_count = instance_number(o_grave);
 
 	for (var _grave_index = 0; _grave_index < _grave_count; ++_grave_index)
@@ -3009,7 +3029,7 @@ grave_spire_morning_skeleton_count_preview = function(_world_x, _world_y)
 		if (!variable_instance_exists(_grave, "assigned_grave_spire")
 			|| !instance_exists(_grave.assigned_grave_spire))
 		{
-			_skeleton_count++;
+			_skeleton_count += BALANCE_GRAVE_SPIRE_SKELETONS_PER_GRAVE;
 		}
 	}
 
@@ -3727,24 +3747,6 @@ cannon_random_feast_bonus_projectile_queue_add = function()
 	return true;
 };
 
-cannon_feast_projectile_queue_add = function()
-{
-	return cannon_projectile_queue_add(PROJECTILE_TYPE.FEAST);
-};
-
-cannon_feast_projectile_try_queue = function()
-{
-	if (global.cannon_satiety < global.cannon_satiety_max)
-	{
-		return false;
-	}
-
-	global.cannon_satiety -= global.cannon_satiety_max;
-	cannon_feast_projectile_queue_add();
-
-	return true;
-};
-
 cannon_worker_move_towards = function(_worker, _target_x, _target_y)
 {
 	if (!instance_exists(_worker))
@@ -4137,7 +4139,17 @@ spawn_shrine_holy_towers = function(_shrine, _cannon)
 		var _tower_x = _shrine.x + lengthdir_x(_tower_distance, _tower_angle);
 		var _tower_y = _shrine.y + lengthdir_y(_tower_distance, _tower_angle);
 
-		instance_create_layer(_tower_x, _tower_y, "Instances", o_holy_tower);
+		var _tower = instance_create_layer(_tower_x, _tower_y, "Instances", o_holy_tower);
+
+		if (instance_exists(_tower))
+		{
+			_tower.owner_shrine = _shrine;
+
+			if (variable_instance_exists(_shrine, "shrine_protection_tower_add"))
+			{
+				_shrine.shrine_protection_tower_add(_tower);
+			}
+		}
 	}
 };
 
@@ -4149,19 +4161,30 @@ spawn_objective_shrines = function()
 	}
 
 	var _cannon = instance_find(o_cannon, 0);
+	var _shrine_spot_count = instance_number(o_shrine_spot);
 	shrine_instances = array_create(0);
+	shrine_objective_total = _shrine_spot_count;
+	shrine_objective_required = min(BALANCE_SHRINE_OBJECTIVE_REQUIRED, shrine_objective_total);
 
-	for (var _shrine_index = 0; _shrine_index < shrine_objective_total; ++_shrine_index)
+	// Shrine spots define exact objective shrine positions for this map.
+	for (var _spot_index = 0; _spot_index < _shrine_spot_count; ++_spot_index)
 	{
-		var _angle_range = shrine_spawn_angle_ranges[_shrine_index mod array_length(shrine_spawn_angle_ranges)];
-		var _angle = random_range(_angle_range[0], _angle_range[1]);
-		var _distance = shrine_spawn_distances[_shrine_index mod array_length(shrine_spawn_distances)];
-		var _spawn_x = _cannon.x + lengthdir_x(_distance, _angle);
-		var _spawn_y = _cannon.y + lengthdir_y(_distance, _angle);
-		var _shrine = instance_create_layer(_spawn_x, _spawn_y, "Instances", o_shrine);
+		var _shrine_spot = instance_find(o_shrine_spot, _spot_index);
+
+		if (!instance_exists(_shrine_spot))
+		{
+			continue;
+		}
+
+		var _shrine = instance_create_layer(_shrine_spot.x, _shrine_spot.y, "Instances", o_shrine);
 
 		array_push(shrine_instances, _shrine);
 		spawn_shrine_holy_towers(_shrine, _cannon);
+	}
+
+	with (o_shrine_spot)
+	{
+		instance_destroy();
 	}
 
 	shrines_spawned = true;

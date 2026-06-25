@@ -9,6 +9,7 @@ image_speed = 0;
 max_hp = BALANCE_PLAYER_BUILDING_MAX_HP;
 hp = max_hp;
 effect_radius = BALANCE_IHOR_EXTRACTOR_RADIUS;
+corruption_bar_visible = false;
 corruption_check_interval = BALANCE_PLAYER_BUILDING_CORRUPTION_CHECK_INTERVAL;
 corruption_check_timer = irandom(corruption_check_interval - 1);
 

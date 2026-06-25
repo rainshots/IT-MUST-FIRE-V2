@@ -38,11 +38,6 @@ corrupt_neighbor_cell = function(_corruption_grid, _cell_x, _cell_y, _offset_x, 
 		return;
 	}
 
-	var _holy_count = ds_grid_get(_corruption_grid.holy_grid, _target_cell_x, _target_cell_y);
-
-	if (_holy_count <= 0)
-	{
-		var _current_corruption = ds_grid_get(_corruption_grid.corruption_grid, _target_cell_x, _target_cell_y);
-		ds_grid_set(_corruption_grid.corruption_grid, _target_cell_x, _target_cell_y, min(_current_corruption + _corruption, full_corruption_value));
-	}
+	var _current_corruption = ds_grid_get(_corruption_grid.corruption_grid, _target_cell_x, _target_cell_y);
+	ds_grid_set(_corruption_grid.corruption_grid, _target_cell_x, _target_cell_y, min(_current_corruption + _corruption, full_corruption_value));
 };

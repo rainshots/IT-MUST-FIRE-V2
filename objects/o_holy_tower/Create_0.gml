@@ -9,6 +9,7 @@ corruption = 0;
 is_destroyed = false;
 reinforcement_next_hp_share = 1 - BALANCE_HOLY_TOWER_REINFORCEMENT_HP_STEP_SHARE;
 destroy_knights_spawned = false;
+owner_shrine = noone;
 
 // Holy tower combat settings.
 shoot_radius = BALANCE_HOLY_TOWER_SHOOT_RADIUS;
@@ -18,10 +19,11 @@ reload_timer = 0;
 target_instance = noone;
 assist_call_radius = BALANCE_UNIT_ASSIST_CALL_RADIUS;
 
-// Holy ground settings.
-holy_radius_in_cells = BALANCE_HOLY_TOWER_HOLY_RADIUS_IN_CELLS;
-holy_radius = holy_radius_in_cells * 100;
-is_holy_area_active = false;
+// Taint cleanse settings.
+taint_cleanse_radius = BALANCE_HOLY_TOWER_TAINT_CLEANSE_RADIUS;
+taint_cleanse_per_second = BALANCE_HOLY_TOWER_TAINT_CLEANSE_PER_SECOND;
+taint_cleanse_update_interval = BALANCE_HOLY_TOWER_TAINT_CLEANSE_UPDATE_INTERVAL;
+taint_cleanse_update_timer = irandom(taint_cleanse_update_interval - 1);
 
 // Range drawing settings.
 radius_line_width = 2;
@@ -37,8 +39,8 @@ attack_feedback_line_width = 2;
 
 // Tooltip lines describe tower behavior.
 tooltip_lines = [
-	"Damage: Takes damage. Taints holy area at 0 HP",
-	"Taint: Blocks nearby ground Taint",
+	"Damage: Takes damage. Destroy it to expose Shrine",
+	"Taint: Nearby ground slowly loses Taint",
 	"Summon: No effect yet"
 ];
 
@@ -170,13 +172,13 @@ holy_tower_reinforcement_thresholds_update = function()
 	}
 };
 
-make_nearby_ground_holy = function()
+cleanse_nearby_taint = function()
 {
-	if (!is_holy_area_active && instance_exists(o_corruption_grid))
+	if (instance_exists(o_corruption_grid))
 	{
 		var _corruption_grid = instance_find(o_corruption_grid, 0);
-		_corruption_grid.make_circle_holy(x, y, holy_radius);
-		is_holy_area_active = true;
+		var _cleanse_amount = taint_cleanse_per_second * (taint_cleanse_update_interval / room_speed);
+		_corruption_grid.cleanse_circle(x, y, taint_cleanse_radius, _cleanse_amount);
 	}
 };
 
@@ -194,14 +196,13 @@ destroy_holy_tower = function()
 
 	holy_tower_destroy_knights_spawn();
 
-	if (is_holy_area_active && instance_exists(o_corruption_grid))
+	if (instance_exists(owner_shrine)
+		&& variable_instance_exists(owner_shrine, "shrine_protection_tower_destroyed"))
 	{
-		var _corruption_grid = instance_find(o_corruption_grid, 0);
-		_corruption_grid.remove_circle_holy(x, y, holy_radius);
-		is_holy_area_active = false;
+		owner_shrine.shrine_protection_tower_destroyed(id);
 	}
 
-	// The destroyed tower remains as a landmark but no longer blocks or attacks.
+	// The destroyed tower remains as a landmark but no longer attacks or cleanses taint.
 	is_destroyed = true;
 	hp = 0;
 	target_instance = noone;
@@ -210,9 +211,6 @@ destroy_holy_tower = function()
 	image_index = 0;
 	image_speed = 0;
 };
-
-// Holy tower creates protected holy ground when it appears.
-make_nearby_ground_holy();
 
 // Damage projectiles can destroy the holy tower.
 on_damage_projectile_hit = function()
