@@ -30,6 +30,13 @@ first_night_cultist_aim_prompt_text = "AIM AND PRESS LMB";
 first_night_cultist_prompt_scale = 3;
 first_night_cultist_prompt_shadow_offset = 4;
 
+// End-day prompt appears when every day worker has spent all stamina.
+end_day_prompt_text = "PRESS ENTER TO END THE DAY";
+end_day_prompt_base_scale = 1.4;
+end_day_prompt_pulse_scale = 0.18;
+end_day_prompt_y_share = 0.76;
+end_day_prompt_shadow_offset = 3;
+
 // Day cycle and shrine objective display in the top-right corner.
 day_phase_text_offset_x = 85;
 day_phase_text_y = 83;
@@ -142,6 +149,8 @@ minimap_cultist_height = 36;
 minimap_cultist_bar_width = 19;
 minimap_cultist_bar_height = 7;
 minimap_cultist_bar_gap = 2;
+minimap_shrine_size = 24;
+minimap_shrine_outline_size = 30;
 minimap_view_alpha = 0.2;
 minimap_view_border_width = 4;
 minimap_view_min_size = 10;
@@ -316,7 +325,7 @@ projectile_descriptions[PROJECTILE_TYPE.CORRUPTION] = "Adds Taint to ground cell
 projectile_descriptions[PROJECTILE_TYPE.SUMMON] = "Summons friendly forces through valid target reactions.";
 projectile_descriptions[PROJECTILE_TYPE.RALLY] = "Sends half of nearby friendly units to the impact point.";
 projectile_descriptions[PROJECTILE_TYPE.CULTIST] = "Launches a cultist into battle, dealing impact damage and spawning demon form.";
-projectile_descriptions[PROJECTILE_TYPE.FEAST] = "Fires " + string(BALANCE_CANNON_FEAST_PROJECTILE_COUNT) + " Taint Shell impacts over a wide area and heavily damages enemies inside. When you gain a Taint Shell, you also gain 1 random bonus projectile.";
+projectile_descriptions[PROJECTILE_TYPE.FEAST] = "Fires " + string(BALANCE_CANNON_FEAST_PROJECTILE_COUNT) + " Taint Shell impacts over a wide area and heavily damages enemies inside. Payload Mastery improves its radius and impact count. When you gain a Taint Shell, you also gain 1 random bonus projectile.";
 projectile_descriptions[PROJECTILE_TYPE.HEAL] = "Restores " + string(BALANCE_PROJECTILE_HEAL_AMOUNT) + " health to all friendly units inside a " + string(BALANCE_PROJECTILE_HEAL_RADIUS) + " pixel radius. Payload Mastery improves it.";
 projectile_descriptions[PROJECTILE_TYPE.BOMB] = "Deals " + string(BALANCE_PROJECTILE_BOMB_DAMAGE_AMOUNT) + " damage to every unit inside a " + string(BALANCE_PROJECTILE_BOMB_RADIUS) + " pixel radius. Payload Mastery improves it.";
 projectile_descriptions[PROJECTILE_TYPE.SKELETONS] = "Summons " + string(BALANCE_PROJECTILE_SKELETON_COUNT) + " skeleton inside a " + string(BALANCE_PROJECTILE_SKELETON_RADIUS) + " pixel radius. Payload Mastery improves it.";

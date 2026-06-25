@@ -15,9 +15,9 @@ bar_offset_y = 8;
 bar_background_alpha = 0.75;
 
 // Tooltip visual settings.
-var _full_vein_speed_text = string(BALANCE_IHOR_EXTRACTOR_FULL_VEIN_SPEED);
-var _empty_vein_speed_text = string(BALANCE_IHOR_EXTRACTOR_EMPTY_VEIN_SPEED);
-tooltip_text = "Ihor Vein\nGives +" + _full_vein_speed_text + " extraction speed to a nearby Ihor Extractor.\nWhen depleted, it still gives +" + _empty_vein_speed_text + " speed.\nA Vein can feed only one Ihor Extractor.";
+var _full_vein_income_text = string(BALANCE_IHOR_EXTRACTOR_FULL_VEIN_MORNING_IHOR);
+var _empty_vein_income_text = string(BALANCE_IHOR_EXTRACTOR_EMPTY_VEIN_MORNING_IHOR);
+tooltip_text = "Ihor Vein\nGives +" + _full_vein_income_text + " Ihor each morning to a nearby Ihor Extractor while it has Ihor.\nA depleted Vein gives +" + _empty_vein_income_text + " Ihor each morning.\nA Vein can feed only one Ihor Extractor.";
 tooltip_width = 360;
 tooltip_padding = 10;
 tooltip_line_height = 18;

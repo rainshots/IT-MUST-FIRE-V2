@@ -40,7 +40,7 @@ tutorial_items = [
 	{
 		id: "buildings",
 		title: "Buildings",
-		body: "There are several building types. Some produce the three main resources: iron, flesh, and souls. Others summon unholy creatures, heal cultists, repair walls, and provide other services in exchange for resources.\n\nTo begin, I recommend building a Ritual Circle so your workers can restore Stamina after work and gain some XP."
+		body: "There are several building types. Some produce the three main resources: iron, flesh, and souls. Others summon unholy creatures, heal cultists, repair walls, and provide other services in exchange for resources.\n\nTo begin, I recommend building a Ritual Circle so your cultists can gain some XP."
 	},
 	{
 		id: "meat_bath_needed",
@@ -70,7 +70,7 @@ tutorial_items = [
 	{
 		id: "stamina",
 		title: "Stamina",
-		body: "The yellow bar under the HP bar is worker Stamina. It decreases while a worker works. When it is empty, the worker becomes less productive. To restore Stamina, build a Ritual Circle and assign the worker there."
+		body: "The yellow bar under the HP bar is worker Stamina. It decreases while a worker works and restores every morning. When every cultist and goblin runs out of Stamina, press Enter to end the day."
 	},
 	{
 		id: "night",
@@ -85,7 +85,7 @@ tutorial_items = [
 	{
 		id: "day_after_night",
 		title: "Day",
-		body: "After the night, your cultists return to human form and are ready to work again. Remember to heal them before the next night arrives, for example at the Meat Bath."
+		body: "After the night, your cultists return to human form. Remember to heal them before the next night arrives, for example at the Meat Bath."
 	},
 	{
 		id: "infection",

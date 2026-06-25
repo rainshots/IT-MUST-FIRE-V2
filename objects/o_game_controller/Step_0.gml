@@ -278,6 +278,13 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 			global.cultist_assignment_preview_building = noone;
 		}
 
+		if (instance_exists(global.cultist_assignment_preview_building)
+			&& day_worker_is_out_of_stamina(_dragged_cultist)
+			&& variable_instance_exists(global.cultist_assignment_preview_building, "building_warning_show"))
+		{
+			global.cultist_assignment_preview_building.building_warning_show("NO STAMINA", COLOR_STATUS_NEGATIVE_RED);
+		}
+
 		if (!mouse_check_button(mb_left))
 		{
 			var _drop_building = global.cultist_assignment_preview_building;
@@ -728,6 +735,18 @@ if (keyboard_check_pressed(vk_escape))
 
 // Play UI feedback for the currently hovered or clicked button.
 ui_audio_update();
+
+// Let the player end the day once every worker has spent all stamina.
+if (keyboard_check_pressed(vk_enter)
+	&& !global.pause
+	&& global.day_cycle_enabled
+	&& global.day_phase == DAY_PHASE.DAY
+	&& global.focus_window == FOCUS_WINDOW.NOONE
+	&& !instance_exists(global.dragged_cultist)
+	&& day_workers_all_stamina_empty())
+{
+	start_night_phase();
+}
 
 // Update the day timer and let night end only after the attack is cleared.
 if (!global.pause && global.day_cycle_enabled)

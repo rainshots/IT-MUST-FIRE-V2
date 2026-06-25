@@ -106,6 +106,22 @@ if (instance_exists(o_tower_vision))
 	}
 }
 
+// Objective shrines reveal a small area around themselves as fixed landmarks.
+if (shrine_reveal_radius > 0 && instance_exists(o_shrine))
+{
+	var _shrine_count = instance_number(o_shrine);
+
+	for (var _shrine_index = 0; _shrine_index < _shrine_count; ++_shrine_index)
+	{
+		var _shrine = instance_find(o_shrine, _shrine_index);
+
+		if (instance_exists(_shrine))
+		{
+			fog_world_circle_reveal(_shrine.x, _shrine.y, shrine_reveal_radius);
+		}
+	}
+}
+
 // Once the player has seen an enemy tower, reveal a tiny area around it.
 if (enemy_tower_reveal_radius > 0 && instance_exists(o_holy_tower))
 {

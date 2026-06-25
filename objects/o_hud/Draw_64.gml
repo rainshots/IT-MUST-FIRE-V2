@@ -134,6 +134,36 @@ if (_regular_hud_is_visible)
 		draw_text(_objective_text_x, _objective_text_y, _objective_label);
 	}
 
+	// Prompt the player to end the day once every worker is out of stamina.
+	if (global.day_phase == DAY_PHASE.DAY && instance_exists(o_game_controller))
+	{
+		var _end_day_game_controller = instance_find(o_game_controller, 0);
+
+		if (variable_instance_exists(_end_day_game_controller, "day_workers_all_stamina_empty")
+			&& _end_day_game_controller.day_workers_all_stamina_empty())
+		{
+			var _prompt_scale = end_day_prompt_base_scale
+				+ (sin(current_time * 0.006) * end_day_prompt_pulse_scale);
+			var _prompt_x = _sidebar_gui_width * 0.5;
+			var _prompt_y = _sidebar_gui_height * end_day_prompt_y_share;
+
+			draw_set_halign(fa_center);
+			draw_set_valign(fa_middle);
+			draw_set_alpha(1);
+			draw_set_color(c_black);
+			draw_text_transformed(
+				_prompt_x + end_day_prompt_shadow_offset,
+				_prompt_y + end_day_prompt_shadow_offset,
+				end_day_prompt_text,
+				_prompt_scale,
+				_prompt_scale,
+				0
+			);
+			draw_set_color(COLOR_HUD_CULTIST_STATUS_STAMINA);
+			draw_text_transformed(_prompt_x, _prompt_y, end_day_prompt_text, _prompt_scale, _prompt_scale, 0);
+		}
+	}
+
 	// Draw compact cultist status cards while gameplay is unobstructed.
 	if (variable_global_exists("cultists")
 		&& variable_global_exists("focus_window")
@@ -282,7 +312,14 @@ if (_regular_hud_is_visible)
 
 		if (variable_instance_exists(_cultist, "stamina_amount"))
 		{
-			_stamina_progress = clamp(_cultist.stamina_amount / max(1, BALANCE_CULTIST_STAMINA_MAX), 0, 1);
+			var _cultist_stamina_max = BALANCE_CULTIST_STAMINA_MAX;
+
+			if (variable_instance_exists(_cultist, "stamina_max"))
+			{
+				_cultist_stamina_max = _cultist.stamina_max;
+			}
+
+			_stamina_progress = clamp(_cultist.stamina_amount / max(1, _cultist_stamina_max), 0, 1);
 		}
 
 		var _bar_labels = ["HP", "XP", "Stamina"];
@@ -393,6 +430,72 @@ if (instance_exists(o_cannon))
 		}
 
 		draw_set_alpha(1);
+	}
+
+	// Draw objective shrines as fixed landmarks.
+	var _shrine_count = instance_number(o_shrine);
+	var _shrine_size = minimap_shrine_size * _minimap_scale;
+	var _shrine_half_size = _shrine_size * 0.5;
+	var _shrine_outline_size = minimap_shrine_outline_size * _minimap_scale;
+	var _shrine_half_outline_size = _shrine_outline_size * 0.5;
+
+	for (var _shrine_index = 0; _shrine_index < _shrine_count; ++_shrine_index)
+	{
+		var _shrine = instance_find(o_shrine, _shrine_index);
+
+		if (!instance_exists(_shrine))
+		{
+			continue;
+		}
+
+		var _shrine_map_x = _minimap_center_x + ((_shrine.x - _world_center_x) * _world_to_minimap_scale);
+		var _shrine_map_y = _minimap_center_y + ((_shrine.y - _world_center_y) * _world_to_minimap_scale);
+
+		_shrine_map_x = clamp(_shrine_map_x, _minimap_x + _shrine_half_outline_size, _minimap_right - _shrine_half_outline_size);
+		_shrine_map_y = clamp(_shrine_map_y, _minimap_y + _shrine_half_outline_size, _minimap_bottom - _shrine_half_outline_size);
+
+		var _shrine_sprite = s_shrine_normal;
+		var _shrine_color = c_white;
+
+		if (variable_instance_exists(_shrine, "is_corrupted") && _shrine.is_corrupted)
+		{
+			_shrine_sprite = s_shrine_cursed;
+			_shrine_color = COLOR_HUD_MINIMAP_TAINT;
+		}
+
+		draw_set_alpha(0.88);
+		draw_set_color(c_black);
+		draw_rectangle(
+			_shrine_map_x - _shrine_half_outline_size,
+			_shrine_map_y - _shrine_half_outline_size,
+			_shrine_map_x + _shrine_half_outline_size,
+			_shrine_map_y + _shrine_half_outline_size,
+			false
+		);
+
+		draw_set_alpha(1);
+
+		if (sprite_exists(_shrine_sprite))
+		{
+			draw_sprite_stretched_ext(
+				_shrine_sprite,
+				0,
+				_shrine_map_x - _shrine_half_size,
+				_shrine_map_y - _shrine_half_size,
+				_shrine_size,
+				_shrine_size,
+				_shrine_color,
+				1
+			);
+		}
+		else
+		{
+			draw_set_color(_shrine_color);
+			draw_line_width(_shrine_map_x, _shrine_map_y - _shrine_half_size, _shrine_map_x + _shrine_half_size, _shrine_map_y, 2);
+			draw_line_width(_shrine_map_x + _shrine_half_size, _shrine_map_y, _shrine_map_x, _shrine_map_y + _shrine_half_size, 2);
+			draw_line_width(_shrine_map_x, _shrine_map_y + _shrine_half_size, _shrine_map_x - _shrine_half_size, _shrine_map_y, 2);
+			draw_line_width(_shrine_map_x - _shrine_half_size, _shrine_map_y, _shrine_map_x, _shrine_map_y - _shrine_half_size, 2);
+		}
 	}
 
 	// Draw enemy units as red tactical markers.

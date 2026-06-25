@@ -359,12 +359,12 @@ else if (object_index == o_ritual_circle)
 	production_resource_icon = noone;
 	production_resource_color = COLOR_CULTIST_SPIRIT;
 	building_tooltip_title = "Training";
-	building_tooltip_description = "Restores Stamina and gives assigned workers XP";
-	building_tooltip_detail = "Restores Stamina. Gives " + string(BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT) + " XP chunks. Daily reserve: " + string(BALANCE_RITUAL_CIRCLE_DAILY_EXP_LIMIT) + " XP";
+	building_tooltip_description = "Gives assigned cultists XP";
+	building_tooltip_detail = "Gives " + string(BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT) + " XP chunks. Daily reserve: " + string(BALANCE_RITUAL_CIRCLE_DAILY_EXP_LIMIT) + " XP";
 	building_tooltip_detail_color = COLOR_CULTIST_SPIRIT;
 	building_has_upgrades = true;
-	building_upgrade_names[0] = "Deeper Rest";
-	building_upgrade_descriptions[0] = "Workers recover Stamina " + string(BALANCE_RITUAL_CIRCLE_REST_UPGRADE_MULTIPLIER) + "x faster.";
+	building_upgrade_names[0] = "Focused Chant";
+	building_upgrade_descriptions[0] = "Ritual Circle gives XP " + string(BALANCE_RITUAL_CIRCLE_EXP_UPGRADE_MULTIPLIER) + "x faster.";
 	building_upgrade_names[1] = "Endless Chant";
 	building_upgrade_descriptions[1] = "Daily XP reserve is increased " + string(BALANCE_RITUAL_CIRCLE_DAILY_EXP_UPGRADE_MULTIPLIER) + "x.";
 	building_upgrade_resources[1] = RESOURCES.SOULS;
@@ -549,7 +549,6 @@ production_speed_multiplier_draw = function(_text_x, _text_y)
 building_worker_stamina_multiplier_get = function(_worker)
 {
 	if (!instance_exists(_worker)
-		|| _worker.object_index != o_cultist
 		|| !variable_instance_exists(_worker, "stamina_amount"))
 	{
 		return 1;
@@ -563,7 +562,7 @@ building_worker_stamina_multiplier_get = function(_worker)
 	return 1;
 };
 
-building_spends_cultist_stamina = function()
+building_spends_worker_stamina = function()
 {
 	return object_index == o_quarry
 		|| object_index == o_slaughter_table
@@ -580,11 +579,6 @@ building_stamina_drain_multiplier_get = function()
 	}
 
 	return 1;
-};
-
-building_recovers_cultist_stamina = function()
-{
-	return object_index == o_ritual_circle;
 };
 
 foundry_shell_select = function(_choice)
@@ -700,10 +694,10 @@ ritual_circle_daily_exp_limit_get = function()
 	return _daily_exp_limit;
 };
 
-building_cultist_stamina_update = function()
+building_worker_stamina_update = function()
 {
 	if (global.day_phase != DAY_PHASE.DAY
-		|| (!building_spends_cultist_stamina() && !building_recovers_cultist_stamina()))
+		|| !building_spends_worker_stamina())
 	{
 		return;
 	}
@@ -712,16 +706,6 @@ building_cultist_stamina_update = function()
 		* building_stamina_drain_multiplier_get()
 		/ max(1, room_speed);
 
-	if (building_recovers_cultist_stamina())
-	{
-		_stamina_delta = BALANCE_CULTIST_STAMINA_RECOVERY_PER_SECOND / max(1, room_speed);
-
-		if (building_upgrade_flags[0])
-		{
-			_stamina_delta *= BALANCE_RITUAL_CIRCLE_REST_UPGRADE_MULTIPLIER;
-		}
-	}
-
 	var _worker_count = array_length(worker_cultists);
 
 	for (var _worker_index = 0; _worker_index < _worker_count; ++_worker_index)
@@ -729,27 +713,36 @@ building_cultist_stamina_update = function()
 		var _worker = worker_cultists[_worker_index];
 
 		if (instance_exists(_worker)
-			&& _worker.object_index == o_cultist
 			&& variable_instance_exists(_worker, "stamina_amount"))
 		{
-			var _worker_stamina_delta = _stamina_delta;
+			var _stamina_before = _worker.stamina_amount;
+			var _stamina_max = BALANCE_CULTIST_STAMINA_MAX;
 
-			if (_worker_stamina_delta < 0
-				&& variable_instance_exists(_worker, "whip_timer")
-				&& _worker.whip_timer > 0
-				&& variable_instance_exists(_worker, "whip_work_multiplier"))
+			if (variable_instance_exists(_worker, "stamina_max"))
 			{
-				_worker_stamina_delta *= _worker.whip_work_multiplier;
+				_stamina_max = _worker.stamina_max;
 			}
 
-			var _stamina_before = _worker.stamina_amount;
-			_worker.stamina_amount = clamp(_worker.stamina_amount + _worker_stamina_delta, 0, BALANCE_CULTIST_STAMINA_MAX);
+			_worker.stamina_amount = clamp(_worker.stamina_amount + _stamina_delta, 0, _stamina_max);
 
 			if (_stamina_before > 0
 				&& _worker.stamina_amount <= 0
 				&& variable_global_exists("tutorial_hint_trigger"))
 			{
 				global.tutorial_hint_trigger("stamina");
+			}
+
+			if (_stamina_before > 0
+				&& _worker.stamina_amount <= 0
+				&& instance_exists(o_game_controller))
+			{
+				var _game_controller = instance_find(o_game_controller, 0);
+
+				if (variable_instance_exists(_game_controller, "clear_cultist_building_assignment"))
+				{
+					_game_controller.clear_cultist_building_assignment(_worker);
+					return;
+				}
 			}
 		}
 	}

@@ -404,8 +404,8 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 			&& variable_struct_exists(_projectile_payload, "building_object")
 			&& _projectile_payload.building_object == o_ihor_extractor)
 		{
-			var _ihor_speed = ihor_extractor_speed_preview(_mouse_world_x, _mouse_world_y);
-			var _speed_text = "Ihor speed: " + string_format(_ihor_speed, 1, 1) + "x";
+			var _ihor_morning_income = ihor_extractor_morning_income_preview(_mouse_world_x, _mouse_world_y);
+			var _speed_text = "Morning Ihor: +" + string(_ihor_morning_income);
 			var _vein_count = instance_number(o_ihor_vein);
 			var _preview_radius = building_shell_preview_radius_get(_projectile_payload);
 

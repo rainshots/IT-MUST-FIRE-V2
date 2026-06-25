@@ -152,10 +152,10 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			}
 			else if (target_projectile_type == PROJECTILE_TYPE.FEAST)
 			{
-				_projectile.effect_radius = BALANCE_CANNON_FEAST_PROJECTILE_VISUAL_RADIUS;
+				_projectile.effect_radius = cannon_feast_projectile_visual_radius_get();
 				_projectile.damage_amount = BALANCE_CANNON_FEAST_DAMAGE_AMOUNT;
 				_projectile.ground_corruption_amount = BALANCE_CANNON_FEAST_CORRUPTION_AMOUNT;
-				_projectile.ground_corruption_radius = BALANCE_CANNON_FEAST_PROJECTILE_CORRUPTION_RADIUS;
+				_projectile.ground_corruption_radius = cannon_feast_projectile_corruption_radius_get();
 			}
 			else if (target_projectile_type == PROJECTILE_TYPE.HEAL)
 			{

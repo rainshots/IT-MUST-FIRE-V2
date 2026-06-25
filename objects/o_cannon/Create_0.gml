@@ -426,17 +426,33 @@ cannon_morning_skeleton_count_range_get = function()
 
 cannon_feast_radius_get = function()
 {
-	return BALANCE_CANNON_FEAST_RADIUS;
+	return round(BALANCE_CANNON_FEAST_RADIUS * cannon_payload_mastery_taint_multiplier_get());
 };
 
 cannon_feast_projectile_count_get = function()
 {
-	return BALANCE_CANNON_FEAST_PROJECTILE_COUNT;
+	return max(1, ceil(BALANCE_CANNON_FEAST_PROJECTILE_COUNT * cannon_payload_mastery_taint_multiplier_get()));
+};
+
+cannon_feast_projectile_visual_radius_get = function()
+{
+	return round(BALANCE_CANNON_FEAST_PROJECTILE_VISUAL_RADIUS * cannon_payload_mastery_taint_multiplier_get());
+};
+
+cannon_feast_projectile_corruption_radius_get = function()
+{
+	return round(BALANCE_CANNON_FEAST_PROJECTILE_CORRUPTION_RADIUS * cannon_payload_mastery_taint_multiplier_get());
 };
 
 cannon_payload_upgrade_level_get = function()
 {
 	return building_upgrade_levels[CANNON_UPGRADE.PAYLOAD_MASTERY];
+};
+
+cannon_payload_mastery_taint_multiplier_get = function()
+{
+	var _level = cannon_payload_upgrade_level_get();
+	return 1 + (_level * BALANCE_CANNON_PAYLOAD_MASTERY_TAINT_BONUS_PER_LEVEL);
 };
 
 cannon_projectile_bomb_damage_get = function()
@@ -548,6 +564,7 @@ building_upgrade_description_get = function(_upgrade_index)
 		var _bomb_damage = BALANCE_PROJECTILE_BOMB_DAMAGE_AMOUNT;
 		var _skeleton_count = BALANCE_PROJECTILE_SKELETON_COUNT;
 		var _heal_amount = BALANCE_PROJECTILE_HEAL_AMOUNT;
+		var _taint_bonus_percent = round(BALANCE_CANNON_PAYLOAD_MASTERY_TAINT_BONUS_PER_LEVEL * 100 * (_level + 1));
 
 		if (_payload_level >= 4)
 		{
@@ -568,7 +585,7 @@ building_upgrade_description_get = function(_upgrade_index)
 			_heal_amount = BALANCE_PROJECTILE_HEAL_AMOUNT_LEVEL_2;
 		}
 
-		return "Bomb " + string(_bomb_damage) + " damage, Skeletons x" + string(_skeleton_count) + ", Heal " + string(_heal_amount) + " HP.";
+		return "Bomb " + string(_bomb_damage) + " damage, Skeletons x" + string(_skeleton_count) + ", Heal " + string(_heal_amount) + " HP, Taint +" + string(_taint_bonus_percent) + "% radius and impacts.";
 	}
 
 	return "";

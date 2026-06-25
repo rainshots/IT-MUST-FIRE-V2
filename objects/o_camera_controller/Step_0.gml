@@ -68,6 +68,7 @@ var _edge_input_y = 0;
 // Optional edge scroll moves the camera when the cursor touches the viewport edge.
 if (variable_global_exists("edge_scroll_enabled")
 	&& global.edge_scroll_enabled
+	&& window_has_focus()
 	&& global.focus_window == FOCUS_WINDOW.NOONE
 	&& !_tutorial_popup_active)
 {
@@ -102,10 +103,19 @@ var _input_length = point_distance(0, 0, _input_x, _input_y);
 var _edge_input_length = point_distance(0, 0, _edge_input_x, _edge_input_y);
 var _zoom_factor = (zoom_level - minimum_zoom_level) / (maximum_zoom_level - minimum_zoom_level);
 var _zoom_speed_multiplier = lerp(minimum_zoom_speed_multiplier, maximum_zoom_speed_multiplier, _zoom_factor);
+var _camera_speed_value = 0.5;
+
+if (variable_global_exists("camera_speed"))
+{
+	_camera_speed_value = clamp(global.camera_speed, 0, 1);
+}
+
+var _camera_speed_multiplier = lerp(camera_speed_min_multiplier, camera_speed_max_multiplier, _camera_speed_value);
+var _base_move_speed = move_speed * _camera_speed_multiplier;
 
 if (_input_length > 0)
 {
-	var _current_move_speed = move_speed * _zoom_speed_multiplier;
+	var _current_move_speed = _base_move_speed * _zoom_speed_multiplier;
 
 	_target_velocity_x = (_input_x / _input_length) * _current_move_speed;
 	_target_velocity_y = (_input_y / _input_length) * _current_move_speed;
@@ -121,15 +131,15 @@ if (_edge_input_length > 0)
 	}
 
 	var _edge_speed_multiplier = lerp(edge_scroll_speed_min_multiplier, edge_scroll_speed_max_multiplier, _edge_scroll_speed_value);
-	var _edge_move_speed = move_speed * _zoom_speed_multiplier * _edge_speed_multiplier;
+	var _edge_move_speed = _base_move_speed * _zoom_speed_multiplier * _edge_speed_multiplier;
 
 	_target_velocity_x += (_edge_input_x / _edge_input_length) * _edge_move_speed;
 	_target_velocity_y += (_edge_input_y / _edge_input_length) * _edge_move_speed;
 }
 
 // Accelerate while input is active and decelerate when input is released.
-var _current_acceleration = move_acceleration * _zoom_speed_multiplier;
-var _current_deceleration = move_deceleration * _zoom_speed_multiplier;
+var _current_acceleration = move_acceleration * _zoom_speed_multiplier * _camera_speed_multiplier;
+var _current_deceleration = move_deceleration * _zoom_speed_multiplier * _camera_speed_multiplier;
 var _rate_x = (_target_velocity_x == 0) ? _current_deceleration : _current_acceleration;
 var _rate_y = (_target_velocity_y == 0) ? _current_deceleration : _current_acceleration;
 

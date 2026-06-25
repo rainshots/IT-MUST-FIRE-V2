@@ -20,6 +20,11 @@ if (!variable_global_exists("edge_scroll_speed"))
 	global.edge_scroll_speed = 0.5;
 }
 
+if (!variable_global_exists("camera_speed"))
+{
+	global.camera_speed = 0.5;
+}
+
 // View size used by the strategy camera.
 if (instance_exists(game_controller))
 {
@@ -50,6 +55,8 @@ move_acceleration = 1.2;
 move_deceleration = 1.0;
 minimum_zoom_speed_multiplier = 1;
 maximum_zoom_speed_multiplier = 2;
+camera_speed_min_multiplier = 0.5;
+camera_speed_max_multiplier = 1.75;
 edge_scroll_border_size = 28;
 edge_scroll_speed_min_multiplier = 0.35;
 edge_scroll_speed_max_multiplier = 1.5;

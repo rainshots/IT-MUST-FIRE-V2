@@ -80,7 +80,8 @@ has_warlock_demonic_infusion = false;
 max_hp = 10;
 hp = max_hp;
 
-// Stamina is spent while working resource buildings and restored in Ritual Circle.
+// Stamina is spent while working and recovers every morning.
+stamina_max = BALANCE_CULTIST_STAMINA_MAX;
 stamina_amount = BALANCE_CULTIST_STAMINA_MAX;
 
 // Worker whip temporarily improves day productivity at the cost of health.

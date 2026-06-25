@@ -13,26 +13,22 @@ corruption_bar_visible = false;
 corruption_check_interval = BALANCE_PLAYER_BUILDING_CORRUPTION_CHECK_INTERVAL;
 corruption_check_timer = irandom(corruption_check_interval - 1);
 
-// Ihor production is driven by active veins in radius.
-ihor_production_progress = 0;
-ihor_production_time = BALANCE_IHOR_EXTRACTOR_PRODUCTION_TIME * room_speed;
-ihor_production_speed = BALANCE_IHOR_EXTRACTOR_BASE_SPEED;
-ihor_next_vein_index = 0;
+// Ihor income is collected once each morning from active veins in radius.
+ihor_morning_income = 0;
 ihor_popup_offset_y = 70;
 
-var _full_vein_speed_text = string(BALANCE_IHOR_EXTRACTOR_FULL_VEIN_SPEED);
-var _empty_vein_speed_text = string(BALANCE_IHOR_EXTRACTOR_EMPTY_VEIN_SPEED);
+var _full_vein_income_text = string(BALANCE_IHOR_EXTRACTOR_FULL_VEIN_MORNING_IHOR);
 
 tooltip_lines = [
-	"Ihor Extractor: produces Ihor during the day",
-	"Each full Ihor Vein adds +" + _full_vein_speed_text + " speed; depleted adds +" + _empty_vein_speed_text,
+	"Ihor Extractor: collects Ihor each morning",
+	"Each active Ihor Vein gives +" + _full_vein_income_text + " Ihor in the morning",
 	"Stops working if its ground is cleansed"
 ];
 
-ihor_extractor_vein_count_get = function()
+ihor_extractor_morning_income_get = function()
 {
 	var _vein_count = instance_number(o_ihor_vein);
-	var _production_speed = BALANCE_IHOR_EXTRACTOR_BASE_SPEED;
+	var _morning_income = 0;
 
 	for (var _vein_index = 0; _vein_index < _vein_count; ++_vein_index)
 	{
@@ -55,33 +51,42 @@ ihor_extractor_vein_count_get = function()
 				_vein.assigned_ihor_extractor = id;
 			}
 
-			_production_speed += (_vein.ihor_remaining > 0)
-				? BALANCE_IHOR_EXTRACTOR_FULL_VEIN_SPEED
-				: BALANCE_IHOR_EXTRACTOR_EMPTY_VEIN_SPEED;
+			_morning_income += (_vein.ihor_remaining > 0)
+				? BALANCE_IHOR_EXTRACTOR_FULL_VEIN_MORNING_IHOR
+				: BALANCE_IHOR_EXTRACTOR_EMPTY_VEIN_MORNING_IHOR;
 		}
 	}
 
-	ihor_production_speed = _production_speed;
-	return _production_speed;
+	ihor_morning_income = _morning_income;
+	return _morning_income;
 };
 
-ihor_extractor_production_speed_get = function()
+ihor_extractor_morning_income_preview_get = function()
 {
 	if (!is_captured)
 	{
+		ihor_morning_income = 0;
 		return 0;
 	}
 
-	return ihor_extractor_vein_count_get();
+	return ihor_extractor_morning_income_get();
 };
 
-ihor_extractor_consume_active_vein = function()
+ihor_extractor_morning_income_collect = function()
 {
-	var _vein_count = instance_number(o_ihor_vein);
-
-	for (var _vein_step = 0; _vein_step < _vein_count; ++_vein_step)
+	if (!is_captured)
 	{
-		var _vein_index = (ihor_next_vein_index + _vein_step) mod max(1, _vein_count);
+		ihor_morning_income = 0;
+		return 0;
+	}
+
+	ihor_extractor_morning_income_get();
+
+	var _vein_count = instance_number(o_ihor_vein);
+	var _collected_ihor = 0;
+
+	for (var _vein_index = 0; _vein_index < _vein_count; ++_vein_index)
+	{
 		var _vein = instance_find(o_ihor_vein, _vein_index);
 
 		if (!instance_exists(_vein)
@@ -92,12 +97,31 @@ ihor_extractor_consume_active_vein = function()
 			continue;
 		}
 
-		if (_vein.ihor_vein_consume(1) > 0)
+		var _vein_income = (_vein.ihor_remaining > 0)
+			? BALANCE_IHOR_EXTRACTOR_FULL_VEIN_MORNING_IHOR
+			: BALANCE_IHOR_EXTRACTOR_EMPTY_VEIN_MORNING_IHOR;
+
+		if (_vein_income <= 0)
 		{
-			ihor_next_vein_index = (_vein_index + 1) mod max(1, _vein_count);
-			return true;
+			continue;
+		}
+
+		if (_vein.ihor_remaining > 0)
+		{
+			_collected_ihor += _vein.ihor_vein_consume(_vein_income);
+		}
+		else
+		{
+			_collected_ihor += _vein_income;
 		}
 	}
 
-	return false;
+	if (_collected_ihor > 0)
+	{
+		global.resources[RESOURCES.IHOR] += _collected_ihor;
+		resource_popup_create(x, y - ihor_popup_offset_y, RESOURCES.IHOR, _collected_ihor);
+	}
+
+	ihor_extractor_morning_income_get();
+	return _collected_ihor;
 };

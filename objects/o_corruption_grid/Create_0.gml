@@ -188,9 +188,9 @@ captured_building_rifts_draw = function()
 		}
 
 		if (_map_object.object_index == o_ihor_extractor
-			&& variable_instance_exists(_map_object, "ihor_extractor_vein_count_get"))
+			&& variable_instance_exists(_map_object, "ihor_extractor_morning_income_get"))
 		{
-			_map_object.ihor_extractor_vein_count_get();
+			_map_object.ihor_extractor_morning_income_get();
 
 			var _extractor_object_id = _map_object.id;
 			var _vein_count = instance_number(o_ihor_vein);

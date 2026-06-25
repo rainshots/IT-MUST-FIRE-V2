@@ -10,6 +10,7 @@ global.ambient_volume = 0.8;
 global.sound_volume = 0.8;
 global.edge_scroll_enabled = true;
 global.edge_scroll_speed = 0.5;
+global.camera_speed = 0.5;
 
 // Global day cycle uses fixed day and night timers.
 global.day_phase = DAY_PHASE.DAY;
@@ -1495,7 +1496,7 @@ building_choices = [
 		building_object: o_ritual_circle,
 		building_sprite: s_ritual_circle,
 		building_name: "Ritual Circle",
-		building_description: "Lets assigned workers restore Stamina and gain XP over time.",
+		building_description: "Lets assigned cultists gain XP over time.",
 		iron_cost: BALANCE_RITUAL_CIRCLE_BUILDING_IRON_COST
 	},
 	{
@@ -1604,6 +1605,10 @@ foundry_shell_choices = [
 			{
 				resource: RESOURCES.FLESH,
 				cost: BALANCE_FOUNDRY_ORCS_PIT_SHELL_FLESH_COST
+			},
+			{
+				resource: RESOURCES.IRON,
+				cost: BALANCE_FOUNDRY_ORCS_PIT_SHELL_IRON_COST
 			}
 		]
 	},
@@ -1627,7 +1632,7 @@ foundry_shell_choices = [
 		building_object: o_ihor_extractor,
 		building_sprite: s_ihor_extractor,
 		building_name: "Ihor Extractor",
-		building_description: "Forges a shell that builds an extractor producing Ihor from nearby veins.",
+		building_description: "Forges a shell that builds an extractor collecting Ihor from nearby veins each morning.",
 		construction_costs: [
 			{
 				resource: RESOURCES.SOULS,
@@ -2036,10 +2041,10 @@ button_width = 280;
 button_height = 58;
 button_gap = 18;
 settings_panel_width = 420;
-settings_panel_height = 430;
+settings_panel_height = 560;
 settings_close_bottom_padding = 28;
-settings_slider_count = 4;
-settings_slider_labels = ["Music", "Ambient", "Sounds", "Edge Speed"];
+settings_slider_count = 5;
+settings_slider_labels = ["Music", "Ambient", "Sounds", "Edge Speed", "Camera Speed"];
 settings_slider_x = 150;
 settings_slider_y = 104;
 settings_slider_width = 200;
@@ -2048,7 +2053,7 @@ settings_slider_gap_y = 54;
 settings_slider_knob_radius = 10;
 settings_drag_slider_index = -1;
 settings_edge_toggle_x = 150;
-settings_edge_toggle_y = 260;
+settings_edge_toggle_y = 426;
 settings_edge_toggle_size = 24;
 pause_feedback_button_width = 460;
 pause_feedback_button_height = 76;
@@ -2131,7 +2136,12 @@ settings_slider_value_get = function(_slider_index)
 		return global.sound_volume;
 	}
 
-	return global.edge_scroll_speed;
+	if (_slider_index == 3)
+	{
+		return global.edge_scroll_speed;
+	}
+
+	return global.camera_speed;
 };
 
 settings_slider_value_set = function(_slider_index, _value)
@@ -2150,9 +2160,13 @@ settings_slider_value_set = function(_slider_index, _value)
 	{
 		global.sound_volume = _clamped_value;
 	}
-	else
+	else if (_slider_index == 3)
 	{
 		global.edge_scroll_speed = _clamped_value;
+	}
+	else
+	{
+		global.camera_speed = _clamped_value;
 	}
 };
 
@@ -3036,9 +3050,9 @@ grave_spire_morning_skeleton_count_preview = function(_world_x, _world_y)
 	return _skeleton_count;
 };
 
-ihor_extractor_speed_preview = function(_world_x, _world_y)
+ihor_extractor_morning_income_preview = function(_world_x, _world_y)
 {
-	var _speed = BALANCE_IHOR_EXTRACTOR_BASE_SPEED;
+	var _morning_income = 0;
 	var _vein_count = instance_number(o_ihor_vein);
 
 	for (var _vein_index = 0; _vein_index < _vein_count; ++_vein_index)
@@ -3055,13 +3069,13 @@ ihor_extractor_speed_preview = function(_world_x, _world_y)
 		if (!variable_instance_exists(_vein, "assigned_ihor_extractor")
 			|| !instance_exists(_vein.assigned_ihor_extractor))
 		{
-			_speed += (_vein.ihor_remaining > 0)
-				? BALANCE_IHOR_EXTRACTOR_FULL_VEIN_SPEED
-				: BALANCE_IHOR_EXTRACTOR_EMPTY_VEIN_SPEED;
+			_morning_income += (_vein.ihor_remaining > 0)
+				? BALANCE_IHOR_EXTRACTOR_FULL_VEIN_MORNING_IHOR
+				: BALANCE_IHOR_EXTRACTOR_EMPTY_VEIN_MORNING_IHOR;
 		}
 	}
 
-	return _speed;
+	return _morning_income;
 };
 
 open_building_window = function(_slot)
@@ -3458,6 +3472,16 @@ assign_cultist_to_worker_building = function(_cultist, _building)
 
 	clear_cultist_building_assignment(_cultist);
 
+	if (day_worker_is_out_of_stamina(_cultist))
+	{
+		if (variable_instance_exists(_building, "building_warning_show"))
+		{
+			_building.building_warning_show("NO STAMINA", COLOR_STATUS_NEGATIVE_RED);
+		}
+
+		return false;
+	}
+
 	if (_cultist.object_index == o_goblin && global.day_phase == DAY_PHASE.NIGHT)
 	{
 		return false;
@@ -3638,6 +3662,148 @@ worker_idle_wander_update = function(_worker, _allow_cannon_assignment = false)
 	return true;
 };
 
+day_worker_has_stamina = function(_worker)
+{
+	return instance_exists(_worker)
+		&& (!variable_instance_exists(_worker, "hp") || _worker.hp > 0)
+		&& variable_instance_exists(_worker, "stamina_amount")
+		&& _worker.stamina_amount > 0;
+};
+
+day_worker_is_out_of_stamina = function(_worker)
+{
+	return instance_exists(_worker)
+		&& variable_instance_exists(_worker, "stamina_amount")
+		&& _worker.stamina_amount <= 0;
+};
+
+day_worker_stamina_spend = function(_worker, _drain_multiplier = 1)
+{
+	if (global.day_phase != DAY_PHASE.DAY
+		|| !instance_exists(_worker)
+		|| !variable_instance_exists(_worker, "stamina_amount"))
+	{
+		return false;
+	}
+
+	var _stamina_delta = -BALANCE_CULTIST_STAMINA_DRAIN_PER_SECOND
+		* _drain_multiplier
+		/ max(1, room_speed);
+
+	var _stamina_max = BALANCE_CULTIST_STAMINA_MAX;
+
+	if (variable_instance_exists(_worker, "stamina_max"))
+	{
+		_stamina_max = _worker.stamina_max;
+	}
+
+	var _stamina_before = _worker.stamina_amount;
+	_worker.stamina_amount = clamp(_worker.stamina_amount + _stamina_delta, 0, _stamina_max);
+
+	if (_stamina_before > 0
+		&& _worker.stamina_amount <= 0
+		&& variable_global_exists("tutorial_hint_trigger"))
+	{
+		global.tutorial_hint_trigger("stamina");
+	}
+
+	if (_stamina_before > 0 && _worker.stamina_amount <= 0)
+	{
+		clear_cultist_building_assignment(_worker);
+		return true;
+	}
+
+	return false;
+};
+
+day_worker_stamina_restore = function(_worker)
+{
+	if (!instance_exists(_worker)
+		|| !variable_instance_exists(_worker, "stamina_amount"))
+	{
+		return;
+	}
+
+	var _stamina_max = BALANCE_CULTIST_STAMINA_MAX;
+
+	if (variable_instance_exists(_worker, "stamina_max"))
+	{
+		_stamina_max = _worker.stamina_max;
+	}
+
+	_worker.stamina_amount = _stamina_max;
+};
+
+day_workers_stamina_restore_at_morning = function()
+{
+	var _cultist_count = array_length(global.cultists);
+
+	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+	{
+		day_worker_stamina_restore(global.cultists[_cultist_index]);
+	}
+
+	var _goblin_count = instance_number(o_goblin);
+
+	for (var _goblin_index = 0; _goblin_index < _goblin_count; ++_goblin_index)
+	{
+		day_worker_stamina_restore(instance_find(o_goblin, _goblin_index));
+	}
+};
+
+day_workers_all_stamina_empty = function()
+{
+	if (global.day_phase != DAY_PHASE.DAY)
+	{
+		return false;
+	}
+
+	var _worker_count = 0;
+	var _cultist_count = array_length(global.cultists);
+
+	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+	{
+		var _cultist = global.cultists[_cultist_index];
+
+		if (!instance_exists(_cultist)
+			|| !variable_instance_exists(_cultist, "stamina_amount")
+			|| (variable_instance_exists(_cultist, "hp") && _cultist.hp <= 0))
+		{
+			continue;
+		}
+
+		_worker_count++;
+
+		if (day_worker_has_stamina(_cultist))
+		{
+			return false;
+		}
+	}
+
+	var _goblin_count = instance_number(o_goblin);
+
+	for (var _goblin_index = 0; _goblin_index < _goblin_count; ++_goblin_index)
+	{
+		var _goblin = instance_find(o_goblin, _goblin_index);
+
+		if (!instance_exists(_goblin)
+			|| !variable_instance_exists(_goblin, "stamina_amount")
+			|| (variable_instance_exists(_goblin, "hp") && _goblin.hp <= 0))
+		{
+			continue;
+		}
+
+		_worker_count++;
+
+		if (day_worker_has_stamina(_goblin))
+		{
+			return false;
+		}
+	}
+
+	return _worker_count > 0;
+};
+
 day_idle_cultists_wander_update = function()
 {
 	if (!variable_global_exists("cultists"))
@@ -3773,6 +3939,11 @@ cannon_worker_move_towards = function(_worker, _target_x, _target_y)
 		_move_speed *= _worker.whip_work_multiplier;
 	}
 
+	if (variable_instance_exists(_worker, "stamina_amount") && _worker.stamina_amount <= 0)
+	{
+		_move_speed *= BALANCE_CULTIST_STAMINA_EMPTY_EFFICIENCY;
+	}
+
 	var _move_distance = min(_move_speed, _distance);
 	var _move_direction = point_direction(_worker.x, _worker.y, _target_x, _target_y);
 
@@ -3833,6 +4004,11 @@ cannon_corpse_worker_update = function(_worker, _cannon)
 	_worker.target_instance = noone;
 	_worker.is_attacking_target = false;
 	_worker.is_walking = false;
+
+	if (day_worker_stamina_spend(_worker))
+	{
+		return false;
+	}
 
 	var _carried_corpse_count = cannon_worker_carried_corpse_count_get(_worker);
 
@@ -3985,9 +4161,15 @@ cannon_corpse_workers_update = function()
 			continue;
 		}
 
-		_cannon.worker_cultists[_write_index] = _worker;
-		_write_index++;
 		cannon_corpse_worker_update(_worker, _cannon);
+
+		if (instance_exists(_worker)
+			&& variable_instance_exists(_worker, "assigned_building")
+			&& _worker.assigned_building == _cannon)
+		{
+			_cannon.worker_cultists[_write_index] = _worker;
+			_write_index++;
+		}
 	}
 
 	array_resize(_cannon.worker_cultists, _write_index);
@@ -4422,6 +4604,11 @@ transform_cultists_to_demons = function()
 		if (variable_instance_exists(_cultist, "stamina_amount"))
 		{
 			_demon.stamina_amount = _cultist.stamina_amount;
+		}
+
+		if (variable_instance_exists(_cultist, "stamina_max"))
+		{
+			_demon.stamina_max = _cultist.stamina_max;
 		}
 
 		if (variable_instance_exists(_cultist, "adaptive_night_hp_start"))
@@ -5107,15 +5294,16 @@ restore_dead_cultists_at_morning = function()
 			continue;
 		}
 
-		var _stamina_amount = BALANCE_CULTIST_STAMINA_MAX;
+		var _stamina_max = BALANCE_CULTIST_STAMINA_MAX;
 
-		if (variable_instance_exists(_cultist, "stamina_amount"))
+		if (variable_instance_exists(_cultist, "stamina_max"))
 		{
-			_stamina_amount = _cultist.stamina_amount;
+			_stamina_max = _cultist.stamina_max;
 		}
 
 		cultist_day_health_apply(_cultist, false);
-		_cultist.stamina_amount = _stamina_amount;
+		_cultist.stamina_max = _stamina_max;
+		_cultist.stamina_amount = _stamina_max;
 		_cultist.hp = _cultist.max_hp * BALANCE_CULTIST_MORNING_RESPAWN_HP_SHARE;
 		_cultist.visible = true;
 		_cultist.image_alpha = 1;
@@ -5174,6 +5362,11 @@ transform_demons_to_cultists = function()
 		if (variable_instance_exists(_unit, "stamina_amount"))
 		{
 			_cultist.stamina_amount = _unit.stamina_amount;
+		}
+
+		if (variable_instance_exists(_unit, "stamina_max"))
+		{
+			_cultist.stamina_max = _unit.stamina_max;
 		}
 
 		if (variable_instance_exists(_unit, "adaptive_night_hp_start"))
@@ -7020,6 +7213,7 @@ start_day_phase = function()
 	unload_cultist_projectiles_to_day();
 	transform_demons_to_cultists();
 	restore_dead_cultists_at_morning();
+	day_workers_stamina_restore_at_morning();
 	move_cultists_to_cannon_inner();
 	move_summoned_units_to_cannon_inner();
 
@@ -7036,6 +7230,11 @@ start_day_phase = function()
 	with (o_grave_spire)
 	{
 		grave_spire_spawn_morning_units();
+	}
+
+	with (o_ihor_extractor)
+	{
+		ihor_extractor_morning_income_collect();
 	}
 
 	with (o_ritual_circle)

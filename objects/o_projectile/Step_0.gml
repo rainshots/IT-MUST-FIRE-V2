@@ -464,6 +464,11 @@ if (_flight_progress >= 1)
 				_demon.stamina_amount = _cultist.stamina_amount;
 			}
 
+			if (variable_instance_exists(_cultist, "stamina_max"))
+			{
+				_demon.stamina_max = _cultist.stamina_max;
+			}
+
 			if (variable_instance_exists(_cultist, "adaptive_night_damage_taken"))
 			{
 				_demon.adaptive_night_damage_taken = _cultist.adaptive_night_damage_taken;

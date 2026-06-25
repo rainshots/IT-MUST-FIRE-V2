@@ -95,10 +95,17 @@ if (global.day_phase == DAY_PHASE.DAY
 	&& !cannon_loading
 	&& !cannon_loaded)
 {
+	var _idle_label_text = idle_work_label_text;
+
+	if (variable_instance_exists(id, "stamina_amount") && stamina_amount <= 0)
+	{
+		_idle_label_text = "NO STAMINA";
+	}
+
 	var _idle_label_x = x;
 	var _idle_label_y = bbox_top - idle_work_label_offset_y;
-	var _idle_label_width = string_width(idle_work_label_text) + (idle_work_label_padding_x * 2);
-	var _idle_label_height = string_height(idle_work_label_text) + (idle_work_label_padding_y * 2);
+	var _idle_label_width = string_width(_idle_label_text) + (idle_work_label_padding_x * 2);
+	var _idle_label_height = string_height(_idle_label_text) + (idle_work_label_padding_y * 2);
 	var _idle_label_left = _idle_label_x - (_idle_label_width * 0.5);
 	var _idle_label_top = _idle_label_y - (_idle_label_height * 0.5);
 
@@ -116,7 +123,7 @@ if (global.day_phase == DAY_PHASE.DAY
 	draw_set_halign(fa_center);
 	draw_set_valign(fa_middle);
 	draw_set_color(COLOR_STATUS_NEGATIVE_RED);
-	draw_text(_idle_label_x, _idle_label_y, idle_work_label_text);
+	draw_text(_idle_label_x, _idle_label_y, _idle_label_text);
 }
 
 // Draw a warning when a cannon worker has no free corpse to haul.
@@ -225,7 +232,14 @@ if (max_hp > 0)
 
 	if (global.day_phase == DAY_PHASE.DAY && variable_instance_exists(id, "stamina_amount"))
 	{
-		var _stamina_progress = clamp(stamina_amount / max(1, BALANCE_CULTIST_STAMINA_MAX), 0, 1);
+		var _stamina_max = BALANCE_CULTIST_STAMINA_MAX;
+
+		if (variable_instance_exists(id, "stamina_max"))
+		{
+			_stamina_max = stamina_max;
+		}
+
+		var _stamina_progress = clamp(stamina_amount / max(1, _stamina_max), 0, 1);
 		var _stamina_bar_y = _next_status_bar_y;
 
 		draw_set_alpha(0.75);
