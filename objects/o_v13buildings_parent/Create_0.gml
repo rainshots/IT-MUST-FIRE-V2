@@ -123,6 +123,11 @@ resource_name_get = function(_resource)
 		return "Iron";
 	}
 
+	if (_resource == RESOURCES.IHOR)
+	{
+		return "Ihor";
+	}
+
 	return "";
 };
 
@@ -143,6 +148,11 @@ resource_icon_get = function(_resource)
 		return s_iron_icon;
 	}
 
+	if (_resource == RESOURCES.IHOR)
+	{
+		return s_ihor_icon;
+	}
+
 	return noone;
 };
 
@@ -161,6 +171,11 @@ resource_color_get = function(_resource)
 	if (_resource == RESOURCES.IRON)
 	{
 		return COLOR_HUD_IRON;
+	}
+
+	if (_resource == RESOURCES.IHOR)
+	{
+		return COLOR_HUD_IHOR;
 	}
 
 	return c_white;

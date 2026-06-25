@@ -400,7 +400,73 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 			draw_set_color(COLOR_PROJECTILE_SKELETONS);
 			draw_text(_mouse_x, _mouse_y, _count_text);
 		}
+		else if (is_struct(_projectile_payload)
+			&& variable_struct_exists(_projectile_payload, "building_object")
+			&& _projectile_payload.building_object == o_ihor_extractor)
+		{
+			var _ihor_speed = ihor_extractor_speed_preview(_mouse_world_x, _mouse_world_y);
+			var _speed_text = "Ihor speed: " + string_format(_ihor_speed, 1, 1) + "x";
+			var _vein_count = instance_number(o_ihor_vein);
+			var _preview_radius = building_shell_preview_radius_get(_projectile_payload);
+
+			for (var _vein_index = 0; _vein_index < _vein_count; ++_vein_index)
+			{
+				var _vein = instance_find(o_ihor_vein, _vein_index);
+
+				if (!instance_exists(_vein)
+					|| !variable_instance_exists(_vein, "ihor_remaining")
+					|| point_distance(_mouse_world_x, _mouse_world_y, _vein.x, _vein.y) > _preview_radius)
+				{
+					continue;
+				}
+
+				if (variable_instance_exists(_vein, "assigned_ihor_extractor")
+					&& instance_exists(_vein.assigned_ihor_extractor))
+				{
+					continue;
+				}
+
+				var _vein_gui_x = ((_vein.x - _camera_x) / _camera_width) * camera_view_width;
+				var _vein_gui_y = ((_vein.y - _camera_y) / _camera_height) * camera_view_height;
+				var _vein_highlight_radius = 14;
+
+				draw_set_alpha(0.82);
+				draw_set_color(COLOR_IHOR_EXTRACTOR_RADIUS);
+				draw_line_width(_mouse_x, _mouse_y, _vein_gui_x, _vein_gui_y, 2);
+
+				draw_set_alpha(0.18);
+				draw_circle(_vein_gui_x, _vein_gui_y, _vein_highlight_radius, false);
+
+				draw_set_alpha(0.95);
+				draw_circle(_vein_gui_x, _vein_gui_y, _vein_highlight_radius, true);
+			}
+
+			draw_set_alpha(1);
+			draw_set_halign(fa_center);
+			draw_set_valign(fa_middle);
+			var _speed_padding_x = 8;
+			var _speed_padding_y = 5;
+			var _speed_width = string_width(_speed_text) + (_speed_padding_x * 2);
+			var _speed_height = string_height(_speed_text) + (_speed_padding_y * 2);
+
+			draw_set_alpha(0.86);
+			draw_set_color(COLOR_HUD_BACKGROUND);
+			draw_rectangle(
+				_mouse_x - (_speed_width * 0.5),
+				_mouse_y - (_speed_height * 0.5),
+				_mouse_x + (_speed_width * 0.5),
+				_mouse_y + (_speed_height * 0.5),
+				false
+			);
+
+			draw_set_alpha(1);
+			draw_set_color(COLOR_HUD_IHOR);
+			draw_text(_mouse_x, _mouse_y, _speed_text);
+		}
 	}
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
 
 	if (_target_hint_text != "")
 	{
@@ -3691,6 +3757,35 @@ else
 		draw_circle(_knob_x, _knob_y, settings_slider_knob_radius, false);
 		draw_set_color(c_black);
 		draw_circle(_knob_x, _knob_y, settings_slider_knob_radius, true);
+	}
+
+	var _edge_toggle_rect = settings_edge_toggle_rect_get();
+	var _edge_toggle_label_y = _edge_toggle_rect.y + (_edge_toggle_rect.height * 0.5);
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_middle);
+	draw_set_color(c_black);
+	draw_text(_panel_x + 48, _edge_toggle_label_y, "Edge Scroll");
+	draw_rectangle(
+		_edge_toggle_rect.x,
+		_edge_toggle_rect.y,
+		_edge_toggle_rect.x + _edge_toggle_rect.width,
+		_edge_toggle_rect.y + _edge_toggle_rect.height,
+		true
+	);
+
+	if (global.edge_scroll_enabled)
+	{
+		var _check_padding = 5;
+
+		draw_set_color(COLOR_PROJECTILE_BUILDING_SHELL);
+		draw_rectangle(
+			_edge_toggle_rect.x + _check_padding,
+			_edge_toggle_rect.y + _check_padding,
+			_edge_toggle_rect.x + _edge_toggle_rect.width - _check_padding,
+			_edge_toggle_rect.y + _edge_toggle_rect.height - _check_padding,
+			false
+		);
 	}
 
 	draw_set_halign(fa_center);

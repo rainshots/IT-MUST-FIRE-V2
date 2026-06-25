@@ -24,6 +24,11 @@ function resource_popup_create(_x, _y, _resource_type, _amount)
 		_resource_color = COLOR_HUD_IRON;
 		_resource_icon = s_iron_icon;
 	}
+	else if (_resource_type == RESOURCES.IHOR)
+	{
+		_resource_color = COLOR_HUD_IHOR;
+		_resource_icon = s_ihor_icon;
+	}
 
 	var _popup = instance_create_layer(_x, _y, "Instances", o_resource_popup);
 	var _change_sign = "";

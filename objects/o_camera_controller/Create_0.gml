@@ -10,6 +10,16 @@ if (instance_exists(o_game_controller))
 	game_controller = instance_find(o_game_controller, 0);
 }
 
+if (!variable_global_exists("edge_scroll_enabled"))
+{
+	global.edge_scroll_enabled = true;
+}
+
+if (!variable_global_exists("edge_scroll_speed"))
+{
+	global.edge_scroll_speed = 0.5;
+}
+
 // View size used by the strategy camera.
 if (instance_exists(game_controller))
 {
@@ -40,6 +50,9 @@ move_acceleration = 1.2;
 move_deceleration = 1.0;
 minimum_zoom_speed_multiplier = 1;
 maximum_zoom_speed_multiplier = 2;
+edge_scroll_border_size = 28;
+edge_scroll_speed_min_multiplier = 0.35;
+edge_scroll_speed_max_multiplier = 1.5;
 
 // Current camera velocity.
 velocity_x = 0;
@@ -72,6 +85,7 @@ camera_center_on_position = function(_target_x, _target_y)
 	// Stop keyboard drift so the requested target stays centered immediately.
 	x = _target_x;
 	y = _target_y;
+	camera_center_clamp_to_room();
 	velocity_x = 0;
 	velocity_y = 0;
 
@@ -81,6 +95,46 @@ camera_center_on_position = function(_target_x, _target_y)
 // Camera centering helpers.
 half_view_width = view_width * 0.5;
 half_view_height = view_height * 0.5;
+
+camera_center_clamp_to_room = function()
+{
+	var _minimum_center_x = half_view_width;
+	var _maximum_center_x = room_width - half_view_width;
+	var _minimum_center_y = half_view_height;
+	var _maximum_center_y = room_height - half_view_height;
+
+	// Center the view if it ever becomes wider than the room.
+	if (_minimum_center_x > _maximum_center_x)
+	{
+		x = room_width * 0.5;
+	}
+	else
+	{
+		x = clamp(x, _minimum_center_x, _maximum_center_x);
+	}
+
+	if (_minimum_center_y > _maximum_center_y)
+	{
+		y = room_height * 0.5;
+	}
+	else
+	{
+		y = clamp(y, _minimum_center_y, _maximum_center_y);
+	}
+};
+
+camera_view_position_clamp_to_room = function(_view_x, _view_y)
+{
+	var _maximum_view_x = max(0, room_width - view_width);
+	var _maximum_view_y = max(0, room_height - view_height);
+
+	return [
+		clamp(_view_x, 0, _maximum_view_x),
+		clamp(_view_y, 0, _maximum_view_y)
+	];
+};
+
+camera_center_clamp_to_room();
 
 // Camera creation settings.
 camera_angle = 0;

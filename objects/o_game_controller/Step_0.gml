@@ -660,6 +660,7 @@ if (global.cheats_enabled)
 		global.resources[RESOURCES.FLESH] += BALANCE_DEBUG_RESOURCE_CHEAT_AMOUNT;
 		global.resources[RESOURCES.SOULS] += BALANCE_DEBUG_RESOURCE_CHEAT_AMOUNT;
 		global.resources[RESOURCES.IRON] += BALANCE_DEBUG_RESOURCE_CHEAT_AMOUNT;
+		global.resources[RESOURCES.IHOR] += BALANCE_DEBUG_RESOURCE_CHEAT_AMOUNT;
 	}
 
 	// F8 skips the current day or night phase.
@@ -1310,9 +1311,16 @@ if (pause_menu_open && (mouse_check_button_pressed(mb_left) || settings_open))
 		var _panel_y = (camera_view_height - settings_panel_height) * 0.5;
 		var _close_button_x = _panel_x + ((settings_panel_width - button_width) * 0.5);
 		var _close_button_y = _panel_y + settings_panel_height - button_height - settings_close_bottom_padding;
+		var _edge_toggle_rect = settings_edge_toggle_rect_get();
 		var _settings_slider_index = settings_slider_find_at_gui(_mouse_x, _mouse_y);
 
-		if (mouse_check_button_pressed(mb_left) && _settings_slider_index >= 0)
+		if (mouse_check_button_pressed(mb_left)
+			&& ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _edge_toggle_rect.x, _edge_toggle_rect.y, _edge_toggle_rect.width, _edge_toggle_rect.height))
+		{
+			global.edge_scroll_enabled = !global.edge_scroll_enabled;
+			settings_drag_slider_index = -1;
+		}
+		else if (mouse_check_button_pressed(mb_left) && _settings_slider_index >= 0)
 		{
 			settings_drag_slider_index = _settings_slider_index;
 			settings_slider_value_set(

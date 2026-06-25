@@ -338,6 +338,10 @@ resource_name_get = function(_resource)
 	{
 		return "Iron";
 	}
+	else if (_resource == RESOURCES.IHOR)
+	{
+		return "Ihor";
+	}
 
 	return "Resource";
 };
@@ -355,6 +359,10 @@ resource_color_get = function(_resource)
 	else if (_resource == RESOURCES.IRON)
 	{
 		return COLOR_HUD_IRON;
+	}
+	else if (_resource == RESOURCES.IHOR)
+	{
+		return COLOR_HUD_IHOR;
 	}
 
 	return COLOR_HUD_TEXT;

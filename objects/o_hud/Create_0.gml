@@ -11,9 +11,9 @@ resource_icon_text_gap = 12;
 resource_text_padding = 20;
 resource_sidebar_y = 48;
 resource_sidebar_icon_size = 30;
-resource_sidebar_first_icon_offset_x = 49;
-resource_sidebar_item_gap = 128;
-resource_sidebar_value_offset_x = 50;
+resource_sidebar_first_icon_offset_x = 34;
+resource_sidebar_item_gap = 94;
+resource_sidebar_value_offset_x = 36;
 
 // Cannon HP follows the wide bottom-bar concept from the HUD design.
 cannon_hp_bar_width_share = 0.31875;
@@ -250,19 +250,22 @@ objective_complete_description = "The cannon accepts you as the new Pontiff.";
 resource_order = [
 	RESOURCES.FLESH,
 	RESOURCES.SOULS,
-	RESOURCES.IRON
+	RESOURCES.IRON,
+	RESOURCES.IHOR
 ];
 
 resource_colors = [
 	COLOR_HUD_FLESH,
 	COLOR_HUD_SOULS,
-	COLOR_HUD_IRON
+	COLOR_HUD_IRON,
+	COLOR_HUD_IHOR
 ];
 
 resource_icon_sprites = [
 	s_flesh_icon,
 	s_soul_icon,
-	s_iron_icon
+	s_iron_icon,
+	s_ihor_icon
 ];
 
 // Taint display is derived from the ground corruption grid.

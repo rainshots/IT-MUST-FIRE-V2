@@ -122,6 +122,11 @@ captured_building_rifts_draw = function()
 			_draws_base_rift = true;
 		}
 
+		if (_map_object.object_index == o_ihor_extractor)
+		{
+			_draws_base_rift = true;
+		}
+
 		if (!_draws_base_rift)
 		{
 			continue;
@@ -182,6 +187,48 @@ captured_building_rifts_draw = function()
 					_map_object.x,
 					_map_object.y,
 					_grave_seed,
+					BALANCE_CAPTURED_BUILDING_RIFT_CORE_WIDTH,
+					BALANCE_CAPTURED_BUILDING_RIFT_CORE_ALPHA
+				);
+			}
+		}
+
+		if (_map_object.object_index == o_ihor_extractor
+			&& variable_instance_exists(_map_object, "ihor_extractor_vein_count_get"))
+		{
+			_map_object.ihor_extractor_vein_count_get();
+
+			var _extractor_object_id = _map_object.id;
+			var _vein_count = instance_number(o_ihor_vein);
+
+			for (var _vein_index = 0; _vein_index < _vein_count; ++_vein_index)
+			{
+				var _vein = instance_find(o_ihor_vein, _vein_index);
+
+				if (!instance_exists(_vein)
+					|| !variable_instance_exists(_vein, "assigned_ihor_extractor")
+					|| _vein.assigned_ihor_extractor != _extractor_object_id)
+				{
+					continue;
+				}
+
+				var _vein_seed = _map_object.x + (_map_object.y * 13) + (_vein.x * 7) + (_vein.y * 3);
+
+				captured_building_rift_line_draw(
+					_vein.x,
+					_vein.y,
+					_map_object.x,
+					_map_object.y,
+					_vein_seed,
+					BALANCE_CAPTURED_BUILDING_RIFT_WIDTH,
+					BALANCE_CAPTURED_BUILDING_RIFT_ALPHA
+				);
+				captured_building_rift_line_draw(
+					_vein.x,
+					_vein.y,
+					_map_object.x,
+					_map_object.y,
+					_vein_seed,
 					BALANCE_CAPTURED_BUILDING_RIFT_CORE_WIDTH,
 					BALANCE_CAPTURED_BUILDING_RIFT_CORE_ALPHA
 				);

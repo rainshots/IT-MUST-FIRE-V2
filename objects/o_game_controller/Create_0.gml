@@ -8,6 +8,8 @@ global.play_music = BALANCE_PLAY_MUSIC;
 global.music_volume = 0.8;
 global.ambient_volume = 0.8;
 global.sound_volume = 0.8;
+global.edge_scroll_enabled = true;
+global.edge_scroll_speed = 0.5;
 
 // Global day cycle uses fixed day and night timers.
 global.day_phase = DAY_PHASE.DAY;
@@ -700,11 +702,17 @@ ui_hover_candidate_get = function(_mouse_x, _mouse_y)
 			var _settings_panel_y = (camera_view_height - settings_panel_height) * 0.5;
 			var _close_button_x = _settings_panel_x + ((settings_panel_width - button_width) * 0.5);
 			var _close_button_y = _settings_panel_y + settings_panel_height - button_height - settings_close_bottom_padding;
+			var _edge_toggle_rect = settings_edge_toggle_rect_get();
 			var _settings_slider_index = settings_slider_find_at_gui(_mouse_x, _mouse_y);
 
 			if (_settings_slider_index >= 0)
 			{
 				return "settings_slider_" + string(_settings_slider_index);
+			}
+
+			if (ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _edge_toggle_rect.x, _edge_toggle_rect.y, _edge_toggle_rect.width, _edge_toggle_rect.height))
+			{
+				return "settings_edge_scroll_toggle";
 			}
 
 			if (ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _close_button_x, _close_button_y, button_width, button_height))
@@ -966,6 +974,7 @@ global.resources = array_create(RESOURCES.COUNT, 0);
 global.resources[RESOURCES.FLESH] = BALANCE_STARTING_FLESH;
 global.resources[RESOURCES.SOULS] = BALANCE_STARTING_SOULS;
 global.resources[RESOURCES.IRON] = BALANCE_STARTING_IRON;
+global.resources[RESOURCES.IHOR] = BALANCE_STARTING_IHOR;
 
 // Corpses are inert sprite snapshots, not gameplay instances.
 corpse_draw_data = [];
@@ -1697,6 +1706,15 @@ debug_shell_choices = [
 			building_sprite: s_grave_spire,
 			building_name: "Grave Spire"
 		}
+	},
+	{
+		label: "Ihor Extractor",
+		projectile_type: PROJECTILE_TYPE.BUILDING_SHELL,
+		payload: {
+			building_object: o_ihor_extractor,
+			building_sprite: s_ihor_extractor,
+			building_name: "Ihor Extractor"
+		}
 	}
 ];
 
@@ -1893,6 +1911,11 @@ building_shell_preview_radius_get = function(_building_payload)
 		return BALANCE_GRAVE_SPIRE_RADIUS;
 	}
 
+	if (_building_payload.building_object == o_ihor_extractor)
+	{
+		return BALANCE_IHOR_EXTRACTOR_RADIUS;
+	}
+
 	return 0;
 };
 
@@ -1923,6 +1946,11 @@ building_shell_preview_color_get = function(_building_payload)
 	if (_building_payload.building_object == o_grave_spire)
 	{
 		return COLOR_PROJECTILE_DAMAGE;
+	}
+
+	if (_building_payload.building_object == o_ihor_extractor)
+	{
+		return COLOR_IHOR_EXTRACTOR_RADIUS;
 	}
 
 	return COLOR_PROJECTILE_BUILDING_SHELL;
@@ -1988,10 +2016,10 @@ button_width = 280;
 button_height = 58;
 button_gap = 18;
 settings_panel_width = 420;
-settings_panel_height = 340;
+settings_panel_height = 430;
 settings_close_bottom_padding = 28;
-settings_slider_count = 3;
-settings_slider_labels = ["Music", "Ambient", "Sounds"];
+settings_slider_count = 4;
+settings_slider_labels = ["Music", "Ambient", "Sounds", "Edge Speed"];
 settings_slider_x = 150;
 settings_slider_y = 104;
 settings_slider_width = 200;
@@ -1999,6 +2027,9 @@ settings_slider_height = 12;
 settings_slider_gap_y = 54;
 settings_slider_knob_radius = 10;
 settings_drag_slider_index = -1;
+settings_edge_toggle_x = 150;
+settings_edge_toggle_y = 260;
+settings_edge_toggle_size = 24;
 pause_feedback_button_width = 460;
 pause_feedback_button_height = 76;
 pause_button_labels = ["CONTINUE", "SETTINGS", "PLEASE LEAVE A FEEDBACK", "QUIT"];
@@ -2075,7 +2106,12 @@ settings_slider_value_get = function(_slider_index)
 		return global.ambient_volume;
 	}
 
-	return global.sound_volume;
+	if (_slider_index == 2)
+	{
+		return global.sound_volume;
+	}
+
+	return global.edge_scroll_speed;
 };
 
 settings_slider_value_set = function(_slider_index, _value)
@@ -2090,9 +2126,13 @@ settings_slider_value_set = function(_slider_index, _value)
 	{
 		global.ambient_volume = _clamped_value;
 	}
-	else
+	else if (_slider_index == 2)
 	{
 		global.sound_volume = _clamped_value;
+	}
+	else
+	{
+		global.edge_scroll_speed = _clamped_value;
 	}
 };
 
@@ -2123,6 +2163,19 @@ settings_slider_value_from_gui = function(_slider_index, _mouse_x)
 {
 	var _rect = settings_slider_rect_get(_slider_index);
 	return clamp((_mouse_x - _rect.x) / max(1, _rect.width), 0, 1);
+};
+
+settings_edge_toggle_rect_get = function()
+{
+	var _panel_x = (camera_view_width - settings_panel_width) * 0.5;
+	var _panel_y = (camera_view_height - settings_panel_height) * 0.5;
+
+	return {
+		x: _panel_x + settings_edge_toggle_x,
+		y: _panel_y + settings_edge_toggle_y,
+		width: settings_edge_toggle_size,
+		height: settings_edge_toggle_size
+	};
 };
 
 // Cultist prototype state.
@@ -2963,6 +3016,34 @@ grave_spire_morning_skeleton_count_preview = function(_world_x, _world_y)
 	return _skeleton_count;
 };
 
+ihor_extractor_speed_preview = function(_world_x, _world_y)
+{
+	var _speed = BALANCE_IHOR_EXTRACTOR_BASE_SPEED;
+	var _vein_count = instance_number(o_ihor_vein);
+
+	for (var _vein_index = 0; _vein_index < _vein_count; ++_vein_index)
+	{
+		var _vein = instance_find(o_ihor_vein, _vein_index);
+
+		if (!instance_exists(_vein)
+			|| !variable_instance_exists(_vein, "ihor_remaining")
+			|| point_distance(_world_x, _world_y, _vein.x, _vein.y) > BALANCE_IHOR_EXTRACTOR_RADIUS)
+		{
+			continue;
+		}
+
+		if (!variable_instance_exists(_vein, "assigned_ihor_extractor")
+			|| !instance_exists(_vein.assigned_ihor_extractor))
+		{
+			_speed += (_vein.ihor_remaining > 0)
+				? BALANCE_IHOR_EXTRACTOR_FULL_VEIN_SPEED
+				: BALANCE_IHOR_EXTRACTOR_EMPTY_VEIN_SPEED;
+		}
+	}
+
+	return _speed;
+};
+
 open_building_window = function(_slot)
 {
 	if (!instance_exists(_slot))
@@ -3085,6 +3166,11 @@ resource_name_get = function(_resource)
 		return "Iron";
 	}
 
+	if (_resource == RESOURCES.IHOR)
+	{
+		return "Ihor";
+	}
+
 	return "";
 };
 
@@ -3103,6 +3189,11 @@ resource_icon_get = function(_resource)
 	if (_resource == RESOURCES.IRON)
 	{
 		return s_iron_icon;
+	}
+
+	if (_resource == RESOURCES.IHOR)
+	{
+		return s_ihor_icon;
 	}
 
 	return noone;
@@ -3125,6 +3216,11 @@ resource_color_get = function(_resource)
 		return COLOR_HUD_IRON;
 	}
 
+	if (_resource == RESOURCES.IHOR)
+	{
+		return COLOR_HUD_IHOR;
+	}
+
 	return c_white;
 };
 
@@ -3136,7 +3232,7 @@ building_resource_summary_draw = function(_center_x, _y)
 	}
 
 	// Draw current resources inside modal windows where the regular HUD is hidden.
-	var _resource_order = [RESOURCES.FLESH, RESOURCES.SOULS, RESOURCES.IRON];
+	var _resource_order = [RESOURCES.FLESH, RESOURCES.SOULS, RESOURCES.IRON, RESOURCES.IHOR];
 	var _resource_count = array_length(_resource_order);
 	var _icon_size = 22;
 	var _icon_text_gap = 6;
