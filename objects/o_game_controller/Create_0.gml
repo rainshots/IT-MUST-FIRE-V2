@@ -11,12 +11,14 @@ global.sound_volume = 0.8;
 global.edge_scroll_enabled = true;
 global.edge_scroll_speed = 0.5;
 global.camera_speed = 0.5;
+global.game_speed_normal = BALANCE_GAME_SPEED_NORMAL;
+game_set_speed(global.game_speed_normal, gamespeed_fps);
 
 // Global day cycle uses fixed day and night timers.
 global.day_phase = DAY_PHASE.DAY;
 global.day_duration = BALANCE_DAY_DURATION;
 global.night_duration = BALANCE_NIGHT_DURATION;
-global.day_timer = global.day_duration * room_speed;
+global.day_timer = global.day_duration * global.game_speed_normal;
 global.night_attack_unit_count = 0;
 global.day_cycle_enabled = true;
 global.legacy_building_logic_enabled = false;
@@ -1504,13 +1506,6 @@ building_choices = [
 		building_sprite: s_workshop,
 		building_name: "Workshop",
 		building_description: "Repairs the cannon and damaged structures by spending Iron.",
-		iron_cost: BALANCE_BUILDING_IRON_COST
-	},
-	{
-		building_object: o_foundry,
-		building_sprite: s_foundry,
-		building_name: "Foundry",
-		building_description: "Produces structure shells that the cannon can fire onto tainted ground.",
 		iron_cost: BALANCE_BUILDING_IRON_COST
 	},
 	{
@@ -3472,7 +3467,8 @@ assign_cultist_to_worker_building = function(_cultist, _building)
 
 	clear_cultist_building_assignment(_cultist);
 
-	if (day_worker_is_out_of_stamina(_cultist))
+	if (day_worker_is_out_of_stamina(_cultist)
+		&& _building.object_index != o_ritual_circle)
 	{
 		if (variable_instance_exists(_building, "building_warning_show"))
 		{
@@ -3662,14 +3658,6 @@ worker_idle_wander_update = function(_worker, _allow_cannon_assignment = false)
 	return true;
 };
 
-day_worker_has_stamina = function(_worker)
-{
-	return instance_exists(_worker)
-		&& (!variable_instance_exists(_worker, "hp") || _worker.hp > 0)
-		&& variable_instance_exists(_worker, "stamina_amount")
-		&& _worker.stamina_amount > 0;
-};
-
 day_worker_is_out_of_stamina = function(_worker)
 {
 	return instance_exists(_worker)
@@ -3714,94 +3702,6 @@ day_worker_stamina_spend = function(_worker, _drain_multiplier = 1)
 	}
 
 	return false;
-};
-
-day_worker_stamina_restore = function(_worker)
-{
-	if (!instance_exists(_worker)
-		|| !variable_instance_exists(_worker, "stamina_amount"))
-	{
-		return;
-	}
-
-	var _stamina_max = BALANCE_CULTIST_STAMINA_MAX;
-
-	if (variable_instance_exists(_worker, "stamina_max"))
-	{
-		_stamina_max = _worker.stamina_max;
-	}
-
-	_worker.stamina_amount = _stamina_max;
-};
-
-day_workers_stamina_restore_at_morning = function()
-{
-	var _cultist_count = array_length(global.cultists);
-
-	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
-	{
-		day_worker_stamina_restore(global.cultists[_cultist_index]);
-	}
-
-	var _goblin_count = instance_number(o_goblin);
-
-	for (var _goblin_index = 0; _goblin_index < _goblin_count; ++_goblin_index)
-	{
-		day_worker_stamina_restore(instance_find(o_goblin, _goblin_index));
-	}
-};
-
-day_workers_all_stamina_empty = function()
-{
-	if (global.day_phase != DAY_PHASE.DAY)
-	{
-		return false;
-	}
-
-	var _worker_count = 0;
-	var _cultist_count = array_length(global.cultists);
-
-	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
-	{
-		var _cultist = global.cultists[_cultist_index];
-
-		if (!instance_exists(_cultist)
-			|| !variable_instance_exists(_cultist, "stamina_amount")
-			|| (variable_instance_exists(_cultist, "hp") && _cultist.hp <= 0))
-		{
-			continue;
-		}
-
-		_worker_count++;
-
-		if (day_worker_has_stamina(_cultist))
-		{
-			return false;
-		}
-	}
-
-	var _goblin_count = instance_number(o_goblin);
-
-	for (var _goblin_index = 0; _goblin_index < _goblin_count; ++_goblin_index)
-	{
-		var _goblin = instance_find(o_goblin, _goblin_index);
-
-		if (!instance_exists(_goblin)
-			|| !variable_instance_exists(_goblin, "stamina_amount")
-			|| (variable_instance_exists(_goblin, "hp") && _goblin.hp <= 0))
-		{
-			continue;
-		}
-
-		_worker_count++;
-
-		if (day_worker_has_stamina(_goblin))
-		{
-			return false;
-		}
-	}
-
-	return _worker_count > 0;
 };
 
 day_idle_cultists_wander_update = function()
@@ -4148,11 +4048,17 @@ cannon_corpse_workers_update = function()
 	}
 
 	var _worker_count = array_length(_cannon.worker_cultists);
+	var _workers = array_create(_worker_count);
 	var _write_index = 0;
+
+	for (var _copy_index = 0; _copy_index < _worker_count; ++_copy_index)
+	{
+		_workers[_copy_index] = _cannon.worker_cultists[_copy_index];
+	}
 
 	for (var _worker_index = 0; _worker_index < _worker_count; ++_worker_index)
 	{
-		var _worker = _cannon.worker_cultists[_worker_index];
+		var _worker = _workers[_worker_index];
 
 		if (!instance_exists(_worker)
 			|| !variable_instance_exists(_worker, "assigned_building")
@@ -5303,7 +5209,6 @@ restore_dead_cultists_at_morning = function()
 
 		cultist_day_health_apply(_cultist, false);
 		_cultist.stamina_max = _stamina_max;
-		_cultist.stamina_amount = _stamina_max;
 		_cultist.hp = _cultist.max_hp * BALANCE_CULTIST_MORNING_RESPAWN_HP_SHARE;
 		_cultist.visible = true;
 		_cultist.image_alpha = 1;
@@ -7123,7 +7028,7 @@ start_night_phase = function()
 	clear_dragged_unit();
 	cannon_corpse_workers_drop_all();
 	global.day_phase = DAY_PHASE.NIGHT;
-	global.day_timer = global.night_duration * room_speed;
+	global.day_timer = global.night_duration * global.game_speed_normal;
 	global.night_attack_unit_count = 0;
 	night_force_end_timer = BALANCE_NIGHT_FORCE_END_TIME * room_speed;
 	night_force_end_active = false;
@@ -7196,7 +7101,7 @@ start_day_phase = function()
 {
 	clear_dragged_unit();
 	global.day_phase = DAY_PHASE.DAY;
-	global.day_timer = global.day_duration * room_speed;
+	global.day_timer = global.day_duration * global.game_speed_normal;
 	global.night_attack_unit_count = 0;
 	night_force_end_timer = 0;
 	night_force_end_active = false;
@@ -7213,7 +7118,6 @@ start_day_phase = function()
 	unload_cultist_projectiles_to_day();
 	transform_demons_to_cultists();
 	restore_dead_cultists_at_morning();
-	day_workers_stamina_restore_at_morning();
 	move_cultists_to_cannon_inner();
 	move_summoned_units_to_cannon_inner();
 

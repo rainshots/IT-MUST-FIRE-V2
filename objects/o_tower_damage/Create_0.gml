@@ -15,6 +15,10 @@ damage = BALANCE_TOWER_DAMAGE_AMOUNT;
 reload_time = BALANCE_TOWER_DAMAGE_RELOAD_TIME * room_speed;
 reload_timer = 0;
 target_instance = noone;
+projectile_spawn_offset_y = -20;
+projectile_layer_name = "Instances";
+projectile_effect_radius = BALANCE_TOWER_DAMAGE_PROJECTILE_EFFECT_RADIUS;
+projectile_draw_depth = BALANCE_PARTICLE_SYSTEM_TOP_DEPTH - 50;
 
 // Attack feedback shows the tower shot for a short moment.
 attack_feedback_time = BALANCE_TOWER_ATTACK_FEEDBACK_TIME * room_speed;
@@ -30,3 +34,30 @@ tooltip_lines = [
 	"Capture: requires full Taint under the tower",
 	"Hover: shows shooting radius"
 ];
+
+tower_damage_projectile_create = function(_target_x, _target_y)
+{
+	var _projectile_x = x;
+	var _projectile_y = y + projectile_spawn_offset_y;
+	var _projectile = instance_create_layer(_projectile_x, _projectile_y, projectile_layer_name, o_projectile);
+	var _projectile_distance = point_distance(_projectile_x, _projectile_y, _target_x, _target_y);
+	var _flight_time_seconds = clamp(
+		_projectile_distance / _projectile.projectile_speed,
+		_projectile.minimum_flight_time,
+		_projectile.maximum_flight_time
+	);
+
+	_projectile.start_x = _projectile_x;
+	_projectile.start_y = _projectile_y;
+	_projectile.target_x = _target_x;
+	_projectile.target_y = _target_y;
+	_projectile.projectile_type = PROJECTILE_TYPE.DAMAGE;
+	_projectile.effect_radius = projectile_effect_radius;
+	_projectile.damage_amount = damage;
+	_projectile.damage_faction = UNIT_FACTION.FRIENDLY;
+	_projectile.source_instance = id;
+	_projectile.flight_time = _flight_time_seconds * room_speed;
+	_projectile.depth = projectile_draw_depth;
+
+	return _projectile;
+};

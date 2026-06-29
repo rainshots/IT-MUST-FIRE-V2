@@ -36,29 +36,28 @@ if (heal_tick_timer < heal_tick_time)
 
 heal_tick_timer = 0;
 
-// Heal summoned and demon-form friendly units in range.
-var _friendly_list = ds_list_create();
-var _friendly_count = collision_circle_list(x, y, heal_radius, o_friendly_units, false, true, _friendly_list, false);
+// Shoot at the nearest wounded summoned or demon-form friendly unit.
+var _target_instance = noone;
+var _nearest_distance = heal_radius;
+var _friendly_count = instance_number(o_friendly_units);
 
 for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_index)
 {
-	var _friendly_unit = _friendly_list[| _friendly_index];
+	var _friendly_unit = instance_find(o_friendly_units, _friendly_index);
 
-	if (instance_exists(_friendly_unit)
-		&& variable_instance_exists(_friendly_unit, "hp")
-		&& variable_instance_exists(_friendly_unit, "max_hp")
-		&& _friendly_unit.hp > 0
-		&& _friendly_unit.hp < _friendly_unit.max_hp)
+	if (tower_heal_target_is_valid(_friendly_unit))
 	{
-		var _friendly_hp_before_heal = _friendly_unit.hp;
-		_friendly_unit.hp = min(_friendly_unit.hp + heal_amount, _friendly_unit.max_hp);
-		heal_feedback_create(_friendly_unit, _friendly_unit.hp - _friendly_hp_before_heal);
+		var _distance_to_friendly = point_distance(x, y, _friendly_unit.x, _friendly_unit.y);
+
+		if (_distance_to_friendly <= _nearest_distance)
+		{
+			_nearest_distance = _distance_to_friendly;
+			_target_instance = _friendly_unit;
+		}
 	}
 }
 
-ds_list_destroy(_friendly_list);
-
-// Heal visible cultists too because they are player troops but not children of o_friendly_units.
+// Visible cultists are player troops but not children of o_friendly_units.
 if (variable_global_exists("cultists"))
 {
 	var _cultist_count = array_length(global.cultists);
@@ -67,17 +66,20 @@ if (variable_global_exists("cultists"))
 	{
 		var _cultist = global.cultists[_cultist_index];
 
-		if (instance_exists(_cultist)
-			&& _cultist.visible
-			&& variable_instance_exists(_cultist, "hp")
-			&& variable_instance_exists(_cultist, "max_hp")
-			&& _cultist.hp > 0
-			&& _cultist.hp < _cultist.max_hp
-			&& point_distance(x, y, _cultist.x, _cultist.y) <= heal_radius)
+		if (tower_heal_target_is_valid(_cultist))
 		{
-			var _cultist_hp_before_heal = _cultist.hp;
-			_cultist.hp = min(_cultist.hp + heal_amount, _cultist.max_hp);
-			heal_feedback_create(_cultist, _cultist.hp - _cultist_hp_before_heal);
+			var _distance_to_cultist = point_distance(x, y, _cultist.x, _cultist.y);
+
+			if (_distance_to_cultist <= _nearest_distance)
+			{
+				_nearest_distance = _distance_to_cultist;
+				_target_instance = _cultist;
+			}
 		}
 	}
+}
+
+if (instance_exists(_target_instance))
+{
+	tower_heal_projectile_create(_target_instance.x, _target_instance.y);
 }

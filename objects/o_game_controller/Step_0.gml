@@ -69,8 +69,8 @@ if (global.cheats_enabled && keyboard_check_pressed(vk_f3))
 	global.fog_of_war_visible = !global.fog_of_war_visible;
 }
 
-// L restarts the current room for fast prototype iteration.
-if (global.cheats_enabled && keyboard_check_pressed(ord("L")))
+// F12 restarts the current room for fast prototype iteration.
+if (global.cheats_enabled && keyboard_check_pressed(vk_f12))
 {
 	room_restart();
 	exit;
@@ -280,9 +280,11 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 
 		if (instance_exists(global.cultist_assignment_preview_building)
 			&& day_worker_is_out_of_stamina(_dragged_cultist)
+			&& global.cultist_assignment_preview_building.object_index != o_ritual_circle
 			&& variable_instance_exists(global.cultist_assignment_preview_building, "building_warning_show"))
 		{
 			global.cultist_assignment_preview_building.building_warning_show("NO STAMINA", COLOR_STATUS_NEGATIVE_RED);
+			global.cultist_assignment_preview_building = noone;
 		}
 
 		if (!mouse_check_button(mb_left))
@@ -736,18 +738,6 @@ if (keyboard_check_pressed(vk_escape))
 // Play UI feedback for the currently hovered or clicked button.
 ui_audio_update();
 
-// Let the player end the day once every worker has spent all stamina.
-if (keyboard_check_pressed(vk_enter)
-	&& !global.pause
-	&& global.day_cycle_enabled
-	&& global.day_phase == DAY_PHASE.DAY
-	&& global.focus_window == FOCUS_WINDOW.NOONE
-	&& !instance_exists(global.dragged_cultist)
-	&& day_workers_all_stamina_empty())
-{
-	start_night_phase();
-}
-
 // Update the day timer and let night end only after the attack is cleared.
 if (!global.pause && global.day_cycle_enabled)
 {
@@ -1150,17 +1140,20 @@ if (!global.pause
 	start_day_phase();
 }
 
-// Cannon shots are only available during the night phase.
-if (global.day_phase != DAY_PHASE.NIGHT && global.focus_window == FOCUS_WINDOW.TARGET_SELECTION)
+// Structure shells can be aimed during the day; combat projectiles are night-only.
+if (global.day_phase != DAY_PHASE.NIGHT
+	&& global.focus_window == FOCUS_WINDOW.TARGET_SELECTION
+	&& target_selection_projectile_type != PROJECTILE_TYPE.BUILDING_SHELL)
 {
 	global.focus_window = FOCUS_WINDOW.NOONE;
 }
 
-var _can_select_cannon_projectile = global.day_phase == DAY_PHASE.NIGHT
+var _can_select_cannon_projectile = (global.day_phase == DAY_PHASE.NIGHT
+		|| global.day_phase == DAY_PHASE.DAY)
 	&& (global.focus_window == FOCUS_WINDOW.NOONE
 		|| (global.cannon_projectile_cheat_enabled && global.focus_window == FOCUS_WINDOW.TARGET_SELECTION));
 
-// Start or update target selection mode from hotkeys when a queued projectile is ready at night.
+// Start or update target selection mode from hotkeys when a usable projectile is ready.
 if (_can_select_cannon_projectile)
 {
 	var _projectile_queue_count = array_length(global.cannon_projectile_queue);
@@ -1182,7 +1175,19 @@ if (_can_select_cannon_projectile)
 	{
 		if (keyboard_check_pressed(ord(string(_digit_index + 1))))
 		{
-			_selected_projectile_index = _digit_index;
+			var _digit_projectile_type = PROJECTILE_TYPE.FEAST;
+
+			if (_digit_index < _projectile_queue_count)
+			{
+				_digit_projectile_type = global.cannon_projectile_queue[_digit_index];
+			}
+
+			if (global.day_phase == DAY_PHASE.NIGHT
+				|| _digit_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
+			{
+				_selected_projectile_index = _digit_index;
+			}
+
 			break;
 		}
 	}
@@ -1206,7 +1211,8 @@ if (_can_select_cannon_projectile)
 // Confirm target selection with left mouse button.
 if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && mouse_check_button_pressed(mb_left))
 {
-	if (global.day_phase != DAY_PHASE.NIGHT)
+	if (global.day_phase != DAY_PHASE.NIGHT
+		&& target_selection_projectile_type != PROJECTILE_TYPE.BUILDING_SHELL)
 	{
 		global.focus_window = FOCUS_WINDOW.NOONE;
 	}

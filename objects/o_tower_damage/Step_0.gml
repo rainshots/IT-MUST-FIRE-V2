@@ -68,18 +68,9 @@ if (reload_timer > 0)
 	exit;
 }
 
-if (variable_instance_exists(target_instance, "unit_damage_receive"))
+if (variable_instance_exists(target_instance, "hp"))
 {
-	target_instance.unit_damage_receive(damage, UNIT_FACTION.FRIENDLY);
-}
-else if (variable_instance_exists(target_instance, "hp"))
-{
-	target_instance.hp = max(target_instance.hp - damage, 0);
-	damage_popup_create(target_instance.x, target_instance.y, damage, UNIT_FACTION.ENEMY);
+	tower_damage_projectile_create(target_instance.x, target_instance.y);
 }
 
-attack_feedback_target = target_instance;
-attack_feedback_target_x = target_instance.x;
-attack_feedback_target_y = target_instance.y;
-attack_feedback_timer = attack_feedback_time;
 reload_timer = reload_time;

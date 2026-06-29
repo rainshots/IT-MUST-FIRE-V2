@@ -7,10 +7,12 @@ projectile_type = PROJECTILE_TYPE.DAMAGE;
 cultist_payload = noone;
 cultist_deploy_units = [];
 building_payload = noone;
+source_instance = noone;
 
 // Explosion and effect settings.
 effect_radius = BALANCE_PROJECTILE_EFFECT_RADIUS;
 damage_amount = BALANCE_PROJECTILE_DAMAGE_AMOUNT;
+damage_faction = UNIT_FACTION.NOONE;
 summon_count = BALANCE_PROJECTILE_SKELETON_COUNT;
 corruption_amount = 1;
 ground_corruption_amount = BALANCE_PROJECTILE_GROUND_CORRUPTION_AMOUNT;
@@ -35,3 +37,25 @@ projectile_radius = 12;
 projectile_visual_scale = 2.5;
 explosion_preview_frames = 8;
 draw_explosion_preview = false;
+
+projectile_target_is_allied = function(_target)
+{
+	if (damage_faction == UNIT_FACTION.NOONE || !instance_exists(_target))
+	{
+		return false;
+	}
+
+	if (variable_instance_exists(_target, "unit_faction"))
+	{
+		return _target.unit_faction == damage_faction;
+	}
+
+	if (damage_faction == UNIT_FACTION.ENEMY)
+	{
+		return _target.object_index == o_holy_tower
+			|| _target.object_index == o_shrine
+			|| _target.object_index == o_garnizon;
+	}
+
+	return false;
+};

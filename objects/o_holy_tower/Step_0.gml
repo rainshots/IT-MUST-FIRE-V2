@@ -80,23 +80,8 @@ if (reload_timer > 0)
 if (variable_instance_exists(target_instance, "hp")
 	&& (!variable_instance_exists(target_instance, "is_being_dragged") || !target_instance.is_being_dragged))
 {
-	if (variable_instance_exists(target_instance, "unit_damage_receive"))
-	{
-		target_instance.unit_damage_receive(damage, UNIT_FACTION.ENEMY);
-	}
-	else
-	{
-		target_instance.hp = max(target_instance.hp - damage, 0);
-		damage_popup_create(target_instance.x, target_instance.y, damage, target_instance.unit_faction);
-	}
-
+	holy_tower_projectile_create(target_instance.x, target_instance.y);
 	call_nearby_friendly_units_for_help(target_instance);
 }
-
-// Store attack feedback position even if the target dies immediately after hit.
-attack_feedback_target = target_instance;
-attack_feedback_target_x = target_instance.x;
-attack_feedback_target_y = target_instance.y;
-attack_feedback_timer = attack_feedback_time;
 
 reload_timer = reload_time;

@@ -22,14 +22,8 @@ home_offset_y = 0;
 
 // Goblin health and lifetime markers sit near the sprite pivot.
 bar_offset_y = -2;
-stamina_bar_gap = 2;
-stamina_bar_height = 3;
 summon_nights_remaining = irandom_range(BALANCE_GOBLIN_DAY_LIFE_MIN, BALANCE_GOBLIN_DAY_LIFE_MAX);
 summon_life_label = "Days left";
 
 // Worker buildings read this fixed multiplier.
 worker_speed_multiplier = BALANCE_GOBLIN_WORK_SPEED_MULTIPLIER;
-
-// Goblins spend stamina while working and recover every morning.
-stamina_max = BALANCE_GOBLIN_STAMINA_MAX;
-stamina_amount = BALANCE_GOBLIN_STAMINA_MAX;

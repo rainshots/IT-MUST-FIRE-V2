@@ -30,13 +30,6 @@ first_night_cultist_aim_prompt_text = "AIM AND PRESS LMB";
 first_night_cultist_prompt_scale = 3;
 first_night_cultist_prompt_shadow_offset = 4;
 
-// End-day prompt appears when every day worker has spent all stamina.
-end_day_prompt_text = "PRESS ENTER TO END THE DAY";
-end_day_prompt_base_scale = 1.4;
-end_day_prompt_pulse_scale = 0.18;
-end_day_prompt_y_share = 0.76;
-end_day_prompt_shadow_offset = 3;
-
 // Day cycle and shrine objective display in the top-right corner.
 day_phase_text_offset_x = 85;
 day_phase_text_y = 83;
@@ -291,6 +284,7 @@ projectile_slot_width = 86;
 projectile_slot_height = 74;
 projectile_slot_gap = 8;
 projectile_slot_background_height = 64;
+projectile_building_shell_row_offset_y = 82;
 projectile_circle_radius = 13;
 projectile_current_circle_radius = 17;
 projectile_current_scale_padding = 5;

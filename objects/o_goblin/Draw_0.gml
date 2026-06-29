@@ -17,11 +17,6 @@ if (variable_instance_exists(id, "summon_nights_remaining"))
 		_square_y += _whip_marker_gap;
 	}
 
-	if (global.day_phase == DAY_PHASE.DAY && variable_instance_exists(id, "stamina_amount"))
-	{
-		_square_y += stamina_bar_height + stamina_bar_gap;
-	}
-
 	draw_set_alpha(1);
 	draw_set_color(COLOR_HUD_IRON);
 

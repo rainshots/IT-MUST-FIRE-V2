@@ -90,7 +90,8 @@ if (_regular_hud_is_visible)
 		{
 			if (global.day_phase == DAY_PHASE.DAY)
 			{
-				var _day_duration_frames = max(1, global.day_duration * room_speed);
+				var _game_speed_normal = variable_global_exists("game_speed_normal") ? global.game_speed_normal : room_speed;
+				var _day_duration_frames = max(1, global.day_duration * _game_speed_normal);
 
 				_day_progress = 1 - clamp(global.day_timer / _day_duration_frames, 0, 1);
 			}
@@ -132,36 +133,6 @@ if (_regular_hud_is_visible)
 
 		draw_set_color(COLOR_HUD_TEXT);
 		draw_text(_objective_text_x, _objective_text_y, _objective_label);
-	}
-
-	// Prompt the player to end the day once every worker is out of stamina.
-	if (global.day_phase == DAY_PHASE.DAY && instance_exists(o_game_controller))
-	{
-		var _end_day_game_controller = instance_find(o_game_controller, 0);
-
-		if (variable_instance_exists(_end_day_game_controller, "day_workers_all_stamina_empty")
-			&& _end_day_game_controller.day_workers_all_stamina_empty())
-		{
-			var _prompt_scale = end_day_prompt_base_scale
-				+ (sin(current_time * 0.006) * end_day_prompt_pulse_scale);
-			var _prompt_x = _sidebar_gui_width * 0.5;
-			var _prompt_y = _sidebar_gui_height * end_day_prompt_y_share;
-
-			draw_set_halign(fa_center);
-			draw_set_valign(fa_middle);
-			draw_set_alpha(1);
-			draw_set_color(c_black);
-			draw_text_transformed(
-				_prompt_x + end_day_prompt_shadow_offset,
-				_prompt_y + end_day_prompt_shadow_offset,
-				end_day_prompt_text,
-				_prompt_scale,
-				_prompt_scale,
-				0
-			);
-			draw_set_color(COLOR_HUD_CULTIST_STATUS_STAMINA);
-			draw_text_transformed(_prompt_x, _prompt_y, end_day_prompt_text, _prompt_scale, _prompt_scale, 0);
-		}
 	}
 
 	// Draw compact cultist status cards while gameplay is unobstructed.
@@ -1183,8 +1154,7 @@ if (variable_global_exists("first_night_cultist_projectile_fired")
 if (variable_global_exists("cannon_projectile_queue")
 	&& variable_global_exists("day_phase"))
 {
-	var _projectiles_are_active = global.day_phase == DAY_PHASE.NIGHT;
-	var _projectile_draw_alpha = _projectiles_are_active ? 1 : projectile_day_alpha;
+	var _combat_projectiles_are_active = global.day_phase == DAY_PHASE.NIGHT;
 	var _projectile_queue_count = array_length(global.cannon_projectile_queue);
 	var _feast_projectile_count = 0;
 
@@ -1200,6 +1170,22 @@ if (variable_global_exists("cannon_projectile_queue")
 	var _gui_width = display_get_gui_width();
 	var _gui_height = display_get_gui_height();
 	var _projectile_base_y = _gui_height - projectile_queue_margin_bottom - projectile_slot_height - projectile_name_offset_y;
+	var _has_building_shell_projectile = false;
+
+	for (var _building_shell_check_index = 0; _building_shell_check_index < _projectile_queue_display_count; ++_building_shell_check_index)
+	{
+		if (global.cannon_projectile_queue[_building_shell_check_index] == PROJECTILE_TYPE.BUILDING_SHELL)
+		{
+			_has_building_shell_projectile = true;
+			break;
+		}
+	}
+
+	if (_has_building_shell_projectile)
+	{
+		_projectile_base_y -= projectile_building_shell_row_offset_y;
+	}
+
 	var _projectile_total_width = (projectile_slot_width * _projectile_display_count)
 		+ (projectile_slot_gap * max(0, _projectile_display_count - 1));
 	var _projectile_start_x = (_gui_width - _projectile_total_width) * 0.5;
@@ -1357,6 +1343,15 @@ if (variable_global_exists("cannon_projectile_queue")
 			_projectile_color = COLOR_PROJECTILE_BUILDING_SHELL;
 		}
 
+		var _projectile_is_active = _combat_projectiles_are_active
+			|| _projectile_type == PROJECTILE_TYPE.BUILDING_SHELL;
+		var _projectile_draw_alpha = _projectile_is_active ? 1 : projectile_day_alpha;
+
+		if (_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
+		{
+			_slot_y += projectile_building_shell_row_offset_y;
+		}
+
 		if (_is_current_projectile)
 		{
 			_slot_x -= projectile_current_scale_padding;
@@ -1512,7 +1507,7 @@ if (variable_global_exists("cannon_projectile_queue")
 			draw_set_valign(fa_middle);
 		}
 
-		if (_projectiles_are_active)
+		if (_projectile_is_active)
 		{
 			var _key_prompt_text = projectile_key_prompt_prefix + string(_projectile_index + 1);
 
@@ -1551,9 +1546,13 @@ if (variable_global_exists("cannon_projectile_queue")
 			_description_type = global.cannon_projectile_queue[_description_projectile_index];
 		}
 
+		var _description_projectile_is_active = _combat_projectiles_are_active
+			|| _description_type == PROJECTILE_TYPE.BUILDING_SHELL;
+		var _description_draw_alpha = _description_projectile_is_active ? 1 : projectile_day_alpha;
+
 		if (_hovered_projectile_index >= 0
 			&& _description_type == PROJECTILE_TYPE.CULTIST
-			&& _projectiles_are_active
+			&& _combat_projectiles_are_active
 			&& variable_global_exists("cannon_projectile_payload_queue")
 			&& _description_projectile_index < array_length(global.cannon_projectile_payload_queue))
 		{
@@ -1583,7 +1582,7 @@ if (variable_global_exists("cannon_projectile_queue")
 		{
 			draw_set_halign(fa_left);
 			draw_set_valign(fa_top);
-			draw_set_alpha(0.84 * _projectile_draw_alpha);
+			draw_set_alpha(0.84 * _description_draw_alpha);
 			draw_set_color(COLOR_HUD_BACKGROUND);
 			draw_rectangle(
 				_description_x,
@@ -1593,7 +1592,7 @@ if (variable_global_exists("cannon_projectile_queue")
 				false
 			);
 
-			draw_set_alpha(_projectile_draw_alpha);
+			draw_set_alpha(_description_draw_alpha);
 			draw_set_color(COLOR_HUD_TEXT);
 			var _description_name = projectile_names[_description_type];
 

@@ -116,11 +116,6 @@ if (object_index == o_goblin
 
 	var _idle_label_text = idle_work_label_text;
 
-	if (variable_instance_exists(id, "stamina_amount") && stamina_amount <= 0)
-	{
-		_idle_label_text = "NO STAMINA";
-	}
-
 	var _idle_label_x = x;
 	var _idle_label_y = bbox_top - idle_work_label_offset_y;
 	var _idle_label_width = string_width(_idle_label_text) + (idle_work_label_padding_x * 2);
@@ -282,31 +277,6 @@ if (_should_draw_health_bar)
 	}
 
 	var _next_status_bar_y = _bar_y + bar_height + _status_bar_gap;
-
-	if (object_index == o_goblin
-		&& global.day_phase == DAY_PHASE.DAY
-		&& variable_instance_exists(id, "stamina_amount"))
-	{
-		var _stamina_max = BALANCE_GOBLIN_STAMINA_MAX;
-
-		if (variable_instance_exists(id, "stamina_max"))
-		{
-			_stamina_max = stamina_max;
-		}
-
-		var _stamina_progress = clamp(stamina_amount / max(1, _stamina_max), 0, 1);
-		var _stamina_bar_y = _next_status_bar_y;
-
-		draw_set_alpha(0.75);
-		draw_set_color(c_black);
-		draw_rectangle(_bar_x, _stamina_bar_y, _bar_x + bar_width, _stamina_bar_y + stamina_bar_height, false);
-
-		draw_set_alpha(1);
-		draw_set_color(COLOR_HUD_CULTIST_STATUS_STAMINA);
-		draw_rectangle(_bar_x, _stamina_bar_y, _bar_x + (bar_width * _stamina_progress), _stamina_bar_y + stamina_bar_height, false);
-
-		_next_status_bar_y += stamina_bar_height + _status_bar_gap;
-	}
 
 	if (variable_instance_exists(id, "whip_timer") && whip_timer > 0 && whip_duration > 0)
 	{

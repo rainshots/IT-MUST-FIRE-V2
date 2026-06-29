@@ -201,6 +201,34 @@ if (_flight_progress >= 1)
 		}
 
 		ds_list_destroy(_friendly_list);
+
+		if (variable_global_exists("cultists"))
+		{
+			var _cultist_count = array_length(global.cultists);
+
+			for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+			{
+				var _cultist = global.cultists[_cultist_index];
+
+				if (!instance_exists(_cultist)
+					|| !_cultist.visible
+					|| !variable_instance_exists(_cultist, "hp")
+					|| !variable_instance_exists(_cultist, "max_hp")
+					|| _cultist.max_hp <= 0
+					|| point_distance(_cultist.x, _cultist.y, target_x, target_y) > effect_radius)
+				{
+					continue;
+				}
+
+				var _cultist_hp_before_heal = _cultist.hp;
+				_cultist.hp = min(_cultist.hp + damage_amount, _cultist.max_hp);
+
+				if (_cultist.hp > _cultist_hp_before_heal)
+				{
+					heal_feedback_create(_cultist, _cultist.hp - _cultist_hp_before_heal);
+				}
+			}
+		}
 	}
 	else if (projectile_type == PROJECTILE_TYPE.BOMB)
 	{
@@ -208,6 +236,7 @@ if (_flight_progress >= 1)
 		{
 			var _is_valid_target = (
 				id != other.id
+				&& id != other.source_instance
 				&& object_index != o_projectile
 				&& object_index != o_particle_smoke
 				&& object_index != o_particle_explosion
@@ -216,6 +245,7 @@ if (_flight_progress >= 1)
 			);
 
 			if (_is_valid_target
+				&& !other.projectile_target_is_allied(id)
 				&& point_distance(x, y, other.target_x, other.target_y) <= other.effect_radius
 				&& variable_instance_exists(id, "hp"))
 			{
@@ -310,6 +340,7 @@ if (_flight_progress >= 1)
 		{
 			var _is_valid_target = (
 				id != other.id
+				&& id != other.source_instance
 				&& id != other.cultist_payload
 				&& object_index != o_projectile
 				&& object_index != o_particle_smoke
@@ -318,7 +349,9 @@ if (_flight_progress >= 1)
 				&& object_index != o_game_controller
 			);
 
-			if (_is_valid_target && point_distance(x, y, other.target_x, other.target_y) <= other.effect_radius)
+			if (_is_valid_target
+				&& !other.projectile_target_is_allied(id)
+				&& point_distance(x, y, other.target_x, other.target_y) <= other.effect_radius)
 			{
 				if (other.projectile_type == PROJECTILE_TYPE.CULTIST)
 				{
@@ -330,7 +363,7 @@ if (_flight_progress >= 1)
 					{
 						if (variable_instance_exists(id, "unit_damage_receive"))
 						{
-							unit_damage_receive(other.damage_amount, UNIT_FACTION.NOONE);
+							unit_damage_receive(other.damage_amount, other.damage_faction);
 						}
 						else
 						{

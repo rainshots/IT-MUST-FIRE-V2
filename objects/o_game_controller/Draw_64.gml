@@ -22,8 +22,9 @@ else if (global.day_phase == DAY_PHASE.NIGHT)
 }
 
 // Draw attack warning arrows during the day and briefly at the start of the night.
-var _night_warning_time = 10 * room_speed;
-var _night_elapsed_time = (global.night_duration * room_speed) - global.day_timer;
+var _game_speed_normal = variable_global_exists("game_speed_normal") ? global.game_speed_normal : room_speed;
+var _night_warning_time = 10 * _game_speed_normal;
+var _night_elapsed_time = (global.night_duration * _game_speed_normal) - global.day_timer;
 var _night_warning_active = global.day_phase == DAY_PHASE.NIGHT
 	&& _night_elapsed_time <= _night_warning_time;
 

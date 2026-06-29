@@ -548,6 +548,11 @@ production_speed_multiplier_draw = function(_text_x, _text_y)
 
 building_worker_stamina_multiplier_get = function(_worker)
 {
+	if (object_index == o_ritual_circle)
+	{
+		return 1;
+	}
+
 	if (!instance_exists(_worker)
 		|| !variable_instance_exists(_worker, "stamina_amount"))
 	{
@@ -568,6 +573,7 @@ building_spends_worker_stamina = function()
 		|| object_index == o_slaughter_table
 		|| object_index == o_souls_well
 		|| object_index == o_workshop
+		|| (object_index == o_foundry && is_struct(foundry_selected_shell))
 		|| summon_unit_object != noone;
 };
 
@@ -666,6 +672,48 @@ foundry_workers_release = function()
 	{
 		var _game_controller = instance_find(o_game_controller, 0);
 
+		for (var _worker_index = 0; _worker_index < _worker_count; ++_worker_index)
+		{
+			var _worker = _workers[_worker_index];
+
+			if (instance_exists(_worker)
+				&& variable_instance_exists(_game_controller, "clear_cultist_building_assignment"))
+			{
+				_game_controller.clear_cultist_building_assignment(_worker);
+			}
+		}
+	}
+
+	worker_cultists = array_create(0);
+	recalculate_production_speed_multiplier();
+};
+
+ritual_circle_workers_release = function()
+{
+	if (object_index != o_ritual_circle)
+	{
+		return;
+	}
+
+	var _worker_count = array_length(worker_cultists);
+
+	if (_worker_count <= 0)
+	{
+		return;
+	}
+
+	var _workers = array_create(_worker_count);
+
+	for (var _copy_index = 0; _copy_index < _worker_count; ++_copy_index)
+	{
+		_workers[_copy_index] = worker_cultists[_copy_index];
+	}
+
+	if (instance_exists(o_game_controller))
+	{
+		var _game_controller = instance_find(o_game_controller, 0);
+
+		// Clear assignments through the controller so cultist state and UI stay in sync.
 		for (var _worker_index = 0; _worker_index < _worker_count; ++_worker_index)
 		{
 			var _worker = _workers[_worker_index];

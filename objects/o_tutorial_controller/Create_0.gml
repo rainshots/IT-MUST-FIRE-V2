@@ -70,7 +70,7 @@ tutorial_items = [
 	{
 		id: "stamina",
 		title: "Stamina",
-		body: "The yellow bar under the HP bar is worker Stamina. It decreases while a worker works and restores every morning. When every cultist and goblin runs out of Stamina, press Enter to end the day."
+		body: "The yellow bar under the HP bar is cultist Stamina. It decreases while a cultist works. Assign tired cultists to the Ritual Circle to restore Stamina while they gain XP."
 	},
 	{
 		id: "night",

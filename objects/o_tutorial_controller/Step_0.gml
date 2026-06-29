@@ -93,9 +93,11 @@ else if (_current_day_phase == DAY_PHASE.DAY && previous_day_phase == DAY_PHASE.
 previous_day_phase = _current_day_phase;
 
 // Timed day tutorials.
+var _game_speed_normal = variable_global_exists("game_speed_normal") ? global.game_speed_normal : room_speed;
+
 if (_current_day_phase == DAY_PHASE.DAY)
 {
-	var _day_duration_frames = max(1, global.day_duration * room_speed);
+	var _day_duration_frames = max(1, global.day_duration * _game_speed_normal);
 	var _day_elapsed_frames = _day_duration_frames - global.day_timer;
 
 	if (_current_day == 2 && _day_elapsed_frames >= _day_duration_frames * 0.5)
@@ -103,7 +105,7 @@ if (_current_day_phase == DAY_PHASE.DAY)
 		tutorial_trigger("production_bonus");
 	}
 
-	if (_current_day == 3 && _day_elapsed_frames >= 5 * room_speed)
+	if (_current_day == 3 && _day_elapsed_frames >= 5 * _game_speed_normal)
 	{
 		tutorial_trigger("infection");
 	}
@@ -120,15 +122,15 @@ if (_current_day_phase == DAY_PHASE.DAY)
 }
 else if (_current_day_phase == DAY_PHASE.NIGHT)
 {
-	var _night_duration_frames = max(1, global.night_duration * room_speed);
+	var _night_duration_frames = max(1, global.night_duration * _game_speed_normal);
 	var _night_elapsed_frames = _night_duration_frames - global.day_timer;
 
-	if (_current_day == 3 && _night_elapsed_frames >= 3 * room_speed)
+	if (_current_day == 3 && _night_elapsed_frames >= 3 * _game_speed_normal)
 	{
 		tutorial_trigger("cursed_buildings");
 	}
 
-	if (_current_day == 1 && _night_elapsed_frames >= 10 * room_speed)
+	if (_current_day == 1 && _night_elapsed_frames >= 10 * _game_speed_normal)
 	{
 		tutorial_trigger("damage_types");
 	}

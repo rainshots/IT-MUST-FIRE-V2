@@ -59,6 +59,14 @@ if (object_index == o_goblins_pit && !goblins_pit_can_summon_goblin())
 }
 
 building_worker_stamina_update();
+_valid_worker_count = array_length(worker_cultists);
+
+if (_valid_worker_count <= 0)
+{
+	production_speed_multiplier = 0;
+	exit;
+}
+
 recalculate_production_speed_multiplier();
 
 // Resource building upgrades add free secondary work at a fraction of specialist buildings.
@@ -230,6 +238,9 @@ if (object_index == o_ritual_circle)
 
 	if (ritual_circle_exp_pool <= 0)
 	{
+		building_warning_show("No XP", COLOR_STATUS_NEGATIVE_RED);
+		ritual_circle_workers_release();
+		production_speed_multiplier = 0;
 		exit;
 	}
 
@@ -241,6 +252,26 @@ if (object_index == o_ritual_circle)
 	}
 
 	var _exp_step = (ritual_circle_exp_pool_amount * production_speed_multiplier * _ritual_exp_multiplier) / max(1, BALANCE_RITUAL_CIRCLE_EXP_TIME * room_speed);
+
+	for (var _stamina_worker_index = 0; _stamina_worker_index < _valid_worker_count; ++_stamina_worker_index)
+	{
+		var _stamina_worker = worker_cultists[_stamina_worker_index];
+
+		if (!variable_instance_exists(_stamina_worker, "stamina_amount"))
+		{
+			continue;
+		}
+
+		var _stamina_max = BALANCE_CULTIST_STAMINA_MAX;
+
+		if (variable_instance_exists(_stamina_worker, "stamina_max"))
+		{
+			_stamina_max = _stamina_worker.stamina_max;
+		}
+
+		var _stamina_restore_step = (_stamina_max * production_speed_multiplier) / max(1, BALANCE_RITUAL_CIRCLE_STAMINA_RESTORE_TIME * room_speed);
+		_stamina_worker.stamina_amount = min(_stamina_worker.stamina_amount + _stamina_restore_step, _stamina_max);
+	}
 
 	for (var _exp_worker_index = 0; _exp_worker_index < _valid_worker_count; ++_exp_worker_index)
 	{
@@ -268,6 +299,15 @@ if (object_index == o_ritual_circle)
 
 			_game_controller.ensure_cultist_levelup_options(_exp_worker);
 		}
+	}
+
+	if (ritual_circle_exp_pool <= 0
+		&& ritual_circle_daily_exp_remaining < BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT)
+	{
+		ritual_circle_exp_pool = 0;
+		building_warning_show("No XP", COLOR_STATUS_NEGATIVE_RED);
+		ritual_circle_workers_release();
+		production_speed_multiplier = 0;
 	}
 
 	exit;
@@ -447,17 +487,6 @@ if (summon_unit_object != noone)
 				_summoned_unit.home_offset_x = _spawn_x - x;
 				_summoned_unit.home_offset_y = _spawn_y - y;
 
-				if (variable_instance_exists(_summoned_unit, "stamina_amount"))
-				{
-					var _spawn_stamina_max = BALANCE_GOBLIN_STAMINA_MAX;
-
-					if (variable_instance_exists(_summoned_unit, "stamina_max"))
-					{
-						_spawn_stamina_max = _summoned_unit.stamina_max;
-					}
-
-					_summoned_unit.stamina_amount = _spawn_stamina_max * BALANCE_GOBLINS_PIT_SPAWN_STAMINA_SHARE;
-				}
 			}
 
 			if (instance_exists(_summoned_unit)
