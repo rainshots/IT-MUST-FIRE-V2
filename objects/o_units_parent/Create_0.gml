@@ -149,6 +149,22 @@ idle_work_label_padding_x = 6;
 idle_work_label_padding_y = 3;
 idle_work_label_background_alpha = 0.82;
 
+// Permanent settlement demons use dynamic needs while they live in the base.
+is_permanent_settlement_demon = false;
+demon_calmness = 100;
+demon_satiety = 100;
+demon_base_damage = damage;
+demon_base_magic_damage = magic_damage;
+demon_base_reload_time = reload_time;
+demon_base_max_hp = max_hp;
+demon_base_image_xscale = image_xscale;
+demon_base_image_yscale = image_yscale;
+demon_satiety_max_hp_penalty_share = 0;
+demon_status_label_primary = "";
+demon_status_label_secondary = "";
+demon_worker_eat_timer = irandom(max(1, room_speed - 1));
+demon_berserk_smoke_timer = 0;
+
 // Worker whip temporarily improves day productivity at the cost of health.
 whip_timer = 0;
 whip_duration = 0;
@@ -736,6 +752,222 @@ soul_chain_death_effect_apply = function()
 	}
 };
 
+demon_dynamic_stats_damage_taken = function(_damage_amount)
+{
+	if (!is_permanent_settlement_demon || _damage_amount <= 0)
+	{
+		return;
+	}
+
+	var _calmness_loss = _damage_amount / max(1, BALANCE_DEMON_CALMNESS_DAMAGE_PER_POINT);
+	demon_calmness = max(0, demon_calmness - _calmness_loss);
+};
+
+demon_dynamic_stats_eat_worker_roll = function(_chance_per_second)
+{
+	if (_chance_per_second <= 0
+		|| !is_assigned_to_building
+		|| !instance_exists(assigned_building)
+		|| !variable_instance_exists(assigned_building, "worker_cultists"))
+	{
+		return;
+	}
+
+	demon_worker_eat_timer--;
+
+	if (demon_worker_eat_timer > 0)
+	{
+		return;
+	}
+
+	demon_worker_eat_timer = max(1, room_speed);
+
+	if (random(1) >= _chance_per_second)
+	{
+		return;
+	}
+
+	var _workers = assigned_building.worker_cultists;
+	var _worker_candidates = [];
+	var _worker_count = array_length(_workers);
+
+	for (var _worker_index = 0; _worker_index < _worker_count; ++_worker_index)
+	{
+		var _worker = _workers[_worker_index];
+
+		if (instance_exists(_worker)
+			&& _worker != id
+			&& variable_instance_exists(_worker, "worker_speed_multiplier"))
+		{
+			array_push(_worker_candidates, _worker);
+		}
+	}
+
+	var _candidate_count = array_length(_worker_candidates);
+
+	if (_candidate_count <= 0)
+	{
+		return;
+	}
+
+	var _victim = _worker_candidates[irandom(_candidate_count - 1)];
+
+	if (instance_exists(_victim))
+	{
+		_victim.hp = 0;
+		damage_popup_create(_victim.x, _victim.y, _victim.max_hp, UNIT_FACTION.ENEMY, false);
+	}
+};
+
+demon_dynamic_stats_try_eat_enemy = function()
+{
+	if (demon_satiety > BALANCE_DEMON_SATIETY_STARVING_LIMIT
+		|| !variable_global_exists("day_phase")
+		|| global.day_phase != DAY_PHASE.NIGHT
+		|| !target_can_be_attacked(target_instance)
+		|| !variable_instance_exists(target_instance, "hp")
+		|| !variable_instance_exists(target_instance, "max_hp"))
+	{
+		return;
+	}
+
+	if (target_instance.hp > target_instance.max_hp * BALANCE_DEMON_SATIETY_ENEMY_EAT_HP_SHARE)
+	{
+		return;
+	}
+
+	var _eaten_enemy = target_instance;
+	demon_satiety = min(100, demon_satiety + BALANCE_DEMON_SATIETY_ENEMY_EAT_RESTORE);
+	_eaten_enemy.hp = 0;
+	damage_popup_create(_eaten_enemy.x, _eaten_enemy.y, _eaten_enemy.max_hp, UNIT_FACTION.FRIENDLY, true);
+};
+
+demon_dynamic_stats_update = function()
+{
+	if (!is_permanent_settlement_demon)
+	{
+		return;
+	}
+
+	if (!variable_instance_exists(id, "demon_base_damage") || demon_base_damage <= 0)
+	{
+		demon_base_damage = damage;
+		demon_base_magic_damage = magic_damage;
+		demon_base_reload_time = reload_time;
+		demon_base_max_hp = max_hp;
+		demon_base_image_xscale = image_xscale;
+		demon_base_image_yscale = image_yscale;
+	}
+
+	var _satiety_decay_multiplier = 1;
+
+	if (variable_global_exists("day_phase")
+		&& global.day_phase == DAY_PHASE.NIGHT
+		&& target_can_be_attacked(target_instance))
+	{
+		_satiety_decay_multiplier += BALANCE_DEMON_SATIETY_NIGHT_COMBAT_DECAY_MULTIPLIER;
+	}
+
+	if (variable_global_exists("day_phase")
+		&& global.day_phase == DAY_PHASE.DAY
+		&& is_assigned_to_building
+		&& instance_exists(assigned_building)
+		&& assigned_building.object_index == o_ritual_circle)
+	{
+		_satiety_decay_multiplier += BALANCE_DEMON_SATIETY_TRAINING_PIT_DECAY_MULTIPLIER;
+	}
+
+	demon_satiety = max(0, demon_satiety - ((BALANCE_DEMON_SATIETY_DECAY_PER_SECOND * _satiety_decay_multiplier) / max(1, room_speed)));
+
+	var _damage_multiplier = 1;
+	var _attack_speed_multiplier = 1;
+	var _worker_eat_chance = 0;
+	demon_status_label_primary = "";
+	demon_status_label_secondary = "";
+
+	if (demon_calmness <= BALANCE_DEMON_CALMNESS_BERSERK_LIMIT)
+	{
+		_damage_multiplier *= BALANCE_DEMON_CALMNESS_BERSERK_DAMAGE_MULTIPLIER;
+		_attack_speed_multiplier *= BALANCE_DEMON_CALMNESS_BERSERK_ATTACK_SPEED_MULTIPLIER;
+		_worker_eat_chance = max(_worker_eat_chance, BALANCE_DEMON_CALMNESS_BERSERK_EAT_WORKER_CHANCE_PER_SECOND);
+		demon_status_label_primary = "BERSERK";
+	}
+	else if (demon_calmness <= BALANCE_DEMON_CALMNESS_RAGE_LIMIT)
+	{
+		_damage_multiplier *= BALANCE_DEMON_CALMNESS_RAGE_DAMAGE_MULTIPLIER;
+		_worker_eat_chance = max(_worker_eat_chance, BALANCE_DEMON_CALMNESS_RAGE_EAT_WORKER_CHANCE_PER_SECOND);
+		demon_status_label_primary = "RAGE";
+	}
+	else if (demon_calmness > 100)
+	{
+		_damage_multiplier *= BALANCE_DEMON_CALMNESS_CALM_DAMAGE_MULTIPLIER;
+	}
+
+	if (demon_satiety <= BALANCE_DEMON_SATIETY_STARVING_LIMIT)
+	{
+		demon_satiety_max_hp_penalty_share = BALANCE_DEMON_SATIETY_STARVING_MAX_HP_PENALTY;
+		_worker_eat_chance = max(_worker_eat_chance, BALANCE_DEMON_SATIETY_STARVING_EAT_WORKER_CHANCE_PER_SECOND);
+		demon_status_label_secondary = "STARVING";
+	}
+	else if (demon_satiety <= BALANCE_DEMON_SATIETY_HUNGRY_LIMIT)
+	{
+		demon_satiety_max_hp_penalty_share = BALANCE_DEMON_SATIETY_HUNGRY_MAX_HP_PENALTY;
+		_worker_eat_chance = max(_worker_eat_chance, BALANCE_DEMON_SATIETY_HUNGRY_EAT_WORKER_CHANCE_PER_SECOND);
+		demon_status_label_secondary = "HUNGRY";
+	}
+	else
+	{
+		demon_satiety_max_hp_penalty_share = 0;
+
+		if (demon_satiety > 100)
+		{
+			_attack_speed_multiplier *= BALANCE_DEMON_SATIETY_FULL_ATTACK_SPEED_MULTIPLIER;
+			hp = min(hp + (BALANCE_DEMON_SATIETY_FULL_HEAL_PER_SECOND / max(1, room_speed)), max_hp);
+		}
+	}
+
+	max_hp = demon_base_max_hp * (1 - demon_satiety_max_hp_penalty_share);
+	hp = min(hp, max_hp * (1 + BALANCE_DEMON_BUILDING_OVERHEAL_MAX_SHARE));
+	damage = demon_base_damage * _damage_multiplier;
+	magic_damage = demon_base_magic_damage * _damage_multiplier;
+	reload_time = max(1, demon_base_reload_time / max(0.1, _attack_speed_multiplier));
+
+	var _scale_multiplier = 1;
+
+	if (demon_calmness <= BALANCE_DEMON_CALMNESS_BERSERK_LIMIT)
+	{
+		_scale_multiplier = BALANCE_DEMON_CALMNESS_BERSERK_SCALE_MULTIPLIER;
+	}
+
+	image_xscale = demon_base_image_xscale * _scale_multiplier;
+	image_yscale = demon_base_image_yscale * _scale_multiplier;
+
+	demon_dynamic_stats_eat_worker_roll(_worker_eat_chance);
+	demon_dynamic_stats_try_eat_enemy();
+
+	if (demon_status_label_primary == "BERSERK")
+	{
+		demon_berserk_smoke_timer--;
+
+		if (demon_berserk_smoke_timer <= 0)
+		{
+			demon_berserk_smoke_timer = max(1, room_speed div 8);
+
+			if (variable_global_exists("particle_system_effects")
+				&& variable_global_exists("particle_type_imp_blood_frenzy_smoke"))
+			{
+				part_particles_create(
+					global.particle_system_effects,
+					x + random_range(-14, 14),
+					y + random_range(-38, -8),
+					global.particle_type_imp_blood_frenzy_smoke,
+					1
+				);
+			}
+		}
+	}
+};
+
 unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true)
 {
 	if (hp <= 0 || _damage_amount <= 0)
@@ -757,6 +989,7 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 
 	var _applied_damage = min(_damage_amount, hp);
 	hp = max(hp - _damage_amount, 0);
+	demon_dynamic_stats_damage_taken(_applied_damage);
 
 	if (variable_global_exists("day_phase")
 		&& global.day_phase == DAY_PHASE.NIGHT
@@ -857,6 +1090,13 @@ demon_active_ability_used_notify = function(_ability)
 			_brute.brute_blood_anvil_trigger(id);
 		}
 	}
+};
+
+demon_active_abilities_are_blocked = function()
+{
+	return is_permanent_settlement_demon
+		&& variable_global_exists("day_phase")
+		&& global.day_phase == DAY_PHASE.DAY;
 };
 
 warlock_soul_engine_enemy_death_notify = function()
@@ -1128,7 +1368,10 @@ is_summoned_unit = function()
 
 is_wall_blocked_friendly_unit = function()
 {
-	return is_demon_form_unit()
+	var _is_permanent_demon = variable_instance_exists(id, "is_permanent_settlement_demon")
+		&& is_permanent_settlement_demon;
+
+	return (is_demon_form_unit() && !_is_permanent_demon)
 		|| (is_summoned_unit() && object_index != o_goblin && global.day_phase == DAY_PHASE.NIGHT);
 };
 

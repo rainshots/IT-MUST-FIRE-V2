@@ -471,87 +471,109 @@ if (_flight_progress >= 1)
 	if (projectile_type == PROJECTILE_TYPE.CULTIST && instance_exists(cultist_payload))
 	{
 		var _cultist = cultist_payload;
-		var _demon_object = cultist_demon_object_get(_cultist.demon_type);
+		var _is_permanent_demon_payload = variable_instance_exists(_cultist, "is_permanent_settlement_demon")
+			&& _cultist.is_permanent_settlement_demon;
 
-		if (_demon_object != noone)
+		if (_is_permanent_demon_payload)
 		{
-			var _demon = instance_create_layer(target_x, target_y, "Instances", _demon_object);
-			var _cultist_hp = _cultist.hp;
+			_cultist.cannon_loading = false;
+			_cultist.cannon_loaded = false;
+			_cultist.visible = true;
+			_cultist.x = target_x;
+			_cultist.y = target_y;
+			_cultist.drag_drop_x = target_x;
+			_cultist.drag_drop_y = target_y;
+			_cultist.target_instance = noone;
+			_cultist.alert_target = noone;
+			_cultist.regroup_is_active = false;
+			_cultist.rally_is_active = false;
+			_cultist.rally_is_returning = false;
+			_cultist.rally_has_arrived = false;
+		}
+		else
+		{
+			var _demon_object = cultist_demon_object_get(_cultist.demon_type);
 
-			_demon.cultist_name = _cultist.cultist_name;
-			_demon.cultist_points = _cultist.cultist_points;
-			_demon.cultist_sprite_index = _cultist.sprite_index;
-
-			if (variable_instance_exists(_cultist, "cultist_sprite_index"))
+			if (_demon_object != noone)
 			{
-				_demon.cultist_sprite_index = _cultist.cultist_sprite_index;
-			}
+				var _demon = instance_create_layer(target_x, target_y, "Instances", _demon_object);
+				var _cultist_hp = _cultist.hp;
 
-			if (variable_instance_exists(_cultist, "adaptive_night_hp_start"))
-			{
-				_demon.adaptive_night_hp_start = _cultist.adaptive_night_hp_start;
-			}
+				_demon.cultist_name = _cultist.cultist_name;
+				_demon.cultist_points = _cultist.cultist_points;
+				_demon.cultist_sprite_index = _cultist.sprite_index;
 
-			if (variable_instance_exists(_cultist, "stamina_amount"))
-			{
-				_demon.stamina_amount = _cultist.stamina_amount;
-			}
-
-			if (variable_instance_exists(_cultist, "stamina_max"))
-			{
-				_demon.stamina_max = _cultist.stamina_max;
-			}
-
-			if (variable_instance_exists(_cultist, "adaptive_night_damage_taken"))
-			{
-				_demon.adaptive_night_damage_taken = _cultist.adaptive_night_damage_taken;
-			}
-
-			_demon.demon_type = _cultist.demon_type;
-			_demon.demon_ability = _cultist.demon_ability;
-			_demon.cultist_starting_abilities = _cultist.cultist_starting_abilities;
-
-			_demon.current_exp = _cultist.current_exp;
-			_demon.current_lvl = _cultist.current_lvl;
-			cultist_demon_scale_apply(_demon);
-			_demon.pending_level_points = _cultist.pending_level_points;
-			_demon.pending_passive_choices = _cultist.pending_passive_choices;
-			_demon.pending_active_choices = _cultist.pending_active_choices;
-			_demon.pending_ability_upgrade_choices = _cultist.pending_ability_upgrade_choices;
-			_demon.passive_choice_options = _cultist.passive_choice_options;
-			_demon.active_choice_options = _cultist.active_choice_options;
-			_demon.ability_upgrade_choice_options = _cultist.ability_upgrade_choice_options;
-			_demon.active_abilities = _cultist.active_abilities;
-			_demon.ability_levels = _cultist.ability_levels;
-			_demon.has_brute_corpse_eater = _cultist.has_brute_corpse_eater;
-			_demon.has_brute_rotten_aura = _cultist.has_brute_rotten_aura;
-			_demon.has_brute_blood_anvil = _cultist.has_brute_blood_anvil;
-			_demon.has_warlock_soul_harvester = _cultist.has_warlock_soul_harvester;
-			_demon.has_warlock_curseweaver = _cultist.has_warlock_curseweaver;
-			_demon.has_warlock_demonic_infusion = _cultist.has_warlock_demonic_infusion;
-			cultist_stats_apply(_demon);
-			_demon.hp = clamp(_cultist_hp, 0, _demon.max_hp);
-
-			if (variable_instance_exists(_demon, "ability_cooldown"))
-			{
-				_demon.ability_cooldown = cultist_ability_cooldown_get(_demon.demon_ability) * room_speed;
-				_demon.ability_timer = _demon.ability_cooldown;
-				_demon.base_reload_time = _demon.reload_time;
-			}
-
-			var _cultist_count = array_length(global.cultists);
-
-			for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
-			{
-				if (global.cultists[_cultist_index] == _cultist)
+				if (variable_instance_exists(_cultist, "cultist_sprite_index"))
 				{
-					global.cultists[_cultist_index] = _demon;
-					break;
+					_demon.cultist_sprite_index = _cultist.cultist_sprite_index;
+				}
+
+				if (variable_instance_exists(_cultist, "adaptive_night_hp_start"))
+				{
+					_demon.adaptive_night_hp_start = _cultist.adaptive_night_hp_start;
+				}
+
+				if (variable_instance_exists(_cultist, "stamina_amount"))
+				{
+					_demon.stamina_amount = _cultist.stamina_amount;
+				}
+
+				if (variable_instance_exists(_cultist, "stamina_max"))
+				{
+					_demon.stamina_max = _cultist.stamina_max;
+				}
+
+				if (variable_instance_exists(_cultist, "adaptive_night_damage_taken"))
+				{
+					_demon.adaptive_night_damage_taken = _cultist.adaptive_night_damage_taken;
+				}
+
+				_demon.demon_type = _cultist.demon_type;
+				_demon.demon_ability = _cultist.demon_ability;
+				_demon.cultist_starting_abilities = _cultist.cultist_starting_abilities;
+
+				_demon.current_exp = _cultist.current_exp;
+				_demon.current_lvl = _cultist.current_lvl;
+				cultist_demon_scale_apply(_demon);
+				_demon.pending_level_points = _cultist.pending_level_points;
+				_demon.pending_passive_choices = _cultist.pending_passive_choices;
+				_demon.pending_active_choices = _cultist.pending_active_choices;
+				_demon.pending_ability_upgrade_choices = _cultist.pending_ability_upgrade_choices;
+				_demon.passive_choice_options = _cultist.passive_choice_options;
+				_demon.active_choice_options = _cultist.active_choice_options;
+				_demon.ability_upgrade_choice_options = _cultist.ability_upgrade_choice_options;
+				_demon.active_abilities = _cultist.active_abilities;
+				_demon.ability_levels = _cultist.ability_levels;
+				_demon.has_brute_corpse_eater = _cultist.has_brute_corpse_eater;
+				_demon.has_brute_rotten_aura = _cultist.has_brute_rotten_aura;
+				_demon.has_brute_blood_anvil = _cultist.has_brute_blood_anvil;
+				_demon.has_warlock_soul_harvester = _cultist.has_warlock_soul_harvester;
+				_demon.has_warlock_curseweaver = _cultist.has_warlock_curseweaver;
+				_demon.has_warlock_demonic_infusion = _cultist.has_warlock_demonic_infusion;
+				cultist_stats_apply(_demon);
+				_demon.hp = clamp(_cultist_hp, 0, _demon.max_hp);
+
+				if (variable_instance_exists(_demon, "ability_cooldown"))
+				{
+					_demon.ability_cooldown = cultist_ability_cooldown_get(_demon.demon_ability) * room_speed;
+					_demon.ability_timer = _demon.ability_cooldown;
+					_demon.base_reload_time = _demon.reload_time;
+				}
+
+				var _cultist_count = array_length(global.cultists);
+
+				for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+				{
+					if (global.cultists[_cultist_index] == _cultist)
+					{
+						global.cultists[_cultist_index] = _demon;
+						break;
+					}
 				}
 			}
-		}
 
-		instance_destroy(_cultist);
+			instance_destroy(_cultist);
+		}
 	}
 
 	instance_destroy();

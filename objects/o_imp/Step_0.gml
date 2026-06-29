@@ -127,6 +127,11 @@ if (demon_leap_is_active)
 	exit;
 }
 
+if (demon_active_abilities_are_blocked())
+{
+	exit;
+}
+
 // Use only the active ability this Imp currently owns.
 if (cultist_active_ability_has(id, DEMON_ABILITY.IMP_DEMON_LEAP)
 	&& demon_leap_timer <= 0

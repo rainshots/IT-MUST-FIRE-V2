@@ -24,6 +24,9 @@ if (hp <= 0)
 	exit;
 }
 
+// Permanent settlement demons keep hunger/rage state even while assigned to buildings.
+demon_dynamic_stats_update();
+
 // Units reserved for cultist projectiles wait hidden until the impact deploys them.
 if (cultist_projectile_deploy_assigned || cultist_projectile_deploy_waiting)
 {
@@ -262,16 +265,71 @@ else if (!_special_behavior_handled && _is_friendly_unit)
 	{
 		var _cannon = instance_find(o_cannon, 0);
 		var _distance_to_cannon = point_distance(x, y, _cannon.x, _cannon.y);
+		var _is_permanent_settlement_demon = variable_instance_exists(id, "is_permanent_settlement_demon")
+			&& is_permanent_settlement_demon;
 
 		if (!instance_exists(_friendly_follow_target)
 			&& !regroup_is_active
 			&& !rally_is_active
+			&& !_is_permanent_settlement_demon
 			&& !is_wall_blocked_friendly_unit()
 			&& _distance_to_cannon > cannon_guard_radius)
 		{
 			target_instance = _cannon;
 		}
 	}
+}
+
+// Permanent settlement demons roam around the base during the day when idle.
+if (!_special_behavior_handled
+	&& _is_friendly_unit
+	&& global.day_phase == DAY_PHASE.DAY
+	&& variable_instance_exists(id, "is_permanent_settlement_demon")
+	&& is_permanent_settlement_demon
+	&& !instance_exists(target_instance)
+	&& !regroup_is_active
+	&& !rally_is_active
+	&& instance_exists(o_cannon))
+{
+	var _cannon = instance_find(o_cannon, 0);
+
+	if (!variable_instance_exists(id, "settlement_wander_target_x")
+		|| !variable_instance_exists(id, "settlement_wander_target_y")
+		|| !variable_instance_exists(id, "settlement_wander_wait_timer"))
+	{
+		settlement_wander_target_x = x;
+		settlement_wander_target_y = y;
+		settlement_wander_wait_timer = 0;
+	}
+
+	var _wander_distance_to_target = point_distance(x, y, settlement_wander_target_x, settlement_wander_target_y);
+
+	if (_wander_distance_to_target <= BALANCE_IDLE_WORKER_WANDER_REACH_DISTANCE)
+	{
+		if (settlement_wander_wait_timer > 0)
+		{
+			settlement_wander_wait_timer--;
+		}
+		else
+		{
+			var _wander_direction = random(360);
+			var _wander_distance = random_range(BALANCE_IDLE_WORKER_WANDER_RADIUS * 0.4, BALANCE_IDLE_WORKER_WANDER_RADIUS);
+			settlement_wander_target_x = _cannon.x + lengthdir_x(_wander_distance, _wander_direction);
+			settlement_wander_target_y = _cannon.y + BALANCE_DAY_CANNON_REGROUP_OFFSET_Y + lengthdir_y(_wander_distance, _wander_direction);
+			settlement_wander_wait_timer = irandom_range(
+				round(BALANCE_IDLE_WORKER_WANDER_WAIT_MIN * room_speed),
+				round(BALANCE_IDLE_WORKER_WANDER_WAIT_MAX * room_speed)
+			);
+		}
+	}
+	else
+	{
+		move_towards_world_point(settlement_wander_target_x, settlement_wander_target_y);
+	}
+
+	apply_separation_push();
+	update_walk_sway();
+	exit;
 }
 
 if (!_special_behavior_handled && instance_exists(target_instance) && !target_can_be_attacked(target_instance))

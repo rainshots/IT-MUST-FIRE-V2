@@ -1470,7 +1470,7 @@ building_choices = [
 		building_object: o_slaughter_table,
 		building_sprite: s_slaughter_table,
 		building_name: "Slaughter Table",
-		building_description: "Produces Flesh when assigned cultists work here.",
+		building_description: "Workers turn prisoners into demon food.",
 		iron_cost: BALANCE_BUILDING_IRON_COST
 	},
 	{
@@ -1491,7 +1491,14 @@ building_choices = [
 		building_object: o_meat_bath,
 		building_sprite: s_meat_bath,
 		building_name: "Meat Bath",
-		building_description: "Heals assigned workers by spending Flesh.",
+		building_description: "Workers stockpile healing for the demon.",
+		iron_cost: BALANCE_BUILDING_IRON_COST
+	},
+	{
+		building_object: o_prison_cell,
+		building_sprite: s_orks_hut,
+		building_name: "Prison Cell",
+		building_description: "Stores prisoners for demon care and rituals.",
 		iron_cost: BALANCE_BUILDING_IRON_COST
 	},
 	{
@@ -2443,10 +2450,44 @@ unit_is_blocked_by_cannon_wall = function(_unit)
 		return false;
 	}
 
+	var _is_permanent_day_demon = variable_instance_exists(_unit, "is_permanent_settlement_demon")
+		&& _unit.is_permanent_settlement_demon
+		&& global.day_phase == DAY_PHASE.DAY;
+
+	if (_is_permanent_day_demon)
+	{
+		return false;
+	}
+
 	var _is_summoned_night_unit = variable_instance_exists(_unit, "summon_nights_remaining")
 		&& global.day_phase == DAY_PHASE.NIGHT;
 
 	return unit_is_demon_form(_unit) || _is_summoned_night_unit;
+};
+
+settlement_position_clamp = function(_world_x, _world_y)
+{
+	if (!instance_exists(o_cannon))
+	{
+		return [_world_x, _world_y];
+	}
+
+	var _cannon = instance_find(o_cannon, 0);
+	var _settlement_radius_padding = 72;
+	var _settlement_radius = max(64, BALANCE_CANNON_WALL_RADIUS - _settlement_radius_padding);
+	var _distance_to_cannon = point_distance(_world_x, _world_y, _cannon.x, _cannon.y);
+
+	if (_distance_to_cannon <= _settlement_radius)
+	{
+		return [_world_x, _world_y];
+	}
+
+	var _direction_from_cannon = point_direction(_cannon.x, _cannon.y, _world_x, _world_y);
+
+	return [
+		_cannon.x + lengthdir_x(_settlement_radius, _direction_from_cannon),
+		_cannon.y + lengthdir_y(_settlement_radius, _direction_from_cannon)
+	];
 };
 
 cannon_wall_position_clamp = function(_world_x, _world_y)
@@ -2592,6 +2633,14 @@ clear_cultist_building_assignment = function(_cultist)
 // Find the first worker building under a world-space point.
 find_worker_building_at_position = function(_world_x, _world_y)
 {
+	var _dragged_unit_is_prisoner = variable_global_exists("dragged_cultist")
+		&& instance_exists(global.dragged_cultist)
+		&& global.dragged_cultist.object_index == o_prisoner;
+	var _dragged_unit_is_building_assignment_only = variable_global_exists("dragged_cultist")
+		&& instance_exists(global.dragged_cultist)
+		&& variable_instance_exists(global.dragged_cultist, "building_assignment_only")
+		&& global.dragged_cultist.building_assignment_only;
+
 	if (instance_exists(o_cannon))
 	{
 		var _cannon = instance_find(o_cannon, 0);
@@ -2600,7 +2649,7 @@ find_worker_building_at_position = function(_world_x, _world_y)
 			&& variable_instance_exists(_cannon, "building_accepts_workers")
 			&& _cannon.building_accepts_workers
 			&& variable_instance_exists(_cannon, "worker_cultists")
-			&& array_length(_cannon.worker_cultists) < _cannon.worker_max
+			&& (_dragged_unit_is_building_assignment_only || building_worker_slot_count_get(_cannon) < _cannon.worker_max)
 			&& _world_x >= _cannon.bbox_left
 			&& _world_x <= _cannon.bbox_right
 			&& _world_y >= _cannon.bbox_top
@@ -2616,11 +2665,19 @@ find_worker_building_at_position = function(_world_x, _world_y)
 	{
 		var _building = instance_find(o_v13buildings_parent, _building_index);
 
+		var _is_prisoner_target_building = _dragged_unit_is_prisoner
+			&& instance_exists(_building)
+			&& (_building.object_index == o_prison_cell
+				|| _building.object_index == o_slaughter_table
+				|| _building.object_index == o_ritual_circle);
+
 		if (instance_exists(_building)
 			&& variable_instance_exists(_building, "building_accepts_workers")
 			&& _building.building_accepts_workers
 			&& variable_instance_exists(_building, "worker_cultists")
-			&& array_length(_building.worker_cultists) < _building.worker_max
+			&& (_dragged_unit_is_building_assignment_only
+				|| _is_prisoner_target_building
+				|| building_worker_slot_count_get(_building) < _building.worker_max)
 			&& _world_x >= _building.bbox_left
 			&& _world_x <= _building.bbox_right
 			&& _world_y >= _building.bbox_top
@@ -2693,7 +2750,7 @@ drag_cultist_can_be_picked = function(_cultist)
 worker_whip_target_is_valid = function(_unit)
 {
 	if (!instance_exists(_unit)
-		|| (_unit.object_index != o_cultist && _unit.object_index != o_goblin)
+		|| (_unit.object_index != o_cultist && !variable_instance_exists(_unit, "worker_speed_multiplier"))
 		|| !variable_instance_exists(_unit, "hp")
 		|| !variable_instance_exists(_unit, "max_hp")
 		|| _unit.hp <= 0)
@@ -2728,7 +2785,7 @@ worker_whip_target_can_be_hit = function(_unit)
 
 	var _damage_multiplier = 1;
 
-	if (_unit.object_index == o_goblin)
+	if (variable_instance_exists(_unit, "worker_speed_multiplier"))
 	{
 		_damage_multiplier = BALANCE_WORKER_WHIP_GOBLIN_DAMAGE_MULTIPLIER;
 	}
@@ -2777,6 +2834,24 @@ find_worker_whip_target_at_position = function(_world_x, _world_y)
 		}
 	}
 
+	var _worker_cultist_count = instance_number(o_worker_cultist);
+
+	for (var _worker_cultist_index = 0; _worker_cultist_index < _worker_cultist_count; ++_worker_cultist_index)
+	{
+		var _worker_cultist = instance_find(o_worker_cultist, _worker_cultist_index);
+
+		if (worker_whip_target_can_be_hit(_worker_cultist)
+			&& _world_x >= _worker_cultist.bbox_left
+			&& _world_x <= _worker_cultist.bbox_right
+			&& _world_y >= _worker_cultist.bbox_top
+			&& _world_y <= _worker_cultist.bbox_bottom
+			&& _worker_cultist.depth < _target_depth)
+		{
+			_target_unit = _worker_cultist;
+			_target_depth = _worker_cultist.depth;
+		}
+	}
+
 	return _target_unit;
 };
 
@@ -2791,7 +2866,7 @@ worker_whip_apply = function(_unit)
 	var _whip_gain_frames = max(1, BALANCE_WORKER_WHIP_HIT_DURATION_GAIN * room_speed);
 	var _damage_multiplier = 1;
 
-	if (_unit.object_index == o_goblin)
+	if (variable_instance_exists(_unit, "worker_speed_multiplier"))
 	{
 		_damage_multiplier = BALANCE_WORKER_WHIP_GOBLIN_DAMAGE_MULTIPLIER;
 	}
@@ -2873,6 +2948,13 @@ worker_whip_effects_update = function()
 	for (var _goblin_index = 0; _goblin_index < _goblin_count; ++_goblin_index)
 	{
 		worker_whip_unit_update(instance_find(o_goblin, _goblin_index));
+	}
+
+	var _worker_cultist_count = instance_number(o_worker_cultist);
+
+	for (var _worker_cultist_index = 0; _worker_cultist_index < _worker_cultist_count; ++_worker_cultist_index)
+	{
+		worker_whip_unit_update(instance_find(o_worker_cultist, _worker_cultist_index));
 	}
 };
 
@@ -3455,11 +3537,122 @@ construct_building_from_choice = function(_choice)
 };
 
 // Assign a valid worker unit to a building and snap it beside the building.
+prisoner_return_to_home = function(_prisoner)
+{
+	if (!instance_exists(_prisoner))
+	{
+		return false;
+	}
+
+	if (instance_exists(_prisoner.home_prison_cell))
+	{
+		_prisoner.assigned_prisoner_building = _prisoner.home_prison_cell;
+		_prisoner.x = _prisoner.home_prison_cell.x;
+		_prisoner.y = _prisoner.home_prison_cell.y + 24;
+		_prisoner.drag_drop_x = _prisoner.x;
+		_prisoner.drag_drop_y = _prisoner.y;
+		return true;
+	}
+
+	return false;
+};
+
+building_worker_slot_count_get = function(_building)
+{
+	if (!instance_exists(_building) || !variable_instance_exists(_building, "worker_cultists"))
+	{
+		return 0;
+	}
+
+	var _slot_count = 0;
+	var _worker_count = array_length(_building.worker_cultists);
+
+	for (var _worker_index = 0; _worker_index < _worker_count; ++_worker_index)
+	{
+		var _worker = _building.worker_cultists[_worker_index];
+
+		if (instance_exists(_worker)
+			&& (!variable_instance_exists(_worker, "building_assignment_only") || !_worker.building_assignment_only))
+		{
+			_slot_count++;
+		}
+	}
+
+	return _slot_count;
+};
+
+assign_prisoner_to_building = function(_prisoner, _building)
+{
+	if (!instance_exists(_prisoner)
+		|| _prisoner.object_index != o_prisoner
+		|| _prisoner.prisoner_locked)
+	{
+		return false;
+	}
+
+	if (!instance_exists(_building))
+	{
+		return prisoner_return_to_home(_prisoner);
+	}
+
+	if (_building.object_index == o_prison_cell)
+	{
+		_prisoner.home_prison_cell = _building;
+		_prisoner.assigned_prisoner_building = _building;
+		_prisoner.x = _building.x;
+		_prisoner.y = _building.y + 24;
+		_prisoner.drag_drop_x = _prisoner.x;
+		_prisoner.drag_drop_y = _prisoner.y;
+		return true;
+	}
+
+	if (_building.object_index == o_slaughter_table
+		&& variable_instance_exists(_building, "slaughter_table_prisoner_add"))
+	{
+		if (!_building.slaughter_table_prisoner_add())
+		{
+			return prisoner_return_to_home(_prisoner);
+		}
+
+		_prisoner.prisoner_locked = true;
+		_prisoner.assigned_prisoner_building = _building;
+		instance_destroy(_prisoner);
+		return true;
+	}
+
+	if (_building.object_index == o_ritual_circle)
+	{
+		if (!variable_instance_exists(_building, "ritual_circle_prisoner_add")
+			|| !_building.ritual_circle_prisoner_add(_prisoner))
+		{
+			return prisoner_return_to_home(_prisoner);
+		}
+
+		_prisoner.prisoner_locked = true;
+		_prisoner.assigned_prisoner_building = _building;
+		_prisoner.visible = false;
+		_prisoner.x = _building.x;
+		_prisoner.y = _building.y;
+		_prisoner.drag_drop_x = _building.x;
+		_prisoner.drag_drop_y = _building.y;
+		return true;
+	}
+
+	return prisoner_return_to_home(_prisoner);
+};
+
 assign_cultist_to_worker_building = function(_cultist, _building)
 {
+	if (instance_exists(_cultist) && _cultist.object_index == o_prisoner)
+	{
+		return assign_prisoner_to_building(_cultist, _building);
+	}
+
 	if (!instance_exists(_cultist)
 		|| !instance_exists(_building)
-		|| (_cultist.object_index != o_cultist && !variable_instance_exists(_cultist, "worker_speed_multiplier"))
+		|| (_cultist.object_index != o_cultist
+			&& !variable_instance_exists(_cultist, "worker_speed_multiplier")
+			&& !variable_instance_exists(_cultist, "building_assignment_only"))
 		|| (variable_instance_exists(_cultist, "hp") && _cultist.hp <= 0))
 	{
 		return false;
@@ -3478,20 +3671,30 @@ assign_cultist_to_worker_building = function(_cultist, _building)
 		return false;
 	}
 
-	if (_cultist.object_index == o_goblin && global.day_phase == DAY_PHASE.NIGHT)
+	if (_cultist.object_index != o_cultist
+		&& variable_instance_exists(_cultist, "worker_speed_multiplier")
+		&& global.day_phase == DAY_PHASE.NIGHT)
 	{
 		return false;
 	}
 
-	if (_cultist.object_index == o_goblin && _building.object_index == o_ritual_circle)
+	if (variable_instance_exists(_cultist, "worker_speed_multiplier")
+		&& _building.object_index == o_prison_cell)
 	{
 		return false;
 	}
 
 	if (!variable_instance_exists(_building, "building_accepts_workers")
 		|| !_building.building_accepts_workers
-		|| !variable_instance_exists(_building, "worker_cultists")
-		|| array_length(_building.worker_cultists) >= _building.worker_max)
+		|| !variable_instance_exists(_building, "worker_cultists"))
+	{
+		return false;
+	}
+
+	var _assignment_uses_worker_slot = !variable_instance_exists(_cultist, "building_assignment_only")
+		|| !_cultist.building_assignment_only;
+
+	if (_assignment_uses_worker_slot && building_worker_slot_count_get(_building) >= _building.worker_max)
 	{
 		return false;
 	}
@@ -3548,7 +3751,7 @@ worker_idle_wander_can_update = function(_worker, _allow_cannon_assignment = fal
 {
 	if (!instance_exists(_worker)
 		|| global.day_phase != DAY_PHASE.DAY
-		|| (_worker.object_index != o_cultist && _worker.object_index != o_goblin)
+		|| (_worker.object_index != o_cultist && !variable_instance_exists(_worker, "worker_speed_multiplier"))
 		|| !variable_instance_exists(_worker, "hp")
 		|| _worker.hp <= 0)
 	{
@@ -3716,6 +3919,13 @@ day_idle_cultists_wander_update = function()
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
 		worker_idle_wander_update(global.cultists[_cultist_index]);
+	}
+
+	var _worker_cultist_count = instance_number(o_worker_cultist);
+
+	for (var _worker_cultist_index = 0; _worker_cultist_index < _worker_cultist_count; ++_worker_cultist_index)
+	{
+		worker_idle_wander_update(instance_find(o_worker_cultist, _worker_cultist_index));
 	}
 };
 
@@ -4177,26 +4387,15 @@ spawn_starting_cultists = function()
 	}
 
 	global.cultists = array_create(0);
-	var _starting_unit_count = cultist_start_count + starting_goblin_count;
+	var _starting_unit_count = BALANCE_STARTING_WORKER_CULTIST_COUNT + 1;
 
-	// Spawn initial cultists and workers together so they do not overlap.
-	for (var _cultist_index = 0; _cultist_index < cultist_start_count; ++_cultist_index)
+	// Spawn settlement worker cultists for the alternate demon-settlement design.
+	for (var _worker_cultist_index = 0; _worker_cultist_index < BALANCE_STARTING_WORKER_CULTIST_COUNT; ++_worker_cultist_index)
 	{
-		var _spawn_position = cannon_inner_position_get(_cultist_index, _starting_unit_count);
+		var _spawn_position = cannon_inner_position_get(_worker_cultist_index + 1, _starting_unit_count);
 		var _spawn_x = _spawn_position[0];
 		var _spawn_y = _spawn_position[1];
-		var _cultist = instance_create_layer(_spawn_x, _spawn_y, "Instances", o_cultist);
-
-		array_push(global.cultists, _cultist);
-	}
-
-	for (var _goblin_index = 0; _goblin_index < starting_goblin_count; ++_goblin_index)
-	{
-		var _unit_index = cultist_start_count + _goblin_index;
-		var _spawn_position = cannon_inner_position_get(_unit_index, _starting_unit_count);
-		var _spawn_x = _spawn_position[0];
-		var _spawn_y = _spawn_position[1];
-		instance_create_layer(_spawn_x, _spawn_y, "Instances", o_goblin);
+		instance_create_layer(_spawn_x, _spawn_y, "Instances", o_worker_cultist);
 	}
 
 	cultists_spawned = true;
@@ -4330,42 +4529,74 @@ open_cultist_demon_selection = function(_selection_index)
 	global.focus_window = FOCUS_WINDOW.CULTIST_DEMON_SELECTION;
 };
 
+starting_demon_create_from_selection = function()
+{
+	var _demon_object = cultist_demon_object_get(cultist_selected_demon_type);
+
+	if (_demon_object == noone)
+	{
+		return noone;
+	}
+
+	var _spawn_position = cannon_inner_position_get(0, BALANCE_STARTING_WORKER_CULTIST_COUNT + 1);
+	var _demon = instance_create_layer(_spawn_position[0], _spawn_position[1], "Instances", _demon_object);
+
+	if (!instance_exists(_demon))
+	{
+		return noone;
+	}
+
+	var _typed_name = string_trim(keyboard_string);
+
+	if (_typed_name == "")
+	{
+		_typed_name = "Demon";
+	}
+
+	// The redesign keeps the chosen demon in demon form for the whole run.
+	_demon.is_permanent_settlement_demon = true;
+	_demon.building_assignment_only = true;
+	_demon.cultist_name = string_copy(_typed_name, 1, 16);
+	_demon.cultist_points = cultist_points_roll();
+	_demon.demon_type = cultist_selected_demon_type;
+	cultist_selected_starting_ability_validate();
+	_demon.demon_ability = cultist_selected_starting_ability;
+	_demon.cultist_starting_abilities = array_create(DEMON_TYPE.BRUTE + 1, DEMON_ABILITY.NONE);
+	_demon.cultist_starting_abilities[DEMON_TYPE.IMP] = cultist_starting_ability_get(noone, DEMON_TYPE.IMP);
+	_demon.cultist_starting_abilities[DEMON_TYPE.WARLOCK] = cultist_starting_ability_get(noone, DEMON_TYPE.WARLOCK);
+	_demon.cultist_starting_abilities[DEMON_TYPE.BRUTE] = cultist_starting_ability_get(noone, DEMON_TYPE.BRUTE);
+	_demon.cultist_starting_abilities[cultist_selected_demon_type] = cultist_selected_starting_ability;
+	_demon.active_abilities = [];
+
+	if (_demon.demon_ability != DEMON_ABILITY.NONE)
+	{
+		_demon.active_abilities = [_demon.demon_ability];
+		cultist_ability_level_set(_demon, _demon.demon_ability, 1);
+	}
+
+	cultist_demon_scale_apply(_demon);
+	cultist_stats_apply(_demon);
+	_demon.demon_calmness = 100;
+	_demon.demon_satiety = 100;
+	_demon.demon_base_damage = _demon.damage;
+	_demon.demon_base_magic_damage = _demon.magic_damage;
+	_demon.demon_base_reload_time = _demon.reload_time;
+	_demon.demon_base_max_hp = _demon.max_hp;
+	_demon.demon_base_image_xscale = _demon.image_xscale;
+	_demon.demon_base_image_yscale = _demon.image_yscale;
+	_demon.hp = _demon.max_hp;
+	_demon.drag_drop_x = _demon.x;
+	_demon.drag_drop_y = _demon.y;
+	array_push(global.cultists, _demon);
+
+	return _demon;
+};
+
 // Add extra cultists on fixed early days.
 award_day_cultists = function()
 {
-	var _selection_start_index = -1;
-	var _reward_count = array_length(cultist_reward_days);
-
-	for (var _reward_index = next_cultist_reward_index; _reward_index < _reward_count; ++_reward_index)
-	{
-		var _reward_day = cultist_reward_days[_reward_index];
-
-		if (night_attack_night_index < _reward_day)
-		{
-			break;
-		}
-
-		var _new_cultist_index = array_length(global.cultists);
-		var _spawn_position = cannon_inner_position_get(_new_cultist_index, _new_cultist_index + 1);
-		var _spawn_x = _spawn_position[0];
-		var _spawn_y = _spawn_position[1];
-		var _cultist = instance_create_layer(_spawn_x, _spawn_y, "Instances", o_cultist);
-
-		array_push(global.cultists, _cultist);
-
-		if (_selection_start_index < 0)
-		{
-			_selection_start_index = _new_cultist_index;
-		}
-
-		next_cultist_reward_index = _reward_index + 1;
-	}
-
-	if (_selection_start_index >= 0)
-	{
-		move_cultists_to_cannon_inner();
-		open_cultist_demon_selection(_selection_start_index);
-	}
+	// Old demon-form cultist rewards are disabled in the settlement redesign branch.
+	next_cultist_reward_index = array_length(cultist_reward_days);
 };
 
 get_current_cultist = function()
@@ -4428,6 +4659,20 @@ assign_current_cultist_demon = function()
 
 	if (!instance_exists(_cultist))
 	{
+		var _demon = starting_demon_create_from_selection();
+
+		if (!instance_exists(_demon))
+		{
+			return;
+		}
+
+		cultist_selection_index = -1;
+		keyboard_string = "";
+		cultist_selected_demon_type = DEMON_TYPE.IMP;
+		cultist_selected_starting_ability = cultist_starting_ability_default_get(cultist_selected_demon_type);
+		global.pause = false;
+		global.focus_window = FOCUS_WINDOW.NOONE;
+		worker_assignment_hint_delay_start();
 		return;
 	}
 
@@ -4791,9 +5036,13 @@ start_cultists_loading_into_cannon = function()
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
 		var _cultist = global.cultists[_cultist_index];
+		var _is_permanent_demon = instance_exists(_cultist)
+			&& variable_instance_exists(_cultist, "is_permanent_settlement_demon")
+			&& _cultist.is_permanent_settlement_demon;
 
 		if (!instance_exists(_cultist)
-			|| _cultist.object_index != o_cultist
+			|| (!_is_permanent_demon && _cultist.object_index != o_cultist)
+			|| !variable_instance_exists(_cultist, "demon_type")
 			|| _cultist.demon_type == DEMON_TYPE.NONE)
 		{
 			continue;
@@ -4821,9 +5070,12 @@ update_cultists_loading_into_cannon = function()
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
 		var _cultist = global.cultists[_cultist_index];
+		var _is_permanent_demon = instance_exists(_cultist)
+			&& variable_instance_exists(_cultist, "is_permanent_settlement_demon")
+			&& _cultist.is_permanent_settlement_demon;
 
 		if (!instance_exists(_cultist)
-			|| _cultist.object_index != o_cultist
+			|| (!_is_permanent_demon && _cultist.object_index != o_cultist)
 			|| !variable_instance_exists(_cultist, "cannon_loading")
 			|| !_cultist.cannon_loading
 			|| _cultist.cannon_loaded)
@@ -4879,7 +5131,6 @@ unload_cultist_projectiles_to_day = function()
 		var _cultist = global.cultists[_cultist_index];
 
 		if (instance_exists(_cultist)
-			&& _cultist.object_index == o_cultist
 			&& variable_instance_exists(_cultist, "cannon_loading"))
 		{
 			_cultist.cannon_loading = false;
@@ -5092,6 +5343,21 @@ move_goblins_to_cannon_inner = function()
 		array_push(_goblins, _goblin);
 	}
 
+	var _worker_cultist_count = instance_number(o_worker_cultist);
+
+	for (var _worker_cultist_index = 0; _worker_cultist_index < _worker_cultist_count; ++_worker_cultist_index)
+	{
+		var _worker_cultist = instance_find(o_worker_cultist, _worker_cultist_index);
+
+		if (!instance_exists(_worker_cultist))
+		{
+			continue;
+		}
+
+		clear_cultist_building_assignment(_worker_cultist);
+		array_push(_goblins, _worker_cultist);
+	}
+
 	var _active_goblin_count = array_length(_goblins);
 
 	for (var _assigned_index = 0; _assigned_index < _active_goblin_count; ++_assigned_index)
@@ -5231,8 +5497,28 @@ clear_dragged_unit = function()
 	global.cultist_assignment_preview_building = noone;
 };
 
+release_permanent_demons_from_buildings = function()
+{
+	var _cultist_count = array_length(global.cultists);
+
+	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+	{
+		var _cultist = global.cultists[_cultist_index];
+
+		if (instance_exists(_cultist)
+			&& variable_instance_exists(_cultist, "is_permanent_settlement_demon")
+			&& _cultist.is_permanent_settlement_demon)
+		{
+			clear_cultist_building_assignment(_cultist);
+		}
+	}
+};
+
 transform_demons_to_cultists = function()
 {
+	// Settlement-redesign demons stay in demon form during both day and night.
+	return;
+
 	var _unit_count = array_length(global.cultists);
 	var _new_cultists = array_create(0);
 
@@ -7027,6 +7313,7 @@ start_night_phase = function()
 {
 	clear_dragged_unit();
 	cannon_corpse_workers_drop_all();
+	release_permanent_demons_from_buildings();
 	global.day_phase = DAY_PHASE.NIGHT;
 	global.day_timer = global.night_duration * global.game_speed_normal;
 	global.night_attack_unit_count = 0;
@@ -7113,6 +7400,14 @@ start_day_phase = function()
 	fade_out_morning_meat();
 	corpse_decay_at_morning();
 	update_summoned_unit_night_life();
+
+	with (o_prison_cell)
+	{
+		if (variable_instance_exists(id, "prison_cell_prisoner_spawn"))
+		{
+			prison_cell_prisoner_spawn(BALANCE_PRISON_CELL_MORNING_PRISONERS);
+		}
+	}
 
 	cultist_projectile_deploy_assignments_reset();
 	unload_cultist_projectiles_to_day();

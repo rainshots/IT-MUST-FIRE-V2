@@ -246,8 +246,19 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 		var _drag_world_x = _mouse_world_x;
 		var _drop_world_y = _mouse_world_y + cultist_drag_drop_offset_y;
 		var _assignment_world_y = _mouse_world_y;
+		var _is_permanent_day_demon = variable_instance_exists(_dragged_cultist, "is_permanent_settlement_demon")
+			&& _dragged_cultist.is_permanent_settlement_demon
+			&& global.day_phase == DAY_PHASE.DAY;
 
-		if (unit_is_blocked_by_cannon_wall(_dragged_cultist))
+		if (_is_permanent_day_demon)
+		{
+			var _settlement_position = settlement_position_clamp(_drag_world_x, _drop_world_y);
+
+			_drag_world_x = _settlement_position[0];
+			_drop_world_y = _settlement_position[1];
+			_assignment_world_y = _drop_world_y;
+		}
+		else if (unit_is_blocked_by_cannon_wall(_dragged_cultist))
 		{
 			var _clamped_position = cannon_wall_position_clamp(_drag_world_x, _drop_world_y);
 
@@ -271,13 +282,6 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 
 		global.cultist_assignment_preview_building = find_worker_building_at_position(_drag_world_x, _assignment_world_y);
 
-		if (_dragged_cultist.object_index == o_goblin
-			&& instance_exists(global.cultist_assignment_preview_building)
-			&& global.cultist_assignment_preview_building.object_index == o_ritual_circle)
-		{
-			global.cultist_assignment_preview_building = noone;
-		}
-
 		if (instance_exists(global.cultist_assignment_preview_building)
 			&& day_worker_is_out_of_stamina(_dragged_cultist)
 			&& global.cultist_assignment_preview_building.object_index != o_ritual_circle
@@ -292,21 +296,26 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 			var _drop_building = global.cultist_assignment_preview_building;
 			var _was_assigned_to_building = assign_cultist_to_worker_building(_dragged_cultist, _drop_building);
 
-			if (!_was_assigned_to_building)
+			if (instance_exists(_dragged_cultist) && !_was_assigned_to_building)
 			{
 				_dragged_cultist.x = _dragged_cultist.drag_drop_x;
 				_dragged_cultist.y = _dragged_cultist.drag_drop_y;
 			}
 
-			_dragged_cultist.is_being_dragged = false;
 			global.sound_play_random(global.release_worker_sounds);
 
-			if (_dragged_cultist.object_index != o_cultist
-				&& variable_instance_exists(_dragged_cultist, "demon_type")
-				&& _dragged_cultist.demon_type != DEMON_TYPE.NONE
-				&& variable_instance_exists(_dragged_cultist, "stun_apply"))
+			if (instance_exists(_dragged_cultist))
 			{
-				_dragged_cultist.stun_apply(BALANCE_DEMON_DRAG_STUN_TIME);
+				_dragged_cultist.is_being_dragged = false;
+
+				if (!_is_permanent_day_demon
+					&& _dragged_cultist.object_index != o_cultist
+					&& variable_instance_exists(_dragged_cultist, "demon_type")
+					&& _dragged_cultist.demon_type != DEMON_TYPE.NONE
+					&& variable_instance_exists(_dragged_cultist, "stun_apply"))
+				{
+					_dragged_cultist.stun_apply(BALANCE_DEMON_DRAG_STUN_TIME);
+				}
 			}
 
 			global.dragged_cultist = noone;
@@ -347,7 +356,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 			}
 		}
 
-		var _worker_unit_objects = [o_goblin];
+		var _worker_unit_objects = [o_goblin, o_worker_cultist, o_prisoner];
 
 		if (global.day_phase == DAY_PHASE.DAY)
 		{
@@ -361,6 +370,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 					var _worker_unit = instance_find(_worker_object, _worker_unit_index);
 
 					if (instance_exists(_worker_unit)
+						&& (!variable_instance_exists(_worker_unit, "prisoner_locked") || !_worker_unit.prisoner_locked)
 						&& _mouse_world_x >= _worker_unit.bbox_left
 						&& _mouse_world_x <= _worker_unit.bbox_right
 						&& _mouse_world_y >= _worker_unit.bbox_top
@@ -420,8 +430,12 @@ else if (instance_exists(global.dragged_cultist))
 	global.dragged_cultist.y = global.dragged_cultist.drag_drop_y;
 	global.dragged_cultist.is_being_dragged = false;
 	global.sound_play_random(global.release_worker_sounds);
+	var _cancelled_drag_is_permanent_day_demon = variable_instance_exists(global.dragged_cultist, "is_permanent_settlement_demon")
+		&& global.dragged_cultist.is_permanent_settlement_demon
+		&& global.day_phase == DAY_PHASE.DAY;
 
-	if (global.dragged_cultist.object_index != o_cultist
+	if (!_cancelled_drag_is_permanent_day_demon
+		&& global.dragged_cultist.object_index != o_cultist
 		&& variable_instance_exists(global.dragged_cultist, "demon_type")
 		&& global.dragged_cultist.demon_type != DEMON_TYPE.NONE
 		&& variable_instance_exists(global.dragged_cultist, "stun_apply"))

@@ -98,6 +98,11 @@ if (has_brute_rotten_aura)
 	brute_rotten_aura_particles_update();
 }
 
+if (demon_active_abilities_are_blocked())
+{
+	exit;
+}
+
 // Use only the active ability this Brute currently owns.
 if (grave_slam_timer > 0)
 {

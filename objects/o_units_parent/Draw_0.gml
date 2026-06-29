@@ -102,8 +102,8 @@ else if (variable_instance_exists(id, "carried_corpse") && is_struct(carried_cor
 	}
 }
 
-// Mark available day worker summons that are not assigned to any work.
-if (object_index == o_goblin
+// Mark available day workers that are not assigned to any work.
+if (variable_instance_exists(id, "worker_speed_multiplier")
 	&& global.day_phase == DAY_PHASE.DAY
 	&& hp > 0
 	&& !is_assigned_to_building
@@ -269,6 +269,15 @@ if (_should_draw_health_bar)
 	draw_set_color(_health_bar_color);
 	draw_rectangle(_bar_x, _bar_y, _bar_x + (bar_width * _hp_progress), _bar_y + bar_height, false);
 
+	if (variable_instance_exists(id, "demon_satiety_max_hp_penalty_share")
+		&& demon_satiety_max_hp_penalty_share > 0)
+	{
+		var _blocked_left = _bar_x + (bar_width * (1 - demon_satiety_max_hp_penalty_share));
+
+		draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+		draw_rectangle(_blocked_left, _bar_y, _bar_x + bar_width, _bar_y + bar_height, false);
+	}
+
 	var _status_bar_gap = 2;
 
 	if (variable_instance_exists(id, "stamina_bar_gap"))
@@ -292,6 +301,31 @@ if (_should_draw_health_bar)
 		draw_set_color(COLOR_CULTIST_FERVOR);
 		draw_rectangle(_bar_x, _whip_bar_y, _bar_x + (bar_width * _whip_progress), _whip_bar_y + _whip_bar_height, false);
 	}
+}
+
+// Draw permanent demon state labels above its body.
+if (variable_instance_exists(id, "is_permanent_settlement_demon")
+	&& is_permanent_settlement_demon
+	&& (demon_status_label_primary != "" || demon_status_label_secondary != ""))
+{
+	var _label_text = demon_status_label_primary;
+
+	if (_label_text == "")
+	{
+		_label_text = demon_status_label_secondary;
+	}
+	else if (demon_status_label_secondary != "")
+	{
+		_label_text += " / " + demon_status_label_secondary;
+	}
+
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
+	draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+	draw_text(x, bbox_top - 18, _label_text);
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
 }
 
 // Draw stun state above the unit while it cannot act.

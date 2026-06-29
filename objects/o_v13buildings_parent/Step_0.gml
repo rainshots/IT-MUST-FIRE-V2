@@ -24,7 +24,8 @@ for (var _worker_index = 0; _worker_index < _worker_count; ++_worker_index)
 
 	if (instance_exists(_worker)
 		&& (_worker.object_index == o_cultist
-			|| variable_instance_exists(_worker, "worker_speed_multiplier")))
+			|| variable_instance_exists(_worker, "worker_speed_multiplier")
+			|| variable_instance_exists(_worker, "building_assignment_only")))
 	{
 		worker_cultists[_valid_worker_count] = _worker;
 		_valid_worker_count++;
@@ -68,6 +69,137 @@ if (_valid_worker_count <= 0)
 }
 
 recalculate_production_speed_multiplier();
+
+// Demon care buildings either stockpile reserves or spend them on an assigned demon.
+if (object_index == o_slaughter_table)
+{
+	var _assigned_demon = assigned_demon_get();
+
+	if (instance_exists(_assigned_demon))
+	{
+		if (demon_food_amount <= 0)
+		{
+			assigned_demon_release();
+			building_warning_show("NO FOOD", COLOR_STATUS_NEGATIVE_RED);
+			exit;
+		}
+
+		if (production_speed_multiplier <= 0)
+		{
+			building_warning_show("NEED WORKERS", COLOR_STATUS_NEGATIVE_RED);
+			exit;
+		}
+
+		var _feed_step = (BALANCE_DEMON_BUILDING_FOOD_FEED_PER_SECOND * production_speed_multiplier) / max(1, room_speed);
+		var _feed_amount = min(_feed_step, demon_food_amount);
+		demon_food_amount -= _feed_amount;
+		_assigned_demon.demon_satiety = min(130, _assigned_demon.demon_satiety + _feed_amount);
+
+		if (demon_food_amount <= 0)
+		{
+			assigned_demon_release();
+		}
+
+		exit;
+	}
+
+	if (demon_food_prisoner_work_timer <= 0)
+	{
+		building_warning_show("NEED PRISONER", COLOR_STATUS_NEGATIVE_RED);
+		exit;
+	}
+
+	var _food_step = (BALANCE_DEMON_BUILDING_FOOD_PRODUCTION_PER_SECOND * production_speed_multiplier) / max(1, room_speed);
+	demon_food_amount = min(demon_food_max, demon_food_amount + _food_step);
+	demon_food_prisoner_work_timer = max(0, demon_food_prisoner_work_timer - 1);
+	exit;
+}
+
+if (object_index == o_meat_bath)
+{
+	var _assigned_demon = assigned_demon_get();
+
+	if (instance_exists(_assigned_demon))
+	{
+		if (demon_heal_amount <= 0)
+		{
+			assigned_demon_release();
+			building_warning_show("NO HEALING", COLOR_STATUS_NEGATIVE_RED);
+			exit;
+		}
+
+		if (production_speed_multiplier <= 0)
+		{
+			building_warning_show("NEED WORKERS", COLOR_STATUS_NEGATIVE_RED);
+			exit;
+		}
+
+		var _heal_step = (BALANCE_DEMON_BUILDING_HEAL_PER_SECOND * production_speed_multiplier) / max(1, room_speed);
+		var _heal_limit = _assigned_demon.max_hp * (1 + BALANCE_DEMON_BUILDING_OVERHEAL_MAX_SHARE);
+		var _heal_efficiency = 1;
+
+		if (_assigned_demon.hp >= _assigned_demon.max_hp)
+		{
+			_heal_efficiency = BALANCE_DEMON_BUILDING_OVERHEAL_EFFICIENCY;
+		}
+
+		var _heal_amount = min(_heal_step * _heal_efficiency, min(demon_heal_amount, _heal_limit - _assigned_demon.hp));
+
+		if (_heal_amount <= 0)
+		{
+			exit;
+		}
+
+		_assigned_demon.hp += _heal_amount;
+		demon_heal_amount -= _heal_amount;
+		heal_feedback_create(_assigned_demon, _heal_amount);
+
+		if (demon_heal_amount <= 0)
+		{
+			assigned_demon_release();
+		}
+
+		exit;
+	}
+
+	var _heal_store_step = (BALANCE_DEMON_BUILDING_HEAL_PRODUCTION_PER_SECOND * production_speed_multiplier) / max(1, room_speed);
+	demon_heal_amount = min(demon_heal_max, demon_heal_amount + _heal_store_step);
+	exit;
+}
+
+if (object_index == o_prison_cell)
+{
+	var _assigned_demon = assigned_demon_get();
+
+	if (!instance_exists(_assigned_demon))
+	{
+		exit;
+	}
+
+	var _prisoner_count = 0;
+	var _all_prisoner_count = instance_number(o_prisoner);
+
+	for (var _prisoner_index = 0; _prisoner_index < _all_prisoner_count; ++_prisoner_index)
+	{
+		var _prisoner = instance_find(o_prisoner, _prisoner_index);
+
+		if (instance_exists(_prisoner)
+			&& variable_instance_exists(_prisoner, "assigned_prisoner_building")
+			&& _prisoner.assigned_prisoner_building == id)
+		{
+			_prisoner_count++;
+		}
+	}
+
+	if (_prisoner_count <= 0)
+	{
+		building_warning_show("NO PRISONERS", COLOR_STATUS_NEGATIVE_RED);
+		exit;
+	}
+
+	_assigned_demon.demon_calmness = min(130, _assigned_demon.demon_calmness + (BALANCE_DEMON_CALMNESS_PRISONER_BEAT_PER_SECOND / max(1, room_speed)));
+	exit;
+}
 
 // Resource building upgrades add free secondary work at a fraction of specialist buildings.
 if (array_length(building_upgrade_flags) > 1 && building_upgrade_flags[1])
@@ -205,6 +337,35 @@ if (object_index == o_meat_bath)
 // Ritual Circle stores base XP and applies it gradually.
 if (object_index == o_ritual_circle)
 {
+	if (instance_exists(ritual_circle_prisoner))
+	{
+		var _dedication_step = production_speed_multiplier / max(1, BALANCE_RITUAL_CIRCLE_PRISONER_DEDICATION_TIME * room_speed);
+		ritual_circle_prisoner_dedication_progress = min(1, ritual_circle_prisoner_dedication_progress + _dedication_step);
+
+		if (ritual_circle_prisoner_dedication_progress >= 1)
+		{
+			var _worker_cultist = instance_create_layer(x, y + 42, "Instances", o_worker_cultist);
+
+			if (instance_exists(_worker_cultist))
+			{
+				_worker_cultist.drag_drop_x = _worker_cultist.x;
+				_worker_cultist.drag_drop_y = _worker_cultist.y;
+			}
+
+			instance_destroy(ritual_circle_prisoner);
+			ritual_circle_prisoner = noone;
+			ritual_circle_prisoner_dedication_progress = 0;
+			building_warning_show("RECRUITED", COLOR_CULTIST_FERVOR);
+		}
+
+		exit;
+	}
+	else
+	{
+		ritual_circle_prisoner = noone;
+		ritual_circle_prisoner_dedication_progress = 0;
+	}
+
 	var _exp_worker_exists = false;
 
 	for (var _valid_exp_worker_index = 0; _valid_exp_worker_index < _valid_worker_count; ++_valid_exp_worker_index)

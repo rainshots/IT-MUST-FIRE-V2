@@ -162,43 +162,111 @@ if (object_index == o_goblins_pit)
 	}
 }
 
-// Draw remaining paid healing for the current Flesh chunk.
-if (object_index == o_meat_bath)
+// Draw demon-care reserves above the building.
+if (object_index == o_slaughter_table || object_index == o_meat_bath || object_index == o_prison_cell)
 {
-	if (meat_bath_heal_pool > 0)
+	var _bar_x = x - (production_bar_width * 0.5);
+	var _bar_y = y - production_bar_offset_y;
+	var _progress = 0;
+	var _label_text = "";
+
+	if (object_index == o_slaughter_table)
 	{
-		var _bar_x = x - (production_bar_width * 0.5);
-		var _bar_y = y - production_bar_offset_y;
-		var _progress = clamp(meat_bath_heal_pool / BALANCE_MEAT_BATH_FLESH_HEAL_AMOUNT, 0, 1);
-		var _icon_x = _bar_x + production_bar_width + production_icon_gap;
-		var _icon_y = _bar_y + (production_bar_height * 0.5);
+		_progress = clamp(demon_food_amount / max(1, demon_food_max), 0, 1);
+		_label_text = string(floor(demon_food_amount)) + "/" + string(demon_food_max);
+	}
+	else if (object_index == o_meat_bath)
+	{
+		_progress = clamp(demon_heal_amount / max(1, demon_heal_max), 0, 1);
+		_label_text = string(floor(demon_heal_amount)) + "/" + string(demon_heal_max);
+	}
+	else
+	{
+		var _prisoner_count = 0;
+		var _all_prisoner_count = instance_number(o_prisoner);
+
+		for (var _prisoner_index = 0; _prisoner_index < _all_prisoner_count; ++_prisoner_index)
+		{
+			var _prisoner = instance_find(o_prisoner, _prisoner_index);
+
+			if (instance_exists(_prisoner)
+				&& variable_instance_exists(_prisoner, "assigned_prisoner_building")
+				&& _prisoner.assigned_prisoner_building == id)
+			{
+				_prisoner_count++;
+			}
+		}
+
+		_progress = clamp(_prisoner_count / 10, 0, 1);
+		_label_text = "Prisoners " + string(_prisoner_count);
+	}
+
+	var _icon_x = _bar_x + production_bar_width + production_icon_gap;
+	var _icon_y = _bar_y + (production_bar_height * 0.5);
+
+	draw_set_alpha(production_bar_background_alpha);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_rectangle(_bar_x, _bar_y, _bar_x + production_bar_width, _bar_y + production_bar_height, false);
+
+	draw_set_alpha(1);
+	draw_set_color(production_resource_color);
+	draw_rectangle(_bar_x, _bar_y, _bar_x + (production_bar_width * _progress), _bar_y + production_bar_height, false);
+
+	draw_set_alpha(production_bar_outline_alpha);
+	draw_set_color(COLOR_HUD_TEXT);
+	draw_rectangle(_bar_x, _bar_y, _bar_x + production_bar_width, _bar_y + production_bar_height, true);
+
+	if (object_index == o_slaughter_table)
+	{
+		var _prisoner_bar_height = 3;
+		var _prisoner_bar_gap = 3;
+		var _prisoner_bar_y = _bar_y + production_bar_height + _prisoner_bar_gap;
+		var _prisoner_work_time_max = max(1, BALANCE_DEMON_BUILDING_PRISONER_FOOD_WORK_TIME * room_speed);
+		var _prisoner_progress = clamp(demon_food_prisoner_work_timer / _prisoner_work_time_max, 0, 1);
 
 		draw_set_alpha(production_bar_background_alpha);
 		draw_set_color(COLOR_HUD_BACKGROUND);
-		draw_rectangle(_bar_x, _bar_y, _bar_x + production_bar_width, _bar_y + production_bar_height, false);
+		draw_rectangle(_bar_x, _prisoner_bar_y, _bar_x + production_bar_width, _prisoner_bar_y + _prisoner_bar_height, false);
 
 		draw_set_alpha(1);
-		draw_set_color(production_resource_color);
-		draw_rectangle(_bar_x, _bar_y, _bar_x + (production_bar_width * _progress), _bar_y + production_bar_height, false);
+		draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+		draw_rectangle(
+			_bar_x,
+			_prisoner_bar_y,
+			_bar_x + (production_bar_width * _prisoner_progress),
+			_prisoner_bar_y + _prisoner_bar_height,
+			false
+		);
 
 		draw_set_alpha(production_bar_outline_alpha);
 		draw_set_color(COLOR_HUD_TEXT);
-		draw_rectangle(_bar_x, _bar_y, _bar_x + production_bar_width, _bar_y + production_bar_height, true);
+		draw_rectangle(_bar_x, _prisoner_bar_y, _bar_x + production_bar_width, _prisoner_bar_y + _prisoner_bar_height, true);
 
-		if (sprite_exists(production_resource_icon))
-		{
-			draw_sprite_stretched_ext(
-				production_resource_icon,
-				0,
-				_icon_x,
-				_icon_y - (production_icon_size * 0.5),
-				production_icon_size,
-				production_icon_size,
-				c_white,
-				1
-			);
-		}
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_middle);
+		draw_set_alpha(1);
+		draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+		draw_text(x, _prisoner_bar_y + _prisoner_bar_height + 8, "Prisoner");
 	}
+
+	if (sprite_exists(production_resource_icon))
+	{
+		draw_sprite_stretched_ext(
+			production_resource_icon,
+			0,
+			_icon_x,
+			_icon_y - (production_icon_size * 0.5),
+			production_icon_size,
+			production_icon_size,
+			c_white,
+			1
+		);
+	}
+
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
+	draw_set_color(COLOR_HUD_TEXT);
+	draw_text(x, _bar_y - 12, _label_text);
 
 	// Restore default draw state.
 	draw_set_halign(fa_left);
@@ -213,6 +281,35 @@ if (object_index == o_ritual_circle)
 {
 	var _bar_x = x - (production_bar_width * 0.5);
 	var _bar_y = y - production_bar_offset_y;
+
+	if (instance_exists(ritual_circle_prisoner))
+	{
+		var _dedication_progress = clamp(ritual_circle_prisoner_dedication_progress, 0, 1);
+
+		draw_set_alpha(production_bar_background_alpha);
+		draw_set_color(COLOR_HUD_BACKGROUND);
+		draw_rectangle(_bar_x, _bar_y, _bar_x + production_bar_width, _bar_y + production_bar_height, false);
+
+		draw_set_alpha(1);
+		draw_set_color(COLOR_CULTIST_SPIRIT);
+		draw_rectangle(_bar_x, _bar_y, _bar_x + (production_bar_width * _dedication_progress), _bar_y + production_bar_height, false);
+
+		draw_set_alpha(production_bar_outline_alpha);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_rectangle(_bar_x, _bar_y, _bar_x + production_bar_width, _bar_y + production_bar_height, true);
+
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_middle);
+		draw_set_alpha(1);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text(x, _bar_y - 12, "Dedication");
+
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_color(c_white);
+		draw_set_alpha(1);
+		exit;
+	}
 
 	if (ritual_circle_exp_pool > 0)
 	{

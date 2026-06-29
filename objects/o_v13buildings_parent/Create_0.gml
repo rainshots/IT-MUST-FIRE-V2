@@ -92,10 +92,20 @@ secondary_effect_progress = 0;
 // Meat Bath stores paid healing here so one Flesh restores a fixed amount over time.
 meat_bath_heal_pool = 0;
 
+// Demon settlement buildings store their own reserves for direct demon care.
+demon_food_amount = 0;
+demon_food_max = BALANCE_DEMON_BUILDING_FOOD_MAX;
+demon_food_prisoner_work_timer = 0;
+demon_heal_amount = 0;
+demon_heal_max = BALANCE_DEMON_BUILDING_HEAL_MAX;
+prison_cell_spawned_initial_prisoners = false;
+
 // Ritual Circle stores base XP here before applying XP Gain to workers.
 ritual_circle_exp_pool = 0;
 ritual_circle_exp_pool_amount = BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT;
 ritual_circle_daily_exp_remaining = BALANCE_RITUAL_CIRCLE_DAILY_EXP_LIMIT;
+ritual_circle_prisoner = noone;
+ritual_circle_prisoner_dedication_progress = 0;
 
 // Workshop stores paid repair here before applying it to the cannon wall.
 workshop_repair_pool = 0;
@@ -106,6 +116,109 @@ foundry_shell_progress = 0;
 foundry_shell_duration = BALANCE_FOUNDRY_SHELL_PRODUCTION_TIME;
 foundry_prompt_text = "Choose Structure";
 foundry_product_offset_y = 176;
+
+assigned_demon_get = function()
+{
+	var _worker_count = array_length(worker_cultists);
+
+	for (var _worker_index = 0; _worker_index < _worker_count; ++_worker_index)
+	{
+		var _worker = worker_cultists[_worker_index];
+
+		if (instance_exists(_worker)
+			&& variable_instance_exists(_worker, "building_assignment_only")
+			&& _worker.building_assignment_only)
+		{
+			return _worker;
+		}
+	}
+
+	return noone;
+};
+
+assigned_demon_release = function()
+{
+	var _demon = assigned_demon_get();
+
+	if (!instance_exists(_demon))
+	{
+		return;
+	}
+
+	_demon.assigned_building = noone;
+	_demon.is_assigned_to_building = false;
+
+	var _write_index = 0;
+	var _worker_count = array_length(worker_cultists);
+
+	for (var _worker_index = 0; _worker_index < _worker_count; ++_worker_index)
+	{
+		var _worker = worker_cultists[_worker_index];
+
+		if (_worker != _demon)
+		{
+			worker_cultists[_write_index] = _worker;
+			_write_index++;
+		}
+	}
+
+	array_resize(worker_cultists, _write_index);
+};
+
+slaughter_table_prisoner_add = function()
+{
+	if (demon_food_amount >= demon_food_max)
+	{
+		building_warning_show("FOOD FULL", COLOR_STATUS_NEGATIVE_RED);
+		return false;
+	}
+
+	demon_food_prisoner_work_timer += BALANCE_DEMON_BUILDING_PRISONER_FOOD_WORK_TIME * room_speed;
+	building_warning_show("FOOD SOURCE", COLOR_HUD_FLESH);
+	return true;
+};
+
+ritual_circle_prisoner_add = function(_prisoner)
+{
+	if (!instance_exists(_prisoner) || object_index != o_ritual_circle)
+	{
+		return false;
+	}
+
+	if (instance_exists(ritual_circle_prisoner))
+	{
+		building_warning_show("BUSY", COLOR_STATUS_NEGATIVE_RED);
+		return false;
+	}
+
+	ritual_circle_prisoner = _prisoner;
+	ritual_circle_prisoner_dedication_progress = 0;
+	building_warning_show("DEDICATION", COLOR_CULTIST_SPIRIT);
+	return true;
+};
+
+prison_cell_prisoner_spawn = function(_count)
+{
+	for (var _prisoner_index = 0; _prisoner_index < _count; ++_prisoner_index)
+	{
+		var _angle = random(360);
+		var _distance = random_range(10, 42);
+		var _prisoner = instance_create_layer(
+			x + lengthdir_x(_distance, _angle),
+			y + lengthdir_y(_distance, _angle),
+			"Instances",
+			o_prisoner
+		);
+
+		if (instance_exists(_prisoner))
+		{
+			_prisoner.home_prison_cell = id;
+			_prisoner.assigned_prisoner_building = id;
+			_prisoner.drag_drop_x = _prisoner.x;
+			_prisoner.drag_drop_y = _prisoner.y;
+		}
+	}
+};
 
 resource_name_get = function(_resource)
 {
@@ -279,24 +392,18 @@ summon_costs_pay = function()
 if (object_index == o_slaughter_table)
 {
 	building_accepts_workers = true;
-	production_resource = RESOURCES.FLESH;
-	production_resource_name = "Flesh";
+	production_resource = noone;
+	production_resource_name = "Food";
 	production_resource_icon = s_flesh_icon;
 	production_resource_color = COLOR_HUD_FLESH;
-	production_bonus_stat = CULTIST_STAT.FERVOR;
-	production_bonus_stat_name = "FERVOR";
-	production_bonus_stat_color = COLOR_CULTIST_FERVOR;
-	building_tooltip_title = "Production";
-	building_tooltip_description = "Produces Flesh";
-	building_tooltip_detail = "Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
-	building_tooltip_detail_color = production_bonus_stat_color;
-	building_has_upgrades = true;
-	building_upgrade_names[0] = "Faster Butchery";
-	building_upgrade_descriptions[0] = "+0.5x Flesh production while at least one worker assigned.";
-	building_upgrade_names[1] = "Blood Poultice";
-	building_upgrade_descriptions[1] = "Slowly heals workers who assigned on this building.";
-	building_upgrade_resources[1] = RESOURCES.SOULS;
-	building_upgrade_costs[1] = BALANCE_BLOOD_POULTICE_UPGRADE_SOUL_COST;
+	production_bonus_stat = noone;
+	production_bonus_stat_name = "";
+	production_bonus_stat_color = COLOR_HUD_FLESH;
+	building_tooltip_title = "Demon Food";
+	building_tooltip_description = "Workers prepare food from prisoners.";
+	building_tooltip_detail = "Assign the demon here to feed it from the stored food.";
+	building_tooltip_detail_color = COLOR_HUD_FLESH;
+	building_has_upgrades = false;
 }
 else if (object_index == o_quarry)
 {
@@ -348,10 +455,23 @@ else if (object_index == o_meat_bath)
 	building_accepts_workers = true;
 	production_resource_icon = s_flesh_icon;
 	production_resource_color = COLOR_HUD_FLESH;
-	building_tooltip_title = "Healing";
-	building_tooltip_description = "Heals assigned workers";
-	building_tooltip_detail = "Uses " + string(BALANCE_MEAT_BATH_FLESH_COST) + " Flesh for " + string(BALANCE_MEAT_BATH_FLESH_HEAL_AMOUNT) + " HP";
+	building_tooltip_title = "Demon Healing";
+	building_tooltip_description = "Workers stockpile healing.";
+	building_tooltip_detail = "Assign the demon here to spend healing reserve on it.";
 	building_tooltip_detail_color = COLOR_HUD_FLESH;
+}
+else if (object_index == o_prison_cell)
+{
+	building_accepts_workers = true;
+	worker_max = 1;
+	production_resource_icon = s_goblin;
+	production_resource_color = COLOR_STATUS_NEGATIVE_RED;
+	building_tooltip_title = "Prison Cell";
+	building_tooltip_description = "Stores prisoners. Workers cannot be assigned.";
+	building_tooltip_detail = "Assign the demon here to beat prisoners and calm down.";
+	building_tooltip_detail_color = COLOR_STATUS_NEGATIVE_RED;
+	prison_cell_prisoner_spawn(BALANCE_PRISON_CELL_STARTING_PRISONERS);
+	prison_cell_spawned_initial_prisoners = true;
 }
 else if (object_index == o_ritual_circle)
 {
@@ -359,8 +479,8 @@ else if (object_index == o_ritual_circle)
 	production_resource_icon = noone;
 	production_resource_color = COLOR_CULTIST_SPIRIT;
 	building_tooltip_title = "Training";
-	building_tooltip_description = "Gives assigned cultists XP";
-	building_tooltip_detail = "Gives " + string(BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT) + " XP chunks. Daily reserve: " + string(BALANCE_RITUAL_CIRCLE_DAILY_EXP_LIMIT) + " XP";
+	building_tooltip_description = "Dedicates prisoners or trains assigned cultists.";
+	building_tooltip_detail = "Drop a prisoner here, then assign cultists to convert them into a worker.";
 	building_tooltip_detail_color = COLOR_CULTIST_SPIRIT;
 	building_has_upgrades = true;
 	building_upgrade_names[0] = "Focused Chant";
@@ -476,6 +596,12 @@ recalculate_production_speed_multiplier = function()
 		var _worker = worker_cultists[_worker_index];
 
 		if (!instance_exists(_worker))
+		{
+			continue;
+		}
+
+		if (variable_instance_exists(_worker, "building_assignment_only")
+			&& _worker.building_assignment_only)
 		{
 			continue;
 		}

@@ -29,6 +29,11 @@ warlock_familiar_update();
 // Soul Chain visuals and active links are owned by the Warlock that created them.
 warlock_soul_chain_groups_update();
 
+if (demon_active_abilities_are_blocked())
+{
+	exit;
+}
+
 // Use only the active abilities this Warlock currently owns.
 if (raise_lesser_demon_timer > 0)
 {

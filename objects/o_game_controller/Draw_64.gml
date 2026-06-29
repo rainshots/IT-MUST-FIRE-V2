@@ -530,9 +530,9 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 		_preview_ability = _ability_options[0];
 	}
 
-	if (_preview_name == "" && instance_exists(_cultist))
+	if (_preview_name == "")
 	{
-		_preview_name = "Cultist#" + string(cultist_selection_index + 1);
+		_preview_name = "Demon";
 	}
 
 	// Draw the full-screen dim and the black window backing.
@@ -1206,9 +1206,9 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 
 	var _preview_name = _name_text;
 
-	if (_preview_name == "" && instance_exists(_cultist))
+	if (_preview_name == "")
 	{
-		_preview_name = "Cultist " + string(cultist_selection_index + 1);
+		_preview_name = "Demon";
 	}
 
 	var _preview_object = cultist_demon_object_get(cultist_selected_demon_type);
@@ -3119,7 +3119,8 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 	{
 		var _hover_width = 260;
 		var _hover_height = 248;
-		var _is_goblin_hovered = _hovered_unit.object_index == o_goblin;
+		var _is_goblin_hovered = _hovered_unit.object_index == o_goblin
+			|| _hovered_unit.object_index == o_worker_cultist;
 
 		if (_is_goblin_hovered)
 		{
@@ -3160,6 +3161,10 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 		else if (_hovered_unit.object_index == o_goblin)
 		{
 			_unit_name = "Goblin";
+		}
+		else if (_hovered_unit.object_index == o_worker_cultist)
+		{
+			_unit_name = "Cultist";
 		}
 		else if (_hovered_unit.object_index == o_enemy_peasant)
 		{
@@ -3322,7 +3327,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 
 		if (!_should_draw_pickup_hand)
 		{
-			var _worker_unit_objects = [o_goblin];
+			var _worker_unit_objects = [o_goblin, o_worker_cultist, o_prisoner];
 
 			for (var _worker_object_index = 0; _worker_object_index < array_length(_worker_unit_objects); ++_worker_object_index)
 			{
@@ -3334,6 +3339,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 					var _worker_unit = instance_find(_worker_object, _worker_unit_index);
 
 					if (instance_exists(_worker_unit)
+						&& (!variable_instance_exists(_worker_unit, "prisoner_locked") || !_worker_unit.prisoner_locked)
 						&& _mouse_world_x >= _worker_unit.bbox_left
 						&& _mouse_world_x <= _worker_unit.bbox_right
 						&& _mouse_world_y >= _worker_unit.bbox_top
@@ -3421,6 +3427,10 @@ if (variable_global_exists("cultists") && instance_exists(o_camera_controller))
 	var _camera_y = camera_get_view_y(_camera_controller.camera_id);
 	var _camera_width = camera_get_view_width(_camera_controller.camera_id);
 	var _camera_height = camera_get_view_height(_camera_controller.camera_id);
+	var _mouse_gui_x = device_mouse_x_to_gui(0);
+	var _mouse_gui_y = device_mouse_y_to_gui(0);
+	var _mouse_world_x = _camera_x + ((_mouse_gui_x / camera_view_width) * _camera_width);
+	var _mouse_world_y = _camera_y + ((_mouse_gui_y / camera_view_height) * _camera_height);
 	var _cultist_count = array_length(global.cultists);
 	var _demon_bar_width = 62;
 	var _demon_bar_height = 8;
@@ -3445,6 +3455,12 @@ if (variable_global_exists("cultists") && instance_exists(o_camera_controller))
 			continue;
 		}
 
+		if ((variable_instance_exists(_cultist, "cannon_loading") && _cultist.cannon_loading)
+			|| (variable_instance_exists(_cultist, "cannon_loaded") && _cultist.cannon_loaded))
+		{
+			continue;
+		}
+
 		var _demon_gui_x = ((_cultist.x - _camera_x) / _camera_width) * camera_view_width;
 		var _demon_gui_y = ((_cultist.y - _demon_bar_offset_y - _camera_y) / _camera_height) * camera_view_height;
 		var _bar_x = _demon_gui_x - (_demon_bar_width * 0.5);
@@ -3458,8 +3474,85 @@ if (variable_global_exists("cultists") && instance_exists(o_camera_controller))
 		draw_set_alpha(1);
 		draw_set_color(COLOR_HEALTH_BAR);
 		draw_rectangle(_bar_x, _bar_y, _bar_x + (_demon_bar_width * _hp_progress), _bar_y + _demon_bar_height, false);
+
+		if (variable_instance_exists(_cultist, "demon_satiety_max_hp_penalty_share")
+			&& _cultist.demon_satiety_max_hp_penalty_share > 0)
+		{
+			var _blocked_left = _bar_x + (_demon_bar_width * (1 - _cultist.demon_satiety_max_hp_penalty_share));
+
+			draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+			draw_rectangle(_blocked_left, _bar_y, _bar_x + _demon_bar_width, _bar_y + _demon_bar_height, false);
+		}
+
 		draw_set_color(c_white);
 		draw_rectangle(_bar_x, _bar_y, _bar_x + _demon_bar_width, _bar_y + _demon_bar_height, true);
+
+		if (variable_instance_exists(_cultist, "demon_satiety")
+			&& variable_instance_exists(_cultist, "demon_calmness")
+			&& _mouse_world_x >= _cultist.bbox_left
+			&& _mouse_world_x <= _cultist.bbox_right
+			&& _mouse_world_y >= _cultist.bbox_top
+			&& _mouse_world_y <= _cultist.bbox_bottom)
+		{
+			var _needs_panel_width = 126;
+			var _needs_bar_width = 58;
+			var _needs_bar_height = 5;
+			var _needs_line_height = 14;
+			var _needs_padding_x = 6;
+			var _needs_padding_y = 5;
+			var _needs_gap_y = 4;
+			var _needs_panel_height = (_needs_padding_y * 2) + (_needs_line_height * 2);
+			var _needs_panel_x = _demon_gui_x - (_needs_panel_width * 0.5);
+			var _needs_panel_y = _bar_y - _needs_panel_height - _needs_gap_y;
+			var _needs_label_x = _needs_panel_x + _needs_padding_x;
+			var _needs_bar_x = _needs_panel_x + _needs_panel_width - _needs_padding_x - _needs_bar_width;
+			var _satiety_value = clamp(_cultist.demon_satiety, 0, 130);
+			var _calmness_value = clamp(_cultist.demon_calmness, 0, 130);
+			var _satiety_progress = clamp(_satiety_value / 100, 0, 1);
+			var _calmness_progress = clamp(_calmness_value / 100, 0, 1);
+
+			draw_set_alpha(0.88);
+			draw_set_color(COLOR_HUD_BACKGROUND);
+			draw_rectangle(
+				_needs_panel_x,
+				_needs_panel_y,
+				_needs_panel_x + _needs_panel_width,
+				_needs_panel_y + _needs_panel_height,
+				false
+			);
+
+			for (var _need_index = 0; _need_index < 2; ++_need_index)
+			{
+				var _need_y = _needs_panel_y + _needs_padding_y + (_needs_line_height * _need_index);
+				var _need_text = _need_index == 0 ? "Satiety" : "Calmness";
+				var _need_value = _need_index == 0 ? _satiety_value : _calmness_value;
+				var _need_progress = _need_index == 0 ? _satiety_progress : _calmness_progress;
+				var _need_color = _need_index == 0 ? COLOR_HUD_FLESH : COLOR_CULTIST_SPIRIT;
+
+				draw_set_alpha(1);
+				draw_set_halign(fa_left);
+				draw_set_valign(fa_middle);
+				draw_set_color(COLOR_HUD_TEXT);
+				draw_text(_needs_label_x, _need_y + (_needs_bar_height * 0.5), _need_text + " " + string(floor(_need_value)));
+
+				draw_set_alpha(0.72);
+				draw_set_color(c_black);
+				draw_rectangle(_needs_bar_x, _need_y, _needs_bar_x + _needs_bar_width, _need_y + _needs_bar_height, false);
+
+				draw_set_alpha(1);
+				draw_set_color(_need_color);
+				draw_rectangle(_needs_bar_x, _need_y, _needs_bar_x + (_needs_bar_width * _need_progress), _need_y + _needs_bar_height, false);
+
+				draw_set_alpha(0.95);
+				draw_set_color(c_white);
+				draw_rectangle(_needs_bar_x, _need_y, _needs_bar_x + _needs_bar_width, _need_y + _needs_bar_height, true);
+			}
+
+			draw_set_halign(fa_left);
+			draw_set_valign(fa_top);
+			draw_set_alpha(1);
+			draw_set_color(c_white);
+		}
 
 		// Draw active ability cooldowns directly under the demon health bar.
 		var _cooldown_timers = [];
