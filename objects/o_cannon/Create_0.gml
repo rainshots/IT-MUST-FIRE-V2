@@ -26,9 +26,10 @@ worker_indicator_background_alpha = 0.78;
 
 // Cannon upgrade branches use the shared building upgrade window.
 building_has_upgrades = true;
-building_tooltip_description = "Improves cannon Taint, corpse revival, and special projectile payloads.";
+building_tooltip_description = "Expands the settlement and improves cannon Taint, corpse revival, and special projectile payloads.";
 building_upgrade_levels = array_create(CANNON_UPGRADE.COUNT, 0);
 building_upgrade_names = [
+	"Settlement Expansion",
 	"Tainted Ground",
 	"Morning Rising",
 	"Payload Mastery"
@@ -36,8 +37,52 @@ building_upgrade_names = [
 building_upgrade_costs = [
 	BALANCE_CANNON_UPGRADE_COST_LEVEL_1,
 	BALANCE_CANNON_UPGRADE_COST_LEVEL_1,
+	BALANCE_CANNON_UPGRADE_COST_LEVEL_1,
 	BALANCE_CANNON_UPGRADE_COST_LEVEL_1
 ];
+
+// Settlement expansion levels unlock the hidden building slots placed around the cannon.
+settlement_expansion_slots_by_level = [
+	[
+		{ slot_x: 7268, slot_y: 7224 },
+		{ slot_x: 8447, slot_y: 7234 },
+		{ slot_x: 8619, slot_y: 8022 },
+		{ slot_x: 7200, slot_y: 8000 },
+		{ slot_x: 7892, slot_y: 8252 }
+	],
+	[
+		{ slot_x: 7025, slot_y: 7607 },
+		{ slot_x: 8680, slot_y: 7596 },
+		{ slot_x: 7510, slot_y: 8207 },
+		{ slot_x: 8324, slot_y: 8197 }
+	]
+];
+settlement_expansion_slot_layer_name = "Instances";
+
+// Settlement wall graphics are runtime-created so upgrades can swap editor asset variants.
+settlement_expansion_visual_layer_name = "Assets_1";
+settlement_expansion_visual_element = noone;
+settlement_expansion_visuals = [
+	{
+		visual_x: 7865.34,
+		visual_y: 7595,
+		visual_scale_x: 1.32,
+		visual_scale_y: 1.7
+	},
+	{
+		visual_x: 7867,
+		visual_y: 7613,
+		visual_scale_x: 1.55,
+		visual_scale_y: 2
+	},
+	{
+		visual_x: 7865,
+		visual_y: 7601,
+		visual_scale_x: 1.8,
+		visual_scale_y: 2.25
+	}
+];
+
 building_warning_show = function(_text, _color)
 {
 };
@@ -281,7 +326,107 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 
 cannon_upgrade_level_max_get = function(_upgrade_index)
 {
+	if (_upgrade_index == CANNON_UPGRADE.SETTLEMENT_EXPANSION)
+	{
+		return 2;
+	}
+
 	return BALANCE_CANNON_UPGRADE_LEVEL_MAX;
+};
+
+settlement_expansion_slot_exists = function(_slot_x, _slot_y)
+{
+	var _slot_count = instance_number(o_building_slot);
+
+	for (var _slot_index = 0; _slot_index < _slot_count; ++_slot_index)
+	{
+		var _slot = instance_find(o_building_slot, _slot_index);
+
+		if (instance_exists(_slot)
+			&& point_distance(_slot.x, _slot.y, _slot_x, _slot_y) <= 1)
+		{
+			return true;
+		}
+	}
+
+	return false;
+};
+
+settlement_expansion_position_has_building = function(_slot_x, _slot_y)
+{
+	var _building_count = instance_number(o_v13buildings_parent);
+
+	for (var _building_index = 0; _building_index < _building_count; ++_building_index)
+	{
+		var _building = instance_find(o_v13buildings_parent, _building_index);
+
+		if (instance_exists(_building)
+			&& point_distance(_building.x, _building.y, _slot_x, _slot_y) <= 1)
+		{
+			return true;
+		}
+	}
+
+	return false;
+};
+
+settlement_expansion_slot_create = function(_slot_data)
+{
+	if (!is_struct(_slot_data)
+		|| !variable_struct_exists(_slot_data, "slot_x")
+		|| !variable_struct_exists(_slot_data, "slot_y"))
+	{
+		return noone;
+	}
+
+	var _slot_x = _slot_data.slot_x;
+	var _slot_y = _slot_data.slot_y;
+
+	if (settlement_expansion_slot_exists(_slot_x, _slot_y)
+		|| settlement_expansion_position_has_building(_slot_x, _slot_y))
+	{
+		return noone;
+	}
+
+	return instance_create_layer(_slot_x, _slot_y, settlement_expansion_slot_layer_name, o_building_slot);
+};
+
+settlement_expansion_slots_unlock = function(_target_level)
+{
+	var _level_count = min(_target_level, array_length(settlement_expansion_slots_by_level));
+
+	for (var _level_index = 0; _level_index < _level_count; ++_level_index)
+	{
+		var _slots = settlement_expansion_slots_by_level[_level_index];
+		var _slot_count = array_length(_slots);
+
+		for (var _slot_index = 0; _slot_index < _slot_count; ++_slot_index)
+		{
+			settlement_expansion_slot_create(_slots[_slot_index]);
+		}
+	}
+};
+
+settlement_expansion_visual_update = function()
+{
+	var _visual_level = clamp(building_upgrade_levels[CANNON_UPGRADE.SETTLEMENT_EXPANSION], 0, array_length(settlement_expansion_visuals) - 1);
+	var _visual_data = settlement_expansion_visuals[_visual_level];
+	var _layer_id = layer_get_id(settlement_expansion_visual_layer_name);
+
+	if (_layer_id == -1)
+	{
+		return;
+	}
+
+	if (settlement_expansion_visual_element != noone)
+	{
+		layer_sprite_destroy(settlement_expansion_visual_element);
+		settlement_expansion_visual_element = noone;
+	}
+
+	settlement_expansion_visual_element = layer_sprite_create(_layer_id, _visual_data.visual_x, _visual_data.visual_y, s_wall2);
+	layer_sprite_xscale(settlement_expansion_visual_element, _visual_data.visual_scale_x);
+	layer_sprite_yscale(settlement_expansion_visual_element, _visual_data.visual_scale_y);
 };
 
 cannon_upgrade_display_level_get = function(_upgrade_index)
@@ -539,6 +684,17 @@ building_upgrade_description_get = function(_upgrade_index)
 
 		return "Enemies on fully tainted ground take " + string(_damage) + " damage/sec.";
 	}
+	else if (_upgrade_index == CANNON_UPGRADE.SETTLEMENT_EXPANSION)
+	{
+		var _slot_count = 5;
+
+		if (_next_level >= 2)
+		{
+			_slot_count = 4;
+		}
+
+		return "Unlocks " + string(_slot_count) + " new building summon slots around the settlement.";
+	}
 	else if (_upgrade_index == CANNON_UPGRADE.MORNING_SKELETONS)
 	{
 		var _range = [0, 0];
@@ -628,6 +784,12 @@ building_upgrade_buy = function(_upgrade_index)
 	resource_popup_create(x, y - upgrade_prompt_offset_y, _upgrade_resource, -_upgrade_cost);
 	building_upgrade_levels[_upgrade_index]++;
 	building_upgrade_costs[_upgrade_index] = cannon_upgrade_next_cost_get(_upgrade_index);
+
+	if (_upgrade_index == CANNON_UPGRADE.SETTLEMENT_EXPANSION)
+	{
+		settlement_expansion_slots_unlock(building_upgrade_levels[_upgrade_index]);
+		settlement_expansion_visual_update();
+	}
 
 	return true;
 };
@@ -721,3 +883,5 @@ cannon_should_show_hauler_prompt = function()
 		&& variable_instance_exists(_game_controller, "corpse_available_for_hauling_exists")
 		&& _game_controller.corpse_available_for_hauling_exists();
 };
+
+settlement_expansion_visual_update();
