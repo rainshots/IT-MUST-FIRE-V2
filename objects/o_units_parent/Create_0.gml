@@ -1331,20 +1331,41 @@ find_nearest_target = function(_object_index, _max_distance)
 	return _nearest_target;
 };
 
+player_map_structure_can_be_targeted = function(_structure)
+{
+	if (!target_can_be_attacked(_structure)
+		|| !variable_instance_exists(_structure, "hp"))
+	{
+		return false;
+	}
+
+	if (variable_instance_exists(_structure, "building_constructed_by_shell")
+		&& _structure.building_constructed_by_shell)
+	{
+		return true;
+	}
+
+	if (variable_instance_exists(_structure, "is_captured")
+		&& _structure.is_captured
+		&& _structure.object_index != o_cursed_point)
+	{
+		return true;
+	}
+
+	return false;
+};
+
 find_nearest_attackable_player_structure = function(_max_distance)
 {
 	var _nearest_target = noone;
 	var _nearest_distance = _max_distance;
-	var _structure_count = instance_number(o_map_objects_parent);
+	var _map_structure_count = instance_number(o_map_objects_parent);
 
-	for (var _structure_index = 0; _structure_index < _structure_count; ++_structure_index)
+	for (var _structure_index = 0; _structure_index < _map_structure_count; ++_structure_index)
 	{
 		var _structure = instance_find(o_map_objects_parent, _structure_index);
 
-		if (!target_can_be_attacked(_structure)
-			|| !variable_instance_exists(_structure, "building_constructed_by_shell")
-			|| !_structure.building_constructed_by_shell
-			|| !variable_instance_exists(_structure, "hp"))
+		if (!player_map_structure_can_be_targeted(_structure))
 		{
 			continue;
 		}

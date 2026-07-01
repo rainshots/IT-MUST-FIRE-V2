@@ -2273,10 +2273,10 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 
 	draw_set_halign(fa_left);
 	draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
-	var _window_description = instance_exists(building_window_foundry)
-		? "Choose the structure shell this Foundry should produce"
-		: "Building costs vary by structure";
-	draw_text(_panel_x + 44, _panel_y + building_window_description_y, _window_description);
+	if (instance_exists(building_window_foundry))
+	{
+		draw_text(_panel_x + 44, _panel_y + building_window_description_y, "Choose the structure shell this Foundry should produce");
+	}
 
 	if (_is_foundry_window)
 	{
@@ -2346,27 +2346,55 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 	draw_rectangle(_close_x, _close_y, _close_x + _close_size, _close_y + _close_size, true);
 	draw_text(_close_x + (_close_size * 0.5), _close_y + (_close_size * 0.5), "X");
 
+	var _current_group_name = "";
+	var _group_y = _grid_y;
+	var _group_choice_column = 0;
+
 	for (var _choice_index = 0; _choice_index < _choice_count; ++_choice_index)
 	{
 		var _choice = building_window_choices[_choice_index];
-		var _column = _choice_index mod building_tile_columns;
-		var _row = _choice_index div building_tile_columns;
-		var _tile_x = _grid_x + ((building_tile_width + building_tile_gap) * _column);
-		var _tile_y = _grid_y + ((building_tile_height + building_tile_gap) * _row);
+		var _choice_group_name = "";
+
+		if (!_is_foundry_window && variable_struct_exists(_choice, "building_group"))
+		{
+			_choice_group_name = _choice.building_group;
+		}
+
+		if (!_is_foundry_window && _choice_group_name != _current_group_name)
+		{
+			if (_current_group_name != "")
+			{
+				_group_y += building_group_header_height + building_tile_height + building_group_gap_y;
+			}
+
+			_current_group_name = _choice_group_name;
+			_group_choice_column = 0;
+
+			draw_set_halign(fa_left);
+			draw_set_valign(fa_middle);
+			draw_set_alpha(1);
+			draw_set_color(COLOR_HUD_IRON);
+			draw_text(_grid_x, _group_y + (building_group_header_height * 0.5), _current_group_name);
+		}
+
+		var _tile_rect = building_choice_tile_rect_get(_choice_index, _is_foundry_window, _grid_x, _grid_y);
+		var _tile_x = _tile_rect.x;
+		var _tile_y = _tile_rect.y;
 		var _is_hovered = _mouse_x >= _tile_x
 			&& _mouse_x <= _tile_x + building_tile_width
 			&& _mouse_y >= _tile_y
 			&& _mouse_y <= _tile_y + building_tile_height;
 		var _sprite = _choice.building_sprite;
 		var _sprite_x = _tile_x + (building_tile_width * 0.5);
-		var _sprite_y = _tile_y + 48;
-		var _name_y = _tile_y + 104;
-		var _cost_y = _tile_y + 136;
+		var _sprite_y = _tile_y + 30;
+		var _name_y = _tile_y + 68;
+		var _cost_y = _tile_y + 94;
 		var _limit_count = building_choice_count_get(_choice);
 		var _limit_max = building_choice_limit_get(_choice);
 		var _limit_reached = _limit_count >= _limit_max;
 		var _can_pay_choice = building_choice_can_pay(_choice);
 		var _can_build_choice = _can_pay_choice && !_limit_reached;
+		var _requirement_text = building_choice_requirement_text_get(_choice);
 
 		if (_is_hovered)
 		{
@@ -2403,8 +2431,10 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 
 		draw_set_halign(fa_center);
 		draw_set_valign(fa_middle);
+		draw_set_alpha(_can_build_choice ? 1 : 0.5);
 		draw_set_color(_limit_reached ? COLOR_HUD_PROJECTILE_DESCRIPTION : COLOR_HUD_TEXT);
 		draw_text(_sprite_x, _name_y, _choice.building_name);
+		draw_set_alpha(1);
 
 		var _costs = building_choice_costs_get(_choice);
 		var _cost_count = array_length(_costs);
@@ -2431,9 +2461,24 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 			var _cost_color = resource_color_get(_cost_data.resource);
 			var _cost_text = string(_cost_data.cost);
 			var _has_cost_resource = global.resources[_cost_data.resource] >= _cost_data.cost;
+			var _cost_item_width = (sprite_exists(_cost_icon) ? building_tile_cost_icon_size + 4 : 0) + string_width(_cost_text);
 
 			if (sprite_exists(_cost_icon))
 			{
+				if (!_has_cost_resource)
+				{
+					draw_set_alpha(0.6);
+					draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+					draw_rectangle(
+						_cost_draw_x - 4,
+						_cost_y - (building_tile_cost_icon_size * 0.5) - 3,
+						_cost_draw_x + _cost_item_width + 4,
+						_cost_y + (building_tile_cost_icon_size * 0.5) + 3,
+						false
+					);
+					draw_set_alpha(1);
+				}
+
 				draw_sprite_stretched_ext(
 					_cost_icon,
 					0,
@@ -2447,11 +2492,38 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 
 				_cost_draw_x += building_tile_cost_icon_size + 4;
 			}
+			else if (!_has_cost_resource)
+			{
+				draw_set_alpha(0.6);
+				draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+				draw_rectangle(
+					_cost_draw_x - 4,
+					_cost_y - (building_tile_cost_icon_size * 0.5) - 3,
+					_cost_draw_x + _cost_item_width + 4,
+					_cost_y + (building_tile_cost_icon_size * 0.5) + 3,
+					false
+				);
+				draw_set_alpha(1);
+			}
 
 			draw_set_color(_has_cost_resource && !_limit_reached ? _cost_color : COLOR_PROJECTILE_DAMAGE);
 			draw_set_halign(fa_left);
 			draw_text(_cost_draw_x, _cost_y, _cost_text);
 			_cost_draw_x += string_width(_cost_text) + _cost_gap;
+		}
+
+		if (_requirement_text != "")
+		{
+			draw_set_halign(fa_center);
+			draw_set_valign(fa_top);
+			draw_set_alpha(1);
+			draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+			draw_text_ext(_sprite_x, _tile_y + building_tile_height + 4, _requirement_text, 10, building_tile_width - 12);
+		}
+
+		if (!_is_foundry_window)
+		{
+			_group_choice_column++;
 		}
 	}
 
@@ -2488,7 +2560,15 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 
 		if (_limit_reached)
 		{
-			draw_text(_tooltip_x + building_tooltip_padding, _tooltip_y + building_tooltip_height - 28, "Limit reached: " + string(_limit_count) + "/" + string(_limit_max));
+			var _limit_text = "Limit reached: " + string(_limit_count) + "/" + string(_limit_max);
+			var _requirement_text = building_choice_requirement_text_get(_choice);
+
+			if (_requirement_text != "")
+			{
+				_limit_text = _requirement_text;
+			}
+
+			draw_text(_tooltip_x + building_tooltip_padding, _tooltip_y + building_tooltip_height - 28, _limit_text);
 		}
 		else if (instance_exists(building_window_foundry))
 		{
@@ -2595,6 +2675,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE)
 			var _upgrade_next_display_level = 1;
 			var _upgrade_description = "";
 			var _upgrade_cost = 0;
+			var _upgrade_cost_text = "";
 			var _upgrade_resource_name = "Iron";
 			var _upgrade_resource_color = COLOR_HUD_IRON;
 			var _is_bought = false;
@@ -2622,6 +2703,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE)
 
 				_upgrade_description = building_upgrade_window_building.building_upgrade_description_get(_upgrade_index);
 				_upgrade_cost = building_upgrade_window_building.cannon_upgrade_next_cost_get(_upgrade_index);
+				_upgrade_cost_text = string(_upgrade_cost) + " " + _upgrade_resource_name;
 				_is_bought = _upgrade_level >= _upgrade_level_max;
 
 				if (variable_instance_exists(building_upgrade_window_building, "cannon_upgrade_resource_get"))
@@ -2629,12 +2711,19 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE)
 					var _upgrade_resource = building_upgrade_window_building.cannon_upgrade_resource_get(_upgrade_index);
 					_upgrade_resource_name = building_upgrade_window_building.resource_name_get(_upgrade_resource);
 					_upgrade_resource_color = building_upgrade_window_building.resource_color_get(_upgrade_resource);
+					_upgrade_cost_text = string(_upgrade_cost) + " " + _upgrade_resource_name;
+				}
+
+				if (variable_instance_exists(building_upgrade_window_building, "cannon_upgrade_cost_text_get"))
+				{
+					_upgrade_cost_text = building_upgrade_window_building.cannon_upgrade_cost_text_get(_upgrade_index);
 				}
 			}
 			else
 			{
 				_upgrade_description = building_upgrade_window_building.building_upgrade_descriptions[_upgrade_index];
 				_upgrade_cost = building_upgrade_window_building.building_upgrade_costs[_upgrade_index];
+				_upgrade_cost_text = string(_upgrade_cost) + " " + _upgrade_resource_name;
 				_is_bought = building_upgrade_window_building.building_upgrade_flags[_upgrade_index];
 
 				if (variable_instance_exists(building_upgrade_window_building, "building_upgrade_resources")
@@ -2643,10 +2732,12 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE)
 					var _upgrade_resource = building_upgrade_window_building.building_upgrade_resources[_upgrade_index];
 					_upgrade_resource_name = building_upgrade_window_building.resource_name_get(_upgrade_resource);
 					_upgrade_resource_color = building_upgrade_window_building.resource_color_get(_upgrade_resource);
+					_upgrade_cost_text = string(_upgrade_cost) + " " + _upgrade_resource_name;
 				}
 			}
 
 			var _can_buy = building_upgrade_window_building.building_upgrade_can_buy(_upgrade_index);
+			var _upgrade_costs = building_upgrade_costs_get(building_upgrade_window_building, _upgrade_index);
 			var _outline_color = _is_hovered ? COLOR_HUD_IRON : c_white;
 
 			if (_is_bought)
@@ -2668,8 +2759,10 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE)
 
 			draw_set_halign(fa_left);
 			draw_set_valign(fa_top);
+			draw_set_alpha(_can_buy ? 1 : 0.5);
 			draw_set_color(COLOR_HUD_TEXT);
 			draw_text(_tile_x + 12, _tile_y + 12, building_upgrade_window_building.building_upgrade_names[_upgrade_index]);
+			draw_set_alpha(1);
 
 			draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
 			draw_text_ext(
@@ -2696,13 +2789,66 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE)
 			}
 			else
 			{
+				var _upgrade_cost_icon_size = 18;
+				var _upgrade_cost_gap = 8;
+				var _upgrade_cost_draw_x = _tile_x + 12;
+				var _upgrade_cost_draw_y = _tile_y + building_upgrade_tile_height - 24;
+
 				if (_uses_levels)
 				{
-					draw_text(_tile_x + 12, _tile_y + building_upgrade_tile_height - 24, "Lvl " + string(_upgrade_next_display_level) + ": " + string(_upgrade_cost) + " " + _upgrade_resource_name);
+					draw_set_color(_upgrade_resource_color);
+					draw_text(_upgrade_cost_draw_x, _upgrade_cost_draw_y, "Lvl " + string(_upgrade_next_display_level) + ":");
+					_upgrade_cost_draw_x += string_width("Lvl " + string(_upgrade_next_display_level) + ":") + 8;
 				}
 				else
 				{
-					draw_text(_tile_x + 12, _tile_y + building_upgrade_tile_height - 24, "Cost: " + string(_upgrade_cost) + " " + _upgrade_resource_name);
+					draw_set_color(_upgrade_resource_color);
+					draw_text(_upgrade_cost_draw_x, _upgrade_cost_draw_y, "Cost:");
+					_upgrade_cost_draw_x += string_width("Cost:") + 8;
+				}
+
+				for (var _upgrade_cost_index = 0; _upgrade_cost_index < array_length(_upgrade_costs); ++_upgrade_cost_index)
+				{
+					var _upgrade_cost_data = _upgrade_costs[_upgrade_cost_index];
+					var _upgrade_cost_icon = resource_icon_get(_upgrade_cost_data.resource);
+					var _upgrade_cost_color = resource_color_get(_upgrade_cost_data.resource);
+					var _upgrade_cost_value_text = string(_upgrade_cost_data.cost);
+					var _has_upgrade_resource = global.resources[_upgrade_cost_data.resource] >= _upgrade_cost_data.cost;
+					var _upgrade_cost_item_width = (sprite_exists(_upgrade_cost_icon) ? _upgrade_cost_icon_size + 4 : 0) + string_width(_upgrade_cost_value_text);
+
+					if (!_has_upgrade_resource)
+					{
+						draw_set_alpha(0.6);
+						draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+						draw_rectangle(
+							_upgrade_cost_draw_x - 4,
+							_upgrade_cost_draw_y - (_upgrade_cost_icon_size * 0.5) - 3,
+							_upgrade_cost_draw_x + _upgrade_cost_item_width + 4,
+							_upgrade_cost_draw_y + (_upgrade_cost_icon_size * 0.5) + 3,
+							false
+						);
+						draw_set_alpha(1);
+					}
+
+					if (sprite_exists(_upgrade_cost_icon))
+					{
+						draw_sprite_stretched_ext(
+							_upgrade_cost_icon,
+							0,
+							_upgrade_cost_draw_x,
+							_upgrade_cost_draw_y - (_upgrade_cost_icon_size * 0.5),
+							_upgrade_cost_icon_size,
+							_upgrade_cost_icon_size,
+							c_white,
+							_can_buy ? 1 : 0.55
+						);
+
+						_upgrade_cost_draw_x += _upgrade_cost_icon_size + 4;
+					}
+
+					draw_set_color(_has_upgrade_resource ? _upgrade_cost_color : COLOR_HUD_TEXT);
+					draw_text(_upgrade_cost_draw_x, _upgrade_cost_draw_y, _upgrade_cost_value_text);
+					_upgrade_cost_draw_x += string_width(_upgrade_cost_value_text) + _upgrade_cost_gap;
 				}
 			}
 		}

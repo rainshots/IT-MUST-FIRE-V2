@@ -163,9 +163,7 @@ if (object_index == o_meat_bath)
 	}
 	else if (meat_bath_heal_pool <= 0)
 	{
-		missing_work_resource = RESOURCES.FLESH;
-		missing_work_resource_name = "Flesh";
-		missing_work_resource_color = COLOR_HUD_FLESH;
+		building_missing_resource_show(RESOURCES.FLESH, BALANCE_MEAT_BATH_FLESH_COST);
 	}
 
 	if (meat_bath_heal_pool <= 0)
@@ -374,9 +372,7 @@ if (object_index == o_workshop)
 	}
 	else if (workshop_repair_pool <= 0)
 	{
-		missing_work_resource = RESOURCES.IRON;
-		missing_work_resource_name = "Iron";
-		missing_work_resource_color = COLOR_HUD_IRON;
+		building_missing_resource_show(RESOURCES.IRON, BALANCE_WORKSHOP_IRON_COST);
 	}
 
 	if (workshop_repair_pool <= 0)
@@ -392,6 +388,42 @@ if (object_index == o_workshop)
 
 	_repair_target.hp += _repair_amount;
 	workshop_repair_pool -= _repair_amount;
+
+	exit;
+}
+
+// Shell Factory converts Iron into random special cannon projectiles.
+if (object_index == o_shell_factory)
+{
+	if (!shell_factory_has_paid_cost && global.resources[RESOURCES.IRON] >= BALANCE_SHELL_FACTORY_IRON_COST)
+	{
+		global.resources[RESOURCES.IRON] -= BALANCE_SHELL_FACTORY_IRON_COST;
+		shell_factory_has_paid_cost = true;
+		resource_popup_create(x, y - production_bar_offset_y, RESOURCES.IRON, -BALANCE_SHELL_FACTORY_IRON_COST);
+	}
+	else if (!shell_factory_has_paid_cost)
+	{
+		building_missing_resource_show(RESOURCES.IRON, BALANCE_SHELL_FACTORY_IRON_COST);
+		exit;
+	}
+
+	var _shell_factory_step = production_speed_multiplier / max(1, BALANCE_SHELL_FACTORY_PRODUCTION_TIME * room_speed);
+	shell_factory_progress += _shell_factory_step;
+
+	if (shell_factory_progress >= 1)
+	{
+		if (shell_factory_random_projectile_add())
+		{
+			shell_factory_progress -= 1;
+			shell_factory_has_paid_cost = false;
+			building_warning_show("Shell ready", COLOR_PROJECTILE_BUILDING_SHELL);
+		}
+		else
+		{
+			shell_factory_progress = 1;
+			building_warning_show("Projectile queue full", COLOR_STATUS_NEGATIVE_RED);
+		}
+	}
 
 	exit;
 }
@@ -447,10 +479,7 @@ if (summon_unit_object != noone)
 
 		if (_missing_cost != noone)
 		{
-			missing_work_resource = _missing_cost.resource;
-			missing_work_resource_name = _missing_cost.name;
-			missing_work_resource_amount = _missing_cost.cost;
-			missing_work_resource_color = _missing_cost.color;
+			building_missing_resource_show(_missing_cost.resource, _missing_cost.cost);
 		}
 
 		exit;
@@ -477,7 +506,16 @@ if (summon_unit_object != noone)
 			var _spawn_x = x + lengthdir_x(_spawn_distance, _spawn_direction);
 			var _spawn_y = y + lengthdir_y(_spawn_distance, _spawn_direction);
 
-			var _summoned_unit = instance_create_layer(_spawn_x, _spawn_y, "Instances", summon_unit_object);
+			var _summoned_unit = noone;
+
+			if (garrison_building_is_active())
+			{
+				_summoned_unit = garrison_unit_create(_spawn_x, _spawn_y);
+			}
+			else
+			{
+				_summoned_unit = instance_create_layer(_spawn_x, _spawn_y, "Instances", summon_unit_object);
+			}
 
 			if (instance_exists(_summoned_unit)
 				&& object_index == o_goblins_pit
@@ -523,6 +561,13 @@ if (production_resource == noone)
 	exit;
 }
 
+if (production_daily_limit > 0 && production_daily_remaining <= 0)
+{
+	production_progress = 0;
+	building_warning_show("DAILY LIMIT", COLOR_STATUS_NEGATIVE_RED);
+	exit;
+}
+
 // Use current room_speed so production duration stays stable if speed changes.
 var _production_step = production_speed_multiplier / max(1, production_duration * room_speed);
 production_progress += _production_step;
@@ -530,6 +575,17 @@ production_progress += _production_step;
 if (production_progress >= 1)
 {
 	production_progress -= 1;
-	global.resources[production_resource] += production_amount;
-	resource_popup_create(x, y - production_bar_offset_y, production_resource, production_amount);
+	var _produced_amount = production_amount;
+
+	if (production_daily_limit > 0)
+	{
+		_produced_amount = min(_produced_amount, production_daily_remaining);
+		production_daily_remaining = max(0, production_daily_remaining - _produced_amount);
+	}
+
+	if (_produced_amount > 0)
+	{
+		global.resources[production_resource] += _produced_amount;
+		resource_popup_create(x, y - production_bar_offset_y, production_resource, _produced_amount);
+	}
 }

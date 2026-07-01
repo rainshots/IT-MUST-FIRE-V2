@@ -1,4 +1,6 @@
 // Pause freezes tower capture.
+map_building_warning_update();
+
 if (global.pause)
 {
 	exit;

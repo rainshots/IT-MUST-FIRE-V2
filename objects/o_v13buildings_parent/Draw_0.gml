@@ -299,6 +299,53 @@ if (object_index == o_workshop)
 	exit;
 }
 
+// Draw Shell Factory shell progress.
+if (object_index == o_shell_factory)
+{
+	var _bar_x = x - (production_bar_width * 0.5);
+	var _bar_y = y - production_bar_offset_y;
+
+	if (shell_factory_has_paid_cost)
+	{
+		var _progress = clamp(shell_factory_progress, 0, 1);
+		var _icon_x = _bar_x + production_bar_width + production_icon_gap;
+		var _icon_y = _bar_y + (production_bar_height * 0.5);
+
+		draw_set_alpha(production_bar_background_alpha);
+		draw_set_color(COLOR_HUD_BACKGROUND);
+		draw_rectangle(_bar_x, _bar_y, _bar_x + production_bar_width, _bar_y + production_bar_height, false);
+
+		draw_set_alpha(1);
+		draw_set_color(COLOR_PROJECTILE_BUILDING_SHELL);
+		draw_rectangle(_bar_x, _bar_y, _bar_x + (production_bar_width * _progress), _bar_y + production_bar_height, false);
+
+		draw_set_alpha(production_bar_outline_alpha);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_rectangle(_bar_x, _bar_y, _bar_x + production_bar_width, _bar_y + production_bar_height, true);
+
+		if (sprite_exists(s_shell_factory))
+		{
+			draw_sprite_stretched_ext(
+				s_shell_factory,
+				0,
+				_icon_x,
+				_icon_y - (production_icon_size * 0.5),
+				production_icon_size,
+				production_icon_size,
+				c_white,
+				1
+			);
+		}
+	}
+
+	// Restore default draw state.
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+	exit;
+}
+
 // Draw Foundry shell progress and current assignment text.
 if (object_index == o_foundry)
 {
@@ -458,6 +505,27 @@ draw_rectangle(_bar_x, _bar_y, _bar_x + (production_bar_width * _progress), _bar
 draw_set_alpha(production_bar_outline_alpha);
 draw_set_color(COLOR_HUD_TEXT);
 draw_rectangle(_bar_x, _bar_y, _bar_x + production_bar_width, _bar_y + production_bar_height, true);
+
+// Draw daily production reserve below the main production bar.
+if (production_daily_limit > 0)
+{
+	var _daily_bar_height = 3;
+	var _daily_bar_gap = 3;
+	var _daily_bar_y = _bar_y + production_bar_height + _daily_bar_gap;
+	var _daily_progress = clamp(production_daily_remaining / max(1, production_daily_limit), 0, 1);
+
+	draw_set_alpha(production_bar_background_alpha);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_rectangle(_bar_x, _daily_bar_y, _bar_x + production_bar_width, _daily_bar_y + _daily_bar_height, false);
+
+	draw_set_alpha(1);
+	draw_set_color(production_resource_color);
+	draw_rectangle(_bar_x, _daily_bar_y, _bar_x + (production_bar_width * _daily_progress), _daily_bar_y + _daily_bar_height, false);
+
+	draw_set_alpha(production_bar_outline_alpha);
+	draw_set_color(COLOR_HUD_TEXT);
+	draw_rectangle(_bar_x, _daily_bar_y, _bar_x + production_bar_width, _daily_bar_y + _daily_bar_height, true);
+}
 
 draw_set_alpha(1);
 

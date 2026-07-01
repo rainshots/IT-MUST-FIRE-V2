@@ -134,8 +134,8 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 				global.first_night_cultist_projectile_fired = true;
 				_projectile.effect_radius = BALANCE_CULTIST_PROJECTILE_EFFECT_RADIUS;
 				_projectile.damage_amount = BALANCE_CULTIST_PROJECTILE_DAMAGE_AMOUNT;
-				_projectile.ground_corruption_amount = BALANCE_CULTIST_PROJECTILE_CORRUPTION_AMOUNT;
-				_projectile.ground_corruption_radius = BALANCE_CULTIST_PROJECTILE_CORRUPTION_RADIUS;
+				_projectile.ground_corruption_amount = 0;
+				_projectile.ground_corruption_radius = 0;
 
 				if (instance_exists(_projectile_payload))
 				{
@@ -206,7 +206,26 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 
 			global.cannon_projectile_queue = _updated_projectile_queue;
 			global.cannon_projectile_payload_queue = _updated_projectile_payload_queue;
-			global.cannon_selected_projectile_index = clamp(_target_projectile_queue_index, 0, max(0, array_length(global.cannon_projectile_queue) - 1));
+
+			var _next_selected_projectile_index = clamp(_target_projectile_queue_index, 0, max(0, array_length(global.cannon_projectile_queue) - 1));
+			var _fired_type_can_stack = target_projectile_type != PROJECTILE_TYPE.CULTIST
+				&& target_projectile_type != PROJECTILE_TYPE.BUILDING_SHELL;
+
+			if (_fired_type_can_stack)
+			{
+				var _remaining_projectile_count = array_length(global.cannon_projectile_queue);
+
+				for (var _remaining_index = 0; _remaining_index < _remaining_projectile_count; ++_remaining_index)
+				{
+					if (global.cannon_projectile_queue[_remaining_index] == target_projectile_type)
+					{
+						_next_selected_projectile_index = _remaining_index;
+						break;
+					}
+				}
+			}
+
+			global.cannon_selected_projectile_index = _next_selected_projectile_index;
 		}
 	}
 }

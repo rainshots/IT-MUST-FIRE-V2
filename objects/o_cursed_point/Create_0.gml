@@ -38,13 +38,14 @@ tooltip_offset_y = 94;
 structure_selection_open = false;
 structure_selection_previous_pause_state = false;
 structure_choice_window_width = 560;
-structure_choice_window_height = 330;
+structure_choice_window_height = 360;
 structure_choice_tile_width = 220;
-structure_choice_tile_height = 188;
+structure_choice_tile_height = 214;
 structure_choice_tile_gap = 28;
 structure_choice_sprite_size = 84;
 structure_choice_hover_scale = 2;
 structure_choice_options = [];
+structure_choice_options_rolled = false;
 
 // Capture rewards roll from one of these two packs.
 structure_choice_packs = [
@@ -52,42 +53,204 @@ structure_choice_packs = [
 		{
 			building_object: o_tower_corruption,
 			building_name: "Taint Tower",
-			building_description: "Spreads Taint around itself after capture."
+			building_description: "Spreads Taint around itself after capture.",
+			construction_costs: [
+				{
+					resource: RESOURCES.FLESH,
+					cost: BALANCE_TOWER_CORRUPTION_BUILD_FLESH_COST
+				}
+			]
 		},
 		{
 			building_object: o_tower_damage,
 			building_name: "Damage Tower",
-			building_description: "Attacks nearby enemies after capture."
+			building_description: "Attacks nearby enemies after capture.",
+			construction_costs: [
+				{
+					resource: RESOURCES.IRON,
+					cost: BALANCE_TOWER_DAMAGE_BUILD_IRON_COST
+				}
+			]
 		},
 		{
 			building_object: o_tower_heal,
 			building_name: "Heal Tower",
-			building_description: "Heals nearby friendly units after capture."
+			building_description: "Heals nearby friendly units after capture.",
+			construction_costs: [
+				{
+					resource: RESOURCES.SOULS,
+					cost: BALANCE_TOWER_HEAL_BUILD_SOUL_COST
+				},
+				{
+					resource: RESOURCES.IRON,
+					cost: BALANCE_TOWER_HEAL_BUILD_IRON_COST
+				}
+			]
 		},
 		{
 			building_object: o_tower_vision,
 			building_name: "Vision Tower",
-			building_description: "Reveals fog of war in a large area after capture."
+			building_description: "Reveals fog of war in a large area after capture.",
+			construction_costs: [
+				{
+					resource: RESOURCES.SOULS,
+					cost: BALANCE_TOWER_VISION_BUILD_SOUL_COST
+				}
+			]
 		}
 	],
 	[
 		{
 			building_object: o_boneyard,
 			building_name: "Boneyard",
-			building_description: "Spawns 2 Skeletons every morning after capture."
+			building_description: "Spawns 2 Skeletons every morning after capture.",
+			construction_costs: [
+				{
+					resource: RESOURCES.SOULS,
+					cost: BALANCE_BONEYARD_BUILD_SOUL_COST
+				}
+			]
 		},
 		{
 			building_object: o_orcs_hut,
 			building_name: "Orcs Hut",
-			building_description: "Adds neutral orcs that haul corpses to the cannon."
+			building_description: "Adds neutral orcs that haul corpses to the cannon.",
+			construction_costs: [
+				{
+					resource: RESOURCES.FLESH,
+					cost: BALANCE_ORCS_HUT_BUILD_FLESH_COST
+				}
+			]
 		},
 		{
 			building_object: o_pitlings_house,
 			building_name: "Pitlings House",
-			building_description: "Spawns 1 Pitling every morning after capture."
+			building_description: "Spawns 1 Pitling every morning after capture.",
+			construction_costs: [
+				{
+					resource: RESOURCES.FLESH,
+					cost: BALANCE_PITLINGS_HOUSE_BUILD_FLESH_COST
+				}
+			]
 		}
 	]
 ];
+
+cursed_point_resource_icon_get = function(_resource)
+{
+	if (_resource == RESOURCES.FLESH)
+	{
+		return s_flesh_icon;
+	}
+
+	if (_resource == RESOURCES.SOULS)
+	{
+		return s_soul_icon;
+	}
+
+	if (_resource == RESOURCES.IRON)
+	{
+		return s_iron_icon;
+	}
+
+	if (_resource == RESOURCES.IHOR)
+	{
+		return s_ihor_icon;
+	}
+
+	return noone;
+};
+
+cursed_point_resource_color_get = function(_resource)
+{
+	if (_resource == RESOURCES.FLESH)
+	{
+		return COLOR_HUD_FLESH;
+	}
+
+	if (_resource == RESOURCES.SOULS)
+	{
+		return COLOR_HUD_SOULS;
+	}
+
+	if (_resource == RESOURCES.IRON)
+	{
+		return COLOR_HUD_IRON;
+	}
+
+	if (_resource == RESOURCES.IHOR)
+	{
+		return COLOR_HUD_IHOR;
+	}
+
+	return c_white;
+};
+
+cursed_point_structure_choice_can_pay = function(_choice)
+{
+	if (!variable_struct_exists(_choice, "construction_costs"))
+	{
+		return true;
+	}
+
+	var _cost_count = array_length(_choice.construction_costs);
+
+	for (var _cost_index = 0; _cost_index < _cost_count; ++_cost_index)
+	{
+		var _cost_data = _choice.construction_costs[_cost_index];
+
+		if (global.resources[_cost_data.resource] < _cost_data.cost)
+		{
+			return false;
+		}
+	}
+
+	return true;
+};
+
+cursed_point_structure_choice_costs_pay = function(_choice)
+{
+	if (!variable_struct_exists(_choice, "construction_costs"))
+	{
+		return;
+	}
+
+	var _cost_count = array_length(_choice.construction_costs);
+	var _popup_gap = 46;
+	var _popup_start_x = x - ((_cost_count - 1) * _popup_gap * 0.5);
+
+	for (var _cost_index = 0; _cost_index < _cost_count; ++_cost_index)
+	{
+		var _cost_data = _choice.construction_costs[_cost_index];
+		var _popup_x = _popup_start_x + (_cost_index * _popup_gap);
+
+		global.resources[_cost_data.resource] -= _cost_data.cost;
+		resource_popup_create(_popup_x, y - 84, _cost_data.resource, -_cost_data.cost);
+	}
+};
+
+cursed_point_construction_effect_create = function()
+{
+	if (variable_global_exists("construction_sound_play"))
+	{
+		global.construction_sound_play();
+	}
+
+	instance_create_layer(x, y, "Instances", o_particle_explosion);
+
+	var _smoke_radius = 150;
+	var _smoke_count = 44;
+
+	for (var _smoke_index = 0; _smoke_index < _smoke_count; ++_smoke_index)
+	{
+		var _smoke_direction = random(360);
+		var _smoke_distance = sqrt(random(1)) * _smoke_radius;
+		var _smoke_x = x + lengthdir_x(_smoke_distance, _smoke_direction);
+		var _smoke_y = y + lengthdir_y(_smoke_distance, _smoke_direction);
+
+		instance_create_layer(_smoke_x, _smoke_y, "Instances", o_particle_smoke);
+	}
+};
 
 cursed_point_gui_size_get = function()
 {
@@ -199,6 +362,7 @@ cursed_point_structure_options_roll = function()
 		_pack[_first_index],
 		_pack[_second_index]
 	];
+	structure_choice_options_rolled = true;
 };
 
 cursed_point_structure_selection_open = function()
@@ -208,7 +372,11 @@ cursed_point_structure_selection_open = function()
 		return;
 	}
 
-	cursed_point_structure_options_roll();
+	if (!structure_choice_options_rolled || array_length(structure_choice_options) <= 0)
+	{
+		cursed_point_structure_options_roll();
+	}
+
 	structure_selection_open = true;
 	structure_selection_previous_pause_state = global.pause;
 	global.pause = true;
@@ -293,11 +461,21 @@ cursed_point_structure_choice_hover_key_get = function(_mouse_x, _mouse_y)
 
 cursed_point_structure_build = function(_choice)
 {
+	if (!cursed_point_structure_choice_can_pay(_choice))
+	{
+		return false;
+	}
+
 	var _built_object = instance_create_layer(x, y, "Instances", _choice.building_object);
 
 	if (instance_exists(_built_object))
 	{
 		_built_object.depth = -floor(_built_object.y);
+
+		if (variable_instance_exists(_built_object, "building_constructed_by_cursed_point"))
+		{
+			_built_object.building_constructed_by_cursed_point = true;
+		}
 
 		if (variable_instance_exists(_built_object, "tower_capture_enabled"))
 		{
@@ -324,11 +502,10 @@ cursed_point_structure_build = function(_choice)
 		}
 	}
 
-	if (variable_global_exists("construction_sound_play"))
-	{
-		global.construction_sound_play();
-	}
+	cursed_point_structure_choice_costs_pay(_choice);
+	cursed_point_construction_effect_create();
 
 	cursed_point_structure_selection_close();
 	instance_destroy();
+	return true;
 };

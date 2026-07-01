@@ -11,7 +11,8 @@ image_speed = 0;
 
 // Morning spawn settings mirror the player Graveyard skeleton type.
 morning_unit_object = o_skeleton;
-morning_unit_count = BALANCE_BONEYARD_MORNING_SKELETON_COUNT;
+base_morning_unit_count = BALANCE_BONEYARD_MORNING_SKELETON_COUNT;
+morning_unit_count = base_morning_unit_count;
 morning_spawn_radius = BALANCE_CAPTURED_SPAWN_BUILDING_RADIUS;
 
 // Tooltip lines describe the captured map building behavior.
@@ -19,6 +20,20 @@ tooltip_lines = [
 	"Captured: spawns 2 Skeletons every morning",
 	"Skeletons move to the cannon base"
 ];
+
+building_has_upgrades = true;
+building_tooltip_description = "Improves this Boneyard.";
+building_upgrade_levels = [0];
+building_upgrade_names = ["More Bones"];
+building_upgrade_descriptions = ["+1 Skeleton every morning."];
+building_upgrade_resources = [RESOURCES.SOULS];
+building_upgrade_costs = [BALANCE_BONEYARD_SKELETON_UPGRADE_SOUL_COST];
+building_upgrade_level_maxes = [BALANCE_BONEYARD_SKELETON_UPGRADE_MAX];
+
+map_building_upgrade_effect_apply = function(_upgrade_index)
+{
+	morning_unit_count = base_morning_unit_count + (building_upgrade_levels[0] * BALANCE_BONEYARD_SKELETON_UPGRADE_BONUS);
+};
 
 boneyard_spawn_morning_units = function()
 {

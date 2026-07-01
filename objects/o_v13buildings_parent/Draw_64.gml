@@ -53,6 +53,7 @@ for (var _building_index = 0; _building_index < _building_count; ++_building_ind
 }
 
 var _draw_speed_multiplier = object_index == o_workshop
+	|| object_index == o_shell_factory
 	|| object_index == o_foundry
 	|| (summon_unit_object != noone && summon_has_paid_cost)
 	|| production_resource != noone;

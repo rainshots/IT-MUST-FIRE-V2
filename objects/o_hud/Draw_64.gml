@@ -838,18 +838,6 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 	var _satiety_bar_x = _satiety_x + cannon_satiety_bar_offset_x;
 	var _satiety_bar_y = _satiety_y + ((cannon_satiety_height - cannon_satiety_bar_height) * 0.5);
 	var _satiety_bar_label_x = _satiety_bar_x + cannon_satiety_bar_width + cannon_satiety_bar_label_gap;
-	var _satiety_bonus_count = 0;
-	var _satiety_pending_bonus_type = noone;
-
-	if (variable_global_exists("cannon_satiety_bonus_projectile_types"))
-	{
-		_satiety_bonus_count = array_length(global.cannon_satiety_bonus_projectile_types);
-	}
-
-	if (variable_global_exists("cannon_satiety_pending_bonus_projectile_type"))
-	{
-		_satiety_pending_bonus_type = global.cannon_satiety_pending_bonus_projectile_type;
-	}
 
 	draw_set_halign(fa_left);
 	draw_set_valign(fa_middle);
@@ -868,8 +856,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 		var _satiety_current_bar_y = _satiety_bar_y + (_satiety_bar_index * (cannon_satiety_bar_height + cannon_satiety_bar_gap));
 		var _satiety_bar_corpses = ceil(clamp(_satiety_bar_value, 0, _satiety_max) / _satiety_per_corpse);
 		var _satiety_bar_label = string(_satiety_bar_corpses) + "/" + string(_satiety_max_corpses) + " corpses";
-		var _satiety_reward_projectile_type = noone;
-		var _satiety_reward_alpha = 0.35;
+		var _satiety_reward_alpha = _satiety_progress >= 1 ? 1 : 0.35;
 
 		draw_set_alpha(0.75);
 		draw_set_color(c_black);
@@ -894,92 +881,27 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 		draw_set_color(COLOR_HUD_TEXT);
 		draw_text(_satiety_bar_label_x, _satiety_current_bar_y + (cannon_satiety_bar_height * 0.5), _satiety_bar_label);
 
-		if (_satiety_bar_index < _satiety_bonus_count)
-		{
-			_satiety_reward_projectile_type = global.cannon_satiety_bonus_projectile_types[_satiety_bar_index];
-			_satiety_reward_alpha = 1;
-		}
-		else if (_satiety_bar_index == _satiety_bonus_count)
-		{
-			_satiety_reward_projectile_type = _satiety_pending_bonus_type;
-		}
+		var _satiety_reward_start_x = _satiety_bar_label_x
+			+ string_width(_satiety_bar_label)
+			+ cannon_satiety_reward_icon_gap
+			+ 18;
+		var _satiety_reward_y = _satiety_current_bar_y + (cannon_satiety_bar_height * 0.5);
+		var _taint_shell_icon_x = _satiety_reward_start_x
+			+ string_width("+1")
+			+ cannon_satiety_reward_label_gap
+			+ cannon_satiety_reward_icon_radius;
 
-		if (_satiety_reward_projectile_type != noone)
-		{
-			var _satiety_reward_start_x = _satiety_bar_label_x
-				+ string_width(_satiety_bar_label)
-				+ cannon_satiety_reward_icon_gap
-				+ 18;
-			var _satiety_reward_y = _satiety_current_bar_y + (cannon_satiety_bar_height * 0.5);
-			var _taint_shell_icon_x = _satiety_reward_start_x
-				+ string_width("+1")
-				+ cannon_satiety_reward_label_gap
-				+ cannon_satiety_reward_icon_radius;
-			var _bonus_icon_x = _taint_shell_icon_x
-				+ (cannon_satiety_reward_icon_radius * 2)
-				+ cannon_satiety_reward_group_gap
-				+ string_width("+1")
-				+ cannon_satiety_reward_label_gap
-				+ cannon_satiety_reward_icon_radius;
-			var _satiety_reward_color = COLOR_PROJECTILE_DAMAGE;
+		draw_set_alpha(_satiety_reward_alpha);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text(_satiety_reward_start_x, _satiety_reward_y, "+1");
 
-			if (_satiety_reward_projectile_type == PROJECTILE_TYPE.CORRUPTION
-				|| _satiety_reward_projectile_type == PROJECTILE_TYPE.FEAST)
-			{
-				_satiety_reward_color = COLOR_PROJECTILE_CORRUPTION;
-			}
-			else if (_satiety_reward_projectile_type == PROJECTILE_TYPE.SUMMON)
-			{
-				_satiety_reward_color = COLOR_PROJECTILE_SUMMON;
-			}
-			else if (_satiety_reward_projectile_type == PROJECTILE_TYPE.RALLY)
-			{
-				_satiety_reward_color = COLOR_PROJECTILE_RALLY;
-			}
-			else if (_satiety_reward_projectile_type == PROJECTILE_TYPE.CULTIST)
-			{
-				_satiety_reward_color = COLOR_PROJECTILE_CULTIST;
-			}
-			else if (_satiety_reward_projectile_type == PROJECTILE_TYPE.HEAL)
-			{
-				_satiety_reward_color = COLOR_PROJECTILE_HEAL;
-			}
-			else if (_satiety_reward_projectile_type == PROJECTILE_TYPE.BOMB)
-			{
-				_satiety_reward_color = COLOR_PROJECTILE_BOMB;
-			}
-			else if (_satiety_reward_projectile_type == PROJECTILE_TYPE.SKELETONS)
-			{
-				_satiety_reward_color = COLOR_PROJECTILE_SKELETONS;
-			}
-
-			draw_set_alpha(_satiety_reward_alpha);
-			draw_set_color(COLOR_HUD_TEXT);
-			draw_text(_satiety_reward_start_x, _satiety_reward_y, "+1");
-
-			draw_set_color(COLOR_PROJECTILE_CORRUPTION);
-			draw_circle(
-				_taint_shell_icon_x,
-				_satiety_reward_y,
-				cannon_satiety_reward_icon_radius,
-				false
-			);
-
-			var _bonus_label_x = _taint_shell_icon_x
-				+ cannon_satiety_reward_icon_radius
-				+ cannon_satiety_reward_group_gap;
-
-			draw_set_color(COLOR_HUD_TEXT);
-			draw_text(_bonus_label_x, _satiety_reward_y, "+1");
-
-			draw_set_color(_satiety_reward_color);
-			draw_circle(
-				_bonus_icon_x,
-				_satiety_reward_y,
-				cannon_satiety_reward_icon_radius,
-				false
-			);
-		}
+		draw_set_color(COLOR_PROJECTILE_CORRUPTION);
+		draw_circle(
+			_taint_shell_icon_x,
+			_satiety_reward_y,
+			cannon_satiety_reward_icon_radius,
+			false
+		);
 	}
 
 	draw_set_alpha(1);
@@ -1156,15 +1078,19 @@ if (variable_global_exists("cannon_projectile_queue")
 {
 	var _combat_projectiles_are_active = global.day_phase == DAY_PHASE.NIGHT;
 	var _projectile_queue_count = array_length(global.cannon_projectile_queue);
-	var _feast_projectile_count = 0;
+	var _projectile_display_slots = array_create(0);
 
-	if (variable_global_exists("cannon_satiety") && variable_global_exists("cannon_satiety_max"))
+	if (instance_exists(o_game_controller))
 	{
-		_feast_projectile_count = floor(max(0, global.cannon_satiety) / max(1, global.cannon_satiety_max));
+		var _projectile_game_controller = instance_find(o_game_controller, 0);
+
+		if (variable_instance_exists(_projectile_game_controller, "cannon_projectile_display_slots_get"))
+		{
+			_projectile_display_slots = _projectile_game_controller.cannon_projectile_display_slots_get(9);
+		}
 	}
 
-	var _projectile_display_count = min(_projectile_queue_count + _feast_projectile_count, 9);
-	var _projectile_queue_display_count = min(_projectile_queue_count, _projectile_display_count);
+	var _projectile_display_count = array_length(_projectile_display_slots);
 	var _projectile_mouse_x = device_mouse_x_to_gui(0);
 	var _projectile_mouse_y = device_mouse_y_to_gui(0);
 	var _gui_width = display_get_gui_width();
@@ -1172,9 +1098,11 @@ if (variable_global_exists("cannon_projectile_queue")
 	var _projectile_base_y = _gui_height - projectile_queue_margin_bottom - projectile_slot_height - projectile_name_offset_y;
 	var _has_building_shell_projectile = false;
 
-	for (var _building_shell_check_index = 0; _building_shell_check_index < _projectile_queue_display_count; ++_building_shell_check_index)
+	for (var _building_shell_check_index = 0; _building_shell_check_index < _projectile_display_count; ++_building_shell_check_index)
 	{
-		if (global.cannon_projectile_queue[_building_shell_check_index] == PROJECTILE_TYPE.BUILDING_SHELL)
+		var _building_shell_check_slot = _projectile_display_slots[_building_shell_check_index];
+
+		if (_building_shell_check_slot.projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
 		{
 			_has_building_shell_projectile = true;
 			break;
@@ -1190,15 +1118,21 @@ if (variable_global_exists("cannon_projectile_queue")
 		+ (projectile_slot_gap * max(0, _projectile_display_count - 1));
 	var _projectile_start_x = (_gui_width - _projectile_total_width) * 0.5;
 	var _hovered_projectile_index = -1;
-	var _projectile_payload_data = array_create(_projectile_display_count, noone);
+	var _projectile_payload_data = array_create(_projectile_queue_count, noone);
 	var _deploy_preview_units = array_create(0);
 	var _deploy_preview_cursor = 0;
 	var _remaining_cultist_projectile_count = 0;
 	var _selected_projectile_index = 0;
+	var _selected_projectile_type = PROJECTILE_TYPE.FEAST;
 
 	if (_projectile_display_count > 0 && variable_global_exists("cannon_selected_projectile_index"))
 	{
-		_selected_projectile_index = clamp(global.cannon_selected_projectile_index, 0, _projectile_display_count - 1);
+		_selected_projectile_index = clamp(global.cannon_selected_projectile_index, 0, max(0, _projectile_queue_count));
+	}
+
+	if (_selected_projectile_index < _projectile_queue_count)
+	{
+		_selected_projectile_type = global.cannon_projectile_queue[_selected_projectile_index];
 	}
 
 	// Build compact cultist projectile payload previews from the current queue.
@@ -1231,7 +1165,7 @@ if (variable_global_exists("cannon_projectile_queue")
 		}
 	}
 
-	for (var _preview_projectile_index = 0; _preview_projectile_index < _projectile_queue_display_count; ++_preview_projectile_index)
+	for (var _preview_projectile_index = 0; _preview_projectile_index < _projectile_queue_count; ++_preview_projectile_index)
 	{
 		if (global.cannon_projectile_queue[_preview_projectile_index] != PROJECTILE_TYPE.CULTIST)
 		{
@@ -1289,20 +1223,22 @@ if (variable_global_exists("cannon_projectile_queue")
 	draw_set_halign(fa_center);
 	draw_set_valign(fa_middle);
 
-	for (var _projectile_index = 0; _projectile_index < _projectile_display_count; ++_projectile_index)
+	for (var _projectile_display_index = 0; _projectile_display_index < _projectile_display_count; ++_projectile_display_index)
 	{
-		var _projectile_type = PROJECTILE_TYPE.FEAST;
+		var _projectile_slot = _projectile_display_slots[_projectile_display_index];
+		var _projectile_index = _projectile_slot.queue_index;
+		var _projectile_type = _projectile_slot.projectile_type;
+		var _projectile_stack_count = _projectile_slot.count;
 
-		if (_projectile_index < _projectile_queue_count)
-		{
-			_projectile_type = global.cannon_projectile_queue[_projectile_index];
-		}
-
-		var _slot_x = _projectile_start_x + ((projectile_slot_width + projectile_slot_gap) * _projectile_index);
+		var _slot_x = _projectile_start_x + ((projectile_slot_width + projectile_slot_gap) * _projectile_display_index);
 		var _slot_y = _projectile_base_y;
 		var _slot_width = projectile_slot_width;
 		var _slot_height = projectile_slot_background_height;
-		var _is_current_projectile = _projectile_index == _selected_projectile_index;
+		var _is_current_projectile = _projectile_index == _selected_projectile_index
+			|| (_projectile_stack_count > 1
+				&& _selected_projectile_type == _projectile_type
+				&& _projectile_type != PROJECTILE_TYPE.CULTIST
+				&& _projectile_type != PROJECTILE_TYPE.BUILDING_SHELL);
 		var _projectile_color = COLOR_PROJECTILE_DAMAGE;
 		var _circle_radius = projectile_circle_radius;
 
@@ -1364,7 +1300,7 @@ if (variable_global_exists("cannon_projectile_queue")
 		if (_projectile_mouse_x >= _slot_x && _projectile_mouse_x <= _slot_x + _slot_width
 			&& _projectile_mouse_y >= _slot_y && _projectile_mouse_y <= _slot_y + _slot_height)
 		{
-			_hovered_projectile_index = _projectile_index;
+			_hovered_projectile_index = _projectile_display_index;
 		}
 
 		draw_set_alpha(0.76 * _projectile_draw_alpha);
@@ -1381,6 +1317,17 @@ if (variable_global_exists("cannon_projectile_queue")
 		draw_set_alpha(_projectile_draw_alpha);
 		draw_set_color(_projectile_color);
 		draw_circle(_slot_x + (_slot_width * 0.5), _slot_y + 22, _circle_radius, false);
+
+		if (_projectile_stack_count > 1)
+		{
+			draw_set_halign(fa_center);
+			draw_set_valign(fa_middle);
+			draw_set_alpha(_projectile_draw_alpha);
+			draw_set_color(COLOR_HUD_BACKGROUND);
+			draw_circle(_slot_x + _slot_width - 15, _slot_y + 14, 12, false);
+			draw_set_color(COLOR_HUD_TEXT);
+			draw_text(_slot_x + _slot_width - 15, _slot_y + 14, string(_projectile_stack_count));
+		}
 
 		draw_set_color(COLOR_HUD_TEXT);
 		var _projectile_name = projectile_names[_projectile_type];
@@ -1413,7 +1360,9 @@ if (variable_global_exists("cannon_projectile_queue")
 
 		draw_text(_slot_x + (_slot_width * 0.5), _slot_y + projectile_name_offset_y, _projectile_name);
 
-		if (_projectile_payload_data[_projectile_index] != noone)
+		if (_projectile_index >= 0
+			&& _projectile_index < array_length(_projectile_payload_data)
+			&& _projectile_payload_data[_projectile_index] != noone)
 		{
 			var _payload_data = _projectile_payload_data[_projectile_index];
 			var _payload_icon_y = _slot_y + projectile_payload_offset_y;
@@ -1509,7 +1458,7 @@ if (variable_global_exists("cannon_projectile_queue")
 
 		if (_projectile_is_active)
 		{
-			var _key_prompt_text = projectile_key_prompt_prefix + string(_projectile_index + 1);
+			var _key_prompt_text = projectile_key_prompt_prefix + string(_projectile_display_index + 1);
 
 			if (_is_current_projectile)
 			{
@@ -1532,19 +1481,36 @@ if (variable_global_exists("cannon_projectile_queue")
 
 	if (_description_projectile_index < 0 && _projectile_display_count > 0)
 	{
-		_description_projectile_index = _selected_projectile_index;
+		for (var _selected_display_index = 0; _selected_display_index < _projectile_display_count; ++_selected_display_index)
+		{
+			var _selected_slot = _projectile_display_slots[_selected_display_index];
+
+			if (_selected_slot.queue_index == _selected_projectile_index
+				|| (_selected_slot.count > 1
+					&& _selected_slot.projectile_type == _selected_projectile_type
+					&& _selected_slot.projectile_type != PROJECTILE_TYPE.CULTIST
+					&& _selected_slot.projectile_type != PROJECTILE_TYPE.BUILDING_SHELL))
+			{
+				_description_projectile_index = _selected_display_index;
+				break;
+			}
+		}
+
+		if (_description_projectile_index < 0)
+		{
+			_description_projectile_index = 0;
+		}
 	}
 
 	if (_description_projectile_index >= 0)
 	{
+		var _description_slot = _projectile_display_slots[_description_projectile_index];
+		var _description_queue_index = _description_slot.queue_index;
 		var _description_type = PROJECTILE_TYPE.FEAST;
 		var _description_payload = noone;
 		var _draw_cultist_payload_card = false;
 
-		if (_description_projectile_index < _projectile_queue_count)
-		{
-			_description_type = global.cannon_projectile_queue[_description_projectile_index];
-		}
+		_description_type = _description_slot.projectile_type;
 
 		var _description_projectile_is_active = _combat_projectiles_are_active
 			|| _description_type == PROJECTILE_TYPE.BUILDING_SHELL;
@@ -1554,9 +1520,10 @@ if (variable_global_exists("cannon_projectile_queue")
 			&& _description_type == PROJECTILE_TYPE.CULTIST
 			&& _combat_projectiles_are_active
 			&& variable_global_exists("cannon_projectile_payload_queue")
-			&& _description_projectile_index < array_length(global.cannon_projectile_payload_queue))
+			&& _description_queue_index >= 0
+			&& _description_queue_index < array_length(global.cannon_projectile_payload_queue))
 		{
-			_description_payload = global.cannon_projectile_payload_queue[_description_projectile_index];
+			_description_payload = global.cannon_projectile_payload_queue[_description_queue_index];
 			_draw_cultist_payload_card = instance_exists(_description_payload)
 				&& variable_instance_exists(_description_payload, "cultist_points");
 		}
@@ -1598,9 +1565,10 @@ if (variable_global_exists("cannon_projectile_queue")
 
 			if (_description_type == PROJECTILE_TYPE.CULTIST
 				&& variable_global_exists("cannon_projectile_payload_queue")
-				&& _description_projectile_index < array_length(global.cannon_projectile_payload_queue))
+				&& _description_queue_index >= 0
+				&& _description_queue_index < array_length(global.cannon_projectile_payload_queue))
 			{
-				_description_payload = global.cannon_projectile_payload_queue[_description_projectile_index];
+				_description_payload = global.cannon_projectile_payload_queue[_description_queue_index];
 
 				if (instance_exists(_description_payload)
 					&& variable_instance_exists(_description_payload, "cultist_name")
@@ -1611,9 +1579,10 @@ if (variable_global_exists("cannon_projectile_queue")
 			}
 			else if (_description_type == PROJECTILE_TYPE.BUILDING_SHELL
 				&& variable_global_exists("cannon_projectile_payload_queue")
-				&& _description_projectile_index < array_length(global.cannon_projectile_payload_queue))
+				&& _description_queue_index >= 0
+				&& _description_queue_index < array_length(global.cannon_projectile_payload_queue))
 			{
-				_description_payload = global.cannon_projectile_payload_queue[_description_projectile_index];
+				_description_payload = global.cannon_projectile_payload_queue[_description_queue_index];
 
 				if (is_struct(_description_payload)
 					&& variable_struct_exists(_description_payload, "building_name"))

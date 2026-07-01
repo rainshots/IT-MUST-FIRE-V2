@@ -2,7 +2,8 @@
 event_inherited();
 
 // Draw remaining-night markers under the health bar.
-if (variable_instance_exists(id, "summon_nights_remaining"))
+if (variable_instance_exists(id, "summon_nights_remaining")
+	&& (!variable_instance_exists(id, "settlement_garrison_unit") || !settlement_garrison_unit))
 {
 	var _square_size = 4;
 	var _square_gap = 3;

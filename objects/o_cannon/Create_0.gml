@@ -529,6 +529,103 @@ cannon_upgrade_next_cost_get = function(_upgrade_index)
 	return BALANCE_CANNON_UPGRADE_COST_LEVEL_3;
 };
 
+cannon_upgrade_costs_get = function(_upgrade_index)
+{
+	var _upgrade_cost = cannon_upgrade_next_cost_get(_upgrade_index);
+
+	if (_upgrade_index == CANNON_UPGRADE.SETTLEMENT_EXPANSION)
+	{
+		var _level = building_upgrade_levels[_upgrade_index];
+
+		if (_level <= 0)
+		{
+			_upgrade_cost = BALANCE_SETTLEMENT_EXPANSION_LEVEL_1_COST;
+		}
+		else
+		{
+			_upgrade_cost = BALANCE_SETTLEMENT_EXPANSION_LEVEL_2_COST;
+		}
+
+		return [
+			{
+				resource: RESOURCES.FLESH,
+				cost: _upgrade_cost
+			},
+			{
+				resource: RESOURCES.SOULS,
+				cost: _upgrade_cost
+			},
+			{
+				resource: RESOURCES.IRON,
+				cost: _upgrade_cost
+			}
+		];
+	}
+
+	return [
+		{
+			resource: cannon_upgrade_resource_get(_upgrade_index),
+			cost: _upgrade_cost
+		}
+	];
+};
+
+cannon_upgrade_cost_text_get = function(_upgrade_index)
+{
+	var _costs = cannon_upgrade_costs_get(_upgrade_index);
+	var _cost_count = array_length(_costs);
+	var _cost_text = "";
+
+	for (var _cost_index = 0; _cost_index < _cost_count; ++_cost_index)
+	{
+		var _cost_data = _costs[_cost_index];
+
+		if (_cost_index > 0)
+		{
+			_cost_text += ", ";
+		}
+
+		_cost_text += string(_cost_data.cost) + " " + resource_name_get(_cost_data.resource);
+	}
+
+	return _cost_text;
+};
+
+cannon_upgrade_missing_cost_get = function(_upgrade_index)
+{
+	var _costs = cannon_upgrade_costs_get(_upgrade_index);
+	var _cost_count = array_length(_costs);
+
+	for (var _cost_index = 0; _cost_index < _cost_count; ++_cost_index)
+	{
+		var _cost_data = _costs[_cost_index];
+
+		if (global.resources[_cost_data.resource] < _cost_data.cost)
+		{
+			return _cost_data;
+		}
+	}
+
+	return noone;
+};
+
+cannon_upgrade_costs_pay = function(_upgrade_index)
+{
+	var _costs = cannon_upgrade_costs_get(_upgrade_index);
+	var _cost_count = array_length(_costs);
+	var _popup_gap = 46;
+	var _popup_start_x = x - ((_cost_count - 1) * _popup_gap * 0.5);
+
+	for (var _cost_index = 0; _cost_index < _cost_count; ++_cost_index)
+	{
+		var _cost_data = _costs[_cost_index];
+		var _cost_popup_x = _popup_start_x + (_cost_index * _popup_gap);
+
+		global.resources[_cost_data.resource] -= _cost_data.cost;
+		resource_popup_create(_cost_popup_x, y - upgrade_prompt_offset_y, _cost_data.resource, -_cost_data.cost);
+	}
+};
+
 cannon_corrupted_ground_damage_get = function()
 {
 	var _level = building_upgrade_levels[CANNON_UPGRADE.CORRUPTED_GROUND_DAMAGE];
@@ -754,10 +851,8 @@ building_upgrade_can_buy = function(_upgrade_index)
 		return false;
 	}
 
-	var _upgrade_resource = cannon_upgrade_resource_get(_upgrade_index);
-
 	return building_upgrade_levels[_upgrade_index] < cannon_upgrade_level_max_get(_upgrade_index)
-		&& global.resources[_upgrade_resource] >= cannon_upgrade_next_cost_get(_upgrade_index);
+		&& cannon_upgrade_missing_cost_get(_upgrade_index) == noone;
 };
 
 building_upgrade_buy = function(_upgrade_index)
@@ -771,17 +866,18 @@ building_upgrade_buy = function(_upgrade_index)
 	{
 		if (building_upgrade_levels[_upgrade_index] < cannon_upgrade_level_max_get(_upgrade_index))
 		{
-			var _missing_resource = cannon_upgrade_resource_get(_upgrade_index);
-			building_warning_show("Need " + string(cannon_upgrade_next_cost_get(_upgrade_index)) + " " + resource_name_get(_missing_resource), COLOR_STATUS_NEGATIVE_RED);
+			var _missing_cost = cannon_upgrade_missing_cost_get(_upgrade_index);
+
+			if (is_struct(_missing_cost))
+			{
+				building_warning_show("Need " + string(_missing_cost.cost) + " " + resource_name_get(_missing_cost.resource), COLOR_STATUS_NEGATIVE_RED);
+			}
 		}
 
 		return false;
 	}
 
-	var _upgrade_cost = cannon_upgrade_next_cost_get(_upgrade_index);
-	var _upgrade_resource = cannon_upgrade_resource_get(_upgrade_index);
-	global.resources[_upgrade_resource] -= _upgrade_cost;
-	resource_popup_create(x, y - upgrade_prompt_offset_y, _upgrade_resource, -_upgrade_cost);
+	cannon_upgrade_costs_pay(_upgrade_index);
 	building_upgrade_levels[_upgrade_index]++;
 	building_upgrade_costs[_upgrade_index] = cannon_upgrade_next_cost_get(_upgrade_index);
 

@@ -10,7 +10,8 @@ sprite_index = uncaptured_sprite_index;
 image_speed = 0;
 
 // Corruption tower gradually infects nearby ground after capture.
-effect_radius = BALANCE_TOWER_CORRUPTION_SPREAD_RADIUS;
+base_effect_radius = BALANCE_TOWER_CORRUPTION_SPREAD_RADIUS;
+effect_radius = base_effect_radius;
 spread_update_interval = BALANCE_TOWER_CORRUPTION_SPREAD_UPDATE_INTERVAL;
 spread_update_timer = irandom(spread_update_interval - 1);
 fire_duration = BALANCE_TOWER_CORRUPTION_FIRE_DURATION * room_speed;
@@ -28,6 +29,20 @@ tooltip_lines = [
 	"Capture: requires full Taint under the tower",
 	"Hover: shows effect radius"
 ];
+
+building_has_upgrades = true;
+building_tooltip_description = "Improves this Taint Tower.";
+building_upgrade_levels = [0];
+building_upgrade_names = ["Wider Taint"];
+building_upgrade_descriptions = ["+25% Taint spread radius."];
+building_upgrade_resources = [RESOURCES.FLESH];
+building_upgrade_costs = [BALANCE_TOWER_CORRUPTION_RADIUS_UPGRADE_FLESH_COST];
+building_upgrade_level_maxes = [BALANCE_TOWER_CORRUPTION_RADIUS_UPGRADE_MAX];
+
+map_building_upgrade_effect_apply = function(_upgrade_index)
+{
+	effect_radius = base_effect_radius * (1 + (building_upgrade_levels[0] * BALANCE_TOWER_CORRUPTION_RADIUS_UPGRADE_BONUS));
+};
 
 tower_corruption_projectile_create = function(_target_x, _target_y, _corruption_amount)
 {

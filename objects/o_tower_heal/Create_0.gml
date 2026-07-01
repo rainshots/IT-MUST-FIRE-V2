@@ -10,8 +10,10 @@ sprite_index = uncaptured_sprite_index;
 image_speed = 0;
 
 // Heal tower restores allied troops inside its radius.
-heal_radius = BALANCE_TOWER_HEAL_RADIUS;
-heal_amount = BALANCE_TOWER_HEAL_AMOUNT;
+base_heal_radius = BALANCE_TOWER_HEAL_RADIUS;
+base_heal_amount = BALANCE_TOWER_HEAL_AMOUNT;
+heal_radius = base_heal_radius;
+heal_amount = base_heal_amount;
 heal_tick_time = BALANCE_TOWER_HEAL_TICK_TIME * room_speed;
 heal_tick_timer = irandom(heal_tick_time - 1);
 projectile_spawn_offset_y = -20;
@@ -25,6 +27,21 @@ tooltip_lines = [
 	"Capture: requires full Taint under the tower",
 	"Hover: shows healing radius"
 ];
+
+building_has_upgrades = true;
+building_tooltip_description = "Improves this Heal Tower.";
+building_upgrade_levels = [0, 0];
+building_upgrade_names = ["Wider Hymn", "Deeper Mending"];
+building_upgrade_descriptions = ["+20% healing radius.", "+15% healing amount."];
+building_upgrade_resources = [RESOURCES.SOULS, RESOURCES.SOULS];
+building_upgrade_costs = [BALANCE_TOWER_HEAL_RADIUS_UPGRADE_SOUL_COST, BALANCE_TOWER_HEAL_AMOUNT_UPGRADE_SOUL_COST];
+building_upgrade_level_maxes = [BALANCE_TOWER_HEAL_RADIUS_UPGRADE_MAX, BALANCE_TOWER_HEAL_AMOUNT_UPGRADE_MAX];
+
+map_building_upgrade_effect_apply = function(_upgrade_index)
+{
+	heal_radius = base_heal_radius * (1 + (building_upgrade_levels[0] * BALANCE_TOWER_HEAL_RADIUS_UPGRADE_BONUS));
+	heal_amount = base_heal_amount * (1 + (building_upgrade_levels[1] * BALANCE_TOWER_HEAL_AMOUNT_UPGRADE_BONUS));
+};
 
 tower_heal_target_is_valid = function(_target)
 {

@@ -1,4 +1,6 @@
 // Pause freezes capture and hut worker management.
+map_building_warning_update();
+
 if (global.pause)
 {
 	exit;

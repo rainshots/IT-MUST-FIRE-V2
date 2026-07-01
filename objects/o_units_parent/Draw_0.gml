@@ -247,8 +247,12 @@ if (is_knocked_out)
 // Draw regular unit health bars; demon bars are drawn above the world from the controller.
 var _hp_progress = clamp(hp / max_hp, 0, 1);
 var _is_demon_bar_drawn_by_controller = is_demon_form_unit();
+var _is_day_garrison_unit = global.day_phase == DAY_PHASE.DAY
+	&& variable_instance_exists(id, "settlement_garrison_unit")
+	&& settlement_garrison_unit;
 var _should_draw_health_bar = !_is_demon_bar_drawn_by_controller
-	&& !(unit_faction == UNIT_FACTION.ENEMY && _hp_progress >= 1);
+	&& !(unit_faction == UNIT_FACTION.ENEMY && _hp_progress >= 1)
+	&& !(_is_day_garrison_unit && _hp_progress >= 1);
 
 if (_should_draw_health_bar)
 {

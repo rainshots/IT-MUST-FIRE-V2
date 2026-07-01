@@ -10,8 +10,10 @@ sprite_index = uncaptured_sprite_index;
 image_speed = 0;
 
 // Damage tower shoots the nearest enemy inside its radius.
-shoot_radius = BALANCE_TOWER_DAMAGE_RADIUS;
-damage = BALANCE_TOWER_DAMAGE_AMOUNT;
+base_shoot_radius = BALANCE_TOWER_DAMAGE_RADIUS;
+base_damage = BALANCE_TOWER_DAMAGE_AMOUNT;
+shoot_radius = base_shoot_radius;
+damage = base_damage;
 reload_time = BALANCE_TOWER_DAMAGE_RELOAD_TIME * room_speed;
 reload_timer = 0;
 target_instance = noone;
@@ -34,6 +36,21 @@ tooltip_lines = [
 	"Capture: requires full Taint under the tower",
 	"Hover: shows shooting radius"
 ];
+
+building_has_upgrades = true;
+building_tooltip_description = "Improves this Damage Tower.";
+building_upgrade_levels = [0, 0];
+building_upgrade_names = ["Longer Barrels", "Sharper Bolts"];
+building_upgrade_descriptions = ["+20% shooting radius.", "+25% damage."];
+building_upgrade_resources = [RESOURCES.IRON, RESOURCES.IRON];
+building_upgrade_costs = [BALANCE_TOWER_DAMAGE_RADIUS_UPGRADE_IRON_COST, BALANCE_TOWER_DAMAGE_DAMAGE_UPGRADE_IRON_COST];
+building_upgrade_level_maxes = [BALANCE_TOWER_DAMAGE_RADIUS_UPGRADE_MAX, BALANCE_TOWER_DAMAGE_DAMAGE_UPGRADE_MAX];
+
+map_building_upgrade_effect_apply = function(_upgrade_index)
+{
+	shoot_radius = base_shoot_radius * (1 + (building_upgrade_levels[0] * BALANCE_TOWER_DAMAGE_RADIUS_UPGRADE_BONUS));
+	damage = base_damage * (1 + (building_upgrade_levels[1] * BALANCE_TOWER_DAMAGE_DAMAGE_UPGRADE_BONUS));
+};
 
 tower_damage_projectile_create = function(_target_x, _target_y)
 {

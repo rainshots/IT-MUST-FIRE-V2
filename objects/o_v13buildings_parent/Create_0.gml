@@ -9,6 +9,8 @@ production_bonus_stat_color = COLOR_HUD_TEXT;
 production_progress = 0;
 production_duration = BALANCE_RESOURCE_BUILDING_PRODUCTION_TIME;
 production_amount = BALANCE_RESOURCE_BUILDING_PRODUCTION_AMOUNT;
+production_daily_limit = 0;
+production_daily_remaining = 0;
 production_speed_multiplier = 0;
 production_speed_upgrade_index = 0;
 building_accepts_workers = false;
@@ -24,6 +26,9 @@ summon_extra_life_bonus = 0;
 summon_progress = 0;
 summon_duration = 0;
 summon_has_paid_cost = false;
+garrison_unit_object = noone;
+garrison_unit_base_limit = 0;
+garrison_unit_spawn_bonus_per_upgrade = 0;
 worker_cultists = array_create(0);
 worker_max = BALANCE_RESOURCE_BUILDING_WORKER_MAX;
 worker_stand_offset_y = 12;
@@ -99,6 +104,10 @@ ritual_circle_daily_exp_remaining = BALANCE_RITUAL_CIRCLE_DAILY_EXP_LIMIT;
 
 // Workshop stores paid repair here before applying it to the cannon wall.
 workshop_repair_pool = 0;
+
+// Shell Factory stores paid Iron work here before producing a random shell.
+shell_factory_progress = 0;
+shell_factory_has_paid_cost = false;
 
 // Foundry stores the selected structure shell before producing a cannon projectile.
 foundry_selected_shell = noone;
@@ -180,6 +189,15 @@ resource_color_get = function(_resource)
 	}
 
 	return c_white;
+};
+
+building_missing_resource_show = function(_resource, _cost)
+{
+	missing_work_resource = _resource;
+	missing_work_resource_name = resource_name_get(_resource);
+	missing_work_resource_amount = _cost;
+	missing_work_resource_color = resource_color_get(_resource);
+	building_warning_show("Need " + string(_cost) + " " + missing_work_resource_name, COLOR_STATUS_NEGATIVE_RED);
 };
 
 summon_cost_add = function(_resource, _cost)
@@ -283,12 +301,14 @@ if (object_index == o_slaughter_table)
 	production_resource_name = "Flesh";
 	production_resource_icon = s_flesh_icon;
 	production_resource_color = COLOR_HUD_FLESH;
+	production_daily_limit = BALANCE_RESOURCE_BUILDING_DAILY_LIMIT;
+	production_daily_remaining = production_daily_limit;
 	production_bonus_stat = CULTIST_STAT.FERVOR;
 	production_bonus_stat_name = "FERVOR";
 	production_bonus_stat_color = COLOR_CULTIST_FERVOR;
 	building_tooltip_title = "Production";
 	building_tooltip_description = "Produces Flesh";
-	building_tooltip_detail = "Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
+	building_tooltip_detail = "Daily limit: " + string(BALANCE_RESOURCE_BUILDING_DAILY_LIMIT) + ". Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
 	building_tooltip_detail_color = production_bonus_stat_color;
 	building_has_upgrades = true;
 	building_upgrade_names[0] = "Faster Butchery";
@@ -305,12 +325,14 @@ else if (object_index == o_quarry)
 	production_resource_name = "Iron";
 	production_resource_icon = s_iron_icon;
 	production_resource_color = COLOR_HUD_IRON;
+	production_daily_limit = BALANCE_RESOURCE_BUILDING_DAILY_LIMIT;
+	production_daily_remaining = production_daily_limit;
 	production_bonus_stat = CULTIST_STAT.BODY;
 	production_bonus_stat_name = "BODY";
 	production_bonus_stat_color = COLOR_CULTIST_BODY;
 	building_tooltip_title = "Production";
 	building_tooltip_description = "Produces Iron";
-	building_tooltip_detail = "Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
+	building_tooltip_detail = "Daily limit: " + string(BALANCE_RESOURCE_BUILDING_DAILY_LIMIT) + ". Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
 	building_tooltip_detail_color = production_bonus_stat_color;
 	building_has_upgrades = true;
 	building_upgrade_flags = [false];
@@ -328,12 +350,14 @@ else if (object_index == o_souls_well)
 	production_resource_name = "Souls";
 	production_resource_icon = s_soul_icon;
 	production_resource_color = COLOR_HUD_SOULS;
+	production_daily_limit = BALANCE_RESOURCE_BUILDING_DAILY_LIMIT;
+	production_daily_remaining = production_daily_limit;
 	production_bonus_stat = CULTIST_STAT.SPIRIT;
 	production_bonus_stat_name = "SPIRIT";
 	production_bonus_stat_color = COLOR_CULTIST_SPIRIT;
 	building_tooltip_title = "Production";
 	building_tooltip_description = "Produces Souls";
-	building_tooltip_detail = "Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
+	building_tooltip_detail = "Daily limit: " + string(BALANCE_RESOURCE_BUILDING_DAILY_LIMIT) + ". Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
 	building_tooltip_detail_color = production_bonus_stat_color;
 	building_has_upgrades = true;
 	building_upgrade_names[0] = "Deeper Echo";
@@ -359,8 +383,8 @@ else if (object_index == o_ritual_circle)
 	production_resource_icon = noone;
 	production_resource_color = COLOR_CULTIST_SPIRIT;
 	building_tooltip_title = "Training";
-	building_tooltip_description = "Gives assigned cultists XP";
-	building_tooltip_detail = "Gives " + string(BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT) + " XP chunks. Daily reserve: " + string(BALANCE_RITUAL_CIRCLE_DAILY_EXP_LIMIT) + " XP";
+	building_tooltip_description = "Gives assigned cultists XP and restores stamina.";
+	building_tooltip_detail = "Gives " + string(BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT) + " XP chunks. Also restores stamina while cultists work here.";
 	building_tooltip_detail_color = COLOR_CULTIST_SPIRIT;
 	building_has_upgrades = true;
 	building_upgrade_names[0] = "Focused Chant";
@@ -382,6 +406,22 @@ else if (object_index == o_workshop)
 	building_tooltip_description = "Repairs the cannon wall and damaged structures";
 	building_tooltip_detail = "Structures receive " + string(BALANCE_WORKSHOP_BUILDING_REPAIR_MULTIPLIER * 100) + "% repair. Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
 	building_tooltip_detail_color = production_bonus_stat_color;
+}
+else if (object_index == o_shell_factory)
+{
+	building_accepts_workers = true;
+	production_resource_icon = s_shell_factory;
+	production_resource_color = COLOR_PROJECTILE_BUILDING_SHELL;
+	production_bonus_stat = CULTIST_STAT.BODY;
+	production_bonus_stat_name = "BODY";
+	production_bonus_stat_color = COLOR_CULTIST_BODY;
+	building_tooltip_title = "Shell Production";
+	building_tooltip_description = "Produces random special shells";
+	building_tooltip_detail = "Uses " + string(BALANCE_SHELL_FACTORY_IRON_COST) + " Iron. Morning shells: " + string(BALANCE_SHELL_FACTORY_MORNING_PROJECTILE_COUNT) + ". Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
+	building_tooltip_detail_color = production_bonus_stat_color;
+	building_has_upgrades = true;
+	building_upgrade_levels = [0];
+	building_upgrade_names = ["Morning Stockpile"];
 }
 else if (object_index == o_foundry)
 {
@@ -420,6 +460,30 @@ else if (object_index == o_graveyardv13)
 	building_upgrade_names[1] = "Restless Spades";
 	building_upgrade_descriptions[1] = "+" + string(BALANCE_RESOURCE_BUILDING_SPEED_UPGRADE_BONUS) + "x Skeleton production while staffed.";
 }
+else if (object_index == o_graveyard2)
+{
+	building_accepts_workers = true;
+	production_resource_icon = s_soul_icon;
+	production_resource_color = COLOR_HUD_SOULS;
+	production_bonus_stat = CULTIST_STAT.SPIRIT;
+	production_bonus_stat_name = "SPIRIT";
+	production_bonus_stat_color = COLOR_CULTIST_SPIRIT;
+	garrison_unit_object = o_skeleton;
+	garrison_unit_base_limit = BALANCE_GRAVEYARD2_BASE_SKELETON_LIMIT;
+	garrison_unit_spawn_bonus_per_upgrade = BALANCE_GRAVEYARD2_SKELETONS_PER_SUMMON_UPGRADE;
+	summon_unit_object = o_skeleton;
+	summon_cost_add(RESOURCES.IRON, BALANCE_SKELETON_SUMMON_IRON_COST);
+	summon_cost_add(RESOURCES.SOULS, BALANCE_SKELETON_SUMMON_SOUL_COST);
+	summon_duration = BALANCE_GRAVEYARD2_SKELETON_PRODUCTION_TIME;
+	building_tooltip_title = "Garrison";
+	building_tooltip_description = "Raises Skeletons each morning up to this Graveyard's limit";
+	building_tooltip_detail = "Morning limit: " + string(BALANCE_GRAVEYARD2_BASE_SKELETON_LIMIT) + ". Workers make extra Skeletons with " + summon_cost_text_get() + ".";
+	building_tooltip_detail_color = production_bonus_stat_color;
+	building_has_upgrades = true;
+	production_speed_upgrade_index = noone;
+	building_upgrade_levels = array_create(3, 0);
+	building_upgrade_names = ["Graves", "Bone Armor", "Bone Blades"];
+}
 else if (object_index == o_hell_pit)
 {
 	building_accepts_workers = true;
@@ -444,6 +508,30 @@ else if (object_index == o_hell_pit)
 	building_upgrade_names[1] = "Hotter Coals";
 	building_upgrade_descriptions[1] = "+" + string(BALANCE_RESOURCE_BUILDING_SPEED_UPGRADE_BONUS) + "x Pitling production while staffed.";
 }
+else if (object_index == o_pitlings_pit2)
+{
+	building_accepts_workers = true;
+	production_resource_icon = s_flesh_icon;
+	production_resource_color = COLOR_HUD_FLESH;
+	production_bonus_stat = CULTIST_STAT.FERVOR;
+	production_bonus_stat_name = "FERVOR";
+	production_bonus_stat_color = COLOR_CULTIST_FERVOR;
+	garrison_unit_object = o_pitling;
+	garrison_unit_base_limit = BALANCE_PITLINGS_PIT2_BASE_PITLING_LIMIT;
+	garrison_unit_spawn_bonus_per_upgrade = BALANCE_PITLINGS_PIT2_PITLINGS_PER_SUMMON_UPGRADE;
+	summon_unit_object = o_pitling;
+	summon_cost_add(RESOURCES.FLESH, BALANCE_PITLING_SUMMON_FLESH_COST);
+	summon_cost_add(RESOURCES.IRON, BALANCE_PITLING_SUMMON_IRON_COST);
+	summon_duration = BALANCE_PITLINGS_PIT2_PITLING_PRODUCTION_TIME;
+	building_tooltip_title = "Garrison";
+	building_tooltip_description = "Spawns Pitlings each morning up to this Pit's limit";
+	building_tooltip_detail = "Morning limit: " + string(BALANCE_PITLINGS_PIT2_BASE_PITLING_LIMIT) + ". Workers make extra Pitlings with " + summon_cost_text_get() + ".";
+	building_tooltip_detail_color = production_bonus_stat_color;
+	building_has_upgrades = true;
+	production_speed_upgrade_index = noone;
+	building_upgrade_levels = array_create(3, 0);
+	building_upgrade_names = ["Brood", "Hide Wards", "Hellfire Claws"];
+}
 else if (object_index == o_goblins_pit)
 {
 	building_accepts_workers = true;
@@ -454,7 +542,7 @@ else if (object_index == o_goblins_pit)
 	summon_duration = BALANCE_GOBLINS_PIT_GOBLIN_PRODUCTION_TIME;
 	building_tooltip_title = "Summoning";
 	building_tooltip_description = "Summons Goblins";
-	building_tooltip_detail = "Uses " + summon_cost_text_get() + ". Adds +" + string(BALANCE_GOBLINS_PER_PIT_LIMIT) + " Goblin limit. Goblins work +" + string(BALANCE_GOBLIN_WORK_SPEED_MULTIPLIER) + "x";
+	building_tooltip_detail = "Uses " + summon_cost_text_get() + ". Keeps up to " + string(BALANCE_GOBLINS_PER_PIT_LIMIT) + " own Goblins. Goblins work +" + string(BALANCE_GOBLIN_WORK_SPEED_MULTIPLIER) + "x";
 	building_tooltip_detail_color = summon_resource_color;
 	building_has_upgrades = true;
 	production_speed_upgrade_index = noone;
@@ -573,6 +661,7 @@ building_spends_worker_stamina = function()
 		|| object_index == o_slaughter_table
 		|| object_index == o_souls_well
 		|| object_index == o_workshop
+		|| object_index == o_shell_factory
 		|| (object_index == o_foundry && is_struct(foundry_selected_shell))
 		|| summon_unit_object != noone;
 };
@@ -798,6 +887,29 @@ building_worker_stamina_update = function()
 
 building_upgrade_can_buy = function(_upgrade_index)
 {
+	if (variable_instance_exists(id, "building_upgrade_levels"))
+	{
+		if (_upgrade_index < 0 || _upgrade_index >= array_length(building_upgrade_levels))
+		{
+			return false;
+		}
+
+		if (object_index == o_shell_factory)
+		{
+			return building_has_upgrades
+				&& building_upgrade_levels[_upgrade_index] < cannon_upgrade_level_max_get(_upgrade_index)
+				&& global.resources[RESOURCES.IRON] >= shell_factory_upgrade_iron_cost_get(_upgrade_index)
+				&& global.resources[RESOURCES.FLESH] >= shell_factory_upgrade_flesh_cost_get(_upgrade_index);
+		}
+
+		var _upgrade_resource = cannon_upgrade_resource_get(_upgrade_index);
+		var _upgrade_cost = cannon_upgrade_next_cost_get(_upgrade_index);
+
+		return building_has_upgrades
+			&& building_upgrade_levels[_upgrade_index] < cannon_upgrade_level_max_get(_upgrade_index)
+			&& global.resources[_upgrade_resource] >= _upgrade_cost;
+	}
+
 	if (_upgrade_index < 0 || _upgrade_index >= array_length(building_upgrade_flags))
 	{
 		return false;
@@ -814,6 +926,37 @@ building_upgrade_buy = function(_upgrade_index)
 {
 	if (!building_upgrade_can_buy(_upgrade_index))
 	{
+		if (object_index == o_shell_factory
+			&& variable_instance_exists(id, "building_upgrade_levels")
+			&& _upgrade_index >= 0
+			&& _upgrade_index < array_length(building_upgrade_levels))
+		{
+			var _missing_iron_cost = shell_factory_upgrade_iron_cost_get(_upgrade_index);
+			var _missing_flesh_cost = shell_factory_upgrade_flesh_cost_get(_upgrade_index);
+
+			if (global.resources[RESOURCES.IRON] < _missing_iron_cost)
+			{
+				building_warning_show("Need " + string(_missing_iron_cost) + " Iron", COLOR_STATUS_NEGATIVE_RED);
+				return false;
+			}
+
+			if (global.resources[RESOURCES.FLESH] < _missing_flesh_cost)
+			{
+				building_warning_show("Need " + string(_missing_flesh_cost) + " Flesh", COLOR_STATUS_NEGATIVE_RED);
+				return false;
+			}
+		}
+
+		if (variable_instance_exists(id, "building_upgrade_levels")
+			&& _upgrade_index >= 0
+			&& _upgrade_index < array_length(building_upgrade_levels))
+		{
+			var _level_missing_resource = cannon_upgrade_resource_get(_upgrade_index);
+			var _level_missing_cost = cannon_upgrade_next_cost_get(_upgrade_index);
+			building_warning_show("Need " + string(_level_missing_cost) + " " + resource_name_get(_level_missing_resource), COLOR_STATUS_NEGATIVE_RED);
+			return false;
+		}
+
 		if (_upgrade_index >= 0 && _upgrade_index < array_length(building_upgrade_costs))
 		{
 			var _missing_resource = building_upgrade_resources[_upgrade_index];
@@ -821,6 +964,43 @@ building_upgrade_buy = function(_upgrade_index)
 		}
 
 		return false;
+	}
+
+	if (variable_instance_exists(id, "building_upgrade_levels"))
+	{
+		if (object_index == o_shell_factory)
+		{
+			var _shell_upgrade_iron_cost = shell_factory_upgrade_iron_cost_get(_upgrade_index);
+			var _shell_upgrade_flesh_cost = shell_factory_upgrade_flesh_cost_get(_upgrade_index);
+			global.resources[RESOURCES.IRON] -= _shell_upgrade_iron_cost;
+			global.resources[RESOURCES.FLESH] -= _shell_upgrade_flesh_cost;
+			resource_popup_create(x - 18, y - production_bar_offset_y, RESOURCES.IRON, -_shell_upgrade_iron_cost);
+			resource_popup_create(x + 18, y - production_bar_offset_y, RESOURCES.FLESH, -_shell_upgrade_flesh_cost);
+			building_upgrade_levels[_upgrade_index]++;
+
+			if (shell_factory_random_projectile_add())
+			{
+				building_warning_show("+1 shell", COLOR_PROJECTILE_BUILDING_SHELL);
+			}
+
+			recalculate_production_speed_multiplier();
+			return true;
+		}
+
+		var _level_upgrade_cost = cannon_upgrade_next_cost_get(_upgrade_index);
+		var _level_upgrade_resource = cannon_upgrade_resource_get(_upgrade_index);
+		global.resources[_level_upgrade_resource] -= _level_upgrade_cost;
+		resource_popup_create(x, y - production_bar_offset_y, _level_upgrade_resource, -_level_upgrade_cost);
+		building_upgrade_levels[_upgrade_index]++;
+		garrison_owned_units_stats_refresh();
+
+		if (garrison_building_is_active() && _upgrade_index == 0)
+		{
+			garrison_morning_spawn_units();
+		}
+
+		recalculate_production_speed_multiplier();
+		return true;
 	}
 
 	var _upgrade_cost = building_upgrade_costs[_upgrade_index];
@@ -834,30 +1014,41 @@ building_upgrade_buy = function(_upgrade_index)
 
 goblins_pit_goblin_limit_get = function()
 {
-	var _total_limit = 0;
-	var _pit_count = instance_number(o_goblins_pit);
+	var _pit_limit = BALANCE_GOBLINS_PER_PIT_LIMIT;
 
-	for (var _pit_index = 0; _pit_index < _pit_count; ++_pit_index)
+	if (object_index == o_goblins_pit
+		&& array_length(building_upgrade_flags) > 0
+		&& building_upgrade_flags[0])
 	{
-		var _pit = instance_find(o_goblins_pit, _pit_index);
-		var _pit_limit = BALANCE_GOBLINS_PER_PIT_LIMIT;
-
-		if (instance_exists(_pit)
-			&& variable_instance_exists(_pit, "building_upgrade_flags")
-			&& _pit.building_upgrade_flags[0])
-		{
-			_pit_limit = BALANCE_GOBLINS_PER_UPGRADED_PIT_LIMIT;
-		}
-
-		_total_limit += _pit_limit;
+		_pit_limit = BALANCE_GOBLINS_PER_UPGRADED_PIT_LIMIT;
 	}
 
-	return _total_limit;
+	return _pit_limit;
 };
 
 goblins_pit_goblin_count_get = function()
 {
-	return instance_number(o_goblin);
+	if (object_index != o_goblins_pit)
+	{
+		return 0;
+	}
+
+	var _owned_goblin_count = 0;
+	var _goblin_count = instance_number(o_goblin);
+
+	for (var _goblin_index = 0; _goblin_index < _goblin_count; ++_goblin_index)
+	{
+		var _goblin = instance_find(o_goblin, _goblin_index);
+
+		if (instance_exists(_goblin)
+			&& variable_instance_exists(_goblin, "owner_goblins_pit")
+			&& _goblin.owner_goblins_pit == id)
+		{
+			_owned_goblin_count++;
+		}
+	}
+
+	return _owned_goblin_count;
 };
 
 goblins_pit_can_summon_goblin = function()
@@ -901,6 +1092,395 @@ goblins_pit_release_workers_if_limit_full = function()
 	}
 
 	return true;
+};
+
+garrison_building_is_active = function()
+{
+	return garrison_unit_object != noone;
+};
+
+garrison_unit_limit_get = function()
+{
+	if (!garrison_building_is_active())
+	{
+		return 0;
+	}
+
+	var _summon_upgrade_level = 0;
+
+	if (variable_instance_exists(id, "building_upgrade_levels")
+		&& array_length(building_upgrade_levels) > 0)
+	{
+		_summon_upgrade_level = building_upgrade_levels[0];
+	}
+
+	return garrison_unit_base_limit + (_summon_upgrade_level * garrison_unit_spawn_bonus_per_upgrade);
+};
+
+garrison_owned_unit_count_get = function()
+{
+	if (!garrison_building_is_active())
+	{
+		return 0;
+	}
+
+	var _owned_count = 0;
+	var _friendly_count = instance_number(o_friendly_units);
+
+	for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_index)
+	{
+		var _friendly_unit = instance_find(o_friendly_units, _friendly_index);
+
+		if (instance_exists(_friendly_unit)
+			&& _friendly_unit.object_index == garrison_unit_object
+			&& variable_instance_exists(_friendly_unit, "owner_garrison_building")
+			&& _friendly_unit.owner_garrison_building == id)
+		{
+			_owned_count++;
+		}
+	}
+
+	return _owned_count;
+};
+
+garrison_unit_stats_apply = function(_unit)
+{
+	if (!instance_exists(_unit) || !garrison_building_is_active())
+	{
+		return;
+	}
+
+	var _armor_level = 0;
+	var _damage_level = 0;
+
+	if (variable_instance_exists(id, "building_upgrade_levels")
+		&& array_length(building_upgrade_levels) > 2)
+	{
+		_armor_level = building_upgrade_levels[1];
+		_damage_level = building_upgrade_levels[2];
+	}
+
+	_unit.settlement_garrison_unit = true;
+	_unit.owner_garrison_building = id;
+
+	if (variable_instance_exists(_unit, "summon_nights_remaining"))
+	{
+		_unit.summon_nights_remaining = 1;
+	}
+
+	if (garrison_unit_object == o_skeleton)
+	{
+		_unit.damage = BALANCE_SKELETON_DAMAGE * (1 + (_damage_level * BALANCE_GRAVEYARD2_DAMAGE_UPGRADE_BONUS));
+		_unit.magic_damage = 0;
+		_unit.armor = 100 * (1 + (_armor_level * BALANCE_GRAVEYARD2_ARMOR_UPGRADE_BONUS));
+	}
+	else if (garrison_unit_object == o_pitling)
+	{
+		_unit.damage = 0;
+		_unit.magic_damage = BALANCE_PITLING_DAMAGE * (1 + (_damage_level * BALANCE_PITLINGS_PIT2_DAMAGE_UPGRADE_BONUS));
+		_unit.magic_resistance = 100 * (1 + (_armor_level * BALANCE_PITLINGS_PIT2_ARMOR_UPGRADE_BONUS));
+	}
+};
+
+garrison_unit_create = function(_spawn_x, _spawn_y)
+{
+	if (!garrison_building_is_active())
+	{
+		return noone;
+	}
+
+	var _summoned_unit = instance_create_layer(_spawn_x, _spawn_y, "Instances", garrison_unit_object);
+	garrison_unit_stats_apply(_summoned_unit);
+	return _summoned_unit;
+};
+
+garrison_owned_units_stats_refresh = function()
+{
+	if (!garrison_building_is_active())
+	{
+		return;
+	}
+
+	var _friendly_count = instance_number(o_friendly_units);
+
+	for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_index)
+	{
+		var _friendly_unit = instance_find(o_friendly_units, _friendly_index);
+
+		if (instance_exists(_friendly_unit)
+			&& _friendly_unit.object_index == garrison_unit_object
+			&& variable_instance_exists(_friendly_unit, "owner_garrison_building")
+			&& _friendly_unit.owner_garrison_building == id)
+		{
+			garrison_unit_stats_apply(_friendly_unit);
+		}
+	}
+};
+
+garrison_morning_spawn_units = function()
+{
+	if (!garrison_building_is_active())
+	{
+		return;
+	}
+
+	var _missing_count = max(0, garrison_unit_limit_get() - garrison_owned_unit_count_get());
+
+	for (var _spawn_index = 0; _spawn_index < _missing_count; ++_spawn_index)
+	{
+		var _spawn_direction = random(360);
+		var _spawn_distance = random(BALANCE_SUMMON_BUILDING_SPAWN_RADIUS);
+		var _spawn_x = x + lengthdir_x(_spawn_distance, _spawn_direction);
+		var _spawn_y = y + lengthdir_y(_spawn_distance, _spawn_direction);
+		var _summoned_unit = garrison_unit_create(_spawn_x, _spawn_y);
+
+		if (instance_exists(o_game_controller))
+		{
+			var _game_controller = instance_find(o_game_controller, 0);
+
+			if (variable_instance_exists(_game_controller, "move_spawned_summoned_unit_to_cannon_inner"))
+			{
+				_game_controller.move_spawned_summoned_unit_to_cannon_inner(_summoned_unit);
+			}
+		}
+	}
+};
+
+cannon_upgrade_level_max_get = function(_upgrade_index)
+{
+	if (object_index == o_shell_factory)
+	{
+		return BALANCE_SHELL_FACTORY_UPGRADE_MAX;
+	}
+
+	if (!garrison_building_is_active())
+	{
+		return 1;
+	}
+
+	if (_upgrade_index == 0)
+	{
+		return object_index == o_graveyard2
+			? BALANCE_GRAVEYARD2_SUMMON_UPGRADE_MAX
+			: BALANCE_PITLINGS_PIT2_SUMMON_UPGRADE_MAX;
+	}
+
+	if (_upgrade_index == 1)
+	{
+		return object_index == o_graveyard2
+			? BALANCE_GRAVEYARD2_ARMOR_UPGRADE_MAX
+			: BALANCE_PITLINGS_PIT2_ARMOR_UPGRADE_MAX;
+	}
+
+	return object_index == o_graveyard2
+		? BALANCE_GRAVEYARD2_DAMAGE_UPGRADE_MAX
+		: BALANCE_PITLINGS_PIT2_DAMAGE_UPGRADE_MAX;
+};
+
+cannon_upgrade_display_level_get = function(_upgrade_index)
+{
+	return building_upgrade_levels[_upgrade_index];
+};
+
+cannon_upgrade_next_display_level_get = function(_upgrade_index)
+{
+	return min(building_upgrade_levels[_upgrade_index] + 1, cannon_upgrade_level_max_get(_upgrade_index));
+};
+
+cannon_upgrade_display_level_max_get = function(_upgrade_index)
+{
+	return cannon_upgrade_level_max_get(_upgrade_index);
+};
+
+cannon_upgrade_resource_get = function(_upgrade_index)
+{
+	if (object_index == o_shell_factory)
+	{
+		return RESOURCES.IRON;
+	}
+
+	if (_upgrade_index == 0)
+	{
+		return object_index == o_graveyard2 ? RESOURCES.SOULS : RESOURCES.FLESH;
+	}
+
+	if (_upgrade_index == 2)
+	{
+		return RESOURCES.FLESH;
+	}
+
+	return RESOURCES.IRON;
+};
+
+cannon_upgrade_next_cost_get = function(_upgrade_index)
+{
+	if (object_index == o_shell_factory)
+	{
+		var _shell_factory_next_level = min(building_upgrade_levels[_upgrade_index] + 1, BALANCE_SHELL_FACTORY_UPGRADE_MAX);
+
+		if (_shell_factory_next_level == 1)
+		{
+			return BALANCE_SHELL_FACTORY_UPGRADE_IRON_COST_LEVEL_1;
+		}
+
+		if (_shell_factory_next_level == 2)
+		{
+			return BALANCE_SHELL_FACTORY_UPGRADE_IRON_COST_LEVEL_2;
+		}
+
+		return BALANCE_SHELL_FACTORY_UPGRADE_IRON_COST_LEVEL_3;
+	}
+
+	if (_upgrade_index == 0)
+	{
+		return object_index == o_graveyard2
+			? BALANCE_GRAVEYARD2_SUMMON_UPGRADE_SOUL_COST
+			: BALANCE_PITLINGS_PIT2_SUMMON_UPGRADE_FLESH_COST;
+	}
+
+	if (_upgrade_index == 1)
+	{
+		return object_index == o_graveyard2
+			? BALANCE_GRAVEYARD2_ARMOR_UPGRADE_IRON_COST
+			: BALANCE_PITLINGS_PIT2_ARMOR_UPGRADE_IRON_COST;
+	}
+
+	return object_index == o_graveyard2
+		? BALANCE_GRAVEYARD2_DAMAGE_UPGRADE_FLESH_COST
+		: BALANCE_PITLINGS_PIT2_DAMAGE_UPGRADE_FLESH_COST;
+};
+
+cannon_upgrade_cost_text_get = function(_upgrade_index)
+{
+	if (object_index == o_shell_factory)
+	{
+		return string(shell_factory_upgrade_iron_cost_get(_upgrade_index)) + " Iron + "
+			+ string(shell_factory_upgrade_flesh_cost_get(_upgrade_index)) + " Flesh";
+	}
+
+	var _cost = cannon_upgrade_next_cost_get(_upgrade_index);
+	var _resource = cannon_upgrade_resource_get(_upgrade_index);
+	return string(_cost) + " " + resource_name_get(_resource);
+};
+
+building_upgrade_description_get = function(_upgrade_index)
+{
+	if (object_index == o_shell_factory)
+	{
+		return "+1 random special shell every morning for this Shell Factory.";
+	}
+
+	if (_upgrade_index == 0)
+	{
+		var _bonus_count = object_index == o_graveyard2
+			? BALANCE_GRAVEYARD2_SKELETONS_PER_SUMMON_UPGRADE
+			: BALANCE_PITLINGS_PIT2_PITLINGS_PER_SUMMON_UPGRADE;
+		var _unit_name = object_index == o_graveyard2 ? "Skeletons" : "Pitlings";
+
+		return "+" + string(_bonus_count) + " morning " + _unit_name + " limit for this building.";
+	}
+
+	if (_upgrade_index == 1)
+	{
+		var _armor_text = object_index == o_graveyard2 ? "physical armor" : "magic armor";
+		return "+8% " + _armor_text + " for units from this building.";
+	}
+
+	var _damage_text = object_index == o_graveyard2 ? "physical damage" : "magic damage";
+	return "+8% " + _damage_text + " for units from this building.";
+};
+
+shell_factory_upgrade_iron_cost_get = function(_upgrade_index)
+{
+	var _next_level = min(building_upgrade_levels[_upgrade_index] + 1, BALANCE_SHELL_FACTORY_UPGRADE_MAX);
+
+	if (_next_level == 1)
+	{
+		return BALANCE_SHELL_FACTORY_UPGRADE_IRON_COST_LEVEL_1;
+	}
+
+	if (_next_level == 2)
+	{
+		return BALANCE_SHELL_FACTORY_UPGRADE_IRON_COST_LEVEL_2;
+	}
+
+	return BALANCE_SHELL_FACTORY_UPGRADE_IRON_COST_LEVEL_3;
+};
+
+shell_factory_upgrade_flesh_cost_get = function(_upgrade_index)
+{
+	var _next_level = min(building_upgrade_levels[_upgrade_index] + 1, BALANCE_SHELL_FACTORY_UPGRADE_MAX);
+
+	if (_next_level == 1)
+	{
+		return BALANCE_SHELL_FACTORY_UPGRADE_FLESH_COST_LEVEL_1;
+	}
+
+	if (_next_level == 2)
+	{
+		return BALANCE_SHELL_FACTORY_UPGRADE_FLESH_COST_LEVEL_2;
+	}
+
+	return BALANCE_SHELL_FACTORY_UPGRADE_FLESH_COST_LEVEL_3;
+};
+
+shell_factory_random_projectile_add = function()
+{
+	if (!instance_exists(o_game_controller))
+	{
+		return false;
+	}
+
+	var _game_controller = instance_find(o_game_controller, 0);
+
+	if (!variable_instance_exists(_game_controller, "cannon_feast_bonus_projectile_roll")
+		|| !variable_instance_exists(_game_controller, "cannon_projectile_queue_add"))
+	{
+		return false;
+	}
+
+	var _projectile_type = _game_controller.cannon_feast_bonus_projectile_roll();
+
+	if (_projectile_type == noone)
+	{
+		return false;
+	}
+
+	return _game_controller.cannon_projectile_queue_add(_projectile_type);
+};
+
+shell_factory_morning_projectile_count_get = function()
+{
+	var _upgrade_level = 0;
+
+	if (variable_instance_exists(id, "building_upgrade_levels")
+		&& array_length(building_upgrade_levels) > 0)
+	{
+		_upgrade_level = building_upgrade_levels[0];
+	}
+
+	return BALANCE_SHELL_FACTORY_MORNING_PROJECTILE_COUNT + _upgrade_level;
+};
+
+shell_factory_morning_projectiles_add = function()
+{
+	var _projectile_count = shell_factory_morning_projectile_count_get();
+	var _added_count = 0;
+
+	for (var _projectile_index = 0; _projectile_index < _projectile_count; ++_projectile_index)
+	{
+		if (!shell_factory_random_projectile_add())
+		{
+			break;
+		}
+
+		_added_count++;
+	}
+
+	if (_added_count > 0)
+	{
+		building_warning_show("+" + string(_added_count) + " shells", COLOR_PROJECTILE_BUILDING_SHELL);
+	}
 };
 
 building_warning_show = function(_text, _color)

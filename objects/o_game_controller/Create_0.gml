@@ -472,15 +472,6 @@ global.cannon_taint_projectiles_fired = 0;
 global.rally_projectile_group_id = 0;
 global.cannon_satiety = 0;
 global.cannon_satiety_max = BALANCE_CANNON_SATIETY_MAX;
-global.cannon_satiety_bonus_projectile_types = [];
-global.cannon_satiety_pending_bonus_projectile_type = noone;
-
-var _initial_feast_bonus_projectile_count = array_length(global.cannon_feast_bonus_projectile_types);
-
-if (_initial_feast_bonus_projectile_count > 0)
-{
-	global.cannon_satiety_pending_bonus_projectile_type = global.cannon_feast_bonus_projectile_types[irandom(_initial_feast_bonus_projectile_count - 1)];
-}
 
 // Global one-shot sound groups used by gameplay feedback.
 global.night_start_sounds = [
@@ -667,6 +658,62 @@ ui_mouse_is_inside_rect = function(_mouse_x, _mouse_y, _left, _top, _width, _hei
 		&& _mouse_y <= _top + _height;
 };
 
+building_choice_tile_rect_get = function(_choice_index, _is_foundry_window, _grid_x, _grid_y)
+{
+	if (_is_foundry_window)
+	{
+		var _foundry_column = _choice_index mod building_tile_columns;
+		var _foundry_row = _choice_index div building_tile_columns;
+
+		return {
+			x: _grid_x + ((building_tile_width + building_tile_gap) * _foundry_column),
+			y: _grid_y + ((building_tile_height + building_tile_gap) * _foundry_row),
+			width: building_tile_width,
+			height: building_tile_height
+		};
+	}
+
+	var _current_group_name = "";
+	var _group_y = _grid_y;
+	var _group_choice_column = 0;
+
+	for (var _layout_index = 0; _layout_index <= _choice_index; ++_layout_index)
+	{
+		var _choice = building_window_choices[_layout_index];
+		var _choice_group_name = "";
+
+		if (variable_struct_exists(_choice, "building_group"))
+		{
+			_choice_group_name = _choice.building_group;
+		}
+
+		if (_choice_group_name != _current_group_name)
+		{
+			if (_current_group_name != "")
+			{
+				_group_y += building_group_header_height + building_tile_height + building_group_gap_y;
+			}
+
+			_current_group_name = _choice_group_name;
+			_group_choice_column = 0;
+		}
+
+		if (_layout_index == _choice_index)
+		{
+			return {
+				x: _grid_x + ((building_tile_width + building_tile_gap) * _group_choice_column),
+				y: _group_y + building_group_header_height,
+				width: building_tile_width,
+				height: building_tile_height
+			};
+		}
+
+		_group_choice_column++;
+	}
+
+	return noone;
+};
+
 ui_hover_candidate_get = function(_mouse_x, _mouse_y)
 {
 	if (pause_menu_open)
@@ -743,12 +790,10 @@ ui_hover_candidate_get = function(_mouse_x, _mouse_y)
 
 		for (var _choice_index = 0; _choice_index < _choice_count; ++_choice_index)
 		{
-			var _choice_column = _choice_index mod building_tile_columns;
-			var _choice_row = _choice_index div building_tile_columns;
-			var _tile_x = _grid_x + ((building_tile_width + building_tile_gap) * _choice_column);
-			var _tile_y = _grid_y + ((building_tile_height + building_tile_gap) * _choice_row);
+			var _tile_rect = building_choice_tile_rect_get(_choice_index, _is_foundry_window, _grid_x, _grid_y);
 
-			if (ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _tile_x, _tile_y, building_tile_width, building_tile_height))
+			if (is_struct(_tile_rect)
+				&& ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _tile_rect.x, _tile_rect.y, _tile_rect.width, _tile_rect.height))
 			{
 				return "building_choice_" + string(_choice_index);
 			}
@@ -1441,17 +1486,19 @@ building_window_slot = noone;
 building_window_foundry = noone;
 building_window_choices = [];
 building_window_input_blocked = false;
-building_window_width = 760;
-building_window_height = 560;
+building_window_width = 930;
+building_window_height = 590;
 building_window_resource_y = 68;
 building_window_description_y = 92;
 building_window_grid_y = 124;
 building_tile_width = 150;
-building_tile_height = 178;
+building_tile_height = 108;
 building_tile_gap = 18;
-building_tile_columns = 4;
-building_tile_sprite_size = 76;
+building_tile_columns = 5;
+building_tile_sprite_size = 44;
 building_tile_cost_icon_size = 18;
+building_group_header_height = 18;
+building_group_gap_y = 24;
 building_tooltip_width = 310;
 building_tooltip_height = 120;
 building_tooltip_padding = 12;
@@ -1467,9 +1514,18 @@ building_upgrade_tile_height = 170;
 building_upgrade_tile_gap = 18;
 building_choices = [
 	{
+		building_object: o_souls_well,
+		building_sprite: s_souls_well,
+		building_name: "Souls Well",
+		building_group: "Resources",
+		building_description: "Produces Souls when assigned cultists work here.",
+		iron_cost: BALANCE_BUILDING_IRON_COST
+	},
+	{
 		building_object: o_slaughter_table,
 		building_sprite: s_slaughter_table,
 		building_name: "Slaughter Table",
+		building_group: "Resources",
 		building_description: "Produces Flesh when assigned cultists work here.",
 		iron_cost: BALANCE_BUILDING_IRON_COST
 	},
@@ -1477,58 +1533,33 @@ building_choices = [
 		building_object: o_quarry,
 		building_sprite: s_quarry,
 		building_name: "Quarry",
+		building_group: "Resources",
 		building_description: "Produces Iron when assigned cultists work here.",
 		iron_cost: BALANCE_BUILDING_IRON_COST
 	},
 	{
-		building_object: o_souls_well,
-		building_sprite: s_souls_well,
-		building_name: "Souls Well",
-		building_description: "Produces Souls when assigned cultists work here.",
-		iron_cost: BALANCE_BUILDING_IRON_COST
-	},
-	{
-		building_object: o_meat_bath,
-		building_sprite: s_meat_bath,
-		building_name: "Meat Bath",
-		building_description: "Heals assigned workers by spending Flesh.",
-		iron_cost: BALANCE_BUILDING_IRON_COST
-	},
-	{
-		building_object: o_ritual_circle,
-		building_sprite: s_ritual_circle,
-		building_name: "Ritual Circle",
-		building_description: "Lets assigned cultists gain XP over time.",
-		iron_cost: BALANCE_RITUAL_CIRCLE_BUILDING_IRON_COST
-	},
-	{
-		building_object: o_workshop,
-		building_sprite: s_workshop,
-		building_name: "Workshop",
-		building_description: "Repairs the cannon and damaged structures by spending Iron.",
-		iron_cost: BALANCE_BUILDING_IRON_COST
-	},
-	{
-		building_object: o_graveyardv13,
-		building_sprite: s_graveyard30,
-		building_name: "Graveyard",
-		building_description: "Summons Skeletons(combat unit with magic gamage) by spending Iron and Souls.",
+		building_object: o_goblins_pit,
+		building_sprite: s_goblins_pit,
+		building_name: "Goblins Pit",
+		building_group: "Units",
+		building_description: "Summons Goblins(non-combat units who can work) by spending Flesh.",
 		construction_costs: [
 			{
 				resource: RESOURCES.IRON,
-				cost: BALANCE_GRAVEYARD_BUILDING_IRON_COST
+				cost: BALANCE_GOBLINS_PIT_BUILDING_IRON_COST
 			},
 			{
-				resource: RESOURCES.SOULS,
-				cost: BALANCE_GRAVEYARD_BUILDING_SOUL_COST
+				resource: RESOURCES.FLESH,
+				cost: BALANCE_GOBLINS_PIT_BUILDING_FLESH_COST
 			}
 		]
 	},
 	{
-		building_object: o_hell_pit,
+		building_object: o_pitlings_pit2,
 		building_sprite: s_hell_pit,
-		building_name: "Hell Pit",
-		building_description: "Summons Pitlings(strong combat unit with physical gamage) by spending Flesh and Iron.",
+		building_name: "Pitlings Pit",
+		building_group: "Units",
+		building_description: "Spawns Pitlings every morning up to its own limit. Workers can create extra Pitlings.",
 		construction_costs: [
 			{
 				resource: RESOURCES.IRON,
@@ -1541,20 +1572,53 @@ building_choices = [
 		]
 	},
 	{
-		building_object: o_goblins_pit,
-		building_sprite: s_goblins_pit,
-		building_name: "Goblins Pit",
-		building_description: "Summons Goblins(non-combat units who can work) by spending Flesh.",
+		building_object: o_graveyard2,
+		building_sprite: s_graveyard30,
+		building_name: "Graveyard",
+		building_group: "Units",
+		building_description: "Raises Skeletons every morning up to its own limit. Workers can create extra Skeletons.",
 		construction_costs: [
 			{
 				resource: RESOURCES.IRON,
-				cost: BALANCE_GOBLINS_PIT_BUILDING_IRON_COST
+				cost: BALANCE_GRAVEYARD_BUILDING_IRON_COST
 			},
 			{
-				resource: RESOURCES.FLESH,
-				cost: BALANCE_GOBLINS_PIT_BUILDING_FLESH_COST
+				resource: RESOURCES.SOULS,
+				cost: BALANCE_GRAVEYARD_BUILDING_SOUL_COST
 			}
 		]
+	},
+	{
+		building_object: o_meat_bath,
+		building_sprite: s_meat_bath,
+		building_name: "Meat Bath",
+		building_group: "Other",
+		building_description: "Heals assigned workers by spending Flesh.",
+		iron_cost: BALANCE_BUILDING_IRON_COST
+	},
+	{
+		building_object: o_ritual_circle,
+		building_sprite: s_ritual_circle,
+		building_name: "Ritual Circle",
+		building_group: "Other",
+		building_description: "Lets assigned cultists gain XP and restore stamina over time.",
+		iron_cost: BALANCE_RITUAL_CIRCLE_BUILDING_IRON_COST
+	},
+	{
+		building_object: o_workshop,
+		building_sprite: s_workshop,
+		building_name: "Workshop",
+		building_group: "Other",
+		building_description: "Repairs the cannon and damaged structures by spending Iron.",
+		iron_cost: BALANCE_BUILDING_IRON_COST
+	},
+	{
+		building_object: o_shell_factory,
+		building_sprite: s_shell_factory,
+		building_name: "Shell Factory",
+		building_group: "Other",
+		building_description: "Produces random special shells by spending Iron. Adds random shells every morning.",
+		iron_cost: BALANCE_BUILDING_IRON_COST
 	}
 ];
 
@@ -2019,6 +2083,80 @@ projectile_target_selection_radius_get = function(_projectile_type)
 	}
 
 	return BALANCE_PROJECTILE_EFFECT_RADIUS;
+};
+
+cannon_projectile_type_can_stack_in_hud = function(_projectile_type)
+{
+	return _projectile_type != PROJECTILE_TYPE.CULTIST
+		&& _projectile_type != PROJECTILE_TYPE.BUILDING_SHELL;
+};
+
+cannon_projectile_display_slots_get = function(_max_display_count)
+{
+	var _slots = array_create(0);
+
+	if (!variable_global_exists("cannon_projectile_queue"))
+	{
+		return _slots;
+	}
+
+	var _projectile_queue_count = array_length(global.cannon_projectile_queue);
+
+	for (var _queue_index = 0; _queue_index < _projectile_queue_count; ++_queue_index)
+	{
+		var _projectile_type = global.cannon_projectile_queue[_queue_index];
+		var _display_index = -1;
+
+		if (cannon_projectile_type_can_stack_in_hud(_projectile_type))
+		{
+			var _slot_count = array_length(_slots);
+
+			for (var _slot_index = 0; _slot_index < _slot_count; ++_slot_index)
+			{
+				var _slot = _slots[_slot_index];
+
+				if (_slot.projectile_type == _projectile_type && _slot.queue_index >= 0)
+				{
+					_display_index = _slot_index;
+					break;
+				}
+			}
+		}
+
+		if (_display_index >= 0)
+		{
+			var _stack_slot = _slots[_display_index];
+			_stack_slot.count += 1;
+			_stack_slot.consume_queue_index = _queue_index;
+			_slots[_display_index] = _stack_slot;
+		}
+		else if (array_length(_slots) < _max_display_count)
+		{
+			array_push(_slots, {
+				projectile_type: _projectile_type,
+				queue_index: _queue_index,
+				consume_queue_index: _queue_index,
+				count: 1
+			});
+		}
+	}
+
+	if (variable_global_exists("cannon_satiety") && variable_global_exists("cannon_satiety_max"))
+	{
+		var _feast_count = floor(max(0, global.cannon_satiety) / max(1, global.cannon_satiety_max));
+
+		if (_feast_count > 0 && array_length(_slots) < _max_display_count)
+		{
+			array_push(_slots, {
+				projectile_type: PROJECTILE_TYPE.FEAST,
+				queue_index: _projectile_queue_count,
+				consume_queue_index: _projectile_queue_count,
+				count: _feast_count
+			});
+		}
+	}
+
+	return _slots;
 };
 
 // Pause menu button data.
@@ -2919,6 +3057,28 @@ find_upgrade_building_at_position = function(_world_x, _world_y)
 		}
 	}
 
+	var _map_object_count = instance_number(o_map_objects_parent);
+
+	for (var _map_object_index = 0; _map_object_index < _map_object_count; ++_map_object_index)
+	{
+		var _map_object = instance_find(o_map_objects_parent, _map_object_index);
+
+		if (instance_exists(_map_object)
+			&& variable_instance_exists(_map_object, "building_has_upgrades")
+			&& _map_object.building_has_upgrades
+			&& variable_instance_exists(_map_object, "is_captured")
+			&& _map_object.is_captured
+			&& _world_x >= _map_object.bbox_left
+			&& _world_x <= _map_object.bbox_right
+			&& _world_y >= _map_object.bbox_top
+			&& _world_y <= _map_object.bbox_bottom
+			&& _map_object.depth < _target_depth)
+		{
+			_target_building = _map_object;
+			_target_depth = _map_object.depth;
+		}
+	}
+
 	return _target_building;
 };
 
@@ -3148,6 +3308,30 @@ close_building_upgrade_window = function()
 	global.focus_window = FOCUS_WINDOW.NOONE;
 };
 
+settlement_expansion_is_purchased = function()
+{
+	if (!instance_exists(o_cannon))
+	{
+		return false;
+	}
+
+	var _cannon = instance_find(o_cannon, 0);
+
+	return variable_instance_exists(_cannon, "building_upgrade_levels")
+		&& array_length(_cannon.building_upgrade_levels) > CANNON_UPGRADE.SETTLEMENT_EXPANSION
+		&& _cannon.building_upgrade_levels[CANNON_UPGRADE.SETTLEMENT_EXPANSION] > 0;
+};
+
+building_choice_uses_expansion_limit = function(_choice)
+{
+	return _choice.building_object == o_slaughter_table
+		|| _choice.building_object == o_quarry
+		|| _choice.building_object == o_souls_well
+		|| _choice.building_object == o_shell_factory
+		|| _choice.building_object == o_graveyard2
+		|| _choice.building_object == o_pitlings_pit2;
+};
+
 building_choice_limit_get = function(_choice)
 {
 	if (instance_exists(building_window_foundry))
@@ -3157,7 +3341,18 @@ building_choice_limit_get = function(_choice)
 
 	if (_choice.building_object == o_goblins_pit)
 	{
-		return BALANCE_BUILDING_GOBLINS_PIT_LIMIT;
+		if (settlement_expansion_is_purchased())
+		{
+			return BALANCE_BUILDING_GOBLINS_PIT_LIMIT;
+		}
+
+		return BALANCE_BUILDING_GOBLINS_PIT_LIMIT_BEFORE_EXPANSION;
+	}
+
+	if (building_choice_uses_expansion_limit(_choice)
+		&& settlement_expansion_is_purchased())
+	{
+		return BALANCE_BUILDING_RESOURCE_LIMIT_AFTER_EXPANSION;
 	}
 
 	return BALANCE_BUILDING_DEFAULT_LIMIT;
@@ -3369,6 +3564,92 @@ building_choice_can_pay = function(_choice)
 	return true;
 };
 
+building_choice_requirement_text_get = function(_choice)
+{
+	var _limit_count = building_choice_count_get(_choice);
+	var _limit_max = building_choice_limit_get(_choice);
+
+	if (_limit_count < _limit_max || instance_exists(building_window_foundry))
+	{
+		return "";
+	}
+
+	if (_choice.building_object == o_goblins_pit
+		&& _limit_max < BALANCE_BUILDING_GOBLINS_PIT_LIMIT)
+	{
+		return "Settlement\nExpansion Required";
+	}
+
+	if (building_choice_uses_expansion_limit(_choice)
+		&& _limit_max < BALANCE_BUILDING_RESOURCE_LIMIT_AFTER_EXPANSION)
+	{
+		return "Settlement\nExpansion Required";
+	}
+
+	return "";
+};
+
+building_upgrade_costs_get = function(_building, _upgrade_index)
+{
+	if (!instance_exists(_building))
+	{
+		return [];
+	}
+
+	if (_building.object_index == o_shell_factory
+		&& variable_instance_exists(_building, "shell_factory_upgrade_iron_cost_get")
+		&& variable_instance_exists(_building, "shell_factory_upgrade_flesh_cost_get"))
+	{
+		return [
+			{
+				resource: RESOURCES.IRON,
+				cost: _building.shell_factory_upgrade_iron_cost_get(_upgrade_index)
+			},
+			{
+				resource: RESOURCES.FLESH,
+				cost: _building.shell_factory_upgrade_flesh_cost_get(_upgrade_index)
+			}
+		];
+	}
+
+	if (variable_instance_exists(_building, "cannon_upgrade_costs_get"))
+	{
+		return _building.cannon_upgrade_costs_get(_upgrade_index);
+	}
+
+	if (variable_instance_exists(_building, "building_upgrade_levels"))
+	{
+		return [
+			{
+				resource: _building.cannon_upgrade_resource_get(_upgrade_index),
+				cost: _building.cannon_upgrade_next_cost_get(_upgrade_index)
+			}
+		];
+	}
+
+	if (variable_instance_exists(_building, "building_upgrade_costs")
+		&& _upgrade_index >= 0
+		&& _upgrade_index < array_length(_building.building_upgrade_costs))
+	{
+		var _upgrade_resource = RESOURCES.IRON;
+
+		if (variable_instance_exists(_building, "building_upgrade_resources")
+			&& _upgrade_index < array_length(_building.building_upgrade_resources))
+		{
+			_upgrade_resource = _building.building_upgrade_resources[_upgrade_index];
+		}
+
+		return [
+			{
+				resource: _upgrade_resource,
+				cost: _building.building_upgrade_costs[_upgrade_index]
+			}
+		];
+	}
+
+	return [];
+};
+
 building_choice_costs_pay = function(_choice, _popup_x, _popup_y)
 {
 	var _costs = building_choice_costs_get(_choice);
@@ -3439,6 +3720,16 @@ construct_building_from_choice = function(_choice)
 	if (instance_exists(_built_object))
 	{
 		_built_object.depth = _slot.depth;
+
+		if (variable_instance_exists(_built_object, "garrison_morning_spawn_units"))
+		{
+			_built_object.garrison_morning_spawn_units();
+		}
+
+		if (variable_instance_exists(_built_object, "shell_factory_morning_projectiles_add"))
+		{
+			_built_object.shell_factory_morning_projectiles_add();
+		}
 	}
 
 	global.construction_sound_play();
@@ -3721,15 +4012,7 @@ day_idle_cultists_wander_update = function()
 
 cannon_satiety_add = function(_amount)
 {
-	var _feast_count_before = floor(max(0, global.cannon_satiety) / max(1, global.cannon_satiety_max));
 	global.cannon_satiety = max(0, global.cannon_satiety + _amount);
-	var _feast_count_after = floor(max(0, global.cannon_satiety) / max(1, global.cannon_satiety_max));
-	var _new_feast_count = max(0, _feast_count_after - _feast_count_before);
-
-	for (var _feast_index = 0; _feast_index < _new_feast_count; ++_feast_index)
-	{
-		cannon_random_feast_bonus_projectile_queue_add();
-	}
 };
 
 cannon_satiety_can_fire_feast = function()
@@ -3745,12 +4028,6 @@ cannon_satiety_spend_feast = function()
 	}
 
 	global.cannon_satiety -= global.cannon_satiety_max;
-
-	if (variable_global_exists("cannon_satiety_bonus_projectile_types")
-		&& array_length(global.cannon_satiety_bonus_projectile_types) > 0)
-	{
-		array_delete(global.cannon_satiety_bonus_projectile_types, 0, 1);
-	}
 
 	return true;
 };
@@ -3780,37 +4057,6 @@ cannon_feast_bonus_projectile_roll = function()
 	}
 
 	return global.cannon_feast_bonus_projectile_types[irandom(_bonus_projectile_count - 1)];
-};
-
-cannon_satiety_pending_bonus_projectile_ensure = function()
-{
-	if (!variable_global_exists("cannon_satiety_pending_bonus_projectile_type")
-		|| global.cannon_satiety_pending_bonus_projectile_type == noone)
-	{
-		global.cannon_satiety_pending_bonus_projectile_type = cannon_feast_bonus_projectile_roll();
-	}
-
-	return global.cannon_satiety_pending_bonus_projectile_type;
-};
-
-cannon_random_feast_bonus_projectile_queue_add = function()
-{
-	var _bonus_projectile_type = cannon_satiety_pending_bonus_projectile_ensure();
-
-	if (_bonus_projectile_type == noone)
-	{
-		return false;
-	}
-
-	if (!cannon_projectile_queue_add(_bonus_projectile_type))
-	{
-		return false;
-	}
-
-	array_push(global.cannon_satiety_bonus_projectile_types, _bonus_projectile_type);
-	global.cannon_satiety_pending_bonus_projectile_type = cannon_feast_bonus_projectile_roll();
-
-	return true;
 };
 
 cannon_worker_move_towards = function(_worker, _target_x, _target_y)
@@ -5544,6 +5790,12 @@ update_summoned_unit_night_life = function()
 		if (instance_exists(_friendly_unit)
 			&& variable_instance_exists(_friendly_unit, "summon_nights_remaining"))
 		{
+			if (variable_instance_exists(_friendly_unit, "settlement_garrison_unit")
+				&& _friendly_unit.settlement_garrison_unit)
+			{
+				continue;
+			}
+
 			if (_friendly_unit.object_index == o_goblin)
 			{
 				continue;
@@ -5576,6 +5828,36 @@ update_summoned_unit_night_life = function()
 
 				instance_destroy(_friendly_unit);
 			}
+		}
+	}
+};
+
+settlement_garrison_units_destroy_at_morning = function()
+{
+	var _friendly_count = instance_number(o_friendly_units);
+
+	for (var _friendly_index = _friendly_count - 1; _friendly_index >= 0; --_friendly_index)
+	{
+		var _friendly_unit = instance_find(o_friendly_units, _friendly_index);
+
+		if (instance_exists(_friendly_unit)
+			&& variable_instance_exists(_friendly_unit, "settlement_garrison_unit")
+			&& _friendly_unit.settlement_garrison_unit)
+		{
+			cannon_corpse_worker_drop(_friendly_unit);
+			clear_cultist_building_assignment(_friendly_unit);
+			instance_destroy(_friendly_unit);
+		}
+	}
+};
+
+settlement_garrison_buildings_spawn_morning_units = function()
+{
+	with (o_v13buildings_parent)
+	{
+		if (variable_instance_exists(id, "garrison_morning_spawn_units"))
+		{
+			garrison_morning_spawn_units();
 		}
 	}
 };
@@ -7113,12 +7395,14 @@ start_day_phase = function()
 	fade_out_morning_meat();
 	corpse_decay_at_morning();
 	update_summoned_unit_night_life();
+	settlement_garrison_units_destroy_at_morning();
 
 	cultist_projectile_deploy_assignments_reset();
 	unload_cultist_projectiles_to_day();
 	transform_demons_to_cultists();
 	restore_dead_cultists_at_morning();
 	move_cultists_to_cannon_inner();
+	settlement_garrison_buildings_spawn_morning_units();
 	move_summoned_units_to_cannon_inner();
 
 	with (o_boneyard)
@@ -7141,11 +7425,29 @@ start_day_phase = function()
 		ihor_extractor_morning_income_collect();
 	}
 
+	with (o_shell_factory)
+	{
+		if (variable_instance_exists(id, "shell_factory_morning_projectiles_add"))
+		{
+			shell_factory_morning_projectiles_add();
+		}
+	}
+
 	with (o_ritual_circle)
 	{
 		if (variable_instance_exists(id, "ritual_circle_daily_exp_remaining"))
 		{
 			ritual_circle_daily_exp_remaining = ritual_circle_daily_exp_limit_get();
+		}
+	}
+
+	with (o_v13buildings_parent)
+	{
+		if (variable_instance_exists(id, "production_daily_limit")
+			&& production_daily_limit > 0
+			&& variable_instance_exists(id, "production_daily_remaining"))
+		{
+			production_daily_remaining = production_daily_limit;
 		}
 	}
 

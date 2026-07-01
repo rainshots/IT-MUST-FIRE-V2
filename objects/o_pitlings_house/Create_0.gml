@@ -11,7 +11,8 @@ image_speed = 0;
 
 // Morning spawn settings mirror the player Hell Pit pitling type.
 morning_unit_object = o_pitling;
-morning_unit_count = BALANCE_PITLINGS_HOUSE_MORNING_PITLING_COUNT;
+base_morning_unit_count = BALANCE_PITLINGS_HOUSE_MORNING_PITLING_COUNT;
+morning_unit_count = base_morning_unit_count;
 morning_spawn_radius = BALANCE_CAPTURED_SPAWN_BUILDING_RADIUS;
 
 // Tooltip lines describe the captured map building behavior.
@@ -19,6 +20,20 @@ tooltip_lines = [
 	"Captured: spawns 1 Pitling every morning",
 	"Pitling moves to the cannon base"
 ];
+
+building_has_upgrades = true;
+building_tooltip_description = "Improves this Pitlings House.";
+building_upgrade_levels = [0];
+building_upgrade_names = ["Deeper Nest"];
+building_upgrade_descriptions = ["+1 Pitling every morning."];
+building_upgrade_resources = [RESOURCES.FLESH];
+building_upgrade_costs = [BALANCE_PITLINGS_HOUSE_PITLING_UPGRADE_FLESH_COST];
+building_upgrade_level_maxes = [BALANCE_PITLINGS_HOUSE_PITLING_UPGRADE_MAX];
+
+map_building_upgrade_effect_apply = function(_upgrade_index)
+{
+	morning_unit_count = base_morning_unit_count + (building_upgrade_levels[0] * BALANCE_PITLINGS_HOUSE_PITLING_UPGRADE_BONUS);
+};
 
 pitlings_house_spawn_morning_units = function()
 {

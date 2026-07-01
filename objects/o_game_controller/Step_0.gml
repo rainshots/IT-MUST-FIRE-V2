@@ -716,7 +716,16 @@ if (keyboard_check_pressed(vk_escape))
 	}
 	else if (global.focus_window == FOCUS_WINDOW.CURSED_POINT_STRUCTURE_SELECTION)
 	{
-		// The cursed point reward is mandatory once opened.
+		if (variable_global_exists("cursed_point_structure_selection_source")
+			&& instance_exists(global.cursed_point_structure_selection_source))
+		{
+			global.cursed_point_structure_selection_source.cursed_point_structure_selection_close();
+		}
+		else
+		{
+			global.focus_window = FOCUS_WINDOW.NOONE;
+			global.pause = false;
+		}
 	}
 	else if (global.focus_window == FOCUS_WINDOW.PAUSE_MENU)
 	{
@@ -867,13 +876,10 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION && mouse_check_but
 		{
 			for (var _choice_index = 0; _choice_index < _choice_count; ++_choice_index)
 			{
-				var _column = _choice_index mod building_tile_columns;
-				var _row = _choice_index div building_tile_columns;
-				var _tile_x = _grid_x + ((building_tile_width + building_tile_gap) * _column);
-				var _tile_y = _grid_y + ((building_tile_height + building_tile_gap) * _row);
+				var _tile_rect = building_choice_tile_rect_get(_choice_index, _is_foundry_window, _grid_x, _grid_y);
 
-				if (_mouse_x >= _tile_x && _mouse_x <= _tile_x + building_tile_width
-					&& _mouse_y >= _tile_y && _mouse_y <= _tile_y + building_tile_height)
+				if (is_struct(_tile_rect)
+					&& ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _tile_rect.x, _tile_rect.y, _tile_rect.width, _tile_rect.height))
 				{
 					construct_building_from_choice(building_window_choices[_choice_index]);
 					break;
@@ -1157,14 +1163,13 @@ var _can_select_cannon_projectile = (global.day_phase == DAY_PHASE.NIGHT
 if (_can_select_cannon_projectile)
 {
 	var _projectile_queue_count = array_length(global.cannon_projectile_queue);
-	var _feast_projectile_count = floor(max(0, global.cannon_satiety) / max(1, global.cannon_satiety_max));
-	var _selectable_projectile_count = _projectile_queue_count + _feast_projectile_count;
-	var _max_digit_count = min(_selectable_projectile_count, 9);
+	var _projectile_display_slots = cannon_projectile_display_slots_get(9);
+	var _max_digit_count = array_length(_projectile_display_slots);
 	var _selected_projectile_index = -1;
 
 	if (_max_digit_count > 0)
 	{
-		global.cannon_selected_projectile_index = clamp(global.cannon_selected_projectile_index, 0, _max_digit_count - 1);
+		global.cannon_selected_projectile_index = clamp(global.cannon_selected_projectile_index, 0, max(0, _projectile_queue_count));
 	}
 	else
 	{
@@ -1175,17 +1180,13 @@ if (_can_select_cannon_projectile)
 	{
 		if (keyboard_check_pressed(ord(string(_digit_index + 1))))
 		{
-			var _digit_projectile_type = PROJECTILE_TYPE.FEAST;
-
-			if (_digit_index < _projectile_queue_count)
-			{
-				_digit_projectile_type = global.cannon_projectile_queue[_digit_index];
-			}
+			var _digit_slot = _projectile_display_slots[_digit_index];
+			var _digit_projectile_type = _digit_slot.projectile_type;
 
 			if (global.day_phase == DAY_PHASE.NIGHT
 				|| _digit_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
 			{
-				_selected_projectile_index = _digit_index;
+				_selected_projectile_index = _digit_slot.consume_queue_index;
 			}
 
 			break;
@@ -1239,6 +1240,18 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && mouse_check_button_p
 		{
 			_selected_projectile_index = clamp(_selected_projectile_index, 0, _projectile_queue_count - 1);
 			target_selection_projectile_type = global.cannon_projectile_queue[_selected_projectile_index];
+
+			if (cannon_projectile_type_can_stack_in_hud(target_selection_projectile_type))
+			{
+				for (var _stack_queue_index = _projectile_queue_count - 1; _stack_queue_index >= 0; --_stack_queue_index)
+				{
+					if (global.cannon_projectile_queue[_stack_queue_index] == target_selection_projectile_type)
+					{
+						_selected_projectile_index = _stack_queue_index;
+						break;
+					}
+				}
+			}
 		}
 
 		target_selection_radius = projectile_target_selection_radius_get(target_selection_projectile_type);

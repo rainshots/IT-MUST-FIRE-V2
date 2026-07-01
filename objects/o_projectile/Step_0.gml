@@ -70,10 +70,6 @@ if (_flight_progress >= 1)
 	{
 		corrupt_circle(target_x, target_y, effect_radius, ground_corruption_amount);
 	}
-	else if (projectile_type == PROJECTILE_TYPE.CULTIST)
-	{
-		corrupt_circle(target_x, target_y, ground_corruption_radius, ground_corruption_amount);
-	}
 	else if (projectile_type == PROJECTILE_TYPE.FEAST)
 	{
 		corrupt_circle(target_x, target_y, ground_corruption_radius, ground_corruption_amount);

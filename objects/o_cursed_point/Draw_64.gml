@@ -81,6 +81,7 @@ for (var _choice_index = 0; _choice_index < array_length(structure_choice_option
 	var _tile_x = _choice_rect[0];
 	var _tile_y = _choice_rect[1];
 	var _is_hovered = _choice_index == _hovered_choice;
+	var _can_pay_choice = cursed_point_structure_choice_can_pay(_choice);
 	var _sprite = object_get_sprite(_choice.building_object);
 
 	draw_set_alpha(0.82);
@@ -115,8 +116,10 @@ for (var _choice_index = 0; _choice_index < array_length(structure_choice_option
 
 	draw_set_halign(fa_center);
 	draw_set_valign(fa_middle);
+	draw_set_alpha(_can_pay_choice ? 1 : 0.5);
 	draw_set_color(COLOR_HUD_TEXT);
 	draw_text(_tile_x + (structure_choice_tile_width * 0.5), _tile_y + 124, _choice.building_name);
+	draw_set_alpha(1);
 
 	draw_set_halign(fa_left);
 	draw_set_valign(fa_top);
@@ -128,6 +131,75 @@ for (var _choice_index = 0; _choice_index < array_length(structure_choice_option
 		16,
 		structure_choice_tile_width - 32
 	);
+
+	if (variable_struct_exists(_choice, "construction_costs"))
+	{
+		var _costs = _choice.construction_costs;
+		var _cost_count = array_length(_costs);
+		var _cost_icon_size = 18;
+		var _cost_gap = 8;
+		var _cost_total_width = 0;
+
+		for (var _cost_measure_index = 0; _cost_measure_index < _cost_count; ++_cost_measure_index)
+		{
+			var _measure_cost = _costs[_cost_measure_index];
+			_cost_total_width += _cost_icon_size + 4 + string_width(string(_measure_cost.cost));
+
+			if (_cost_measure_index < _cost_count - 1)
+			{
+				_cost_total_width += _cost_gap;
+			}
+		}
+
+		var _cost_draw_x = _tile_x + ((structure_choice_tile_width - _cost_total_width) * 0.5);
+		var _cost_y = _tile_y + structure_choice_tile_height - 22;
+
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_middle);
+
+		for (var _cost_index = 0; _cost_index < _cost_count; ++_cost_index)
+		{
+			var _cost_data = _costs[_cost_index];
+			var _cost_icon = cursed_point_resource_icon_get(_cost_data.resource);
+			var _cost_color = cursed_point_resource_color_get(_cost_data.resource);
+			var _cost_text = string(_cost_data.cost);
+			var _has_resource = global.resources[_cost_data.resource] >= _cost_data.cost;
+			var _cost_item_width = _cost_icon_size + 4 + string_width(_cost_text);
+
+			if (!_has_resource)
+			{
+				draw_set_alpha(0.6);
+				draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+				draw_rectangle(
+					_cost_draw_x - 4,
+					_cost_y - (_cost_icon_size * 0.5) - 3,
+					_cost_draw_x + _cost_item_width + 4,
+					_cost_y + (_cost_icon_size * 0.5) + 3,
+					false
+				);
+				draw_set_alpha(1);
+			}
+
+			if (sprite_exists(_cost_icon))
+			{
+				draw_sprite_stretched_ext(
+					_cost_icon,
+					0,
+					_cost_draw_x,
+					_cost_y - (_cost_icon_size * 0.5),
+					_cost_icon_size,
+					_cost_icon_size,
+					c_white,
+					_can_pay_choice ? 1 : 0.55
+				);
+			}
+
+			_cost_draw_x += _cost_icon_size + 4;
+			draw_set_color(_has_resource ? _cost_color : COLOR_HUD_TEXT);
+			draw_text(_cost_draw_x, _cost_y, _cost_text);
+			_cost_draw_x += string_width(_cost_text) + _cost_gap;
+		}
+	}
 }
 
 // Restore default draw state.

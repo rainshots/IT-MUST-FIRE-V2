@@ -10,8 +10,10 @@ sprite_index = uncaptured_sprite_index;
 image_speed = 0;
 
 // Orc workers haul corpses only from this radius around the hut.
-effect_radius = BALANCE_ORCS_HUT_CORPSE_SEARCH_RADIUS;
-orc_count = BALANCE_ORCS_HUT_ORC_COUNT;
+base_effect_radius = BALANCE_ORCS_HUT_CORPSE_SEARCH_RADIUS;
+base_orc_count = BALANCE_ORCS_HUT_ORC_COUNT;
+effect_radius = base_effect_radius;
+orc_count = base_orc_count;
 orc_home_spacing = BALANCE_ORCS_HUT_ORC_HOME_SPACING;
 owned_orcs = array_create(0);
 
@@ -21,6 +23,28 @@ tooltip_lines = [
 	"Range: orcs use corpses within 500px of the hut",
 	"Night: orcs return home"
 ];
+
+building_has_upgrades = true;
+building_tooltip_description = "Improves this Orcs Hut.";
+building_upgrade_levels = [0, 0];
+building_upgrade_names = ["Wider Patrol", "Extra Hauler"];
+building_upgrade_descriptions = ["+20% corpse search radius.", "+1 neutral orc."];
+building_upgrade_resources = [RESOURCES.FLESH, RESOURCES.FLESH];
+building_upgrade_costs = [BALANCE_ORCS_HUT_RADIUS_UPGRADE_FLESH_COST, BALANCE_ORCS_HUT_ORC_COUNT_UPGRADE_FLESH_COST];
+building_upgrade_level_maxes = [BALANCE_ORCS_HUT_RADIUS_UPGRADE_MAX, BALANCE_ORCS_HUT_ORC_COUNT_UPGRADE_MAX];
+
+map_building_upgrade_effect_apply = function(_upgrade_index)
+{
+	effect_radius = base_effect_radius * (1 + (building_upgrade_levels[0] * BALANCE_ORCS_HUT_RADIUS_UPGRADE_BONUS));
+	orc_count = base_orc_count + (building_upgrade_levels[1] * BALANCE_ORCS_HUT_ORC_COUNT_UPGRADE_BONUS);
+	array_resize(owned_orcs, orc_count);
+
+	if (is_captured)
+	{
+		orcs_hut_spawn_orcs();
+		orcs_hut_recall_orcs();
+	}
+};
 
 orcs_hut_orc_home_position_get = function(_orc_index)
 {

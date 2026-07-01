@@ -37,6 +37,51 @@ if (cultist_projectile_deploy_assigned || cultist_projectile_deploy_waiting)
 	exit;
 }
 
+// Settlement garrison units move to their daytime rally point before waiting.
+if (global.day_phase == DAY_PHASE.DAY
+	&& variable_instance_exists(id, "settlement_garrison_unit")
+	&& settlement_garrison_unit
+	&& regroup_is_active)
+{
+	var _garrison_regroup_distance = point_distance(x, y, regroup_target_x, regroup_target_y);
+
+	target_instance = noone;
+	alert_target = noone;
+	is_attacking_target = false;
+	visual_attack_offset_x = 0;
+	visual_attack_offset_y = 0;
+
+	if (_garrison_regroup_distance <= regroup_arrive_radius)
+	{
+		regroup_is_active = false;
+		drag_drop_x = x;
+		drag_drop_y = y;
+		is_walking = false;
+		update_walk_sway();
+	}
+	else
+	{
+		move_towards_world_point(regroup_target_x, regroup_target_y);
+	}
+
+	exit;
+}
+
+// Settlement garrison units wait inside the settlement during the day.
+if (global.day_phase == DAY_PHASE.DAY
+	&& variable_instance_exists(id, "settlement_garrison_unit")
+	&& settlement_garrison_unit)
+{
+	target_instance = noone;
+	alert_target = noone;
+	is_attacking_target = false;
+	is_walking = false;
+	visual_attack_offset_x = 0;
+	visual_attack_offset_y = 0;
+	update_walk_sway();
+	exit;
+}
+
 // Dragged units cannot move, attack, or progress abilities until released.
 if (is_being_dragged)
 {
@@ -208,7 +253,7 @@ else if (!_special_behavior_handled && _is_enemy_unit)
 
 	if (!instance_exists(target_instance))
 	{
-		target_instance = find_nearest_attackable_player_structure(target_detection_radius);
+		target_instance = find_nearest_attackable_player_structure(vision_radius);
 	}
 
 	if (!instance_exists(target_instance) && unit_can_attack_cannon && instance_exists(o_cannon))

@@ -27,6 +27,230 @@ tooltip_offset_y = 72;
 // Transform target. noone means the object does not transform by default.
 transform_object = noone;
 building_constructed_by_shell = false;
+building_constructed_by_cursed_point = false;
+
+// Upgrade data is used by shell-built map structures.
+building_has_upgrades = false;
+building_upgrade_levels = [];
+building_upgrade_names = [];
+building_upgrade_descriptions = [];
+building_upgrade_resources = [];
+building_upgrade_costs = [];
+building_upgrade_level_maxes = [];
+building_tooltip_description = "";
+upgrade_prompt_text = "G - UPGRADE";
+upgrade_prompt_offset_y = 28;
+upgrade_prompt_padding_x = 7;
+upgrade_prompt_padding_y = 4;
+upgrade_prompt_background_alpha = 0.78;
+
+// Short warnings appear above the object when an upgrade cannot be bought.
+building_warning_text = "";
+building_warning_color = COLOR_STATUS_NEGATIVE_RED;
+building_warning_timer = 0;
+building_warning_time = 0.35 * room_speed;
+building_warning_offset_y = 82;
+building_warning_padding_x = 7;
+building_warning_padding_y = 4;
+building_warning_background_alpha = 0.84;
+
+resource_name_get = function(_resource)
+{
+	if (_resource == RESOURCES.FLESH)
+	{
+		return "Flesh";
+	}
+
+	if (_resource == RESOURCES.SOULS)
+	{
+		return "Souls";
+	}
+
+	if (_resource == RESOURCES.IRON)
+	{
+		return "Iron";
+	}
+
+	if (_resource == RESOURCES.IHOR)
+	{
+		return "Ihor";
+	}
+
+	return "";
+};
+
+resource_color_get = function(_resource)
+{
+	if (_resource == RESOURCES.FLESH)
+	{
+		return COLOR_HUD_FLESH;
+	}
+
+	if (_resource == RESOURCES.SOULS)
+	{
+		return COLOR_HUD_SOULS;
+	}
+
+	if (_resource == RESOURCES.IRON)
+	{
+		return COLOR_HUD_IRON;
+	}
+
+	if (_resource == RESOURCES.IHOR)
+	{
+		return COLOR_HUD_IHOR;
+	}
+
+	return c_white;
+};
+
+resource_icon_get = function(_resource)
+{
+	if (_resource == RESOURCES.FLESH)
+	{
+		return s_flesh_icon;
+	}
+
+	if (_resource == RESOURCES.SOULS)
+	{
+		return s_soul_icon;
+	}
+
+	if (_resource == RESOURCES.IRON)
+	{
+		return s_iron_icon;
+	}
+
+	if (_resource == RESOURCES.IHOR)
+	{
+		return s_ihor_icon;
+	}
+
+	return noone;
+};
+
+building_warning_show = function(_text, _color)
+{
+	building_warning_text = _text;
+	building_warning_color = _color;
+	building_warning_timer = building_warning_time;
+};
+
+map_building_warning_update = function()
+{
+	if (building_warning_timer > 0)
+	{
+		building_warning_timer = max(0, building_warning_timer - 1);
+	}
+};
+
+map_building_upgrade_effect_apply = function(_upgrade_index)
+{
+};
+
+cannon_upgrade_level_max_get = function(_upgrade_index)
+{
+	if (_upgrade_index >= 0 && _upgrade_index < array_length(building_upgrade_level_maxes))
+	{
+		return building_upgrade_level_maxes[_upgrade_index];
+	}
+
+	return 1;
+};
+
+cannon_upgrade_display_level_get = function(_upgrade_index)
+{
+	return building_upgrade_levels[_upgrade_index];
+};
+
+cannon_upgrade_next_display_level_get = function(_upgrade_index)
+{
+	return min(building_upgrade_levels[_upgrade_index] + 1, cannon_upgrade_level_max_get(_upgrade_index));
+};
+
+cannon_upgrade_display_level_max_get = function(_upgrade_index)
+{
+	return cannon_upgrade_level_max_get(_upgrade_index);
+};
+
+cannon_upgrade_resource_get = function(_upgrade_index)
+{
+	if (_upgrade_index >= 0 && _upgrade_index < array_length(building_upgrade_resources))
+	{
+		return building_upgrade_resources[_upgrade_index];
+	}
+
+	return RESOURCES.IRON;
+};
+
+cannon_upgrade_next_cost_get = function(_upgrade_index)
+{
+	if (_upgrade_index >= 0 && _upgrade_index < array_length(building_upgrade_costs))
+	{
+		return building_upgrade_costs[_upgrade_index];
+	}
+
+	return 0;
+};
+
+cannon_upgrade_cost_text_get = function(_upgrade_index)
+{
+	var _cost = cannon_upgrade_next_cost_get(_upgrade_index);
+	var _resource = cannon_upgrade_resource_get(_upgrade_index);
+	return string(_cost) + " " + resource_name_get(_resource);
+};
+
+building_upgrade_description_get = function(_upgrade_index)
+{
+	if (_upgrade_index >= 0 && _upgrade_index < array_length(building_upgrade_descriptions))
+	{
+		return building_upgrade_descriptions[_upgrade_index];
+	}
+
+	return "";
+};
+
+building_upgrade_can_buy = function(_upgrade_index)
+{
+	if (!building_has_upgrades
+		|| _upgrade_index < 0
+		|| _upgrade_index >= array_length(building_upgrade_levels))
+	{
+		return false;
+	}
+
+	var _upgrade_level = building_upgrade_levels[_upgrade_index];
+	var _upgrade_level_max = cannon_upgrade_level_max_get(_upgrade_index);
+	var _upgrade_resource = cannon_upgrade_resource_get(_upgrade_index);
+	var _upgrade_cost = cannon_upgrade_next_cost_get(_upgrade_index);
+
+	return _upgrade_level < _upgrade_level_max
+		&& global.resources[_upgrade_resource] >= _upgrade_cost;
+};
+
+building_upgrade_buy = function(_upgrade_index)
+{
+	if (!building_upgrade_can_buy(_upgrade_index))
+	{
+		if (_upgrade_index >= 0 && _upgrade_index < array_length(building_upgrade_levels))
+		{
+			var _missing_resource = cannon_upgrade_resource_get(_upgrade_index);
+			var _missing_cost = cannon_upgrade_next_cost_get(_upgrade_index);
+			building_warning_show("Need " + string(_missing_cost) + " " + resource_name_get(_missing_resource), COLOR_STATUS_NEGATIVE_RED);
+		}
+
+		return false;
+	}
+
+	var _upgrade_resource = cannon_upgrade_resource_get(_upgrade_index);
+	var _upgrade_cost = cannon_upgrade_next_cost_get(_upgrade_index);
+	global.resources[_upgrade_resource] -= _upgrade_cost;
+	resource_popup_create(x, y - bar_offset_y, _upgrade_resource, -_upgrade_cost);
+	building_upgrade_levels[_upgrade_index]++;
+	map_building_upgrade_effect_apply(_upgrade_index);
+
+	return true;
+};
 
 // Shell-built player structures use the cannon hit sound when enemies damage them.
 player_building_damage_sound_play = function()
@@ -47,13 +271,15 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 
 	var _applied_damage = min(_damage_amount, hp);
 	hp = max(hp - _damage_amount, 0);
+	var _is_player_structure = building_constructed_by_shell
+		|| (variable_instance_exists(id, "is_captured") && is_captured && object_index != o_cursed_point);
 
-	if (_applied_damage > 0 && building_constructed_by_shell)
+	if (_applied_damage > 0 && _is_player_structure)
 	{
 		player_building_damage_sound_play();
 	}
 
-	if (building_constructed_by_shell && hp <= 0)
+	if (_is_player_structure && hp <= 0)
 	{
 		instance_destroy();
 	}
