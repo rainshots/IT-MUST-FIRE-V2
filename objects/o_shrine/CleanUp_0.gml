@@ -1,0 +1,2 @@
+shrine_saint_source_unregister();
+shrine_saint_projectile_sources_unregister();

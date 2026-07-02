@@ -59,6 +59,12 @@ building_warning_padding_x = 7;
 building_warning_padding_y = 4;
 building_warning_background_alpha = 0.84;
 
+// Unit occlusion fades tall map objects when units walk behind their upper sprite area.
+unit_fade_check_interval = BALANCE_TREE_UNIT_FADE_CHECK_INTERVAL;
+unit_fade_check_timer = irandom(unit_fade_check_interval);
+unit_fade_target_alpha = 1;
+unit_fade_alpha = 1;
+
 resource_name_get = function(_resource)
 {
 	if (_resource == RESOURCES.FLESH)
@@ -147,6 +153,97 @@ map_building_warning_update = function()
 	{
 		building_warning_timer = max(0, building_warning_timer - 1);
 	}
+};
+
+map_object_unit_occlusion_object_check = function(_object_index, _check_left, _check_top, _check_right, _check_bottom)
+{
+	var _unit_count = instance_number(_object_index);
+
+	// Only live visible units behind the object origin should make its upper sprite transparent.
+	for (var _unit_index = 0; _unit_index < _unit_count; ++_unit_index)
+	{
+		var _unit = instance_find(_object_index, _unit_index);
+
+		if (instance_exists(_unit)
+			&& _unit.visible
+			&& variable_instance_exists(_unit, "hp")
+			&& _unit.hp > 0
+			&& _unit.x >= _check_left
+			&& _unit.x <= _check_right
+			&& _unit.y >= _check_top
+			&& _unit.y <= _check_bottom)
+		{
+			return true;
+		}
+	}
+
+	return false;
+};
+
+map_object_unit_occlusion_update = function()
+{
+	unit_fade_check_timer++;
+
+	if (unit_fade_check_timer < unit_fade_check_interval)
+	{
+		return;
+	}
+
+	unit_fade_check_timer = 0;
+
+	var _object_width = bbox_right - bbox_left;
+	var _object_height = bbox_bottom - bbox_top;
+	var _check_radius = _object_width * BALANCE_TREE_UNIT_FADE_RADIUS_SCALE;
+	var _check_height = _object_height * BALANCE_TREE_UNIT_FADE_HEIGHT_SCALE;
+	var _check_left = x - _check_radius;
+	var _check_right = x + _check_radius;
+	var _check_top = y - _check_height;
+	var _check_bottom = y;
+	var _has_unit_behind_object = map_object_unit_occlusion_object_check(
+		o_friendly_units,
+		_check_left,
+		_check_top,
+		_check_right,
+		_check_bottom
+	);
+
+	if (!_has_unit_behind_object)
+	{
+		_has_unit_behind_object = map_object_unit_occlusion_object_check(
+			o_enemy_units,
+			_check_left,
+			_check_top,
+			_check_right,
+			_check_bottom
+		);
+	}
+
+	if (!_has_unit_behind_object)
+	{
+		_has_unit_behind_object = map_object_unit_occlusion_object_check(
+			o_cultist,
+			_check_left,
+			_check_top,
+			_check_right,
+			_check_bottom
+		);
+	}
+
+	if (_has_unit_behind_object)
+	{
+		unit_fade_target_alpha = BALANCE_TREE_UNIT_FADE_ALPHA;
+	}
+	else
+	{
+		unit_fade_target_alpha = 1;
+	}
+};
+
+map_object_unit_fade_update = function()
+{
+	map_object_unit_occlusion_update();
+	unit_fade_alpha = lerp(unit_fade_alpha, unit_fade_target_alpha, BALANCE_TREE_UNIT_FADE_LERP_SPEED);
+	image_alpha = unit_fade_alpha;
 };
 
 map_building_upgrade_effect_apply = function(_upgrade_index)
@@ -302,7 +399,7 @@ player_building_ground_state_update = function()
 };
 
 // Shared damage receiver keeps player structure damage feedback consistent.
-unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true)
+unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true, _source_instance = noone)
 {
 	if (hp <= 0 || _damage_amount <= 0)
 	{
@@ -425,6 +522,12 @@ ground_cell_corruption_get = function(_world_x, _world_y)
 		&& _cell_y < _corruption_grid_object.grid_height;
 
 	if (!_is_inside_grid)
+	{
+		return 0;
+	}
+
+	if (variable_instance_exists(_corruption_grid_object, "saint_grid")
+		&& ds_grid_get(_corruption_grid_object.saint_grid, _cell_x, _cell_y) > 0)
 	{
 		return 0;
 	}

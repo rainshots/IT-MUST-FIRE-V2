@@ -30,9 +30,15 @@ is_on_corrupted_ground = function()
 	var _corruption_grid = instance_find(o_corruption_grid, 0);
 	var _cell_x = clamp(floor(x / _corruption_grid.cell_size), 0, _corruption_grid.grid_width - 1);
 	var _cell_y = clamp(floor(y / _corruption_grid.cell_size), 0, _corruption_grid.grid_height - 1);
+	var _cell_saint = 0;
 	var _cell_corruption = ds_grid_get(_corruption_grid.corruption_grid, _cell_x, _cell_y);
 
-	return _cell_corruption > 0;
+	if (variable_instance_exists(_corruption_grid, "saint_grid"))
+	{
+		_cell_saint = ds_grid_get(_corruption_grid.saint_grid, _cell_x, _cell_y);
+	}
+
+	return _cell_saint <= 0 && _cell_corruption > 0;
 };
 
 on_damage_projectile_hit = function()

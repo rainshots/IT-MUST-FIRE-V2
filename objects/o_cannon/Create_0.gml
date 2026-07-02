@@ -305,7 +305,7 @@ cannon_night_damage_agony_update = function()
 	night_damage_agony_threshold_index = _current_threshold_index;
 };
 
-unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true)
+unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true, _source_instance = noone)
 {
 	if (hp <= 0 || _damage_amount <= 0)
 	{

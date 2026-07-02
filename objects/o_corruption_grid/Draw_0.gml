@@ -20,6 +20,7 @@ for (var _cell_x = _left_cell; _cell_x <= _right_cell; ++_cell_x)
 	for (var _cell_y = _top_cell; _cell_y <= _bottom_cell; ++_cell_y)
 	{
 		var _corruption = ds_grid_get(corruption_grid, _cell_x, _cell_y);
+		var _saint = ds_grid_get(saint_grid, _cell_x, _cell_y);
 
 		if (_corruption >= minimum_draw_corruption)
 		{
@@ -31,6 +32,18 @@ for (var _cell_x = _left_cell; _cell_x <= _right_cell; ++_cell_x)
 			draw_set_color(_cell_color);
 			draw_set_alpha(_cell_alpha);
 			draw_rectangle(_draw_x, _draw_y, _draw_x + cell_size, _draw_y + cell_size, false);
+		}
+
+		if (_saint >= minimum_draw_corruption)
+		{
+			var _saint_draw_x = _cell_x * cell_size;
+			var _saint_draw_y = _cell_y * cell_size;
+			var _saint_cell_color = merge_colour(uncorrupted_color, maximum_saint_color, _saint);
+			var _saint_cell_alpha = lerp(minimum_corruption_alpha, maximum_corruption_alpha, _saint);
+
+			draw_set_color(_saint_cell_color);
+			draw_set_alpha(_saint_cell_alpha);
+			draw_rectangle(_saint_draw_x, _saint_draw_y, _saint_draw_x + cell_size, _saint_draw_y + cell_size, false);
 		}
 	}
 }

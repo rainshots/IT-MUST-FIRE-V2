@@ -8,13 +8,14 @@ if (is_destroyed)
 // Draw inherited map object visuals.
 event_inherited();
 
-// Draw holy tower shooting radius.
+// Draw holy tower Saint radius as an outline only.
 draw_set_alpha(radius_alpha);
 draw_set_color(COLOR_HOLY_TOWER_RADIUS);
-draw_circle(x, y, shoot_radius, true);
 
-draw_set_alpha(radius_alpha * 0.45);
-draw_circle(x, y, shoot_radius, false);
+for (var _radius_line_index = 0; _radius_line_index < radius_line_width; ++_radius_line_index)
+{
+	draw_circle(x, y, saint_radius + _radius_line_index, true);
+}
 
 // Draw short attack feedback line.
 if (attack_feedback_timer > 0)

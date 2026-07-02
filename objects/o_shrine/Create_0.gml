@@ -9,6 +9,9 @@ protection_towers_destroyed = 0;
 shrine_normal_sprite = s_shrine_normal;
 shrine_cursed_sprite = s_shrine_cursed;
 corruption_radius = BALANCE_SHRINE_CORRUPTION_RADIUS;
+saint_radius = BALANCE_SHRINE_SAINT_RADIUS;
+saint_source_registered = false;
+saint_projectile_sources = [];
 max_hp = 10000;
 hp = max_hp;
 image_speed = 0;
@@ -17,6 +20,21 @@ image_index = 0;
 defender_trigger_radius = BALANCE_SHRINE_DEFENDER_TRIGGER_RADIUS;
 defender_spawn_interval = max(1, BALANCE_SHRINE_DEFENDER_SPAWN_INTERVAL * room_speed);
 defender_spawn_timer = defender_spawn_interval;
+night_saint_projectile_count = BALANCE_SHRINE_NIGHT_SAINT_PROJECTILE_COUNT;
+night_saint_projectile_radius = BALANCE_SHRINE_NIGHT_SAINT_PROJECTILE_RADIUS;
+night_saint_projectile_step = BALANCE_SHRINE_NIGHT_SAINT_PROJECTILE_STEP;
+night_saint_projectile_forward_jitter = BALANCE_SHRINE_NIGHT_SAINT_PROJECTILE_FORWARD_JITTER;
+night_saint_projectile_side_jitter = BALANCE_SHRINE_NIGHT_SAINT_PROJECTILE_SIDE_JITTER;
+night_saint_projectile_launch_time = BALANCE_SHRINE_NIGHT_SAINT_PROJECTILE_LAUNCH_TIME;
+night_saint_projectile_spawn_offset_y = -28;
+night_saint_projectile_layer_name = "Instances";
+night_saint_projectile_draw_depth = BALANCE_PARTICLE_SYSTEM_TOP_DEPTH - 50;
+night_saint_front_distance = saint_radius + (night_saint_projectile_radius * 0.6);
+night_saint_front_start_distance = night_saint_front_distance;
+night_saint_direction_index = 0;
+night_saint_direction_max_distance = BALANCE_SHRINE_NIGHT_SAINT_DIRECTION_MAX_DISTANCE;
+night_saint_direction_angle_step = BALANCE_SHRINE_NIGHT_SAINT_DIRECTION_ANGLE_STEP;
+night_saint_direction_match_angle = BALANCE_SHRINE_NIGHT_SAINT_DIRECTION_MATCH_ANGLE;
 
 // Shrine tooltip describes the run objective.
 tooltip_lines = [
@@ -25,7 +43,7 @@ tooltip_lines = [
 	"Then destroy the Shrine"
 ];
 
-unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true)
+unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true, _source_instance = noone)
 {
 	if (!is_attackable || is_corrupted)
 	{
@@ -164,6 +182,208 @@ shrine_defender_spawner_update = function()
 	}
 };
 
+shrine_saint_source_register = function()
+{
+	if (is_corrupted || saint_source_registered || !instance_exists(o_corruption_grid))
+	{
+		return;
+	}
+
+	var _corruption_grid = instance_find(o_corruption_grid, 0);
+
+	if (variable_instance_exists(_corruption_grid, "saint_source_circle_add"))
+	{
+		_corruption_grid.saint_source_circle_add(x, y, saint_radius);
+		saint_source_registered = true;
+	}
+};
+
+shrine_saint_source_unregister = function()
+{
+	if (!saint_source_registered || !instance_exists(o_corruption_grid))
+	{
+		saint_source_registered = false;
+		return;
+	}
+
+	var _corruption_grid = instance_find(o_corruption_grid, 0);
+
+	if (variable_instance_exists(_corruption_grid, "saint_source_circle_remove"))
+	{
+		_corruption_grid.saint_source_circle_remove(x, y, saint_radius);
+	}
+
+	saint_source_registered = false;
+};
+
+shrine_saint_projectile_sources_unregister = function()
+{
+	if (!instance_exists(o_corruption_grid))
+	{
+		saint_projectile_sources = [];
+		return;
+	}
+
+	var _corruption_grid = instance_find(o_corruption_grid, 0);
+
+	if (!variable_instance_exists(_corruption_grid, "saint_source_circle_remove"))
+	{
+		saint_projectile_sources = [];
+		return;
+	}
+
+	var _source_count = array_length(saint_projectile_sources);
+
+	for (var _source_index = 0; _source_index < _source_count; ++_source_index)
+	{
+		var _source = saint_projectile_sources[_source_index];
+
+		_corruption_grid.saint_source_circle_remove(_source.x, _source.y, _source.radius);
+	}
+
+	saint_projectile_sources = [];
+};
+
+shrine_saint_projectile_source_add = function(_center_x, _center_y, _radius, _saint_amount)
+{
+	if (is_corrupted || !instance_exists(o_corruption_grid))
+	{
+		return;
+	}
+
+	var _corruption_grid = instance_find(o_corruption_grid, 0);
+
+	if (variable_instance_exists(_corruption_grid, "saint_source_circle_add"))
+	{
+		_corruption_grid.saint_source_circle_add(_center_x, _center_y, _radius);
+		array_push(
+			saint_projectile_sources,
+			{
+				x: _center_x,
+				y: _center_y,
+				radius: _radius
+			}
+		);
+	}
+
+	if (variable_instance_exists(_corruption_grid, "saint_circle_set"))
+	{
+		_corruption_grid.saint_circle_set(_center_x, _center_y, _radius, _saint_amount);
+	}
+};
+
+shrine_saint_projectile_create = function(_target_x, _target_y, _launch_delay_seconds = 0)
+{
+	var _projectile_x = x;
+	var _projectile_y = y + night_saint_projectile_spawn_offset_y;
+	var _projectile = instance_create_layer(_projectile_x, _projectile_y, night_saint_projectile_layer_name, o_projectile);
+	var _projectile_distance = point_distance(_projectile_x, _projectile_y, _target_x, _target_y);
+	var _flight_time_seconds = clamp(
+		_projectile_distance / _projectile.projectile_speed,
+		_projectile.minimum_flight_time,
+		_projectile.maximum_flight_time
+	);
+
+	_projectile.start_x = _projectile_x;
+	_projectile.start_y = _projectile_y;
+	_projectile.target_x = _target_x;
+	_projectile.target_y = _target_y;
+	_projectile.projectile_type = PROJECTILE_TYPE.CLEANSE;
+	_projectile.effect_radius = night_saint_projectile_radius;
+	_projectile.cleanse_amount = 1;
+	_projectile.saint_amount = 1;
+	_projectile.damage_faction = UNIT_FACTION.ENEMY;
+	_projectile.source_instance = id;
+	_projectile.flight_time = _flight_time_seconds * room_speed;
+	_projectile.launch_delay_timer = _launch_delay_seconds * room_speed;
+	_projectile.depth = night_saint_projectile_draw_depth;
+
+	return _projectile;
+};
+
+shrine_saint_direction_offset_get = function()
+{
+	if (night_saint_direction_index <= 0)
+	{
+		return 0;
+	}
+
+	var _angle_multiplier = ceil(night_saint_direction_index / 2);
+	var _angle_offset = _angle_multiplier * night_saint_direction_angle_step;
+	var _is_clockwise_turn = (night_saint_direction_index mod 2) == 1;
+
+	// GameMaker visual clockwise is negative because Y grows downward.
+	return _is_clockwise_turn ? -_angle_offset : _angle_offset;
+};
+
+shrine_saint_front_distance_get = function(_shot_direction)
+{
+	var _front_distance = night_saint_front_distance;
+	var _source_count = array_length(saint_projectile_sources);
+
+	for (var _source_index = 0; _source_index < _source_count; ++_source_index)
+	{
+		var _source = saint_projectile_sources[_source_index];
+		var _source_distance = point_distance(x, y, _source.x, _source.y);
+		var _source_direction = point_direction(x, y, _source.x, _source.y);
+		var _direction_difference = abs(angle_difference(_shot_direction, _source_direction));
+
+		if (_direction_difference <= night_saint_direction_match_angle)
+		{
+			_front_distance = max(_front_distance, _source_distance + (_source.radius * 0.6));
+		}
+	}
+
+	return _front_distance;
+};
+
+shrine_night_saint_projectiles_fire = function()
+{
+	if (is_corrupted || !instance_exists(o_cannon))
+	{
+		return;
+	}
+
+	var _cannon = instance_find(o_cannon, 0);
+	var _base_direction = point_direction(x, y, _cannon.x, _cannon.y);
+	var _shot_direction = _base_direction + shrine_saint_direction_offset_get();
+	var _side_direction = _shot_direction + 90;
+	var _distance_to_cannon = point_distance(x, y, _cannon.x, _cannon.y);
+	var _direction_max_distance = min(
+		night_saint_direction_max_distance,
+		_distance_to_cannon - (night_saint_projectile_radius * 0.25)
+	);
+	var _start_distance = shrine_saint_front_distance_get(_shot_direction);
+	var _max_forward_distance = max(_start_distance, _direction_max_distance);
+	var _furthest_forward_distance = _start_distance;
+
+	for (var _projectile_index = 0; _projectile_index < night_saint_projectile_count; ++_projectile_index)
+	{
+		var _forward_distance = _start_distance + (night_saint_projectile_step * _projectile_index);
+		_forward_distance += random_range(-night_saint_projectile_forward_jitter, night_saint_projectile_forward_jitter);
+		_forward_distance = clamp(_forward_distance, _start_distance, _max_forward_distance);
+
+		var _side_offset = random_range(-night_saint_projectile_side_jitter, night_saint_projectile_side_jitter);
+		var _target_x = x + lengthdir_x(_forward_distance, _shot_direction) + lengthdir_x(_side_offset, _side_direction);
+		var _target_y = y + lengthdir_y(_forward_distance, _shot_direction) + lengthdir_y(_side_offset, _side_direction);
+		var _launch_delay_seconds = random(night_saint_projectile_launch_time);
+
+		shrine_saint_projectile_create(_target_x, _target_y, _launch_delay_seconds);
+		_furthest_forward_distance = max(_furthest_forward_distance, _forward_distance);
+	}
+
+	night_saint_front_distance = min(
+		_max_forward_distance,
+		_furthest_forward_distance + (night_saint_projectile_radius * 0.6)
+	);
+
+	if (night_saint_front_distance >= _max_forward_distance)
+	{
+		night_saint_direction_index++;
+		night_saint_front_distance = night_saint_front_start_distance;
+	}
+};
+
 shrine_corrupt = function()
 {
 	if (is_corrupted)
@@ -173,6 +393,8 @@ shrine_corrupt = function()
 
 	is_corrupted = true;
 	corruption = max_corruption;
+	shrine_saint_source_unregister();
+	shrine_saint_projectile_sources_unregister();
 
 	sprite_index = shrine_cursed_sprite;
 	image_index = 0;
@@ -192,6 +414,8 @@ shrine_corrupt = function()
 		}
 	}
 };
+
+shrine_saint_source_register();
 
 on_projectile_hit = function(_projectile_type)
 {

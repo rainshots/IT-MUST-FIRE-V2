@@ -22,6 +22,10 @@ clone_max_life_timer = life_timer;
 clone_fade_start_share = 0.35;
 explosion_enabled = false;
 explosion_damage = 0;
+clone_owner = noone;
+clone_follow_distance = BALANCE_IMP_BLOODY_CLONE_FOLLOW_DISTANCE;
+clone_follow_arrive_distance = BALANCE_IMP_BLOODY_CLONE_FOLLOW_ARRIVE_DISTANCE;
+friendly_guard_cannon_enabled = false;
 
 clone_blood_explosion = function()
 {
@@ -46,12 +50,42 @@ clone_blood_explosion = function()
 
 		if (variable_instance_exists(_enemy, "unit_damage_receive"))
 		{
-			_enemy.unit_damage_receive(_final_damage, unit_faction, false);
+			_enemy.unit_damage_receive(_final_damage, unit_faction, false, true, id);
 		}
 		else
 		{
 			_enemy.hp = max(_enemy.hp - _final_damage, 0);
 			damage_popup_create(_enemy.x, _enemy.y, _final_damage, _enemy.unit_faction, false);
 		}
+	}
+};
+
+imp_clone_owner_follow_update = function()
+{
+	if (instance_exists(target_instance) && target_instance.object_index == o_cannon)
+	{
+		target_instance = noone;
+	}
+
+	if (!instance_exists(clone_owner)
+		|| target_can_be_attacked(target_instance)
+		|| is_being_dragged
+		|| is_stunned)
+	{
+		return;
+	}
+
+	var _owner_distance = point_distance(x, y, clone_owner.x, clone_owner.y);
+
+	if (_owner_distance <= clone_follow_arrive_distance)
+	{
+		is_walking = false;
+		face_world_x(clone_owner.x);
+		return;
+	}
+
+	if (_owner_distance > clone_follow_distance)
+	{
+		move_towards_world_point(clone_owner.x, clone_owner.y);
 	}
 };

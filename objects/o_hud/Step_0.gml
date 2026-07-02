@@ -1,3 +1,12 @@
+// Update minimap ground cache outside Draw GUI to keep HUD rendering cheap.
+minimap_ground_update_timer++;
+
+if (minimap_ground_update_timer >= minimap_ground_update_interval)
+{
+	minimap_ground_update_timer = 0;
+	minimap_ground_cache_update();
+}
+
 // Update derived corruption counter at a small fixed interval.
 corruption_update_timer++;
 
@@ -19,13 +28,24 @@ if (!instance_exists(o_corruption_grid))
 var _corruption_grid = instance_find(o_corruption_grid, 0);
 var _total_corruption = 0;
 var _total_cells = _corruption_grid.grid_width * _corruption_grid.grid_height;
+var _has_saint_grid = variable_instance_exists(_corruption_grid, "saint_grid");
 
 // Sum all cell values. A fully corrupted cell contributes 1.
 for (var _cell_x = 0; _cell_x < _corruption_grid.grid_width; ++_cell_x)
 {
 	for (var _cell_y = 0; _cell_y < _corruption_grid.grid_height; ++_cell_y)
 	{
-		_total_corruption += ds_grid_get(_corruption_grid.corruption_grid, _cell_x, _cell_y);
+		var _saint = 0;
+
+		if (_has_saint_grid)
+		{
+			_saint = ds_grid_get(_corruption_grid.saint_grid, _cell_x, _cell_y);
+		}
+
+		if (_saint <= 0)
+		{
+			_total_corruption += ds_grid_get(_corruption_grid.corruption_grid, _cell_x, _cell_y);
+		}
 	}
 }
 

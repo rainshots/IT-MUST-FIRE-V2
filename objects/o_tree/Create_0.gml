@@ -132,8 +132,14 @@ tree_corruption_update = function()
 	}
 
 	var _corruption = ds_grid_get(_corruption_grid_object.corruption_grid, _cell_x, _cell_y);
+	var _saint = 0;
 
-	if (_corruption > 0)
+	if (variable_instance_exists(_corruption_grid_object, "saint_grid"))
+	{
+		_saint = ds_grid_get(_corruption_grid_object.saint_grid, _cell_x, _cell_y);
+	}
+
+	if (_saint <= 0 && _corruption > 0)
 	{
 		is_corrupted = true;
 		sprite_index = corrupted_sprite_index;

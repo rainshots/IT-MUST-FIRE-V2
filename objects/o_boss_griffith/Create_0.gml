@@ -160,7 +160,7 @@ griffith_mixed_damage_target = function(_target, _is_critical_hit)
 
 	if (variable_instance_exists(_target, "unit_damage_receive"))
 	{
-		_target.unit_damage_receive(_final_damage, unit_faction, _is_critical_hit);
+		_target.unit_damage_receive(_final_damage, unit_faction, _is_critical_hit, true, id);
 	}
 	else
 	{

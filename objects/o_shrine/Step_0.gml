@@ -4,6 +4,8 @@ if (global.pause)
 	exit;
 }
 
+shrine_saint_source_register();
+
 if (is_corrupted)
 {
 	exit;

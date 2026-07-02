@@ -48,6 +48,12 @@ catapult_taint_target_find = function()
 	{
 		for (var _cell_y = _top_cell; _cell_y <= _bottom_cell; ++_cell_y)
 		{
+			if (variable_instance_exists(_corruption_grid, "saint_grid")
+				&& ds_grid_get(_corruption_grid.saint_grid, _cell_x, _cell_y) > 0)
+			{
+				continue;
+			}
+
 			var _corruption = ds_grid_get(_corruption_grid.corruption_grid, _cell_x, _cell_y);
 
 			if (_corruption < _corruption_grid.full_corruption_value)

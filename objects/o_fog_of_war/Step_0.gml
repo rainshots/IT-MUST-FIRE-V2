@@ -4,6 +4,8 @@ if (global.pause)
 	exit;
 }
 
+fog_taint_reveal_cache_scan_update();
+
 update_timer++;
 
 if (update_timer < update_interval)
@@ -15,26 +17,24 @@ update_timer = 0;
 
 // Fog depends on the corruption grid, so keep all cells hidden until the grid exists.
 ds_grid_clear(fog_grid, hidden_alpha);
+revealed_cell_xs = [];
+revealed_cell_ys = [];
 
 if (!instance_exists(o_corruption_grid))
 {
 	exit;
 }
 
-var _corruption_grid_object = instance_find(o_corruption_grid, 0);
+// Cached fully corrupted cells reveal nearby fog in a circular cell radius.
+var _taint_reveal_cell_count = array_length(taint_reveal_cell_xs);
 
-// Fully corrupted cells reveal nearby fog in a circular cell radius.
-for (var _cell_x = 0; _cell_x < grid_width; ++_cell_x)
+for (var _taint_reveal_cell_index = 0; _taint_reveal_cell_index < _taint_reveal_cell_count; ++_taint_reveal_cell_index)
 {
-	for (var _cell_y = 0; _cell_y < grid_height; ++_cell_y)
-	{
-		var _corruption = ds_grid_get(_corruption_grid_object.corruption_grid, _cell_x, _cell_y);
-
-		if (_corruption >= full_corruption_value)
-		{
-			fog_circle_reveal(_cell_x, _cell_y, reveal_radius_in_cells);
-		}
-	}
+	fog_circle_reveal(
+		taint_reveal_cell_xs[_taint_reveal_cell_index],
+		taint_reveal_cell_ys[_taint_reveal_cell_index],
+		reveal_radius_in_cells
+	);
 }
 
 // Combat demons reveal nearby fog during the night.
@@ -142,40 +142,37 @@ if (enemy_tower_reveal_radius > 0 && instance_exists(o_holy_tower))
 }
 
 // Revealed cells soften the edge by turning directly neighboring hidden cells into half-transparent fog.
-for (var _cell_x = 0; _cell_x < grid_width; ++_cell_x)
+var _revealed_cell_count = array_length(revealed_cell_xs);
+
+for (var _revealed_cell_index = 0; _revealed_cell_index < _revealed_cell_count; ++_revealed_cell_index)
 {
-	for (var _cell_y = 0; _cell_y < grid_height; ++_cell_y)
+	var _cell_x = revealed_cell_xs[_revealed_cell_index];
+	var _cell_y = revealed_cell_ys[_revealed_cell_index];
+
+	for (var _offset_x = neighbor_offset_min; _offset_x <= neighbor_offset_max; ++_offset_x)
 	{
-		var _fog_alpha = ds_grid_get(fog_grid, _cell_x, _cell_y);
-
-		if (_fog_alpha == revealed_alpha)
+		for (var _offset_y = neighbor_offset_min; _offset_y <= neighbor_offset_max; ++_offset_y)
 		{
-			for (var _offset_x = neighbor_offset_min; _offset_x <= neighbor_offset_max; ++_offset_x)
+			var _is_current_cell = (_offset_x == 0 && _offset_y == 0);
+
+			if (!_is_current_cell)
 			{
-				for (var _offset_y = neighbor_offset_min; _offset_y <= neighbor_offset_max; ++_offset_y)
+				var _target_cell_x = _cell_x + _offset_x;
+				var _target_cell_y = _cell_y + _offset_y;
+				var _is_inside_grid = (
+					_target_cell_x >= 0
+					&& _target_cell_x < grid_width
+					&& _target_cell_y >= 0
+					&& _target_cell_y < grid_height
+				);
+
+				if (_is_inside_grid)
 				{
-					var _is_current_cell = (_offset_x == 0 && _offset_y == 0);
+					var _target_fog_alpha = ds_grid_get(fog_grid, _target_cell_x, _target_cell_y);
 
-					if (!_is_current_cell)
+					if (_target_fog_alpha == hidden_alpha)
 					{
-						var _target_cell_x = _cell_x + _offset_x;
-						var _target_cell_y = _cell_y + _offset_y;
-						var _is_inside_grid = (
-							_target_cell_x >= 0
-							&& _target_cell_x < grid_width
-							&& _target_cell_y >= 0
-							&& _target_cell_y < grid_height
-						);
-
-						if (_is_inside_grid)
-						{
-							var _target_fog_alpha = ds_grid_get(fog_grid, _target_cell_x, _target_cell_y);
-
-							if (_target_fog_alpha == hidden_alpha)
-							{
-								ds_grid_set(fog_grid, _target_cell_x, _target_cell_y, edge_alpha);
-							}
-						}
+						ds_grid_set(fog_grid, _target_cell_x, _target_cell_y, edge_alpha);
 					}
 				}
 			}

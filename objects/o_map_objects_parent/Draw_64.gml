@@ -57,7 +57,7 @@ if (object_index == o_holy_tower)
 		_line_y += 20;
 		draw_text(_tower_tooltip_x + _tower_tooltip_padding, _tower_tooltip_y + _line_y, "Attack radius: " + string_format(shoot_radius, 0, 0));
 		_line_y += 20;
-		draw_text(_tower_tooltip_x + _tower_tooltip_padding, _tower_tooltip_y + _line_y, "Cleanse radius: " + string_format(taint_cleanse_radius, 0, 0));
+		draw_text(_tower_tooltip_x + _tower_tooltip_padding, _tower_tooltip_y + _line_y, "Saint radius: " + string_format(saint_radius, 0, 0));
 	}
 
 	draw_set_halign(fa_left);

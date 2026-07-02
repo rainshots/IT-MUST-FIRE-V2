@@ -103,7 +103,7 @@ warlock_magic_damage_apply = function(_target, _damage_amount)
 
 	if (variable_instance_exists(_target, "unit_damage_receive"))
 	{
-		_target.unit_damage_receive(_final_damage, unit_faction);
+		_target.unit_damage_receive(_final_damage, unit_faction, false, true, id);
 	}
 	else if (variable_instance_exists(_target, "hp"))
 	{

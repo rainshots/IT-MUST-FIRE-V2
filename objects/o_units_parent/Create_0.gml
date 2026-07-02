@@ -15,10 +15,17 @@ move_speed = 1.2;
 target_detection_radius = BALANCE_UNIT_VISION_RADIUS;
 vision_radius = BALANCE_UNIT_VISION_RADIUS;
 cannon_guard_radius = 460;
+friendly_guard_cannon_enabled = true;
 target_instance = noone;
+target_search_update_interval = BALANCE_UNIT_TARGET_SEARCH_UPDATE_INTERVAL;
+target_search_update_timer = irandom(target_search_update_interval - 1);
+cached_follow_target = noone;
 alert_target = noone;
 alert_target_timer = 0;
 alert_target_time = BALANCE_UNIT_ALERT_TARGET_TIME * room_speed;
+fog_hidden_check_interval = BALANCE_UNIT_FOG_HIDDEN_CHECK_INTERVAL;
+fog_hidden_check_timer = irandom(fog_hidden_check_interval - 1);
+cached_is_hidden_by_fog = false;
 forced_attack_target = noone;
 forced_attack_target_timer = 0;
 is_being_hooked = false;
@@ -454,8 +461,18 @@ unit_move_speed_multiplier_get = function()
 
 unit_is_hidden_by_fog = function()
 {
+	fog_hidden_check_timer++;
+
+	if (fog_hidden_check_timer < fog_hidden_check_interval)
+	{
+		return cached_is_hidden_by_fog;
+	}
+
+	fog_hidden_check_timer = 0;
+
 	if (!global.fog_of_war_visible || !instance_exists(o_fog_of_war))
 	{
+		cached_is_hidden_by_fog = false;
 		return false;
 	}
 
@@ -463,6 +480,7 @@ unit_is_hidden_by_fog = function()
 
 	if (!variable_instance_exists(_fog_of_war, "fog_grid"))
 	{
+		cached_is_hidden_by_fog = false;
 		return false;
 	}
 
@@ -475,11 +493,13 @@ unit_is_hidden_by_fog = function()
 
 	if (!_is_inside_fog_grid)
 	{
+		cached_is_hidden_by_fog = false;
 		return false;
 	}
 
 	var _fog_alpha = ds_grid_get(_fog_of_war.fog_grid, _cell_x, _cell_y);
-	return _fog_alpha >= _fog_of_war.hidden_alpha;
+	cached_is_hidden_by_fog = _fog_alpha >= _fog_of_war.hidden_alpha;
+	return cached_is_hidden_by_fog;
 };
 
 unit_crit_chance_get = function()
@@ -737,7 +757,7 @@ soul_chain_death_effect_apply = function()
 	}
 };
 
-unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true)
+unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true, _source_instance = noone)
 {
 	if (hp <= 0 || _damage_amount <= 0)
 	{
@@ -774,6 +794,14 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 
 	damage_popup_create(x, y, _applied_damage, unit_faction, _is_critical);
 
+	if (variable_instance_exists(id, "owner_house")
+		&& instance_exists(owner_house)
+		&& instance_exists(_source_instance)
+		&& _source_faction != UNIT_FACTION.ENEMY)
+	{
+		owner_house.house_guard_call_for_help(id, _source_instance);
+	}
+
 	if (!_can_trigger_soul_chain
 		|| soul_chain_id == noone
 		|| soul_chain_damage_share <= 0
@@ -795,7 +823,7 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 		{
 			if (variable_instance_exists(_member, "unit_damage_receive"))
 			{
-				_member.unit_damage_receive(_chain_damage, _source_faction, false, false);
+				_member.unit_damage_receive(_chain_damage, _source_faction, false, false, _source_instance);
 			}
 			else if (variable_instance_exists(_member, "hp"))
 			{
@@ -1299,7 +1327,7 @@ unit_damage_modifier_get = function(_target, _is_magic_damage)
 find_nearest_target = function(_object_index, _max_distance)
 {
 	var _nearest_target = noone;
-	var _nearest_distance = _max_distance;
+	var _nearest_distance_squared = _max_distance * _max_distance;
 	var _target_count = instance_number(_object_index);
 
 	// Pick the closest valid target and ignore units currently being carried.
@@ -1320,12 +1348,14 @@ find_nearest_target = function(_object_index, _max_distance)
 			continue;
 		}
 
-		var _target_distance = point_distance(x, y, _target.x, _target.y);
+		var _target_distance_x = _target.x - x;
+		var _target_distance_y = _target.y - y;
+		var _target_distance_squared = (_target_distance_x * _target_distance_x) + (_target_distance_y * _target_distance_y);
 
-		if (_target_distance <= _nearest_distance)
+		if (_target_distance_squared <= _nearest_distance_squared)
 		{
 			_nearest_target = _target;
-			_nearest_distance = _target_distance;
+			_nearest_distance_squared = _target_distance_squared;
 		}
 	}
 
@@ -1359,7 +1389,7 @@ player_map_structure_can_be_targeted = function(_structure)
 find_nearest_attackable_player_structure = function(_max_distance)
 {
 	var _nearest_target = noone;
-	var _nearest_distance = _max_distance;
+	var _nearest_distance_squared = _max_distance * _max_distance;
 	var _map_structure_count = instance_number(o_map_objects_parent);
 
 	for (var _structure_index = 0; _structure_index < _map_structure_count; ++_structure_index)
@@ -1371,12 +1401,14 @@ find_nearest_attackable_player_structure = function(_max_distance)
 			continue;
 		}
 
-		var _structure_distance = point_distance(x, y, _structure.x, _structure.y);
+		var _structure_distance_x = _structure.x - x;
+		var _structure_distance_y = _structure.y - y;
+		var _structure_distance_squared = (_structure_distance_x * _structure_distance_x) + (_structure_distance_y * _structure_distance_y);
 
-		if (_structure_distance <= _nearest_distance)
+		if (_structure_distance_squared <= _nearest_distance_squared)
 		{
 			_nearest_target = _structure;
-			_nearest_distance = _structure_distance;
+			_nearest_distance_squared = _structure_distance_squared;
 		}
 	}
 
@@ -1392,7 +1424,7 @@ find_nearest_cannon_attacker = function()
 
 	var _cannon = instance_find(o_cannon, 0);
 	var _nearest_attacker = noone;
-	var _nearest_distance = infinity;
+	var _nearest_distance_squared = infinity;
 	var _enemy_count = instance_number(o_enemy_units);
 
 	// Pick the closest enemy that is actively attacking the cannon wall.
@@ -1409,12 +1441,14 @@ find_nearest_cannon_attacker = function()
 			continue;
 		}
 
-		var _enemy_distance = point_distance(x, y, _enemy.x, _enemy.y);
+		var _enemy_distance_x = _enemy.x - x;
+		var _enemy_distance_y = _enemy.y - y;
+		var _enemy_distance_squared = (_enemy_distance_x * _enemy_distance_x) + (_enemy_distance_y * _enemy_distance_y);
 
-		if (_enemy_distance < _nearest_distance)
+		if (_enemy_distance_squared < _nearest_distance_squared)
 		{
 			_nearest_attacker = _enemy;
-			_nearest_distance = _enemy_distance;
+			_nearest_distance_squared = _enemy_distance_squared;
 		}
 	}
 
@@ -1424,7 +1458,7 @@ find_nearest_cannon_attacker = function()
 find_nearest_enemy_object = function(_max_distance)
 {
 	var _nearest_target = noone;
-	var _nearest_distance = _max_distance;
+	var _nearest_distance_squared = _max_distance * _max_distance;
 
 	// Holy towers are hostile structures for friendly units.
 	if (instance_exists(o_holy_tower))
@@ -1437,11 +1471,13 @@ find_nearest_enemy_object = function(_max_distance)
 
 			if (instance_exists(_tower) && _tower.hp > 0)
 			{
-				var _tower_distance = point_distance(x, y, _tower.x, _tower.y);
+				var _tower_distance_x = _tower.x - x;
+				var _tower_distance_y = _tower.y - y;
+				var _tower_distance_squared = (_tower_distance_x * _tower_distance_x) + (_tower_distance_y * _tower_distance_y);
 
-				if (_tower_distance <= _nearest_distance)
+				if (_tower_distance_squared <= _nearest_distance_squared)
 				{
-					_nearest_distance = _tower_distance;
+					_nearest_distance_squared = _tower_distance_squared;
 					_nearest_target = _tower;
 				}
 			}
@@ -1459,11 +1495,13 @@ find_nearest_enemy_object = function(_max_distance)
 
 			if (target_can_be_attacked(_shrine))
 			{
-				var _shrine_distance = point_distance(x, y, _shrine.x, _shrine.y);
+				var _shrine_distance_x = _shrine.x - x;
+				var _shrine_distance_y = _shrine.y - y;
+				var _shrine_distance_squared = (_shrine_distance_x * _shrine_distance_x) + (_shrine_distance_y * _shrine_distance_y);
 
-				if (_shrine_distance <= _nearest_distance)
+				if (_shrine_distance_squared <= _nearest_distance_squared)
 				{
-					_nearest_distance = _shrine_distance;
+					_nearest_distance_squared = _shrine_distance_squared;
 					_nearest_target = _shrine;
 				}
 			}
@@ -1481,12 +1519,38 @@ find_nearest_enemy_object = function(_max_distance)
 
 			if (instance_exists(_garnizon) && _garnizon.hp > 0)
 			{
-				var _garnizon_distance = point_distance(x, y, _garnizon.x, _garnizon.y);
+				var _garnizon_distance_x = _garnizon.x - x;
+				var _garnizon_distance_y = _garnizon.y - y;
+				var _garnizon_distance_squared = (_garnizon_distance_x * _garnizon_distance_x) + (_garnizon_distance_y * _garnizon_distance_y);
 
-				if (_garnizon_distance <= _nearest_distance)
+				if (_garnizon_distance_squared <= _nearest_distance_squared)
 				{
-					_nearest_distance = _garnizon_distance;
+					_nearest_distance_squared = _garnizon_distance_squared;
 					_nearest_target = _garnizon;
+				}
+			}
+		}
+	}
+
+	// Houses are hostile structures that maintain local guards.
+	if (instance_exists(o_house))
+	{
+		var _house_count = instance_number(o_house);
+
+		for (var _house_index = 0; _house_index < _house_count; ++_house_index)
+		{
+			var _house = instance_find(o_house, _house_index);
+
+			if (instance_exists(_house) && _house.hp > 0)
+			{
+				var _house_distance_x = _house.x - x;
+				var _house_distance_y = _house.y - y;
+				var _house_distance_squared = (_house_distance_x * _house_distance_x) + (_house_distance_y * _house_distance_y);
+
+				if (_house_distance_squared <= _nearest_distance_squared)
+				{
+					_nearest_distance_squared = _house_distance_squared;
+					_nearest_target = _house;
 				}
 			}
 		}
@@ -1498,7 +1562,7 @@ find_nearest_enemy_object = function(_max_distance)
 find_nearest_visible_cultist = function()
 {
 	var _nearest_cultist = noone;
-	var _nearest_distance = infinity;
+	var _nearest_distance_squared = infinity;
 	var _cultist_count = array_length(global.cultists);
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
@@ -1514,12 +1578,14 @@ find_nearest_visible_cultist = function()
 			continue;
 		}
 
-		var _cultist_distance = point_distance(x, y, _cultist.x, _cultist.y);
+		var _cultist_distance_x = _cultist.x - x;
+		var _cultist_distance_y = _cultist.y - y;
+		var _cultist_distance_squared = (_cultist_distance_x * _cultist_distance_x) + (_cultist_distance_y * _cultist_distance_y);
 
-		if (_cultist_distance < _nearest_distance)
+		if (_cultist_distance_squared < _nearest_distance_squared)
 		{
 			_nearest_cultist = _cultist;
-			_nearest_distance = _cultist_distance;
+			_nearest_distance_squared = _cultist_distance_squared;
 		}
 	}
 
@@ -1850,6 +1916,8 @@ attack_target = function(_target)
 
 	var _raw_damage_amount = _damage_amount;
 	var _target_hp_before_hit = 0;
+	var _target_hit_x = _target.x;
+	var _target_hit_y = _target.y;
 
 	if (variable_instance_exists(_target, "hp"))
 	{
@@ -1869,7 +1937,7 @@ attack_target = function(_target)
 	{
 		if (variable_instance_exists(_target, "unit_damage_receive"))
 		{
-			_target.unit_damage_receive(_damage_amount, unit_faction, _is_critical_hit);
+			_target.unit_damage_receive(_damage_amount, unit_faction, _is_critical_hit, true, id);
 		}
 		else
 		{
@@ -1891,10 +1959,14 @@ attack_target = function(_target)
 			}
 		}
 
-		start_attack_lunge(_target);
+		if (instance_exists(_target))
+		{
+			start_attack_lunge(_target);
+		}
 
 		// Corpse Armor hurts melee attackers while the shield is active.
-		if (variable_instance_exists(_target, "corpse_armor_timer")
+		if (instance_exists(_target)
+			&& variable_instance_exists(_target, "corpse_armor_timer")
 			&& variable_instance_exists(_target, "corpse_armor_retaliation_damage")
 			&& _target.corpse_armor_timer > 0
 			&& _target.corpse_armor_retaliation_damage > 0
@@ -1915,7 +1987,7 @@ attack_target = function(_target)
 
 		var _aoe_list = ds_list_create();
 		var _aoe_range = aoe_radius * next_attack_radius_multiplier;
-		var _aoe_count = collision_circle_list(_target.x, _target.y, _aoe_range, _aoe_object, false, true, _aoe_list, false);
+		var _aoe_count = collision_circle_list(_target_hit_x, _target_hit_y, _aoe_range, _aoe_object, false, true, _aoe_list, false);
 
 		for (var _aoe_index = 0; _aoe_index < _aoe_count; ++_aoe_index)
 		{
@@ -1936,7 +2008,7 @@ attack_target = function(_target)
 
 				if (variable_instance_exists(_aoe_target, "unit_damage_receive"))
 				{
-					_aoe_target.unit_damage_receive(_aoe_damage_amount, unit_faction);
+					_aoe_target.unit_damage_receive(_aoe_damage_amount, unit_faction, false, true, id);
 				}
 				else
 				{
@@ -1957,14 +2029,15 @@ attack_target = function(_target)
 	next_attack_radius_multiplier = 1;
 
 	// Store attack feedback position even if the target dies immediately after hit.
-	attack_feedback_target = _target;
-	attack_feedback_target_x = _target.x;
-	attack_feedback_target_y = _target.y;
+	attack_feedback_target = noone;
+	attack_feedback_target_x = _target_hit_x;
+	attack_feedback_target_y = _target_hit_y;
 	attack_feedback_timer = attack_feedback_time;
 
-	var _target_was_killed = variable_instance_exists(_target, "hp")
-		&& _target_hp_before_hit > 0
-		&& _target.hp <= 0;
+	var _target_exists_after_hit = instance_exists(_target);
+	var _target_was_killed = _target_hp_before_hit > 0
+		&& (!_target_exists_after_hit
+			|| (variable_instance_exists(_target, "hp") && _target.hp <= 0));
 
 	unit_attack_landed(_target, _is_critical_hit, _target_was_killed);
 	reload_timer = reload_time * unit_attack_reload_multiplier_get();

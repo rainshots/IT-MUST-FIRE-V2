@@ -4,20 +4,25 @@ cell_size = BALANCE_GRID_CELL_SIZE;
 grid_width = ceil(room_width / cell_size);
 grid_height = ceil(room_height / cell_size);
 
-// Draw Taint under map assets but above roads, using current room layer depths.
+// Draw Taint and Saint under roads, using current room layer depths.
 var _map_assets_layer = layer_get_id("Assets_1");
 var _roads_layer = layer_get_id("Roads");
 
 if (_map_assets_layer != -1 && _roads_layer != -1)
 {
-	var _map_assets_depth = layer_get_depth(_map_assets_layer);
 	var _roads_depth = layer_get_depth(_roads_layer);
-	depth = (_map_assets_depth + _roads_depth) * 0.5;
+	depth = _roads_depth + 1;
 }
 
 // Corruption values are stored from 0 to 1.
 corruption_grid = ds_grid_create(grid_width, grid_height);
 ds_grid_clear(corruption_grid, 0);
+
+// Saint values are stored from 0 to 1 and block Taint while above zero.
+saint_grid = ds_grid_create(grid_width, grid_height);
+ds_grid_clear(saint_grid, 0);
+saint_source_grid = ds_grid_create(grid_width, grid_height);
+ds_grid_clear(saint_source_grid, 0);
 
 // Passive spread makes fully corrupted cells infect their neighbors up to a limit.
 full_corruption_value = 1;
@@ -28,12 +33,20 @@ passive_spread_update_timer = 0;
 neighbor_offset_min = -1;
 neighbor_offset_max = 1;
 
+// Saint grows from any linked source and fades after all sources are gone.
+full_saint_value = 1;
+minimum_saint_protected_amount = BALANCE_SAINT_MINIMUM_PROTECTED_AMOUNT;
+saint_change_per_second = BALANCE_SAINT_CHANGE_PER_SECOND;
+saint_update_interval = BALANCE_SAINT_UPDATE_INTERVAL;
+saint_update_timer = 0;
+
 // Visual settings for corrupted ground cells.
 minimum_draw_corruption = 0.01;
 minimum_corruption_alpha = 0.18;
 maximum_corruption_alpha = 0.72;
 uncorrupted_color = c_black;
 maximum_corruption_color = COLOR_CORRUPTION_MAX;
+maximum_saint_color = COLOR_SAINT_MAX;
 
 captured_building_rift_noise_get = function(_source_seed, _segment_index)
 {
@@ -253,10 +266,108 @@ corrupt_circle = function(_center_x, _center_y, _radius, _corruption)
 
 			if (_cell_distance <= _safe_radius || _is_center_cell)
 			{
+				var _current_saint = ds_grid_get(saint_grid, _cell_x, _cell_y);
+
+				if (_current_saint > 0)
+				{
+					var _source_count = ds_grid_get(saint_source_grid, _cell_x, _cell_y);
+					var _new_saint = max(_current_saint - _corruption, 0);
+
+					if (_source_count > 0)
+					{
+						_new_saint = max(_new_saint, minimum_saint_protected_amount);
+					}
+
+					ds_grid_set(saint_grid, _cell_x, _cell_y, _new_saint);
+					continue;
+				}
+
 				var _current_corruption = ds_grid_get(corruption_grid, _cell_x, _cell_y);
 				var _new_corruption = clamp(_current_corruption + _corruption, 0, 1);
 
 				ds_grid_set(corruption_grid, _cell_x, _cell_y, _new_corruption);
+			}
+		}
+	}
+};
+
+// Links or unlinks a saint source to every cell inside a world-space circle.
+saint_source_circle_change = function(_center_x, _center_y, _radius, _source_change)
+{
+	if (!ds_exists(saint_source_grid, ds_type_grid)
+		|| !ds_exists(saint_grid, ds_type_grid))
+	{
+		return;
+	}
+
+	var _safe_radius = max(_radius, 1);
+	var _center_cell_x = clamp(floor(_center_x / cell_size), 0, grid_width - 1);
+	var _center_cell_y = clamp(floor(_center_y / cell_size), 0, grid_height - 1);
+	var _left_cell = clamp(floor((_center_x - _safe_radius) / cell_size), 0, grid_width - 1);
+	var _right_cell = clamp(floor((_center_x + _safe_radius) / cell_size), 0, grid_width - 1);
+	var _top_cell = clamp(floor((_center_y - _safe_radius) / cell_size), 0, grid_height - 1);
+	var _bottom_cell = clamp(floor((_center_y + _safe_radius) / cell_size), 0, grid_height - 1);
+
+	for (var _cell_x = _left_cell; _cell_x <= _right_cell; ++_cell_x)
+	{
+		for (var _cell_y = _top_cell; _cell_y <= _bottom_cell; ++_cell_y)
+		{
+			var _cell_center_x = (_cell_x * cell_size) + (cell_size * 0.5);
+			var _cell_center_y = (_cell_y * cell_size) + (cell_size * 0.5);
+			var _cell_distance = point_distance(_center_x, _center_y, _cell_center_x, _cell_center_y);
+			var _is_center_cell = (_cell_x == _center_cell_x && _cell_y == _center_cell_y);
+
+			if (_cell_distance <= _safe_radius || _is_center_cell)
+			{
+				var _source_count = ds_grid_get(saint_source_grid, _cell_x, _cell_y);
+				ds_grid_set(saint_source_grid, _cell_x, _cell_y, max(0, _source_count + _source_change));
+
+				if (_source_change > 0)
+				{
+					var _current_saint = ds_grid_get(saint_grid, _cell_x, _cell_y);
+					ds_grid_set(saint_grid, _cell_x, _cell_y, max(_current_saint, minimum_saint_protected_amount));
+				}
+			}
+		}
+	}
+};
+
+saint_source_circle_add = function(_center_x, _center_y, _radius)
+{
+	saint_source_circle_change(_center_x, _center_y, _radius, 1);
+};
+
+saint_source_circle_remove = function(_center_x, _center_y, _radius)
+{
+	saint_source_circle_change(_center_x, _center_y, _radius, -1);
+};
+
+// Sets Saint directly inside a circle without linking it to a source.
+saint_circle_set = function(_center_x, _center_y, _radius, _saint_amount)
+{
+	var _safe_radius = max(_radius, 1);
+	var _center_cell_x = clamp(floor(_center_x / cell_size), 0, grid_width - 1);
+	var _center_cell_y = clamp(floor(_center_y / cell_size), 0, grid_height - 1);
+	var _left_cell = clamp(floor((_center_x - _safe_radius) / cell_size), 0, grid_width - 1);
+	var _right_cell = clamp(floor((_center_x + _safe_radius) / cell_size), 0, grid_width - 1);
+	var _top_cell = clamp(floor((_center_y - _safe_radius) / cell_size), 0, grid_height - 1);
+	var _bottom_cell = clamp(floor((_center_y + _safe_radius) / cell_size), 0, grid_height - 1);
+	var _target_saint = clamp(_saint_amount, 0, full_saint_value);
+
+	for (var _cell_x = _left_cell; _cell_x <= _right_cell; ++_cell_x)
+	{
+		for (var _cell_y = _top_cell; _cell_y <= _bottom_cell; ++_cell_y)
+		{
+			var _cell_center_x = (_cell_x * cell_size) + (cell_size * 0.5);
+			var _cell_center_y = (_cell_y * cell_size) + (cell_size * 0.5);
+			var _cell_distance = point_distance(_center_x, _center_y, _cell_center_x, _cell_center_y);
+			var _is_center_cell = (_cell_x == _center_cell_x && _cell_y == _center_cell_y);
+
+			if (_cell_distance <= _safe_radius || _is_center_cell)
+			{
+				var _current_saint = ds_grid_get(saint_grid, _cell_x, _cell_y);
+				ds_grid_set(saint_grid, _cell_x, _cell_y, max(_current_saint, _target_saint));
+				ds_grid_set(corruption_grid, _cell_x, _cell_y, 0);
 			}
 		}
 	}
@@ -316,8 +427,9 @@ circle_has_full_corruption = function(_center_x, _center_y, _radius)
 			if (_cell_distance <= _safe_radius || _is_center_cell)
 			{
 				var _corruption = ds_grid_get(corruption_grid, _cell_x, _cell_y);
+				var _saint = ds_grid_get(saint_grid, _cell_x, _cell_y);
 
-				if (_corruption >= full_corruption_value)
+				if (_saint <= 0 && _corruption >= full_corruption_value)
 				{
 					return true;
 				}

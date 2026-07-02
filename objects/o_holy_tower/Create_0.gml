@@ -30,15 +30,13 @@ night_volley_cleanse_radius = BALANCE_HOLY_TOWER_NIGHT_VOLLEY_CLEANSE_RADIUS;
 night_volley_cleanse_amount = BALANCE_HOLY_TOWER_NIGHT_VOLLEY_CLEANSE_AMOUNT;
 night_volley_last_night_index = -1;
 
-// Taint cleanse settings.
-taint_cleanse_radius = BALANCE_HOLY_TOWER_TAINT_CLEANSE_RADIUS;
-taint_cleanse_per_second = BALANCE_HOLY_TOWER_TAINT_CLEANSE_PER_SECOND;
-taint_cleanse_update_interval = BALANCE_HOLY_TOWER_TAINT_CLEANSE_UPDATE_INTERVAL;
-taint_cleanse_update_timer = irandom(taint_cleanse_update_interval - 1);
+// Saint source settings.
+saint_radius = BALANCE_HOLY_TOWER_TAINT_CLEANSE_RADIUS;
+saint_source_registered = false;
 
 // Range drawing settings.
 radius_line_width = 2;
-radius_alpha = 0.32;
+radius_alpha = 0.85;
 
 // Attack feedback shows the tower shot for a short moment.
 attack_feedback_time = BALANCE_HOLY_TOWER_ATTACK_FEEDBACK_TIME * room_speed;
@@ -51,7 +49,7 @@ attack_feedback_line_width = 2;
 // Tooltip lines describe tower behavior.
 tooltip_lines = [
 	"Damage: Takes damage. Destroy it to expose Shrine",
-	"Taint: Nearby ground slowly loses Taint",
+	"Saint: Nearby ground resists Taint",
 	"Summon: No effect yet"
 ];
 
@@ -183,14 +181,38 @@ holy_tower_reinforcement_thresholds_update = function()
 	}
 };
 
-cleanse_nearby_taint = function()
+holy_tower_saint_source_register = function()
 {
-	if (instance_exists(o_corruption_grid))
+	if (saint_source_registered || !instance_exists(o_corruption_grid))
 	{
-		var _corruption_grid = instance_find(o_corruption_grid, 0);
-		var _cleanse_amount = taint_cleanse_per_second * (taint_cleanse_update_interval / room_speed);
-		_corruption_grid.cleanse_circle(x, y, taint_cleanse_radius, _cleanse_amount);
+		return;
 	}
+
+	var _corruption_grid = instance_find(o_corruption_grid, 0);
+
+	if (variable_instance_exists(_corruption_grid, "saint_source_circle_add"))
+	{
+		_corruption_grid.saint_source_circle_add(x, y, saint_radius);
+		saint_source_registered = true;
+	}
+};
+
+holy_tower_saint_source_unregister = function()
+{
+	if (!saint_source_registered || !instance_exists(o_corruption_grid))
+	{
+		saint_source_registered = false;
+		return;
+	}
+
+	var _corruption_grid = instance_find(o_corruption_grid, 0);
+
+	if (variable_instance_exists(_corruption_grid, "saint_source_circle_remove"))
+	{
+		_corruption_grid.saint_source_circle_remove(x, y, saint_radius);
+	}
+
+	saint_source_registered = false;
 };
 
 destroy_holy_tower = function()
@@ -213,7 +235,8 @@ destroy_holy_tower = function()
 		owner_shrine.shrine_protection_tower_destroyed(id);
 	}
 
-	// The destroyed tower remains as a landmark but no longer attacks or cleanses taint.
+	// The destroyed tower remains as a landmark but no longer attacks or supports Saint.
+	holy_tower_saint_source_unregister();
 	is_destroyed = true;
 	hp = 0;
 	target_instance = noone;
@@ -221,6 +244,38 @@ destroy_holy_tower = function()
 	sprite_index = s_holy_tower_destroyed;
 	image_index = 0;
 	image_speed = 0;
+};
+
+holy_tower_saint_source_register();
+
+holy_tower_damage_receive = function(_damage_amount, _is_critical = false, _show_popup = true)
+{
+	if (is_destroyed || hp <= 0 || _damage_amount <= 0)
+	{
+		return 0;
+	}
+
+	var _applied_damage = min(_damage_amount, hp);
+	hp = max(hp - _damage_amount, 0);
+
+	if (_show_popup)
+	{
+		damage_popup_create(x, y, _applied_damage, UNIT_FACTION.ENEMY, _is_critical);
+	}
+
+	holy_tower_reinforcement_thresholds_update();
+
+	if (hp <= 0)
+	{
+		destroy_holy_tower();
+	}
+
+	return _applied_damage;
+};
+
+unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true, _source_instance = noone)
+{
+	return holy_tower_damage_receive(_damage_amount, _is_critical, true);
 };
 
 // Damage projectiles can destroy the holy tower.
@@ -231,13 +286,7 @@ on_damage_projectile_hit = function()
 		return;
 	}
 
-	hp = max(hp - BALANCE_PROJECTILE_DAMAGE_AMOUNT, 0);
-	holy_tower_reinforcement_thresholds_update();
-
-	if (hp <= 0)
-	{
-		destroy_holy_tower();
-	}
+	holy_tower_damage_receive(BALANCE_PROJECTILE_DAMAGE_AMOUNT, false, false);
 };
 
 on_projectile_hit = function(_projectile_type)
@@ -430,6 +479,12 @@ holy_tower_taint_target_find = function()
 	{
 		for (var _cell_y = _top_cell; _cell_y <= _bottom_cell; ++_cell_y)
 		{
+			if (variable_instance_exists(_corruption_grid, "saint_grid")
+				&& ds_grid_get(_corruption_grid.saint_grid, _cell_x, _cell_y) > 0)
+			{
+				continue;
+			}
+
 			var _corruption = ds_grid_get(_corruption_grid.corruption_grid, _cell_x, _cell_y);
 
 			if (_corruption <= 0)

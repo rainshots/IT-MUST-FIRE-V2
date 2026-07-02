@@ -1,4 +1,6 @@
 // Pause freezes holy tower combat.
+map_object_unit_fade_update();
+
 if (global.pause)
 {
 	exit;
@@ -10,17 +12,9 @@ if (is_destroyed)
 	exit;
 }
 
+holy_tower_saint_source_register();
 holy_tower_reinforcement_thresholds_update();
 holy_tower_night_volley_update();
-
-// Holy towers gradually cleanse taint instead of creating protected ground.
-taint_cleanse_update_timer++;
-
-if (taint_cleanse_update_timer >= taint_cleanse_update_interval)
-{
-	taint_cleanse_update_timer = 0;
-	cleanse_nearby_taint();
-}
 
 // Destroy the tower safely if any damage source reduced HP to zero.
 if (hp <= 0)

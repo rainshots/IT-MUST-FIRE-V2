@@ -617,7 +617,7 @@ imp_damage_target = function(_target, _damage_amount, _force_critical, _source_a
 
 	if (variable_instance_exists(_target, "unit_damage_receive"))
 	{
-		_applied_damage = _target.unit_damage_receive(_final_damage, unit_faction, _force_critical);
+		_applied_damage = _target.unit_damage_receive(_final_damage, unit_faction, _force_critical, true, id);
 	}
 	else
 	{
@@ -1170,6 +1170,7 @@ imp_clone_stats_copy = function(_clone)
 	_clone.explosion_enabled = _clone_level >= 3;
 	_clone.explosion_damage = damage * BALANCE_IMP_BLOODY_CLONE_EXPLOSION_DAMAGE_SHARE;
 	_clone.cultist_name = "Clone";
+	_clone.clone_owner = id;
 };
 
 imp_bloody_clone_use = function()

@@ -76,6 +76,17 @@ if (_flight_progress >= 1)
 		{
 			var _corruption_grid = instance_find(o_corruption_grid, 0);
 			_corruption_grid.cleanse_circle(target_x, target_y, effect_radius, cleanse_amount);
+
+			if (saint_amount > 0
+				&& instance_exists(source_instance)
+				&& variable_instance_exists(source_instance, "shrine_saint_projectile_source_add"))
+			{
+				source_instance.shrine_saint_projectile_source_add(target_x, target_y, effect_radius, saint_amount);
+			}
+			else if (saint_amount > 0 && variable_instance_exists(_corruption_grid, "saint_circle_set"))
+			{
+				_corruption_grid.saint_circle_set(target_x, target_y, effect_radius, saint_amount);
+			}
 		}
 	}
 	else if (projectile_type == PROJECTILE_TYPE.FEAST)
@@ -130,7 +141,7 @@ if (_flight_progress >= 1)
 
 			if (variable_instance_exists(_enemy, "unit_damage_receive"))
 			{
-				_enemy.unit_damage_receive(damage_amount, UNIT_FACTION.NOONE);
+				_enemy.unit_damage_receive(damage_amount, UNIT_FACTION.NOONE, false, true, source_instance);
 			}
 			else if (variable_instance_exists(_enemy, "hp"))
 			{
@@ -280,7 +291,7 @@ if (_flight_progress >= 1)
 			{
 				if (variable_instance_exists(id, "unit_damage_receive"))
 				{
-					unit_damage_receive(other.damage_amount, UNIT_FACTION.NOONE);
+					unit_damage_receive(other.damage_amount, UNIT_FACTION.NOONE, false, true, other.source_instance);
 				}
 				else
 				{
@@ -393,7 +404,7 @@ if (_flight_progress >= 1)
 					{
 						if (variable_instance_exists(id, "unit_damage_receive"))
 						{
-							unit_damage_receive(other.damage_amount, other.damage_faction);
+							unit_damage_receive(other.damage_amount, other.damage_faction, false, true, other.source_instance);
 						}
 						else
 						{
@@ -427,7 +438,7 @@ if (_flight_progress >= 1)
 					{
 						if (variable_instance_exists(id, "unit_damage_receive"))
 						{
-							unit_damage_receive(other.damage_amount, UNIT_FACTION.NOONE);
+							unit_damage_receive(other.damage_amount, UNIT_FACTION.NOONE, false, true, other.source_instance);
 						}
 						else
 						{

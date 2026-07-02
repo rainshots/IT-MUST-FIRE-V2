@@ -18,6 +18,8 @@ if (hp <= 0)
 	exit;
 }
 
+imp_clone_owner_follow_update();
+
 // Bloody clones are temporary and fade near the end of their life.
 life_timer--;
 

@@ -617,6 +617,11 @@ if (global.cheats_enabled)
 			var _damage_amount = BALANCE_DEBUG_MOUSE_DAMAGE;
 			var _target_faction = UNIT_FACTION.ENEMY;
 
+			if (_target_instance.object_index == o_holy_tower)
+			{
+				_damage_amount = max(1, _target_instance.max_hp * 0.5);
+			}
+
 			if (variable_instance_exists(_target_instance, "unit_faction"))
 			{
 				_target_faction = _target_instance.unit_faction;

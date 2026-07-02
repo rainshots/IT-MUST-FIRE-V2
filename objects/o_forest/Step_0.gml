@@ -13,10 +13,16 @@ var _corruption_grid = instance_find(o_corruption_grid, 0);
 var _cell_x = clamp(floor(x / _corruption_grid.cell_size), 0, _corruption_grid.grid_width - 1);
 var _cell_y = clamp(floor(y / _corruption_grid.cell_size), 0, _corruption_grid.grid_height - 1);
 var _current_cell_corruption = ds_grid_get(_corruption_grid.corruption_grid, _cell_x, _cell_y);
+var _current_cell_saint = 0;
 var _spread_corruption = spread_corruption_per_second / room_speed;
 
+if (variable_instance_exists(_corruption_grid, "saint_grid"))
+{
+	_current_cell_saint = ds_grid_get(_corruption_grid.saint_grid, _cell_x, _cell_y);
+}
+
 // Forest starts spreading only when the ground under it is fully corrupted.
-if (_current_cell_corruption < full_corruption_value)
+if (_current_cell_saint > 0 || _current_cell_corruption < full_corruption_value)
 {
 	exit;
 }

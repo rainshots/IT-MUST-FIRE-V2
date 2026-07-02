@@ -66,7 +66,7 @@ if (has_brute_rotten_aura && BALANCE_BRUTE_ROTTEN_AURA_ENABLED)
 
 			if (variable_instance_exists(_enemy, "unit_damage_receive"))
 			{
-				_enemy.unit_damage_receive(_aura_damage, unit_faction);
+				_enemy.unit_damage_receive(_aura_damage, unit_faction, false, true, id);
 			}
 			else
 			{

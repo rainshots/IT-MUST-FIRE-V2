@@ -219,27 +219,61 @@ else
 }
 
 // Choose target by faction.
-target_instance = noone;
 is_attacking_target = false;
 is_walking = false;
 
 var _is_enemy_unit = (unit_faction == UNIT_FACTION.ENEMY);
 var _is_friendly_unit = (unit_faction == UNIT_FACTION.FRIENDLY);
 var _friendly_follow_target = noone;
+var _had_target = instance_exists(target_instance);
+var _current_target_is_valid = target_can_be_attacked(target_instance);
 
 // Update lightweight separation vector before movement.
 update_separation_push();
 
 var _special_behavior_handled = unit_special_behavior_update();
 var _has_forced_target = target_can_be_attacked(forced_attack_target);
+var _should_search_target = false;
+
+target_search_update_timer++;
+
+if (target_search_update_timer >= target_search_update_interval
+	|| (_had_target && !_current_target_is_valid)
+	|| _has_forced_target
+	|| instance_exists(alert_target))
+{
+	_should_search_target = true;
+	target_search_update_timer = 0;
+}
+
+if (!_current_target_is_valid)
+{
+	target_instance = noone;
+}
 
 if (!_special_behavior_handled && _has_forced_target)
 {
 	target_instance = forced_attack_target;
 }
-else if (!_special_behavior_handled && _is_enemy_unit)
+else if (!_special_behavior_handled && _should_search_target && _is_enemy_unit)
 {
-	target_instance = find_nearest_target(o_friendly_units, target_detection_radius);
+	if (instance_exists(alert_target))
+	{
+		if (target_can_be_attacked(alert_target))
+		{
+			target_instance = alert_target;
+		}
+		else
+		{
+			alert_target = noone;
+			alert_target_timer = 0;
+		}
+	}
+
+	if (!instance_exists(target_instance))
+	{
+		target_instance = find_nearest_target(o_friendly_units, target_detection_radius);
+	}
 
 	if (!instance_exists(target_instance) && !unit_can_attack_cannon && instance_exists(guard_target))
 	{
@@ -261,7 +295,7 @@ else if (!_special_behavior_handled && _is_enemy_unit)
 		target_instance = instance_find(o_cannon, 0);
 	}
 }
-else if (!_special_behavior_handled && _is_friendly_unit)
+else if (!_special_behavior_handled && _should_search_target && _is_friendly_unit)
 {
 	if (instance_exists(alert_target))
 	{
@@ -295,6 +329,8 @@ else if (!_special_behavior_handled && _is_friendly_unit)
 		_friendly_follow_target = find_nearest_visible_cultist();
 	}
 
+	cached_follow_target = _friendly_follow_target;
+
 	if (!instance_exists(target_instance))
 	{
 		if (!instance_exists(_friendly_follow_target))
@@ -308,7 +344,8 @@ else if (!_special_behavior_handled && _is_friendly_unit)
 		var _cannon = instance_find(o_cannon, 0);
 		var _distance_to_cannon = point_distance(x, y, _cannon.x, _cannon.y);
 
-		if (!instance_exists(_friendly_follow_target)
+		if (friendly_guard_cannon_enabled
+			&& !instance_exists(_friendly_follow_target)
 			&& !regroup_is_active
 			&& !rally_is_active
 			&& !is_wall_blocked_friendly_unit()
@@ -317,6 +354,11 @@ else if (!_special_behavior_handled && _is_friendly_unit)
 			target_instance = _cannon;
 		}
 	}
+}
+
+if (!_should_search_target && _is_friendly_unit && target_can_be_attacked(cached_follow_target))
+{
+	_friendly_follow_target = cached_follow_target;
 }
 
 if (!_special_behavior_handled && instance_exists(target_instance) && !target_can_be_attacked(target_instance))
@@ -342,7 +384,7 @@ if (!_special_behavior_handled && instance_exists(target_instance))
 	}
 	else if (_is_enemy_unit && target_instance.object_index == o_cannon)
 	{
-		_current_attack_radius = BALANCE_CANNON_WALL_RADIUS + attack_radius;
+		_current_attack_radius = BALANCE_UNIT_CANNON_ATTACK_RADIUS;
 	}
 
 	_use_attack_ring = attack_ring_should_use(target_instance, _current_attack_radius);

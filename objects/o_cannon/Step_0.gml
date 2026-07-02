@@ -125,6 +125,7 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			_projectile.effect_radius = projectile_effect_radius;
 			_projectile.cultist_payload = _projectile_payload;
 			_projectile.building_payload = _projectile_payload;
+			_projectile.source_instance = id;
 			_projectile.ignore_pause = global.pause;
 			_projectile.launch_delay_timer = _launch_delay_seconds * room_speed;
 			_projectile.flight_time = _flight_time_seconds * room_speed;

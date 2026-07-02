@@ -2604,9 +2604,15 @@ cannon_corrupted_ground_damage_update = function()
 			continue;
 		}
 
+		var _saint = 0;
 		var _corruption = ds_grid_get(_corruption_grid.corruption_grid, _cell_x, _cell_y);
 
-		if (_corruption < _corruption_grid.full_corruption_value)
+		if (variable_instance_exists(_corruption_grid, "saint_grid"))
+		{
+			_saint = ds_grid_get(_corruption_grid.saint_grid, _cell_x, _cell_y);
+		}
+
+		if (_saint > 0 || _corruption < _corruption_grid.full_corruption_value)
 		{
 			continue;
 		}
@@ -3216,6 +3222,12 @@ ground_cell_has_full_corruption_at_position = function(_world_x, _world_y)
 		return false;
 	}
 
+	if (variable_instance_exists(_corruption_grid_object, "saint_grid")
+		&& ds_grid_get(_corruption_grid_object.saint_grid, _cell_x, _cell_y) > 0)
+	{
+		return false;
+	}
+
 	return ds_grid_get(_corruption_grid_object.corruption_grid, _cell_x, _cell_y)
 		>= _corruption_grid_object.full_corruption_value;
 };
@@ -3236,6 +3248,12 @@ ground_cell_is_tainted_at_position = function(_world_x, _world_y)
 		&& _cell_y < _corruption_grid_object.grid_height;
 
 	if (!_is_inside_grid)
+	{
+		return false;
+	}
+
+	if (variable_instance_exists(_corruption_grid_object, "saint_grid")
+		&& ds_grid_get(_corruption_grid_object.saint_grid, _cell_x, _cell_y) > 0)
 	{
 		return false;
 	}
@@ -7356,7 +7374,17 @@ crusade_corruption_total_get = function()
 	{
 		for (var _cell_y = 0; _cell_y < _corruption_grid.grid_height; ++_cell_y)
 		{
-			_total_corruption += ds_grid_get(_corruption_grid.corruption_grid, _cell_x, _cell_y);
+			var _saint = 0;
+
+			if (variable_instance_exists(_corruption_grid, "saint_grid"))
+			{
+				_saint = ds_grid_get(_corruption_grid.saint_grid, _cell_x, _cell_y);
+			}
+
+			if (_saint <= 0)
+			{
+				_total_corruption += ds_grid_get(_corruption_grid.corruption_grid, _cell_x, _cell_y);
+			}
 		}
 	}
 
@@ -7572,6 +7600,8 @@ night_attack_alive_enemy_exists = function()
 		var _enemy = instance_find(o_enemy_units, _enemy_index);
 
 		if (instance_exists(_enemy)
+			&& (!variable_instance_exists(_enemy, "ignored_for_night_end")
+				|| !_enemy.ignored_for_night_end)
 			&& (!variable_instance_exists(_enemy, "hp") || _enemy.hp > 0))
 		{
 			return true;
@@ -7653,6 +7683,12 @@ night_timeout_enemy_retreat_start = function()
 		var _enemy = instance_find(o_enemy_units, _enemy_index);
 
 		if (!instance_exists(_enemy))
+		{
+			continue;
+		}
+
+		if (variable_instance_exists(_enemy, "ignored_for_night_end")
+			&& _enemy.ignored_for_night_end)
 		{
 			continue;
 		}
@@ -7744,6 +7780,11 @@ start_night_phase = function()
 	global.sound_play_random(global.night_start_sounds);
 	update_goblin_evening_life();
 	move_goblins_to_cannon_inner();
+
+	with (o_shrine)
+	{
+		shrine_night_saint_projectiles_fire();
+	}
 
 	if (instance_exists(o_cannon))
 	{
@@ -7851,6 +7892,11 @@ start_day_phase = function()
 	with (o_pitlings_house)
 	{
 		pitlings_house_spawn_morning_units();
+	}
+
+	with (o_house)
+	{
+		house_morning_spawn_units();
 	}
 
 	with (o_grave_spire)

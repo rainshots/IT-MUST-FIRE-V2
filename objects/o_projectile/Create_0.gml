@@ -18,6 +18,7 @@ corruption_amount = 1;
 ground_corruption_amount = BALANCE_PROJECTILE_GROUND_CORRUPTION_AMOUNT;
 ground_corruption_radius = effect_radius;
 cleanse_amount = 1;
+saint_amount = 0;
 smoke_particle_count = 22;
 building_smoke_radius = 150;
 building_smoke_particle_count = 44;
@@ -55,7 +56,8 @@ projectile_target_is_allied = function(_target)
 	{
 		return _target.object_index == o_holy_tower
 			|| _target.object_index == o_shrine
-			|| _target.object_index == o_garnizon;
+			|| _target.object_index == o_garnizon
+			|| _target.object_index == o_house;
 	}
 
 	return false;

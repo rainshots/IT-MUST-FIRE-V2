@@ -48,7 +48,7 @@ hex_totem_magic_damage_apply = function(_target, _damage_amount)
 
 	if (variable_instance_exists(_target, "unit_damage_receive"))
 	{
-		_target.unit_damage_receive(_final_damage, UNIT_FACTION.FRIENDLY);
+		_target.unit_damage_receive(_final_damage, UNIT_FACTION.FRIENDLY, false, true, id);
 	}
 	else if (variable_instance_exists(_target, "hp"))
 	{

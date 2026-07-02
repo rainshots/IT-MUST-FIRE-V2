@@ -184,6 +184,12 @@ minimap_shrine_outline_size = 30;
 minimap_view_alpha = 0.2;
 minimap_view_border_width = 4;
 minimap_view_min_size = 10;
+minimap_ground_update_interval = 15;
+minimap_ground_update_timer = minimap_ground_update_interval;
+minimap_ground_cell_xs = [];
+minimap_ground_cell_ys = [];
+minimap_ground_amounts = [];
+minimap_ground_is_saint = [];
 
 minimap_geometry_get = function()
 {
@@ -236,6 +242,52 @@ minimap_world_position_from_gui = function(_mouse_x, _mouse_y)
 	var _world_y = _geometry.world_center_y + ((_clamped_mouse_y - _geometry.center_y) / _geometry.world_to_minimap_scale);
 
 	return [true, _world_x, _world_y];
+};
+
+minimap_ground_cache_update = function()
+{
+	minimap_ground_cell_xs = [];
+	minimap_ground_cell_ys = [];
+	minimap_ground_amounts = [];
+	minimap_ground_is_saint = [];
+
+	if (!instance_exists(o_cannon) || !instance_exists(o_corruption_grid))
+	{
+		return;
+	}
+
+	var _cannon = instance_find(o_cannon, 0);
+	var _corruption_grid_object = instance_find(o_corruption_grid, 0);
+	var _corruption_cell_size = _corruption_grid_object.cell_size;
+	var _left_cell = clamp(floor((_cannon.x - minimap_world_radius) / _corruption_cell_size), 0, _corruption_grid_object.grid_width - 1);
+	var _right_cell = clamp(floor((_cannon.x + minimap_world_radius) / _corruption_cell_size), 0, _corruption_grid_object.grid_width - 1);
+	var _top_cell = clamp(floor((_cannon.y - minimap_world_radius) / _corruption_cell_size), 0, _corruption_grid_object.grid_height - 1);
+	var _bottom_cell = clamp(floor((_cannon.y + minimap_world_radius) / _corruption_cell_size), 0, _corruption_grid_object.grid_height - 1);
+	var _has_saint_grid = variable_instance_exists(_corruption_grid_object, "saint_grid");
+
+	for (var _cell_x = _left_cell; _cell_x <= _right_cell; ++_cell_x)
+	{
+		for (var _cell_y = _top_cell; _cell_y <= _bottom_cell; ++_cell_y)
+		{
+			var _corruption = ds_grid_get(_corruption_grid_object.corruption_grid, _cell_x, _cell_y);
+			var _saint = 0;
+
+			if (_has_saint_grid)
+			{
+				_saint = ds_grid_get(_corruption_grid_object.saint_grid, _cell_x, _cell_y);
+			}
+
+			if (_saint <= 0 && _corruption < _corruption_grid_object.minimum_draw_corruption)
+			{
+				continue;
+			}
+
+			array_push(minimap_ground_cell_xs, _cell_x);
+			array_push(minimap_ground_cell_ys, _cell_y);
+			array_push(minimap_ground_amounts, max(_corruption, _saint));
+			array_push(minimap_ground_is_saint, _saint > 0);
+		}
+	}
 };
 
 // Control hints stay visible only during unobstructed gameplay.

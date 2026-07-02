@@ -28,6 +28,31 @@ neighbor_offset_max = 1;
 // Fog is recalculated periodically because corruption does not need instant visual updates every frame.
 update_interval = BALANCE_FOG_UPDATE_INTERVAL;
 update_timer = update_interval;
+taint_scan_cells_per_step = BALANCE_FOG_TAINT_SCAN_CELLS_PER_STEP;
+taint_scan_cell_index = 0;
+taint_reveal_sample_step = max(1, BALANCE_FOG_TAINT_REVEAL_SAMPLE_STEP);
+taint_reveal_block_width = ceil(grid_width / taint_reveal_sample_step);
+taint_reveal_block_height = ceil(grid_height / taint_reveal_sample_step);
+taint_reveal_block_grid = ds_grid_create(taint_reveal_block_width, taint_reveal_block_height);
+ds_grid_clear(taint_reveal_block_grid, false);
+taint_reveal_cell_xs = [];
+taint_reveal_cell_ys = [];
+taint_reveal_pending_cell_xs = [];
+taint_reveal_pending_cell_ys = [];
+revealed_cell_xs = [];
+revealed_cell_ys = [];
+
+fog_cell_reveal = function(_cell_x, _cell_y)
+{
+	if (ds_grid_get(fog_grid, _cell_x, _cell_y) == revealed_alpha)
+	{
+		return;
+	}
+
+	ds_grid_set(fog_grid, _cell_x, _cell_y, revealed_alpha);
+	array_push(revealed_cell_xs, _cell_x);
+	array_push(revealed_cell_ys, _cell_y);
+};
 
 // Reveal a circular area in fog grid cell coordinates.
 fog_circle_reveal = function(_center_cell_x, _center_cell_y, _radius_in_cells)
@@ -36,6 +61,7 @@ fog_circle_reveal = function(_center_cell_x, _center_cell_y, _radius_in_cells)
 	var _right_cell = clamp(_center_cell_x + _radius_in_cells, 0, grid_width - 1);
 	var _top_cell = clamp(_center_cell_y - _radius_in_cells, 0, grid_height - 1);
 	var _bottom_cell = clamp(_center_cell_y + _radius_in_cells, 0, grid_height - 1);
+	var _radius_squared = _radius_in_cells * _radius_in_cells;
 
 	for (var _reveal_cell_x = _left_cell; _reveal_cell_x <= _right_cell; ++_reveal_cell_x)
 	{
@@ -43,11 +69,11 @@ fog_circle_reveal = function(_center_cell_x, _center_cell_y, _radius_in_cells)
 		{
 			var _distance_x = _reveal_cell_x - _center_cell_x;
 			var _distance_y = _reveal_cell_y - _center_cell_y;
-			var _cell_distance = point_distance(0, 0, _distance_x, _distance_y);
+			var _distance_squared = (_distance_x * _distance_x) + (_distance_y * _distance_y);
 
-			if (_cell_distance <= _radius_in_cells)
+			if (_distance_squared <= _radius_squared)
 			{
-				ds_grid_set(fog_grid, _reveal_cell_x, _reveal_cell_y, revealed_alpha);
+				fog_cell_reveal(_reveal_cell_x, _reveal_cell_y);
 			}
 		}
 	}
@@ -63,6 +89,7 @@ fog_world_circle_reveal = function(_world_x, _world_y, _radius)
 	var _right_cell = clamp(_center_cell_x + _radius_in_cells, 0, grid_width - 1);
 	var _top_cell = clamp(_center_cell_y - _radius_in_cells, 0, grid_height - 1);
 	var _bottom_cell = clamp(_center_cell_y + _radius_in_cells, 0, grid_height - 1);
+	var _radius_squared = _radius * _radius;
 
 	for (var _reveal_cell_x = _left_cell; _reveal_cell_x <= _right_cell; ++_reveal_cell_x)
 	{
@@ -70,12 +97,14 @@ fog_world_circle_reveal = function(_world_x, _world_y, _radius)
 		{
 			var _cell_center_x = (_reveal_cell_x * cell_size) + (cell_size * 0.5);
 			var _cell_center_y = (_reveal_cell_y * cell_size) + (cell_size * 0.5);
-			var _cell_distance = point_distance(_world_x, _world_y, _cell_center_x, _cell_center_y);
+			var _distance_x = _cell_center_x - _world_x;
+			var _distance_y = _cell_center_y - _world_y;
+			var _distance_squared = (_distance_x * _distance_x) + (_distance_y * _distance_y);
 			var _is_center_cell = (_reveal_cell_x == _center_cell_x && _reveal_cell_y == _center_cell_y);
 
-			if (_cell_distance <= _radius || _is_center_cell)
+			if (_distance_squared <= _radius_squared || _is_center_cell)
 			{
-				ds_grid_set(fog_grid, _reveal_cell_x, _reveal_cell_y, revealed_alpha);
+				fog_cell_reveal(_reveal_cell_x, _reveal_cell_y);
 			}
 		}
 	}
@@ -96,4 +125,62 @@ fog_cell_is_seen = function(_world_x, _world_y)
 	}
 
 	return ds_grid_get(fog_grid, _cell_x, _cell_y) < hidden_alpha;
+};
+
+fog_taint_reveal_cache_scan_update = function()
+{
+	if (!instance_exists(o_corruption_grid))
+	{
+		taint_scan_cell_index = 0;
+		taint_reveal_cell_xs = [];
+		taint_reveal_cell_ys = [];
+		taint_reveal_pending_cell_xs = [];
+		taint_reveal_pending_cell_ys = [];
+		ds_grid_clear(taint_reveal_block_grid, false);
+		return;
+	}
+
+	var _corruption_grid_object = instance_find(o_corruption_grid, 0);
+	var _has_saint_grid = variable_instance_exists(_corruption_grid_object, "saint_grid");
+	var _total_cells = grid_width * grid_height;
+	var _scan_cell_count = min(taint_scan_cells_per_step, _total_cells);
+
+	for (var _scan_index = 0; _scan_index < _scan_cell_count; ++_scan_index)
+	{
+		var _cell_x = taint_scan_cell_index mod grid_width;
+		var _cell_y = floor(taint_scan_cell_index / grid_width);
+		var _corruption = ds_grid_get(_corruption_grid_object.corruption_grid, _cell_x, _cell_y);
+		var _saint = 0;
+
+		if (_corruption >= full_corruption_value && _has_saint_grid)
+		{
+			_saint = ds_grid_get(_corruption_grid_object.saint_grid, _cell_x, _cell_y);
+		}
+
+		if (_saint <= 0 && _corruption >= full_corruption_value)
+		{
+			var _block_x = floor(_cell_x / taint_reveal_sample_step);
+			var _block_y = floor(_cell_y / taint_reveal_sample_step);
+			var _block_has_reveal_source = ds_grid_get(taint_reveal_block_grid, _block_x, _block_y);
+
+			if (!_block_has_reveal_source)
+			{
+				ds_grid_set(taint_reveal_block_grid, _block_x, _block_y, true);
+				array_push(taint_reveal_pending_cell_xs, _cell_x);
+				array_push(taint_reveal_pending_cell_ys, _cell_y);
+			}
+		}
+
+		taint_scan_cell_index++;
+
+		if (taint_scan_cell_index >= _total_cells)
+		{
+			taint_reveal_cell_xs = taint_reveal_pending_cell_xs;
+			taint_reveal_cell_ys = taint_reveal_pending_cell_ys;
+			taint_reveal_pending_cell_xs = [];
+			taint_reveal_pending_cell_ys = [];
+			ds_grid_clear(taint_reveal_block_grid, false);
+			taint_scan_cell_index = 0;
+		}
+	}
 };

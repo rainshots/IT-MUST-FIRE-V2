@@ -469,42 +469,32 @@ if (instance_exists(o_cannon))
 	draw_set_color(COLOR_HUD_MINIMAP_BACKGROUND);
 	draw_rectangle(_minimap_x, _minimap_y, _minimap_right, _minimap_bottom, false);
 
-	// Draw tainted ground cells under minimap units.
+	// Draw cached tainted and saint ground cells under minimap units.
 	if (instance_exists(o_corruption_grid))
 	{
 		var _corruption_grid_object = instance_find(o_corruption_grid, 0);
 		var _corruption_cell_size = _corruption_grid_object.cell_size;
-		var _corruption_left_cell = clamp(floor((_world_center_x - minimap_world_radius) / _corruption_cell_size), 0, _corruption_grid_object.grid_width - 1);
-		var _corruption_right_cell = clamp(floor((_world_center_x + minimap_world_radius) / _corruption_cell_size), 0, _corruption_grid_object.grid_width - 1);
-		var _corruption_top_cell = clamp(floor((_world_center_y - minimap_world_radius) / _corruption_cell_size), 0, _corruption_grid_object.grid_height - 1);
-		var _corruption_bottom_cell = clamp(floor((_world_center_y + minimap_world_radius) / _corruption_cell_size), 0, _corruption_grid_object.grid_height - 1);
+		var _ground_cell_count = array_length(minimap_ground_cell_xs);
 
-		draw_set_color(COLOR_HUD_MINIMAP_TAINT);
-
-		for (var _corruption_cell_x = _corruption_left_cell; _corruption_cell_x <= _corruption_right_cell; ++_corruption_cell_x)
+		for (var _ground_cell_index = 0; _ground_cell_index < _ground_cell_count; ++_ground_cell_index)
 		{
-			for (var _corruption_cell_y = _corruption_top_cell; _corruption_cell_y <= _corruption_bottom_cell; ++_corruption_cell_y)
-			{
-				var _corruption = ds_grid_get(_corruption_grid_object.corruption_grid, _corruption_cell_x, _corruption_cell_y);
+			var _ground_cell_x = minimap_ground_cell_xs[_ground_cell_index];
+			var _ground_cell_y = minimap_ground_cell_ys[_ground_cell_index];
+			var _ground_amount = minimap_ground_amounts[_ground_cell_index];
+			var _ground_is_saint = minimap_ground_is_saint[_ground_cell_index];
+			var _taint_left = _minimap_center_x + (((_ground_cell_x * _corruption_cell_size) - _world_center_x) * _world_to_minimap_scale);
+			var _taint_top = _minimap_center_y + (((_ground_cell_y * _corruption_cell_size) - _world_center_y) * _world_to_minimap_scale);
+			var _taint_right = _minimap_center_x + (((_ground_cell_x + 1) * _corruption_cell_size - _world_center_x) * _world_to_minimap_scale);
+			var _taint_bottom = _minimap_center_y + (((_ground_cell_y + 1) * _corruption_cell_size - _world_center_y) * _world_to_minimap_scale);
 
-				if (_corruption < _corruption_grid_object.minimum_draw_corruption)
-				{
-					continue;
-				}
+			_taint_left = clamp(_taint_left, _minimap_x, _minimap_right);
+			_taint_top = clamp(_taint_top, _minimap_y, _minimap_bottom);
+			_taint_right = clamp(_taint_right, _minimap_x, _minimap_right);
+			_taint_bottom = clamp(_taint_bottom, _minimap_y, _minimap_bottom);
 
-				var _taint_left = _minimap_center_x + (((_corruption_cell_x * _corruption_cell_size) - _world_center_x) * _world_to_minimap_scale);
-				var _taint_top = _minimap_center_y + (((_corruption_cell_y * _corruption_cell_size) - _world_center_y) * _world_to_minimap_scale);
-				var _taint_right = _minimap_center_x + (((_corruption_cell_x + 1) * _corruption_cell_size - _world_center_x) * _world_to_minimap_scale);
-				var _taint_bottom = _minimap_center_y + (((_corruption_cell_y + 1) * _corruption_cell_size - _world_center_y) * _world_to_minimap_scale);
-
-				_taint_left = clamp(_taint_left, _minimap_x, _minimap_right);
-				_taint_top = clamp(_taint_top, _minimap_y, _minimap_bottom);
-				_taint_right = clamp(_taint_right, _minimap_x, _minimap_right);
-				_taint_bottom = clamp(_taint_bottom, _minimap_y, _minimap_bottom);
-
-				draw_set_alpha(clamp(_corruption, 0.35, 1));
-				draw_rectangle(_taint_left, _taint_top, _taint_right, _taint_bottom, false);
-			}
+			draw_set_color(_ground_is_saint ? COLOR_HUD_MINIMAP_SAINT : COLOR_HUD_MINIMAP_TAINT);
+			draw_set_alpha(clamp(_ground_amount, 0.35, 1));
+			draw_rectangle(_taint_left, _taint_top, _taint_right, _taint_bottom, false);
 		}
 
 		draw_set_alpha(1);

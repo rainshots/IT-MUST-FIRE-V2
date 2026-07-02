@@ -252,7 +252,7 @@ brute_damage_enemy = function(_enemy, _damage_amount, _stun_time, _knockback_x, 
 
 	if (variable_instance_exists(_enemy, "unit_damage_receive"))
 	{
-		_enemy.unit_damage_receive(_final_damage, unit_faction);
+		_enemy.unit_damage_receive(_final_damage, unit_faction, false, true, id);
 	}
 	else
 	{
