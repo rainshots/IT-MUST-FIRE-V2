@@ -59,6 +59,7 @@ separation_update_timer = irandom(separation_update_interval - 1);
 separation_max_neighbors = 6;
 separation_push_x = 0;
 separation_push_y = 0;
+separation_push_multiplier = 1;
 combat_separation_multiplier = 0.45;
 is_attacking_target = false;
 attack_ring_slot_seed = irandom(999999);
@@ -1759,11 +1760,11 @@ update_separation_push = function()
 
 apply_separation_push = function()
 {
-	var _separation_multiplier = 1;
+	var _separation_multiplier = separation_push_multiplier;
 
 	if (is_attacking_target)
 	{
-		_separation_multiplier = combat_separation_multiplier;
+		_separation_multiplier *= combat_separation_multiplier;
 	}
 
 	x += separation_push_x * _separation_multiplier;

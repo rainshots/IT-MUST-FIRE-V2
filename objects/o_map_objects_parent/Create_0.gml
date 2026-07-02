@@ -29,6 +29,11 @@ transform_object = noone;
 building_constructed_by_shell = false;
 building_constructed_by_cursed_point = false;
 
+// Cleansed player buildings permanently lose part of their max HP.
+player_building_cleansed_max_hp_share = BALANCE_PLAYER_BUILDING_CLEANSED_MAX_HP_SHARE;
+player_building_cleansed_hp_penalty_applied = false;
+player_building_cleansed_base_max_hp = max_hp;
+
 // Upgrade data is used by shell-built map structures.
 building_has_upgrades = false;
 building_upgrade_levels = [];
@@ -259,6 +264,41 @@ player_building_damage_sound_play = function()
 	{
 		global.sound_play_random(global.cannon_damage_sounds);
 	}
+};
+
+player_building_is_owned_by_player = function()
+{
+	if (object_index == o_cursed_point)
+	{
+		return false;
+	}
+
+	return building_constructed_by_shell
+		|| building_constructed_by_cursed_point
+		|| (variable_instance_exists(id, "is_captured") && is_captured);
+};
+
+player_building_ground_state_update = function()
+{
+	if (!player_building_is_owned_by_player()
+		|| player_building_cleansed_hp_penalty_applied
+		|| max_hp <= 1)
+	{
+		return;
+	}
+
+	// Keep the baseline current until the first cleanse penalty is applied.
+	player_building_cleansed_base_max_hp = max(player_building_cleansed_base_max_hp, max_hp);
+
+	if (ground_cell_corruption_get(x, y) > 0)
+	{
+		return;
+	}
+
+	var _new_max_hp = max(1, player_building_cleansed_base_max_hp * (1 - player_building_cleansed_max_hp_share));
+	max_hp = _new_max_hp;
+	hp = min(hp, max_hp);
+	player_building_cleansed_hp_penalty_applied = true;
 };
 
 // Shared damage receiver keeps player structure damage feedback consistent.

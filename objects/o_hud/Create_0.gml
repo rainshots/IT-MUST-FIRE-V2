@@ -42,6 +42,43 @@ shrine_icon_size = 30;
 shrine_icon_gap = 8;
 shrine_icon_y_offset = 55;
 
+// Crusade warning appears during the day when Taint has triggered next-night raids.
+crusade_warning_y = 632;
+crusade_warning_scale = 0.82;
+crusade_warning_padding_x = 12;
+crusade_warning_padding_y = 7;
+crusade_warning_background_alpha = 0.78;
+
+// Player unit counter is pinned just left of the right HUD sidebar.
+unit_counter_width = 96;
+unit_counter_row_height = 38;
+unit_counter_gap_right = 10;
+unit_counter_y = 82;
+unit_counter_padding = 8;
+unit_counter_row_gap = 6;
+unit_counter_icon_size = 26;
+unit_counter_background_alpha = 0.68;
+unit_counter_row_alpha = 0.26;
+unit_counter_empty_alpha = 0.36;
+unit_counter_unit_objects = [
+	o_cultist,
+	o_imp,
+	o_brute,
+	o_warlock,
+	o_skeleton,
+	o_pitling,
+	o_goblin
+];
+unit_counter_unit_sprites = [
+	s_cultist_01,
+	s_imp,
+	s_brute,
+	s_warlock,
+	s_skeleton,
+	s_demon,
+	s_goblin
+];
+
 // Compact cultist status cards shown when no focus window is open.
 cultist_status_card_width = 334;
 cultist_status_card_height = 152;
@@ -240,13 +277,13 @@ wall_fallen_notice_padding = 12;
 wall_fallen_title = "THE WALL HAS FALLEN";
 wall_fallen_description = "You lost, but can keep playing.";
 
-// Objective complete notice appears when enough shrines are tainted.
+// Objective complete notice appears when enough shrines are destroyed.
 objective_complete_notice_width = 420;
 objective_complete_notice_height = 92;
 objective_complete_notice_y = 96;
 objective_complete_notice_padding = 12;
-objective_complete_title = "TRIALS COMPLETE";
-objective_complete_description = "The cannon accepts you as the new Pontiff.";
+objective_complete_title = "SHRINES CLAIMED";
+objective_complete_description = "Two Shrines have fallen to the cannon.";
 
 // Resource display order from left to right in the top-left corner.
 resource_order = [
@@ -273,10 +310,14 @@ resource_icon_sprites = [
 // Taint display is derived from the ground corruption grid.
 corruption_display_name = "TAINT";
 corruption_display_value = 0;
+corruption_display_percent = 0;
+corruption_display_total_cells = 0;
 corruption_display_decimals = 1;
 corruption_update_interval = 0.25 * room_speed;
 corruption_update_timer = corruption_update_interval;
-corruption_display_color = COLOR_HUD_CORRUPTION;
+corruption_display_color = COLOR_HUD_TEXT;
+corruption_minimap_offset_y = 16;
+corruption_minimap_label_scale = 0.8;
 
 // Projectile queue display at the bottom center of the HUD.
 projectile_queue_margin_bottom = 18;
@@ -303,24 +344,26 @@ projectile_description_line_separation = 16;
 
 projectile_names = array_create(PROJECTILE_TYPE.COUNT, "");
 projectile_names[PROJECTILE_TYPE.DAMAGE] = "DAMAGE";
-projectile_names[PROJECTILE_TYPE.CORRUPTION] = "TAINT";
+projectile_names[PROJECTILE_TYPE.CORRUPTION] = "CORRUPTION";
 projectile_names[PROJECTILE_TYPE.SUMMON] = "SUMMON";
 projectile_names[PROJECTILE_TYPE.RALLY] = "RALLY";
 projectile_names[PROJECTILE_TYPE.CULTIST] = "CULTIST";
-projectile_names[PROJECTILE_TYPE.FEAST] = "TAINT SHELL";
+projectile_names[PROJECTILE_TYPE.FEAST] = "TAINT";
 projectile_names[PROJECTILE_TYPE.HEAL] = "HEAL";
 projectile_names[PROJECTILE_TYPE.BOMB] = "BOMB";
 projectile_names[PROJECTILE_TYPE.SKELETONS] = "SKELETONS";
 projectile_names[PROJECTILE_TYPE.BUILDING_SHELL] = "STRUCTURE";
+projectile_names[PROJECTILE_TYPE.CLEANSE] = "CLEANSE";
 
 projectile_descriptions = array_create(PROJECTILE_TYPE.COUNT, "");
 projectile_descriptions[PROJECTILE_TYPE.DAMAGE] = "Damages units and buildings inside the impact area.";
-projectile_descriptions[PROJECTILE_TYPE.CORRUPTION] = "Adds Taint to ground cells and triggers Taint reactions.";
+projectile_descriptions[PROJECTILE_TYPE.CORRUPTION] = "Technical corruption impact used by map systems.";
 projectile_descriptions[PROJECTILE_TYPE.SUMMON] = "Summons friendly forces through valid target reactions.";
 projectile_descriptions[PROJECTILE_TYPE.RALLY] = "Sends half of nearby friendly units to the impact point.";
 projectile_descriptions[PROJECTILE_TYPE.CULTIST] = "Launches a cultist into battle, dealing impact damage and spawning demon form.";
-projectile_descriptions[PROJECTILE_TYPE.FEAST] = "Fires " + string(BALANCE_CANNON_FEAST_PROJECTILE_COUNT) + " Taint Shell impacts over a wide area and heavily damages enemies inside. Payload Mastery improves its radius and impact count.";
+projectile_descriptions[PROJECTILE_TYPE.FEAST] = "Fires corpse-fed Taint impacts that spread Taint, damage enemies, and destroy Ihor Veins for Ihor.";
 projectile_descriptions[PROJECTILE_TYPE.HEAL] = "Restores " + string(BALANCE_PROJECTILE_HEAL_AMOUNT) + " health to all friendly units inside a " + string(BALANCE_PROJECTILE_HEAL_RADIUS) + " pixel radius. Payload Mastery improves it.";
 projectile_descriptions[PROJECTILE_TYPE.BOMB] = "Deals " + string(BALANCE_PROJECTILE_BOMB_DAMAGE_AMOUNT) + " damage to every unit inside a " + string(BALANCE_PROJECTILE_BOMB_RADIUS) + " pixel radius. Payload Mastery improves it.";
 projectile_descriptions[PROJECTILE_TYPE.SKELETONS] = "Summons " + string(BALANCE_PROJECTILE_SKELETON_COUNT) + " skeleton inside a " + string(BALANCE_PROJECTILE_SKELETON_RADIUS) + " pixel radius. Payload Mastery improves it.";
 projectile_descriptions[PROJECTILE_TYPE.BUILDING_SHELL] = "Builds its stored structure where it lands. Must be fired onto tainted ground.";
+projectile_descriptions[PROJECTILE_TYPE.CLEANSE] = "Enemy projectile that removes Taint where it lands.";

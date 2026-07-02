@@ -13,7 +13,6 @@ if (!health_bar_visible && !_should_draw_corruption_bar)
 	exit;
 }
 
-var _bar_x = x - (bar_width * 0.5);
 var _health_bar_y = y - bar_offset_y;
 var _corruption_bar_y = _health_bar_y + bar_height + bar_gap;
 
@@ -23,34 +22,62 @@ if (_is_cursed_point_building)
 	_corruption_bar_y = _health_bar_y + bar_height + bar_gap;
 }
 
-var _hp_progress = clamp(hp / max_hp, 0, 1);
+var _hp_bar_max = max_hp;
+var _max_hp_progress = 1;
+
+if (variable_instance_exists(id, "player_building_cleansed_hp_penalty_applied")
+	&& player_building_cleansed_hp_penalty_applied
+	&& variable_instance_exists(id, "player_building_cleansed_base_max_hp")
+	&& player_building_cleansed_base_max_hp > max_hp)
+{
+	_hp_bar_max = player_building_cleansed_base_max_hp;
+	_max_hp_progress = clamp(max_hp / _hp_bar_max, 0, 1);
+}
+
+var _hp_progress = clamp(hp / _hp_bar_max, 0, 1);
 var _corruption_progress = clamp(corruption / max_corruption, 0, 1);
+var _bar_width = health_bar_width_get(bar_width, _hp_bar_max);
+var _bar_x = x - (_bar_width * 0.5);
 
 draw_set_alpha(0.75);
 draw_set_color(c_black);
 
 if (health_bar_visible)
 {
-	draw_rectangle(_bar_x, _health_bar_y, _bar_x + bar_width, _health_bar_y + bar_height, false);
+	draw_rectangle(_bar_x, _health_bar_y, _bar_x + _bar_width, _health_bar_y + bar_height, false);
 }
 
 if (_should_draw_corruption_bar)
 {
-	draw_rectangle(_bar_x, _corruption_bar_y, _bar_x + bar_width, _corruption_bar_y + bar_height, false);
+	draw_rectangle(_bar_x, _corruption_bar_y, _bar_x + _bar_width, _corruption_bar_y + bar_height, false);
 }
 
 draw_set_alpha(1);
 
 if (health_bar_visible)
 {
+	if (_max_hp_progress < 1)
+	{
+		draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+		draw_rectangle(
+			_bar_x + (_bar_width * _max_hp_progress),
+			_health_bar_y,
+			_bar_x + _bar_width,
+			_health_bar_y + bar_height,
+			false
+		);
+	}
+
 	draw_set_color(c_lime);
-	draw_rectangle(_bar_x, _health_bar_y, _bar_x + (bar_width * _hp_progress), _health_bar_y + bar_height, false);
+	draw_rectangle(_bar_x, _health_bar_y, _bar_x + (_bar_width * _hp_progress), _health_bar_y + bar_height, false);
+	draw_set_color(c_black);
+	health_bar_segments_draw(_bar_x, _health_bar_y, _bar_width, bar_height, _hp_bar_max);
 }
 
 if (_should_draw_corruption_bar)
 {
 	draw_set_color(COLOR_PROJECTILE_CORRUPTION);
-	draw_rectangle(_bar_x, _corruption_bar_y, _bar_x + (bar_width * _corruption_progress), _corruption_bar_y + bar_height, false);
+	draw_rectangle(_bar_x, _corruption_bar_y, _bar_x + (_bar_width * _corruption_progress), _corruption_bar_y + bar_height, false);
 }
 
 // Show upgrade prompt while the cursor hovers upgradeable map structures.

@@ -4,6 +4,7 @@ corrupted_sprite_index = s_tree03;
 is_corrupted = false;
 corruption_check_interval = BALANCE_TREE_CORRUPTION_CHECK_INTERVAL;
 corruption_check_timer = irandom(corruption_check_interval);
+corruption_spread_radius = BALANCE_TREE_CORRUPTION_SPREAD_RADIUS_IN_CELLS * BALANCE_GRID_CELL_SIZE;
 y_sort_enabled = true;
 
 // Unit occlusion fades the tree when units walk behind its upper sprite area.
@@ -132,9 +133,12 @@ tree_corruption_update = function()
 
 	var _corruption = ds_grid_get(_corruption_grid_object.corruption_grid, _cell_x, _cell_y);
 
-	if (_corruption >= _corruption_grid_object.full_corruption_value)
+	if (_corruption > 0)
 	{
 		is_corrupted = true;
 		sprite_index = corrupted_sprite_index;
+
+		// A newly infected tree spreads Taint into nearby ground cells.
+		corrupt_circle(x, y, corruption_spread_radius, _corruption_grid_object.full_corruption_value);
 	}
 };

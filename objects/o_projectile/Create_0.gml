@@ -17,6 +17,7 @@ summon_count = BALANCE_PROJECTILE_SKELETON_COUNT;
 corruption_amount = 1;
 ground_corruption_amount = BALANCE_PROJECTILE_GROUND_CORRUPTION_AMOUNT;
 ground_corruption_radius = effect_radius;
+cleanse_amount = 1;
 smoke_particle_count = 22;
 building_smoke_radius = 150;
 building_smoke_particle_count = 44;

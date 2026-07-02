@@ -12,8 +12,9 @@ var _camera_height = camera_get_view_height(_camera_controller.camera_id);
 var _gui_width = _camera_controller.base_view_width;
 var _object_gui_x = ((x - _camera_x) / _camera_width) * _gui_width;
 var _object_gui_y = ((y - _camera_y) / _camera_height) * _camera_controller.base_view_height;
-var _tooltip_text = tooltip_text + "\nIhor left: " + string(floor(ihor_remaining)) + "/" + string(ihor_capacity);
-var _tooltip_height = (tooltip_padding * 2) + (tooltip_line_height * 5);
+var _tooltip_text = tooltip_text;
+var _tooltip_text_height = string_height_ext(_tooltip_text, tooltip_line_height, tooltip_width - (tooltip_padding * 2));
+var _tooltip_height = (tooltip_padding * 2) + _tooltip_text_height;
 var _tooltip_x = clamp(_object_gui_x - (tooltip_width * 0.5), tooltip_padding, _gui_width - tooltip_width - tooltip_padding);
 var _tooltip_y = max(tooltip_padding, _object_gui_y - tooltip_offset_y - _tooltip_height);
 

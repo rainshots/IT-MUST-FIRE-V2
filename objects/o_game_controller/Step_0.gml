@@ -146,6 +146,13 @@ if (!shrines_spawned)
 // Track shrine objective completion for the HUD and win condition hooks.
 shrine_objective_update();
 
+// Cleansed ground weakens player buildings after holy attacks remove Taint.
+if (!global.pause)
+{
+	player_building_ground_state_update();
+	crusade_taint_threshold_update();
+}
+
 // Delay the first worker assignment hint until gameplay has been visible for a moment.
 if (!global.pause
 	&& global.focus_window == FOCUS_WINDOW.NOONE
@@ -527,6 +534,18 @@ if (global.cheats_enabled)
 	else if (keyboard_check_pressed(vk_numpad4))
 	{
 		_debug_spawn_unit_object = o_enemy_mage;
+	}
+	else if (keyboard_check_pressed(vk_numpad5))
+	{
+		_debug_spawn_unit_object = o_enemy_catapult;
+	}
+	else if (keyboard_check_pressed(vk_numpad6))
+	{
+		_debug_spawn_unit_object = o_crusader;
+	}
+	else if (keyboard_check_pressed(vk_numpad7))
+	{
+		_debug_spawn_unit_object = o_boss_griffith;
 	}
 	else if (keyboard_check_pressed(vk_numpad8))
 	{

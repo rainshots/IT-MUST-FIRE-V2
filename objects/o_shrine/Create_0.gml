@@ -22,7 +22,7 @@ defender_spawn_timer = defender_spawn_interval;
 tooltip_lines = [
 	"Shrine",
 	"Destroy its Holy Towers to make it vulnerable",
-	"Then taint or attack the Shrine"
+	"Then destroy the Shrine"
 ];
 
 unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true)
@@ -107,33 +107,43 @@ shrine_enemy_in_radius_exists = function()
 	return false;
 };
 
-shrine_defender_knight_spawn = function()
+shrine_defender_crusader_spawn = function()
 {
 	var _spawn_direction = random(360);
 	var _spawn_distance = random_range(
 		BALANCE_SHRINE_DEFENDER_SPAWN_RADIUS_MIN,
 		BALANCE_SHRINE_DEFENDER_SPAWN_RADIUS_MAX
 	);
-	var _knight = instance_create_layer(
+	var _crusader = instance_create_layer(
 		x + lengthdir_x(_spawn_distance, _spawn_direction),
 		y + lengthdir_y(_spawn_distance, _spawn_direction),
 		"Instances",
-		o_enemy_knight
+		o_crusader
 	);
 
-	if (instance_exists(_knight))
+	if (instance_exists(_crusader))
 	{
-		_knight.unit_can_attack_cannon = true;
-		_knight.owner_garnizon = noone;
-		_knight.guard_target = noone;
+		_crusader.unit_can_attack_cannon = true;
+		_crusader.owner_garnizon = noone;
+		_crusader.guard_target = noone;
+
+		if (instance_exists(o_game_controller))
+		{
+			var _game_controller = instance_find(o_game_controller, 0);
+
+			if (variable_instance_exists(_game_controller, "enemy_night_hp_scale_apply"))
+			{
+				_game_controller.enemy_night_hp_scale_apply(_crusader);
+			}
+		}
 	}
 };
 
 shrine_defenders_spawn = function()
 {
-	for (var _knight_index = 0; _knight_index < BALANCE_SHRINE_DEFENDER_KNIGHT_COUNT; ++_knight_index)
+	for (var _crusader_index = 0; _crusader_index < BALANCE_SHRINE_DEFENDER_CRUSADER_COUNT; ++_crusader_index)
 	{
-		shrine_defender_knight_spawn();
+		shrine_defender_crusader_spawn();
 	}
 };
 
@@ -190,11 +200,7 @@ on_projectile_hit = function(_projectile_type)
 		return;
 	}
 
-	if (_projectile_type == PROJECTILE_TYPE.CORRUPTION)
-	{
-		shrine_corrupt();
-	}
-	else if (_projectile_type == PROJECTILE_TYPE.DAMAGE)
+	if (_projectile_type == PROJECTILE_TYPE.DAMAGE)
 	{
 		unit_damage_receive(BALANCE_PROJECTILE_DAMAGE_AMOUNT, UNIT_FACTION.NOONE);
 	}

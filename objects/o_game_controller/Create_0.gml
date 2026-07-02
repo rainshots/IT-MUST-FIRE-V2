@@ -29,6 +29,10 @@ global.tutorial_popup_active = false;
 global.tutorial_welcome_closed = false;
 global.cursed_point_structure_selection_source = noone;
 
+// Player buildings react to cleansed ground in a throttled shared pass.
+player_building_ground_check_interval = BALANCE_PLAYER_BUILDING_CORRUPTION_CHECK_INTERVAL;
+player_building_ground_check_timer = irandom(player_building_ground_check_interval - 1);
+
 // World hint for the first worker assignment.
 worker_assignment_hint_completed = false;
 first_day_timer_waiting_for_worker_assignment = true;
@@ -1011,6 +1015,26 @@ global.resources[RESOURCES.SOULS] = BALANCE_STARTING_SOULS;
 global.resources[RESOURCES.IRON] = BALANCE_STARTING_IRON;
 global.resources[RESOURCES.IHOR] = BALANCE_STARTING_IHOR;
 
+player_building_ground_state_update = function()
+{
+	player_building_ground_check_timer++;
+
+	if (player_building_ground_check_timer < player_building_ground_check_interval)
+	{
+		return;
+	}
+
+	player_building_ground_check_timer = 0;
+
+	with (o_map_objects_parent)
+	{
+		if (variable_instance_exists(id, "player_building_ground_state_update"))
+		{
+			player_building_ground_state_update();
+		}
+	}
+};
+
 // Corpses are inert sprite snapshots, not gameplay instances.
 corpse_draw_data = [];
 corpse_next_id = 1;
@@ -1737,7 +1761,7 @@ debug_shell_choices = [
 		payload: noone
 	},
 	{
-		label: "Taint Shell",
+		label: "Taint",
 		projectile_type: PROJECTILE_TYPE.FEAST,
 		payload: noone
 	},
@@ -1785,6 +1809,16 @@ debug_shell_choices = [
 			building_sprite: s_ihor_extractor,
 			building_name: "Ihor Extractor"
 		}
+	},
+	{
+		label: "Crusade",
+		debug_action: "crusade",
+		payload: noone
+	},
+	{
+		label: "Boss Next Night",
+		debug_action: "boss_next_night",
+		payload: noone
 	}
 ];
 
@@ -1820,6 +1854,23 @@ debug_shell_choice_rect_get = function(_choice_index)
 
 debug_shell_give = function(_choice)
 {
+	if (variable_struct_exists(_choice, "debug_action"))
+	{
+		if (_choice.debug_action == "crusade")
+		{
+			crusade_spawn(random(360));
+			return true;
+		}
+		else if (_choice.debug_action == "boss_next_night")
+		{
+			boss_griffith_force_next_night = true;
+			boss_griffith_pending_next_night = false;
+			night_attack_plan_exists = false;
+			night_attack_plan_create();
+			return true;
+		}
+	}
+
 	if (!variable_struct_exists(_choice, "projectile_type"))
 	{
 		return false;
@@ -1832,7 +1883,7 @@ debug_shell_give = function(_choice)
 		_payload = _choice.payload;
 	}
 
-	// Taint Shells are owned by satiety, so cheats fill it just like corpse delivery.
+	// Taint is owned by satiety, so cheats fill it just like corpse delivery.
 	if (_choice.projectile_type == PROJECTILE_TYPE.FEAST)
 	{
 		var _satiety_to_next_feast = global.cannon_satiety_max - (global.cannon_satiety mod global.cannon_satiety_max);
@@ -1913,7 +1964,8 @@ debug_menu_draw = function()
 			&& _mouse_x <= _rect.x + _rect.width
 			&& _mouse_y >= _rect.y
 			&& _mouse_y <= _rect.y + _rect.height;
-		var _queue_full = _queue_count >= global.cannon_projectile_queue_max;
+		var _uses_projectile_queue = variable_struct_exists(_choice, "projectile_type");
+		var _queue_full = _uses_projectile_queue && _queue_count >= global.cannon_projectile_queue_max;
 
 		draw_set_alpha(_queue_full ? 0.42 : 0.78);
 		draw_set_color(c_black);
@@ -2402,6 +2454,17 @@ global.cultist_available_sprite_indices = global.cultist_all_sprite_indices;
 night_attack_night_index = 1;
 night_attack_plan_exists = false;
 night_attack_directions = [];
+boss_griffith_nights = [10, 20, 30, 40, 50];
+boss_griffith_pending_next_night = false;
+boss_griffith_pending_direction = 0;
+boss_griffith_force_next_night = false;
+crusade_taint_trigger_amount = BALANCE_ENEMY_CATAPULT_CRUSADE_TAINT_TRIGGER_AMOUNT;
+crusade_pending_count = 0;
+crusade_pending_directions = [];
+crusade_taint_threshold_index = 0;
+crusade_taint_tracking_initialized = false;
+crusade_corruption_check_interval = BALANCE_PLAYER_BUILDING_CORRUPTION_CHECK_INTERVAL;
+crusade_corruption_check_timer = irandom(crusade_corruption_check_interval - 1);
 night_force_end_timer = 0;
 night_force_end_active = false;
 night_attack_unit_pool = [
@@ -4487,6 +4550,57 @@ spawn_shrine_holy_towers = function(_shrine, _cannon)
 	}
 };
 
+shrine_position_is_far_enough = function(_position_x, _position_y, _positions)
+{
+	for (var _position_index = 0; _position_index < array_length(_positions); ++_position_index)
+	{
+		var _position = _positions[_position_index];
+
+		if (point_distance(_position_x, _position_y, _position.x, _position.y) < BALANCE_SHRINE_MIN_SPACING)
+		{
+			return false;
+		}
+	}
+
+	return true;
+};
+
+shrine_random_position_roll = function(_cannon, _shrine_index, _shrine_count, _positions)
+{
+	var _sector_size = 360 / max(1, _shrine_count);
+	var _base_angle = (_sector_size * _shrine_index) + random(_sector_size);
+	var _map_margin = BALANCE_SHRINE_HOLY_TOWER_DISTANCE + 160;
+	var _fallback_x = _cannon.x + lengthdir_x(BALANCE_SHRINE_DISTANCE_MIN, _base_angle);
+	var _fallback_y = _cannon.y + lengthdir_y(BALANCE_SHRINE_DISTANCE_MIN, _base_angle);
+
+	_fallback_x = clamp(_fallback_x, _map_margin, room_width - _map_margin);
+	_fallback_y = clamp(_fallback_y, _map_margin, room_height - _map_margin);
+
+	for (var _attempt_index = 0; _attempt_index < BALANCE_SHRINE_RANDOM_POSITION_ATTEMPTS; ++_attempt_index)
+	{
+		var _angle = (_sector_size * _shrine_index) + random(_sector_size);
+		var _distance = random_range(BALANCE_SHRINE_DISTANCE_MIN, BALANCE_SHRINE_DISTANCE_MAX);
+		var _position_x = _cannon.x + lengthdir_x(_distance, _angle);
+		var _position_y = _cannon.y + lengthdir_y(_distance, _angle);
+
+		_position_x = clamp(_position_x, _map_margin, room_width - _map_margin);
+		_position_y = clamp(_position_y, _map_margin, room_height - _map_margin);
+
+		if (shrine_position_is_far_enough(_position_x, _position_y, _positions))
+		{
+			return {
+				x: _position_x,
+				y: _position_y
+			};
+		}
+	}
+
+	return {
+		x: _fallback_x,
+		y: _fallback_y
+	};
+};
+
 spawn_objective_shrines = function()
 {
 	if (shrines_spawned || !instance_exists(o_cannon))
@@ -4495,30 +4609,29 @@ spawn_objective_shrines = function()
 	}
 
 	var _cannon = instance_find(o_cannon, 0);
-	var _shrine_spot_count = instance_number(o_shrine_spot);
+	var _shrine_count = max(0, BALANCE_SHRINE_OBJECTIVE_TOTAL);
+	var _shrine_positions = [];
 	shrine_instances = array_create(0);
-	shrine_objective_total = _shrine_spot_count;
+	shrine_objective_total = _shrine_count;
 	shrine_objective_required = min(BALANCE_SHRINE_OBJECTIVE_REQUIRED, shrine_objective_total);
 
-	// Shrine spots define exact objective shrine positions for this map.
-	for (var _spot_index = 0; _spot_index < _shrine_spot_count; ++_spot_index)
-	{
-		var _shrine_spot = instance_find(o_shrine_spot, _spot_index);
-
-		if (!instance_exists(_shrine_spot))
-		{
-			continue;
-		}
-
-		var _shrine = instance_create_layer(_shrine_spot.x, _shrine_spot.y, "Instances", o_shrine);
-
-		array_push(shrine_instances, _shrine);
-		spawn_shrine_holy_towers(_shrine, _cannon);
-	}
-
+	// Remove old hand-placed objective markers before rolling runtime shrine positions.
 	with (o_shrine_spot)
 	{
 		instance_destroy();
+	}
+
+	for (var _shrine_index = 0; _shrine_index < _shrine_count; ++_shrine_index)
+	{
+		var _shrine_position = shrine_random_position_roll(_cannon, _shrine_index, _shrine_count, _shrine_positions);
+		array_push(_shrine_positions, _shrine_position);
+		var _shrine = instance_create_layer(_shrine_position.x, _shrine_position.y, "Instances", o_shrine);
+
+		if (instance_exists(_shrine))
+		{
+			array_push(shrine_instances, _shrine);
+			spawn_shrine_holy_towers(_shrine, _cannon);
+		}
 	}
 
 	shrines_spawned = true;
@@ -5899,11 +6012,13 @@ night_attack_total_difficulty_get = function()
 	var _night_index = max(1, night_attack_night_index);
 	var _early_night_count = max(0, min(_night_index - 1, BALANCE_NIGHT_ATTACK_DIFFICULTY_LATE_START_NIGHT - 2));
 	var _late_night_count = max(0, _night_index - BALANCE_NIGHT_ATTACK_DIFFICULTY_LATE_START_NIGHT + 1);
+	var _captured_shrine_count = shrine_corrupted_count_get();
 
 	var _difficulty = BALANCE_NIGHT_ATTACK_DIFFICULTY_BASE
 		+ (_early_night_count * BALANCE_NIGHT_ATTACK_DIFFICULTY_INCREASE_PER_NIGHT)
 		+ (_late_night_count * BALANCE_NIGHT_ATTACK_DIFFICULTY_LATE_INCREASE_PER_NIGHT)
-		+ (_extra_cultist_count * BALANCE_NIGHT_ATTACK_DIFFICULTY_PER_EXTRA_CULTIST);
+		+ (_extra_cultist_count * BALANCE_NIGHT_ATTACK_DIFFICULTY_PER_EXTRA_CULTIST)
+		+ (_captured_shrine_count * BALANCE_SHRINE_CAPTURED_NIGHT_DIFFICULTY_BONUS);
 
 	return _difficulty;
 };
@@ -5923,10 +6038,13 @@ night_attack_difficulty_debug_log = function(_total_difficulty, _direction_count
 	var _early_night_difficulty = _early_night_count * BALANCE_NIGHT_ATTACK_DIFFICULTY_INCREASE_PER_NIGHT;
 	var _late_night_difficulty = _late_night_count * BALANCE_NIGHT_ATTACK_DIFFICULTY_LATE_INCREASE_PER_NIGHT;
 	var _extra_cultist_difficulty = _extra_cultist_count * BALANCE_NIGHT_ATTACK_DIFFICULTY_PER_EXTRA_CULTIST;
+	var _captured_shrine_count = shrine_corrupted_count_get();
+	var _captured_shrine_difficulty = _captured_shrine_count * BALANCE_SHRINE_CAPTURED_NIGHT_DIFFICULTY_BONUS;
 	var _raw_difficulty = _base_difficulty
 		+ _early_night_difficulty
 		+ _late_night_difficulty
-		+ _extra_cultist_difficulty;
+		+ _extra_cultist_difficulty
+		+ _captured_shrine_difficulty;
 	var _enemy_hp_multiplier = enemy_night_hp_multiplier_get();
 	var _enemy_hp_night_multiplier = 1 + (_night_index - 1) * BALANCE_ENEMY_HP_INCREASE_PER_NIGHT;
 
@@ -5938,6 +6056,8 @@ night_attack_difficulty_debug_log = function(_total_difficulty, _direction_count
 		+ " (" + string(_late_night_count) + " x " + string_format(BALANCE_NIGHT_ATTACK_DIFFICULTY_LATE_INCREASE_PER_NIGHT, 0, 2) + ")"
 		+ "\n  Extra cultists: +" + string_format(_extra_cultist_difficulty, 0, 2)
 		+ " (" + string(_extra_cultist_count) + " x " + string_format(BALANCE_NIGHT_ATTACK_DIFFICULTY_PER_EXTRA_CULTIST, 0, 2) + ")"
+		+ "\n  Captured shrines: +" + string_format(_captured_shrine_difficulty, 0, 2)
+		+ " (" + string(_captured_shrine_count) + " x " + string_format(BALANCE_SHRINE_CAPTURED_NIGHT_DIFFICULTY_BONUS, 0, 2) + ")"
 		+ "\n  Adaptive unit-count modifier: none"
 		+ "\n  Raw difficulty: " + string_format(_raw_difficulty, 0, 2);
 
@@ -6228,6 +6348,18 @@ enemy_object_name_get = function(_enemy_object)
 	{
 		return "Mage";
 	}
+	else if (_enemy_object == o_enemy_catapult)
+	{
+		return "Holy Catapult";
+	}
+	else if (_enemy_object == o_crusader)
+	{
+		return "Crusader";
+	}
+	else if (_enemy_object == o_boss_griffith)
+	{
+		return "Griffith";
+	}
 
 	return object_get_name(_enemy_object);
 };
@@ -6278,6 +6410,39 @@ enemy_object_stats_get = function(_enemy_object)
 		_stats.attack_radius = BALANCE_ENEMY_MAGE_ATTACK_RADIUS;
 		_stats.move_speed = BALANCE_ENEMY_MAGE_MOVE_SPEED;
 	}
+	else if (_enemy_object == o_enemy_catapult)
+	{
+		_stats.hp = BALANCE_ENEMY_CATAPULT_HP;
+		_stats.armor = BALANCE_ENEMY_CATAPULT_ARMOR;
+		_stats.magic_resistance = BALANCE_ENEMY_CATAPULT_MAGIC_RESISTANCE;
+		_stats.damage = BALANCE_ENEMY_CATAPULT_DAMAGE;
+		_stats.magic_damage = BALANCE_ENEMY_CATAPULT_MAGIC_DAMAGE;
+		_stats.reload_time = BALANCE_ENEMY_CATAPULT_RELOAD_TIME * room_speed;
+		_stats.attack_radius = BALANCE_ENEMY_CATAPULT_ATTACK_RADIUS;
+		_stats.move_speed = BALANCE_ENEMY_CATAPULT_MOVE_SPEED;
+	}
+	else if (_enemy_object == o_crusader)
+	{
+		_stats.hp = BALANCE_CRUSADER_HP;
+		_stats.armor = BALANCE_CRUSADER_ARMOR;
+		_stats.magic_resistance = BALANCE_CRUSADER_MAGIC_RESISTANCE;
+		_stats.damage = BALANCE_CRUSADER_DAMAGE;
+		_stats.magic_damage = BALANCE_CRUSADER_MAGIC_DAMAGE;
+		_stats.reload_time = BALANCE_CRUSADER_RELOAD_TIME * room_speed;
+		_stats.attack_radius = BALANCE_CRUSADER_ATTACK_RADIUS;
+		_stats.move_speed = BALANCE_CRUSADER_MOVE_SPEED;
+	}
+	else if (_enemy_object == o_boss_griffith)
+	{
+		_stats.hp = BALANCE_BOSS_GRIFFITH_HP;
+		_stats.armor = BALANCE_BOSS_GRIFFITH_ARMOR;
+		_stats.magic_resistance = BALANCE_BOSS_GRIFFITH_MAGIC_RESISTANCE;
+		_stats.damage = BALANCE_BOSS_GRIFFITH_DAMAGE * 0.5;
+		_stats.magic_damage = BALANCE_BOSS_GRIFFITH_DAMAGE * 0.5;
+		_stats.reload_time = BALANCE_BOSS_GRIFFITH_RELOAD_TIME * room_speed;
+		_stats.attack_radius = BALANCE_BOSS_GRIFFITH_ATTACK_RADIUS;
+		_stats.move_speed = BALANCE_BOSS_GRIFFITH_MOVE_SPEED;
+	}
 
 	_stats.hp *= enemy_night_hp_multiplier_get();
 	return _stats;
@@ -6296,6 +6461,13 @@ enemy_object_stats_card_draw = function(_enemy_object, _hover_x, _hover_y)
 	if (_stats.magic_damage > 0)
 	{
 		_damage_text = "Magic damage: " + string_format(_stats.magic_damage, 0, 1);
+	}
+
+	if (_stats.damage > 0 && _stats.magic_damage > 0)
+	{
+		_damage_text = "Damage: " + string_format(_stats.damage, 0, 1)
+			+ " physical + " + string_format(_stats.magic_damage, 0, 1)
+			+ " magic";
 	}
 
 	draw_set_halign(fa_left);
@@ -6848,6 +7020,15 @@ night_attack_shrine_direction_roll = function(_shrine)
 
 night_attack_plan_create = function()
 {
+	boss_griffith_prepare_next_night();
+
+	if (boss_griffith_pending_next_night)
+	{
+		night_attack_directions = [];
+		night_attack_plan_exists = true;
+		return;
+	}
+
 	var _direction_count = max(1, BALANCE_NIGHT_ATTACK_DIRECTION_COUNT);
 
 	if (night_attack_night_index == 1)
@@ -7007,6 +7188,249 @@ night_attack_enemy_spawn = function(_direction_index, _direction_data, _enemy_ob
 	_enemy.guard_target = noone;
 	enemy_night_hp_scale_apply(_enemy);
 	global.night_attack_unit_count++;
+};
+
+boss_griffith_night_is_scheduled = function(_night_index)
+{
+	for (var _boss_night_index = 0; _boss_night_index < array_length(boss_griffith_nights); ++_boss_night_index)
+	{
+		if (boss_griffith_nights[_boss_night_index] == _night_index)
+		{
+			return true;
+		}
+	}
+
+	return false;
+};
+
+boss_griffith_prepare_next_night = function()
+{
+	if (boss_griffith_pending_next_night)
+	{
+		return;
+	}
+
+	if (!boss_griffith_force_next_night
+		&& !boss_griffith_night_is_scheduled(night_attack_night_index))
+	{
+		return;
+	}
+
+	boss_griffith_pending_next_night = true;
+	boss_griffith_pending_direction = random(360);
+};
+
+boss_griffith_spawn_enemy = function(_origin_x, _origin_y, _enemy_object, _radius_min, _radius_max)
+{
+	var _spawn_direction = random(360);
+	var _spawn_distance = random_range(_radius_min, _radius_max);
+	var _spawn_x = _origin_x + lengthdir_x(_spawn_distance, _spawn_direction);
+	var _spawn_y = _origin_y + lengthdir_y(_spawn_distance, _spawn_direction);
+	var _enemy = instance_create_layer(_spawn_x, _spawn_y, "Instances", _enemy_object);
+
+	if (!instance_exists(_enemy))
+	{
+		return noone;
+	}
+
+	_enemy.unit_can_attack_cannon = true;
+	_enemy.is_night_attack_unit = true;
+	_enemy.owner_garnizon = noone;
+	_enemy.guard_target = noone;
+	enemy_night_hp_scale_apply(_enemy);
+	global.night_attack_unit_count++;
+
+	return _enemy;
+};
+
+boss_griffith_spawn_for_night = function()
+{
+	if (!instance_exists(o_cannon) || !boss_griffith_pending_next_night)
+	{
+		return noone;
+	}
+
+	var _cannon = instance_find(o_cannon, 0);
+	var _spawn_x = _cannon.x + lengthdir_x(BALANCE_NIGHT_ATTACK_SPAWN_DISTANCE, boss_griffith_pending_direction);
+	var _spawn_y = _cannon.y + lengthdir_y(BALANCE_NIGHT_ATTACK_SPAWN_DISTANCE, boss_griffith_pending_direction);
+	var _boss = instance_create_layer(_spawn_x, _spawn_y, "Instances", o_boss_griffith);
+
+	if (!instance_exists(_boss))
+	{
+		return noone;
+	}
+
+	_boss.unit_can_attack_cannon = true;
+	_boss.is_night_attack_unit = true;
+	_boss.owner_garnizon = noone;
+	_boss.guard_target = noone;
+	enemy_night_hp_scale_apply(_boss);
+	global.night_attack_unit_count++;
+
+	for (var _archer_index = 0; _archer_index < BALANCE_BOSS_GRIFFITH_ENTOURAGE_ARCHER_COUNT; ++_archer_index)
+	{
+		boss_griffith_spawn_enemy(
+			_boss.x,
+			_boss.y,
+			o_enemy_archer,
+			BALANCE_BOSS_GRIFFITH_ENTOURAGE_SPAWN_RADIUS_MIN,
+			BALANCE_BOSS_GRIFFITH_ENTOURAGE_SPAWN_RADIUS_MAX
+		);
+	}
+
+	for (var _knight_index = 0; _knight_index < BALANCE_BOSS_GRIFFITH_ENTOURAGE_KNIGHT_COUNT; ++_knight_index)
+	{
+		boss_griffith_spawn_enemy(
+			_boss.x,
+			_boss.y,
+			o_enemy_knight,
+			BALANCE_BOSS_GRIFFITH_ENTOURAGE_SPAWN_RADIUS_MIN,
+			BALANCE_BOSS_GRIFFITH_ENTOURAGE_SPAWN_RADIUS_MAX
+		);
+	}
+
+	boss_griffith_pending_next_night = false;
+	boss_griffith_force_next_night = false;
+
+	return _boss;
+};
+
+crusade_spawn = function(_direction)
+{
+	if (!instance_exists(o_cannon))
+	{
+		return noone;
+	}
+
+	var _cannon = instance_find(o_cannon, 0);
+	var _spawn_x = _cannon.x + lengthdir_x(BALANCE_NIGHT_ATTACK_SPAWN_DISTANCE, _direction);
+	var _spawn_y = _cannon.y + lengthdir_y(BALANCE_NIGHT_ATTACK_SPAWN_DISTANCE, _direction);
+	var _catapult = instance_create_layer(_spawn_x, _spawn_y, "Instances", o_enemy_catapult);
+
+	if (!instance_exists(_catapult))
+	{
+		return noone;
+	}
+
+	_catapult.unit_can_attack_cannon = true;
+	_catapult.is_night_attack_unit = true;
+	_catapult.owner_garnizon = noone;
+	_catapult.guard_target = noone;
+	enemy_night_hp_scale_apply(_catapult);
+	global.night_attack_unit_count++;
+
+	for (var _crusader_index = 0; _crusader_index < BALANCE_ENEMY_CATAPULT_CRUSADE_CRUSADER_COUNT; ++_crusader_index)
+	{
+		var _crusader_angle = 360 * (_crusader_index / max(1, BALANCE_ENEMY_CATAPULT_CRUSADE_CRUSADER_COUNT));
+		var _crusader_x = _catapult.x + lengthdir_x(BALANCE_ENEMY_CATAPULT_CRUSADE_SPAWN_RADIUS, _crusader_angle);
+		var _crusader_y = _catapult.y + lengthdir_y(BALANCE_ENEMY_CATAPULT_CRUSADE_SPAWN_RADIUS, _crusader_angle);
+		var _crusader = instance_create_layer(_crusader_x, _crusader_y, "Instances", o_crusader);
+
+		if (instance_exists(_crusader))
+		{
+			_crusader.catapult_escort_target = _catapult;
+			_crusader.catapult_escort_angle = _crusader_angle;
+			_crusader.unit_can_attack_cannon = false;
+			_crusader.is_night_attack_unit = true;
+			_crusader.owner_garnizon = noone;
+			_crusader.guard_target = noone;
+			enemy_night_hp_scale_apply(_crusader);
+			global.night_attack_unit_count++;
+		}
+	}
+
+	return _catapult;
+};
+
+crusade_corruption_total_get = function()
+{
+	if (!instance_exists(o_corruption_grid))
+	{
+		return 0;
+	}
+
+	var _corruption_grid = instance_find(o_corruption_grid, 0);
+	var _total_corruption = 0;
+
+	for (var _cell_x = 0; _cell_x < _corruption_grid.grid_width; ++_cell_x)
+	{
+		for (var _cell_y = 0; _cell_y < _corruption_grid.grid_height; ++_cell_y)
+		{
+			_total_corruption += ds_grid_get(_corruption_grid.corruption_grid, _cell_x, _cell_y);
+		}
+	}
+
+	return _total_corruption;
+};
+
+crusade_taint_tracking_init = function()
+{
+	if (!instance_exists(o_corruption_grid))
+	{
+		return;
+	}
+
+	var _corruption_total = crusade_corruption_total_get();
+	crusade_taint_threshold_index = floor(_corruption_total / max(1, crusade_taint_trigger_amount));
+	crusade_taint_tracking_initialized = true;
+	crusade_corruption_check_timer = 0;
+};
+
+crusade_taint_threshold_update = function()
+{
+	if (global.pause || global.day_phase != DAY_PHASE.DAY)
+	{
+		return;
+	}
+
+	crusade_corruption_check_timer++;
+
+	if (crusade_corruption_check_timer < crusade_corruption_check_interval)
+	{
+		return;
+	}
+
+	crusade_corruption_check_timer = 0;
+
+	if (!instance_exists(o_corruption_grid))
+	{
+		return;
+	}
+
+	var _corruption_total = crusade_corruption_total_get();
+
+	if (!crusade_taint_tracking_initialized)
+	{
+		crusade_taint_tracking_init();
+		return;
+	}
+
+	var _new_threshold_index = floor(_corruption_total / max(1, crusade_taint_trigger_amount));
+	var _new_crusade_count = max(0, _new_threshold_index - crusade_taint_threshold_index);
+
+	if (_new_crusade_count > 0)
+	{
+		for (var _new_crusade_index = 0; _new_crusade_index < _new_crusade_count; ++_new_crusade_index)
+		{
+			array_push(crusade_pending_directions, random(360));
+		}
+
+		crusade_pending_count = array_length(crusade_pending_directions);
+		crusade_taint_threshold_index = _new_threshold_index;
+	}
+};
+
+crusade_spawn_pending_for_night = function()
+{
+	var _pending_direction_count = array_length(crusade_pending_directions);
+
+	for (var _crusade_index = 0; _crusade_index < _pending_direction_count; ++_crusade_index)
+	{
+		crusade_spawn(crusade_pending_directions[_crusade_index]);
+	}
+
+	crusade_pending_count = 0;
+	crusade_pending_directions = [];
 };
 
 night_attack_spawning_update = function()
@@ -7377,6 +7801,15 @@ start_night_phase = function()
 
 		enemy_night_hp_scale_apply(_existing_enemy);
 	}
+
+	if (boss_griffith_pending_next_night)
+	{
+		boss_griffith_spawn_for_night();
+	}
+	else
+	{
+		crusade_spawn_pending_for_night();
+	}
 };
 
 start_day_phase = function()
@@ -7391,6 +7824,11 @@ start_day_phase = function()
 	night_effect_layers_disable();
 	adaptive_difficulty_evaluate_night();
 	night_attack_night_index++;
+
+	if (!crusade_taint_tracking_initialized)
+	{
+		crusade_taint_tracking_init();
+	}
 
 	fade_out_morning_meat();
 	corpse_decay_at_morning();
@@ -7418,6 +7856,14 @@ start_day_phase = function()
 	with (o_grave_spire)
 	{
 		grave_spire_spawn_morning_units();
+	}
+
+	with (o_tower_corruption)
+	{
+		if (variable_instance_exists(id, "tower_corruption_morning_projectiles_fire"))
+		{
+			tower_corruption_morning_projectiles_fire();
+		}
 	}
 
 	with (o_ihor_extractor)

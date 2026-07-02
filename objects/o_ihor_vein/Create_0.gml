@@ -7,6 +7,10 @@ y_sort_enabled = true;
 assigned_ihor_extractor = noone;
 ihor_capacity = BALANCE_IHOR_VEIN_CAPACITY;
 ihor_remaining = ihor_capacity;
+ihor_taint_destroy_reward = 5; // Ihor gained when a Taint projectile destroys this vein.
+ihor_destroyed_by_taint = false; // Prevents duplicate rewards before instance destruction finishes.
+ihor_destroy_smoke_count = 50;
+ihor_destroy_smoke_radius = 30;
 
 // Depletion bar visual settings.
 bar_width = 54;
@@ -15,9 +19,7 @@ bar_offset_y = 8;
 bar_background_alpha = 0.75;
 
 // Tooltip visual settings.
-var _full_vein_income_text = string(BALANCE_IHOR_EXTRACTOR_FULL_VEIN_MORNING_IHOR);
-var _empty_vein_income_text = string(BALANCE_IHOR_EXTRACTOR_EMPTY_VEIN_MORNING_IHOR);
-tooltip_text = "Ihor Vein\nGives +" + _full_vein_income_text + " Ihor each morning to a nearby Ihor Extractor while it has Ihor.\nA depleted Vein gives +" + _empty_vein_income_text + " Ihor each morning.\nA Vein can feed only one Ihor Extractor.";
+tooltip_text = "Taint destroys this Ihor Vein and gives +" + string(ihor_taint_destroy_reward) + " Ihor.";
 tooltip_width = 360;
 tooltip_padding = 10;
 tooltip_line_height = 18;
@@ -64,4 +66,36 @@ ihor_vein_is_hovered = function()
 		&& _mouse_world_x <= bbox_right
 		&& _mouse_world_y >= bbox_top
 		&& _mouse_world_y <= bbox_bottom;
+};
+
+on_projectile_hit = function(_projectile_type)
+{
+	// Taint projectiles consume Ihor Veins for an immediate Ihor reward.
+	if ((_projectile_type != PROJECTILE_TYPE.FEAST && _projectile_type != PROJECTILE_TYPE.CORRUPTION)
+		|| ihor_destroyed_by_taint)
+	{
+		return;
+	}
+
+	ihor_destroyed_by_taint = true;
+
+	if (variable_global_exists("resources"))
+	{
+		global.resources[RESOURCES.IHOR] += ihor_taint_destroy_reward;
+		resource_popup_create(x, y - tooltip_offset_y, RESOURCES.IHOR, ihor_taint_destroy_reward);
+	}
+
+	// Cover the consumed vein with a dense smoke burst.
+	for (var _smoke_index = 0; _smoke_index < ihor_destroy_smoke_count; ++_smoke_index)
+	{
+		var _smoke_direction = random(360);
+		var _smoke_distance = sqrt(random(1)) * ihor_destroy_smoke_radius;
+		var _smoke_x = x + lengthdir_x(_smoke_distance, _smoke_direction);
+		var _smoke_y = y + lengthdir_y(_smoke_distance, _smoke_direction);
+
+		instance_create_layer(_smoke_x, _smoke_y, "Instances", o_particle_smoke);
+	}
+
+	assigned_ihor_extractor = noone;
+	instance_destroy();
 };

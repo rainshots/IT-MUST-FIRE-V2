@@ -22,6 +22,13 @@ projectile_spawn_offset_y = -20;
 projectile_layer_name = "Instances";
 projectile_effect_radius = BALANCE_PROJECTILE_EFFECT_RADIUS;
 projectile_draw_depth = BALANCE_PARTICLE_SYSTEM_TOP_DEPTH - 50;
+night_volley_projectile_count = BALANCE_HOLY_TOWER_NIGHT_VOLLEY_PROJECTILE_COUNT;
+night_volley_taint_search_radius = BALANCE_HOLY_TOWER_NIGHT_VOLLEY_TAINT_SEARCH_RADIUS;
+night_volley_target_spread_radius = BALANCE_HOLY_TOWER_NIGHT_VOLLEY_TARGET_SPREAD_RADIUS;
+night_volley_launch_time = BALANCE_HOLY_TOWER_NIGHT_VOLLEY_LAUNCH_TIME;
+night_volley_cleanse_radius = BALANCE_HOLY_TOWER_NIGHT_VOLLEY_CLEANSE_RADIUS;
+night_volley_cleanse_amount = BALANCE_HOLY_TOWER_NIGHT_VOLLEY_CLEANSE_AMOUNT;
+night_volley_last_night_index = -1;
 
 // Taint cleanse settings.
 taint_cleanse_radius = BALANCE_HOLY_TOWER_TAINT_CLEANSE_RADIUS;
@@ -295,4 +302,211 @@ holy_tower_projectile_create = function(_target_x, _target_y)
 	_projectile.depth = projectile_draw_depth;
 
 	return _projectile;
+};
+
+holy_tower_cleanse_projectile_create = function(_target_x, _target_y, _launch_delay_seconds = 0)
+{
+	var _projectile_x = x;
+	var _projectile_y = y + projectile_spawn_offset_y;
+	var _projectile = instance_create_layer(_projectile_x, _projectile_y, projectile_layer_name, o_projectile);
+	var _projectile_distance = point_distance(_projectile_x, _projectile_y, _target_x, _target_y);
+	var _flight_time_seconds = clamp(
+		_projectile_distance / _projectile.projectile_speed,
+		_projectile.minimum_flight_time,
+		_projectile.maximum_flight_time
+	);
+
+	_projectile.start_x = _projectile_x;
+	_projectile.start_y = _projectile_y;
+	_projectile.target_x = _target_x;
+	_projectile.target_y = _target_y;
+	_projectile.projectile_type = PROJECTILE_TYPE.CLEANSE;
+	_projectile.effect_radius = night_volley_cleanse_radius;
+	_projectile.cleanse_amount = night_volley_cleanse_amount;
+	_projectile.source_instance = id;
+	_projectile.flight_time = _flight_time_seconds * room_speed;
+	_projectile.launch_delay_timer = _launch_delay_seconds * room_speed;
+	_projectile.depth = projectile_draw_depth;
+
+	return _projectile;
+};
+
+holy_tower_is_revealed_by_fog = function()
+{
+	if (!global.fog_of_war_visible)
+	{
+		return true;
+	}
+
+	if (!instance_exists(o_fog_of_war))
+	{
+		return false;
+	}
+
+	var _fog_of_war = instance_find(o_fog_of_war, 0);
+
+	// Tainted ground is the main player-owned vision source.
+	if (instance_exists(o_corruption_grid))
+	{
+		var _corruption_grid = instance_find(o_corruption_grid, 0);
+		var _taint_reveal_radius = _fog_of_war.reveal_radius_in_cells * _fog_of_war.cell_size;
+
+		if (variable_instance_exists(_corruption_grid, "circle_has_full_corruption")
+			&& _corruption_grid.circle_has_full_corruption(x, y, _taint_reveal_radius))
+		{
+			return true;
+		}
+	}
+
+	// Combat demons reveal a smaller area during the night.
+	if (global.day_phase == DAY_PHASE.NIGHT && _fog_of_war.demon_reveal_radius_in_pixels > 0)
+	{
+		var _friendly_count = instance_number(o_friendly_units);
+
+		for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_index)
+		{
+			var _friendly_unit = instance_find(o_friendly_units, _friendly_index);
+			var _is_visible_demon = instance_exists(_friendly_unit)
+				&& variable_instance_exists(_friendly_unit, "demon_type")
+				&& _friendly_unit.demon_type != DEMON_TYPE.NONE
+				&& (!variable_instance_exists(_friendly_unit, "hp") || _friendly_unit.hp > 0)
+				&& (!variable_instance_exists(_friendly_unit, "is_being_dragged") || !_friendly_unit.is_being_dragged);
+
+			if (_is_visible_demon
+				&& point_distance(x, y, _friendly_unit.x, _friendly_unit.y) <= _fog_of_war.demon_reveal_radius_in_pixels)
+			{
+				return true;
+			}
+		}
+	}
+
+	// Captured vision towers are also player-owned vision.
+	if (instance_exists(o_tower_vision))
+	{
+		var _vision_tower_count = instance_number(o_tower_vision);
+
+		for (var _vision_tower_index = 0; _vision_tower_index < _vision_tower_count; ++_vision_tower_index)
+		{
+			var _vision_tower = instance_find(o_tower_vision, _vision_tower_index);
+			var _tower_radius = BALANCE_TOWER_VISION_RADIUS;
+			var _tower_reveals_fog = instance_exists(_vision_tower)
+				&& variable_instance_exists(_vision_tower, "is_captured")
+				&& _vision_tower.is_captured;
+
+			if (_tower_reveals_fog)
+			{
+				if (variable_instance_exists(_vision_tower, "vision_radius"))
+				{
+					_tower_radius = _vision_tower.vision_radius;
+				}
+
+				if (point_distance(x, y, _vision_tower.x, _vision_tower.y) <= _tower_radius)
+				{
+					return true;
+				}
+			}
+		}
+	}
+
+	return false;
+};
+
+holy_tower_taint_target_find = function()
+{
+	if (!instance_exists(o_corruption_grid))
+	{
+		return noone;
+	}
+
+	var _corruption_grid = instance_find(o_corruption_grid, 0);
+	var _cell_size = _corruption_grid.cell_size;
+	var _left_cell = clamp(floor((x - night_volley_taint_search_radius) / _cell_size), 0, _corruption_grid.grid_width - 1);
+	var _right_cell = clamp(floor((x + night_volley_taint_search_radius) / _cell_size), 0, _corruption_grid.grid_width - 1);
+	var _top_cell = clamp(floor((y - night_volley_taint_search_radius) / _cell_size), 0, _corruption_grid.grid_height - 1);
+	var _bottom_cell = clamp(floor((y + night_volley_taint_search_radius) / _cell_size), 0, _corruption_grid.grid_height - 1);
+	var _targets = [];
+
+	for (var _cell_x = _left_cell; _cell_x <= _right_cell; ++_cell_x)
+	{
+		for (var _cell_y = _top_cell; _cell_y <= _bottom_cell; ++_cell_y)
+		{
+			var _corruption = ds_grid_get(_corruption_grid.corruption_grid, _cell_x, _cell_y);
+
+			if (_corruption <= 0)
+			{
+				continue;
+			}
+
+			var _cell_center_x = (_cell_x * _cell_size) + (_cell_size * 0.5);
+			var _cell_center_y = (_cell_y * _cell_size) + (_cell_size * 0.5);
+
+			if (point_distance(x, y, _cell_center_x, _cell_center_y) <= night_volley_taint_search_radius)
+			{
+				array_push(
+					_targets,
+					{
+						x: _cell_center_x,
+						y: _cell_center_y
+					}
+				);
+			}
+		}
+	}
+
+	if (array_length(_targets) <= 0)
+	{
+		return noone;
+	}
+
+	return _targets[irandom(array_length(_targets) - 1)];
+};
+
+holy_tower_night_volley_update = function()
+{
+	if (global.day_phase != DAY_PHASE.NIGHT)
+	{
+		return;
+	}
+
+	var _night_index = 0;
+
+	if (instance_exists(o_game_controller))
+	{
+		var _game_controller = instance_find(o_game_controller, 0);
+
+		if (variable_instance_exists(_game_controller, "night_attack_night_index"))
+		{
+			_night_index = _game_controller.night_attack_night_index;
+		}
+	}
+
+	if (night_volley_last_night_index == _night_index)
+	{
+		return;
+	}
+
+	night_volley_last_night_index = _night_index;
+
+	if (!holy_tower_is_revealed_by_fog())
+	{
+		return;
+	}
+
+	var _taint_target = holy_tower_taint_target_find();
+
+	if (!is_struct(_taint_target))
+	{
+		return;
+	}
+
+	for (var _projectile_index = 0; _projectile_index < night_volley_projectile_count; ++_projectile_index)
+	{
+		var _spread_direction = random(360);
+		var _spread_distance = sqrt(random(1)) * night_volley_target_spread_radius;
+		var _target_x = _taint_target.x + lengthdir_x(_spread_distance, _spread_direction);
+		var _target_y = _taint_target.y + lengthdir_y(_spread_distance, _spread_direction);
+		var _launch_delay_seconds = random(night_volley_launch_time);
+
+		holy_tower_cleanse_projectile_create(_target_x, _target_y, _launch_delay_seconds);
+	}
 };

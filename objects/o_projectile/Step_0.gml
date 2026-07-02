@@ -70,9 +70,42 @@ if (_flight_progress >= 1)
 	{
 		corrupt_circle(target_x, target_y, effect_radius, ground_corruption_amount);
 	}
+	else if (projectile_type == PROJECTILE_TYPE.CLEANSE)
+	{
+		if (instance_exists(o_corruption_grid))
+		{
+			var _corruption_grid = instance_find(o_corruption_grid, 0);
+			_corruption_grid.cleanse_circle(target_x, target_y, effect_radius, cleanse_amount);
+		}
+	}
 	else if (projectile_type == PROJECTILE_TYPE.FEAST)
 	{
 		corrupt_circle(target_x, target_y, ground_corruption_radius, ground_corruption_amount);
+
+		var _ihor_vein_list = ds_list_create();
+		var _ihor_vein_count = collision_circle_list(
+			target_x,
+			target_y,
+			effect_radius,
+			o_ihor_vein,
+			false,
+			true,
+			_ihor_vein_list,
+			false
+		);
+
+		for (var _ihor_vein_index = 0; _ihor_vein_index < _ihor_vein_count; ++_ihor_vein_index)
+		{
+			var _ihor_vein = _ihor_vein_list[| _ihor_vein_index];
+
+			if (instance_exists(_ihor_vein)
+				&& variable_instance_exists(_ihor_vein, "on_projectile_hit"))
+			{
+				_ihor_vein.on_projectile_hit(projectile_type);
+			}
+		}
+
+		ds_list_destroy(_ihor_vein_list);
 
 		var _enemy_list = ds_list_create();
 		var _enemy_count = collision_circle_list(
@@ -330,7 +363,8 @@ if (_flight_progress >= 1)
 		&& projectile_type != PROJECTILE_TYPE.HEAL
 		&& projectile_type != PROJECTILE_TYPE.BOMB
 		&& projectile_type != PROJECTILE_TYPE.SKELETONS
-		&& projectile_type != PROJECTILE_TYPE.BUILDING_SHELL)
+		&& projectile_type != PROJECTILE_TYPE.BUILDING_SHELL
+		&& projectile_type != PROJECTILE_TYPE.CLEANSE)
 	{
 		with (all)
 		{

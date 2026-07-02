@@ -122,6 +122,173 @@ if ((global.day_phase == DAY_PHASE.DAY || _night_warning_active)
 		}
 	}
 
+	if (global.day_phase == DAY_PHASE.DAY
+		&& variable_instance_exists(id, "crusade_pending_directions")
+		&& array_length(crusade_pending_directions) > 0)
+	{
+		var _crusade_direction_count = array_length(crusade_pending_directions);
+		var _crusade_enemy_objects = [o_enemy_catapult, o_crusader];
+		var _crusade_enemy_count = array_length(_crusade_enemy_objects);
+
+		for (var _crusade_direction_index = 0; _crusade_direction_index < _crusade_direction_count; ++_crusade_direction_index)
+		{
+			var _crusade_direction = crusade_pending_directions[_crusade_direction_index];
+			var _crusade_warning_distance = BALANCE_NIGHT_ATTACK_WARNING_DISTANCE;
+			var _crusade_outer_world_x = _cannon.x + lengthdir_x(_crusade_warning_distance, _crusade_direction);
+			var _crusade_outer_world_y = _cannon.y + lengthdir_y(_crusade_warning_distance, _crusade_direction);
+			var _crusade_inner_world_x = _crusade_outer_world_x + lengthdir_x(BALANCE_NIGHT_ATTACK_WARNING_ARROW_LENGTH, _crusade_direction + 180);
+			var _crusade_inner_world_y = _crusade_outer_world_y + lengthdir_y(BALANCE_NIGHT_ATTACK_WARNING_ARROW_LENGTH, _crusade_direction + 180);
+			var _crusade_inner_x = ((_crusade_inner_world_x - _camera_x) / _camera_width) * camera_view_width;
+			var _crusade_inner_y = ((_crusade_inner_world_y - _camera_y) / _camera_height) * camera_view_height;
+			var _crusade_arrow_angle = _crusade_direction + 180;
+			var _crusade_arrow_sprite_width = max(1, sprite_get_width(s_attack_arrow));
+			var _crusade_arrow_scale = BALANCE_NIGHT_ATTACK_WARNING_ARROW_LENGTH / _crusade_arrow_sprite_width;
+			var _crusade_arrow_y_scale = _crusade_arrow_scale * 0.55;
+			var _crusade_unit_start_offset = -((_crusade_enemy_count - 1) * BALANCE_NIGHT_ATTACK_WARNING_UNIT_GAP) * 0.5;
+
+			draw_sprite_ext(
+				s_attack_arrow,
+				0,
+				_crusade_inner_x,
+				_crusade_inner_y,
+				_crusade_arrow_scale,
+				_crusade_arrow_y_scale,
+				_crusade_arrow_angle,
+				COLOR_STATUS_NEGATIVE_RED,
+				0.95
+			);
+
+			for (var _crusade_enemy_index = 0; _crusade_enemy_index < _crusade_enemy_count; ++_crusade_enemy_index)
+			{
+				var _crusade_enemy_object = _crusade_enemy_objects[_crusade_enemy_index];
+				var _crusade_enemy_sprite = object_get_sprite(_crusade_enemy_object);
+				var _crusade_unit_side_offset = _crusade_unit_start_offset + (_crusade_enemy_index * BALANCE_NIGHT_ATTACK_WARNING_UNIT_GAP);
+				var _crusade_unit_world_x = _crusade_outer_world_x + lengthdir_x(_crusade_unit_side_offset, _crusade_direction + 90);
+				var _crusade_unit_world_y = _crusade_outer_world_y + lengthdir_y(_crusade_unit_side_offset, _crusade_direction + 90);
+				var _crusade_unit_x = ((_crusade_unit_world_x - _camera_x) / _camera_width) * camera_view_width;
+				var _crusade_unit_y = ((_crusade_unit_world_y - _camera_y) / _camera_height) * camera_view_height;
+				var _crusade_distance_to_icon = point_distance(_mouse_gui_x, _mouse_gui_y, _crusade_unit_x, _crusade_unit_y);
+
+				draw_set_alpha(1);
+				draw_set_color(COLOR_ATTACK_WARNING_UNIT_BACKGROUND);
+				draw_circle(_crusade_unit_x, _crusade_unit_y, BALANCE_NIGHT_ATTACK_WARNING_UNIT_CIRCLE_RADIUS, false);
+				draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+				draw_circle(_crusade_unit_x, _crusade_unit_y, BALANCE_NIGHT_ATTACK_WARNING_UNIT_CIRCLE_RADIUS, true);
+
+				if (_crusade_enemy_sprite != -1)
+				{
+					var _crusade_sprite_width = sprite_get_width(_crusade_enemy_sprite);
+					var _crusade_sprite_height = sprite_get_height(_crusade_enemy_sprite);
+					var _crusade_sprite_size = max(_crusade_sprite_width, _crusade_sprite_height);
+					var _crusade_sprite_scale = (BALANCE_NIGHT_ATTACK_WARNING_UNIT_CIRCLE_RADIUS * 1.45) / max(1, _crusade_sprite_size);
+					var _crusade_sprite_frame = (current_time div 160) mod max(1, sprite_get_number(_crusade_enemy_sprite));
+					var _crusade_sprite_draw_x = _crusade_unit_x + ((sprite_get_xoffset(_crusade_enemy_sprite) - (_crusade_sprite_width * 0.5)) * _crusade_sprite_scale);
+					var _crusade_sprite_draw_y = _crusade_unit_y + ((sprite_get_yoffset(_crusade_enemy_sprite) - (_crusade_sprite_height * 0.5)) * _crusade_sprite_scale);
+
+					draw_sprite_ext(
+						_crusade_enemy_sprite,
+						_crusade_sprite_frame,
+						_crusade_sprite_draw_x,
+						_crusade_sprite_draw_y,
+						_crusade_sprite_scale,
+						_crusade_sprite_scale,
+						0,
+						c_white,
+						1
+					);
+				}
+
+				if (_crusade_distance_to_icon <= BALANCE_NIGHT_ATTACK_WARNING_UNIT_CIRCLE_RADIUS
+					&& _crusade_distance_to_icon <= _warning_hover_distance)
+				{
+					_warning_hover_enemy_object = _crusade_enemy_object;
+					_warning_hover_distance = _crusade_distance_to_icon;
+				}
+			}
+		}
+	}
+
+	if (global.day_phase == DAY_PHASE.DAY
+		&& variable_instance_exists(id, "boss_griffith_pending_next_night")
+		&& boss_griffith_pending_next_night)
+	{
+		var _boss_direction = boss_griffith_pending_direction;
+		var _boss_enemy_objects = [o_boss_griffith, o_enemy_archer, o_enemy_knight];
+		var _boss_enemy_count = array_length(_boss_enemy_objects);
+		var _boss_warning_distance = BALANCE_NIGHT_ATTACK_WARNING_DISTANCE * 1.08;
+		var _boss_outer_world_x = _cannon.x + lengthdir_x(_boss_warning_distance, _boss_direction);
+		var _boss_outer_world_y = _cannon.y + lengthdir_y(_boss_warning_distance, _boss_direction);
+		var _boss_inner_world_x = _boss_outer_world_x + lengthdir_x(BALANCE_NIGHT_ATTACK_WARNING_ARROW_LENGTH, _boss_direction + 180);
+		var _boss_inner_world_y = _boss_outer_world_y + lengthdir_y(BALANCE_NIGHT_ATTACK_WARNING_ARROW_LENGTH, _boss_direction + 180);
+		var _boss_inner_x = ((_boss_inner_world_x - _camera_x) / _camera_width) * camera_view_width;
+		var _boss_inner_y = ((_boss_inner_world_y - _camera_y) / _camera_height) * camera_view_height;
+		var _boss_arrow_angle = _boss_direction + 180;
+		var _boss_arrow_sprite_width = max(1, sprite_get_width(s_attack_arrow));
+		var _boss_arrow_scale = BALANCE_NIGHT_ATTACK_WARNING_ARROW_LENGTH / _boss_arrow_sprite_width;
+		var _boss_arrow_y_scale = _boss_arrow_scale * 0.55;
+		var _boss_unit_start_offset = -((_boss_enemy_count - 1) * BALANCE_NIGHT_ATTACK_WARNING_UNIT_GAP) * 0.5;
+
+		draw_sprite_ext(
+			s_attack_arrow,
+			0,
+			_boss_inner_x,
+			_boss_inner_y,
+			_boss_arrow_scale,
+			_boss_arrow_y_scale,
+			_boss_arrow_angle,
+			COLOR_STATUS_NEGATIVE_RED,
+			0.95
+		);
+
+		for (var _boss_enemy_index = 0; _boss_enemy_index < _boss_enemy_count; ++_boss_enemy_index)
+		{
+			var _boss_enemy_object = _boss_enemy_objects[_boss_enemy_index];
+			var _boss_enemy_sprite = object_get_sprite(_boss_enemy_object);
+			var _boss_unit_side_offset = _boss_unit_start_offset + (_boss_enemy_index * BALANCE_NIGHT_ATTACK_WARNING_UNIT_GAP);
+			var _boss_unit_world_x = _boss_outer_world_x + lengthdir_x(_boss_unit_side_offset, _boss_direction + 90);
+			var _boss_unit_world_y = _boss_outer_world_y + lengthdir_y(_boss_unit_side_offset, _boss_direction + 90);
+			var _boss_unit_x = ((_boss_unit_world_x - _camera_x) / _camera_width) * camera_view_width;
+			var _boss_unit_y = ((_boss_unit_world_y - _camera_y) / _camera_height) * camera_view_height;
+			var _boss_distance_to_icon = point_distance(_mouse_gui_x, _mouse_gui_y, _boss_unit_x, _boss_unit_y);
+
+			draw_set_alpha(1);
+			draw_set_color(COLOR_ATTACK_WARNING_UNIT_BACKGROUND);
+			draw_circle(_boss_unit_x, _boss_unit_y, BALANCE_NIGHT_ATTACK_WARNING_UNIT_CIRCLE_RADIUS, false);
+			draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+			draw_circle(_boss_unit_x, _boss_unit_y, BALANCE_NIGHT_ATTACK_WARNING_UNIT_CIRCLE_RADIUS, true);
+
+			if (_boss_enemy_sprite != -1)
+			{
+				var _boss_sprite_width = sprite_get_width(_boss_enemy_sprite);
+				var _boss_sprite_height = sprite_get_height(_boss_enemy_sprite);
+				var _boss_sprite_size = max(_boss_sprite_width, _boss_sprite_height);
+				var _boss_sprite_scale = (BALANCE_NIGHT_ATTACK_WARNING_UNIT_CIRCLE_RADIUS * 1.45) / max(1, _boss_sprite_size);
+				var _boss_sprite_frame = (current_time div 160) mod max(1, sprite_get_number(_boss_enemy_sprite));
+				var _boss_sprite_draw_x = _boss_unit_x + ((sprite_get_xoffset(_boss_enemy_sprite) - (_boss_sprite_width * 0.5)) * _boss_sprite_scale);
+				var _boss_sprite_draw_y = _boss_unit_y + ((sprite_get_yoffset(_boss_enemy_sprite) - (_boss_sprite_height * 0.5)) * _boss_sprite_scale);
+
+				draw_sprite_ext(
+					_boss_enemy_sprite,
+					_boss_sprite_frame,
+					_boss_sprite_draw_x,
+					_boss_sprite_draw_y,
+					_boss_sprite_scale,
+					_boss_sprite_scale,
+					0,
+					c_white,
+					1
+				);
+			}
+
+			if (_boss_distance_to_icon <= BALANCE_NIGHT_ATTACK_WARNING_UNIT_CIRCLE_RADIUS
+				&& _boss_distance_to_icon <= _warning_hover_distance)
+			{
+				_warning_hover_enemy_object = _boss_enemy_object;
+				_warning_hover_distance = _boss_distance_to_icon;
+			}
+		}
+	}
+
 	if (_warning_hover_enemy_object != noone)
 	{
 		var _card_width = 260;
@@ -3323,6 +3490,10 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 		{
 			_unit_name = "Mage";
 		}
+		else if (_hovered_unit.object_index == o_boss_griffith)
+		{
+			_unit_name = "Griffith";
+		}
 
 		draw_set_halign(fa_left);
 		draw_set_valign(fa_top);
@@ -3593,19 +3764,22 @@ if (variable_global_exists("cultists") && instance_exists(o_camera_controller))
 
 		var _demon_gui_x = ((_cultist.x - _camera_x) / _camera_width) * camera_view_width;
 		var _demon_gui_y = ((_cultist.y - _demon_bar_offset_y - _camera_y) / _camera_height) * camera_view_height;
-		var _bar_x = _demon_gui_x - (_demon_bar_width * 0.5);
+		var _health_bar_width = health_bar_width_get(_demon_bar_width, _cultist.max_hp);
+		var _bar_x = _demon_gui_x - (_health_bar_width * 0.5);
 		var _bar_y = _demon_gui_y;
 		var _hp_progress = clamp(_cultist.hp / _cultist.max_hp, 0, 1);
 
 		draw_set_alpha(0.9);
 		draw_set_color(c_black);
-		draw_rectangle(_bar_x, _bar_y, _bar_x + _demon_bar_width, _bar_y + _demon_bar_height, false);
+		draw_rectangle(_bar_x, _bar_y, _bar_x + _health_bar_width, _bar_y + _demon_bar_height, false);
 
 		draw_set_alpha(1);
 		draw_set_color(COLOR_HEALTH_BAR);
-		draw_rectangle(_bar_x, _bar_y, _bar_x + (_demon_bar_width * _hp_progress), _bar_y + _demon_bar_height, false);
+		draw_rectangle(_bar_x, _bar_y, _bar_x + (_health_bar_width * _hp_progress), _bar_y + _demon_bar_height, false);
+		draw_set_color(c_black);
+		health_bar_segments_draw(_bar_x, _bar_y, _health_bar_width, _demon_bar_height, _cultist.max_hp);
 		draw_set_color(c_white);
-		draw_rectangle(_bar_x, _bar_y, _bar_x + _demon_bar_width, _bar_y + _demon_bar_height, true);
+		draw_rectangle(_bar_x, _bar_y, _bar_x + _health_bar_width, _bar_y + _demon_bar_height, true);
 
 		// Draw active ability cooldowns directly under the demon health bar.
 		var _cooldown_timers = [];
@@ -3696,21 +3870,21 @@ if (variable_global_exists("cultists") && instance_exists(o_camera_controller))
 
 			draw_set_alpha(0.88);
 			draw_set_color(c_black);
-			draw_rectangle(_bar_x, _cooldown_y, _bar_x + _demon_bar_width, _cooldown_y + _cooldown_bar_height, false);
+			draw_rectangle(_bar_x, _cooldown_y, _bar_x + _health_bar_width, _cooldown_y + _cooldown_bar_height, false);
 
 			draw_set_alpha(1);
 			draw_set_color(_cooldown_colors[_cooldown_index]);
 			draw_rectangle(
 				_bar_x,
 				_cooldown_y,
-				_bar_x + (_demon_bar_width * _cooldown_progress),
+				_bar_x + (_health_bar_width * _cooldown_progress),
 				_cooldown_y + _cooldown_bar_height,
 				false
 			);
 
 			draw_set_alpha(0.95);
 			draw_set_color(c_white);
-			draw_rectangle(_bar_x, _cooldown_y, _bar_x + _demon_bar_width, _cooldown_y + _cooldown_bar_height, true);
+			draw_rectangle(_bar_x, _cooldown_y, _bar_x + _health_bar_width, _cooldown_y + _cooldown_bar_height, true);
 		}
 	}
 

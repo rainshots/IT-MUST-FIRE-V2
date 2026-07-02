@@ -398,6 +398,38 @@ cursed_point_structure_selection_close = function()
 	global.focus_window = FOCUS_WINDOW.NOONE;
 };
 
+cursed_point_deactivate = function()
+{
+	if (structure_selection_open)
+	{
+		cursed_point_structure_selection_close();
+	}
+
+	is_captured = false;
+	corruption = 0;
+	summon_button_hovered = false;
+	summon_button_hover_key = "";
+	structure_choice_options = [];
+	structure_choice_options_rolled = false;
+
+	if (uncaptured_sprite_index != noone)
+	{
+		sprite_index = uncaptured_sprite_index;
+		image_index = 0;
+		image_speed = 0;
+	}
+};
+
+cursed_point_ground_state_update = function()
+{
+	corruption = ground_cell_corruption_get(x, y) * max_corruption;
+
+	if (is_captured && corruption <= 0)
+	{
+		cursed_point_deactivate();
+	}
+};
+
 cursed_point_structure_choice_rect_get = function(_choice_index)
 {
 	var _gui_size = cursed_point_gui_size_get();

@@ -1,3 +1,6 @@
+// Cleansed ground makes the point inactive even if the selection window is open.
+cursed_point_ground_state_update();
+
 // Handle an already opened structure choice even while gameplay is paused.
 if (structure_selection_open)
 {

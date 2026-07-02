@@ -64,12 +64,11 @@ if (_regular_hud_is_visible)
 		draw_text(_text_x, _text_y, string(_value));
 	}
 
-	// Draw day phase and shrine objective inside the right HUD sidebar.
+	// Draw day phase inside the right HUD sidebar.
 	if (variable_global_exists("day_phase"))
 	{
 		var _current_day = 1;
 		var _day_progress = 0;
-		var _shrine_required = BALANCE_SHRINE_OBJECTIVE_REQUIRED;
 
 		if (instance_exists(o_game_controller))
 		{
@@ -78,11 +77,6 @@ if (_regular_hud_is_visible)
 			if (variable_instance_exists(_game_controller, "night_attack_night_index"))
 			{
 				_current_day = max(1, _game_controller.night_attack_night_index);
-			}
-
-			if (variable_instance_exists(_game_controller, "shrine_objective_required"))
-			{
-				_shrine_required = _game_controller.shrine_objective_required;
 			}
 		}
 
@@ -107,21 +101,12 @@ if (_regular_hud_is_visible)
 		var _day_bar_y = day_phase_bar_y * _sidebar_scale;
 		var _day_bar_width = day_phase_bar_width * _sidebar_scale;
 		var _day_bar_height = day_phase_bar_height * _sidebar_scale;
-		var _objective_text_x = _sidebar_x + (_sidebar_width * 0.5);
-		var _objective_text_y = day_phase_objective_y * _sidebar_scale;
 
 		draw_set_halign(fa_center);
 		draw_set_valign(fa_top);
 		draw_set_alpha(1);
 		draw_set_color(COLOR_HUD_TEXT);
 		draw_text(_day_text_x, _day_text_y, "DAY " + string(_current_day));
-
-		var _objective_label = "TAINT AT LEAST " + string(_shrine_required) + " SHRINE";
-
-		if (_shrine_required != 1)
-		{
-			_objective_label = "TAINT AT LEAST " + string(_shrine_required) + " SHRINES";
-		}
 
 		draw_set_alpha(0.8);
 		draw_set_color(c_black);
@@ -130,9 +115,73 @@ if (_regular_hud_is_visible)
 		draw_set_alpha(1);
 		draw_set_color(COLOR_HUD_DAY_PROGRESS);
 		draw_rectangle(_day_bar_x, _day_bar_y, _day_bar_x + (_day_bar_width * _day_progress), _day_bar_y + _day_bar_height, false);
+	}
 
+	// Draw player unit counts immediately left of the right sidebar.
+	var _unit_counter_count = array_length(unit_counter_unit_objects);
+	var _unit_counter_width = unit_counter_width * _sidebar_scale;
+	var _unit_counter_row_height = unit_counter_row_height * _sidebar_scale;
+	var _unit_counter_padding = unit_counter_padding * _sidebar_scale;
+	var _unit_counter_row_gap = unit_counter_row_gap * _sidebar_scale;
+	var _unit_counter_icon_size = unit_counter_icon_size * _sidebar_scale;
+	var _unit_counter_height = (_unit_counter_padding * 2)
+		+ (_unit_counter_row_height * _unit_counter_count)
+		+ (_unit_counter_row_gap * max(0, _unit_counter_count - 1));
+	var _unit_counter_x = _sidebar_x - _unit_counter_width - (unit_counter_gap_right * _sidebar_scale);
+	var _unit_counter_y = unit_counter_y * _sidebar_scale;
+
+	draw_set_alpha(unit_counter_background_alpha);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_rectangle(
+		_unit_counter_x,
+		_unit_counter_y,
+		_unit_counter_x + _unit_counter_width,
+		_unit_counter_y + _unit_counter_height,
+		false
+	);
+
+	for (var _unit_counter_index = 0; _unit_counter_index < _unit_counter_count; ++_unit_counter_index)
+	{
+		var _unit_object = unit_counter_unit_objects[_unit_counter_index];
+		var _unit_sprite = unit_counter_unit_sprites[_unit_counter_index];
+		var _unit_count = instance_number(_unit_object);
+		var _unit_alpha = _unit_count > 0 ? 1 : unit_counter_empty_alpha;
+		var _row_x = _unit_counter_x + _unit_counter_padding;
+		var _row_y = _unit_counter_y + _unit_counter_padding
+			+ ((_unit_counter_row_height + _unit_counter_row_gap) * _unit_counter_index);
+		var _row_width = _unit_counter_width - (_unit_counter_padding * 2);
+		var _icon_x = _row_x + (_unit_counter_icon_size * 0.5) + (4 * _sidebar_scale);
+		var _icon_y = _row_y + (_unit_counter_row_height * 0.5);
+		var _count_x = _row_x + _row_width - (8 * _sidebar_scale);
+
+		draw_set_alpha(unit_counter_row_alpha * _unit_alpha);
+		draw_set_color(c_black);
+		draw_rectangle(_row_x, _row_y, _row_x + _row_width, _row_y + _unit_counter_row_height, false);
+
+		draw_set_alpha(_unit_alpha);
+		if (sprite_exists(_unit_sprite))
+		{
+			draw_sprite_stretched_ext(
+				_unit_sprite,
+				0,
+				_icon_x - (_unit_counter_icon_size * 0.5),
+				_icon_y - (_unit_counter_icon_size * 0.5),
+				_unit_counter_icon_size,
+				_unit_counter_icon_size,
+				c_white,
+				_unit_alpha
+			);
+		}
+		else
+		{
+			draw_set_color(COLOR_HUD_TEXT);
+			draw_circle(_icon_x, _icon_y, _unit_counter_icon_size * 0.34, false);
+		}
+
+		draw_set_halign(fa_right);
+		draw_set_valign(fa_middle);
 		draw_set_color(COLOR_HUD_TEXT);
-		draw_text(_objective_text_x, _objective_text_y, _objective_label);
+		draw_text(_count_x, _icon_y, string(_unit_count));
 	}
 
 	// Draw compact cultist status cards while gameplay is unobstructed.
@@ -331,6 +380,64 @@ if (_regular_hud_is_visible)
 				_cultist_status_bar_x + _cultist_card_bar_width + _cultist_card_label_gap,
 				_cultist_status_bar_y,
 				_bar_labels[_bar_index]
+			);
+		}
+		}
+	}
+
+	// Warn the player when accumulated Taint will trigger Crusades next night.
+	if (variable_global_exists("day_phase")
+		&& global.day_phase == DAY_PHASE.DAY
+		&& instance_exists(o_game_controller))
+	{
+		var _crusade_game_controller = instance_find(o_game_controller, 0);
+		var _crusade_pending_count = 0;
+
+		if (variable_instance_exists(_crusade_game_controller, "crusade_pending_count"))
+		{
+			_crusade_pending_count = _crusade_game_controller.crusade_pending_count;
+		}
+
+		if (_crusade_pending_count > 0)
+		{
+			var _crusade_warning_text = "CRUSADE NEXT NIGHT";
+
+			if (_crusade_pending_count > 1)
+			{
+				_crusade_warning_text = string(_crusade_pending_count) + " CRUSADES NEXT NIGHT";
+			}
+
+			var _crusade_warning_text_scale = crusade_warning_scale * _sidebar_scale;
+			var _crusade_warning_x = _sidebar_x + (_sidebar_width * 0.5);
+			var _crusade_warning_y = crusade_warning_y * _sidebar_scale;
+			var _crusade_warning_width = (string_width(_crusade_warning_text) * _crusade_warning_text_scale)
+				+ (crusade_warning_padding_x * 2 * _sidebar_scale);
+			var _crusade_warning_height = (string_height(_crusade_warning_text) * _crusade_warning_text_scale)
+				+ (crusade_warning_padding_y * 2 * _sidebar_scale);
+			var _crusade_warning_left = _crusade_warning_x - (_crusade_warning_width * 0.5);
+			var _crusade_warning_top = _crusade_warning_y - (_crusade_warning_height * 0.5);
+
+			draw_set_alpha(crusade_warning_background_alpha);
+			draw_set_color(c_black);
+			draw_rectangle(
+				_crusade_warning_left,
+				_crusade_warning_top,
+				_crusade_warning_left + _crusade_warning_width,
+				_crusade_warning_top + _crusade_warning_height,
+				false
+			);
+
+			draw_set_alpha(1);
+			draw_set_halign(fa_center);
+			draw_set_valign(fa_middle);
+			draw_set_color(COLOR_HUD_TEXT);
+			draw_text_transformed(
+				_crusade_warning_x,
+				_crusade_warning_y,
+				_crusade_warning_text,
+				_crusade_warning_text_scale,
+				_crusade_warning_text_scale,
+				0
 			);
 		}
 	}
@@ -672,6 +779,38 @@ if (instance_exists(o_cannon))
 			);
 		}
 	}
+
+	// Draw the total tainted ground counter below the minimap.
+	var _taint_counter_y = _minimap_bottom + (corruption_minimap_offset_y * _minimap_scale);
+	var _taint_counter_text = corruption_display_name
+		+ " "
+		+ string_format(corruption_display_value, 0, corruption_display_decimals)
+		+ " / "
+		+ string_format(corruption_display_percent, 0, 1)
+		+ "%";
+
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_top);
+	draw_set_alpha(1);
+	draw_set_color(c_black);
+	draw_text_transformed(
+		_minimap_center_x + (2 * _minimap_scale),
+		_taint_counter_y + (2 * _minimap_scale),
+		_taint_counter_text,
+		corruption_minimap_label_scale * _minimap_scale,
+		corruption_minimap_label_scale * _minimap_scale,
+		0
+	);
+
+	draw_set_color(corruption_display_color);
+	draw_text_transformed(
+		_minimap_center_x,
+		_taint_counter_y,
+		_taint_counter_text,
+		corruption_minimap_label_scale * _minimap_scale,
+		corruption_minimap_label_scale * _minimap_scale,
+		0
+	);
 }
 
 // Draw unobtrusive control hints while no modal window is open.
@@ -972,7 +1111,7 @@ if (instance_exists(o_cannon))
 		var _gui_width = display_get_gui_width();
 		var _gui_height = display_get_gui_height();
 		var _hp_progress = clamp(_cannon.hp / max(1, _cannon.max_hp), 0, 1);
-		var _bar_width = _gui_width * cannon_hp_bar_width_share;
+		var _bar_width = health_bar_width_get(_gui_width * cannon_hp_bar_width_share, _cannon.max_hp);
 		var _fill_height = max(1, _gui_height * cannon_hp_fill_height_share);
 		var _background_height = max(1, _gui_height * cannon_hp_background_height_share);
 		var _fill_x = (_gui_width - _bar_width) * 0.5;
@@ -990,6 +1129,8 @@ if (instance_exists(o_cannon))
 		draw_set_alpha(1);
 		draw_set_color(COLOR_CANNON_HP_BAR);
 		draw_rectangle(_fill_x, _fill_y, _fill_x + (_bar_width * _hp_progress), _fill_y + _fill_height, false);
+		draw_set_color(c_black);
+		health_bar_segments_draw(_fill_x, _fill_y, _bar_width, _fill_height, _cannon.max_hp);
 
 		draw_set_color(c_white);
 		if (variable_global_exists("ui_heading_font") && font_exists(global.ui_heading_font))
@@ -1004,8 +1145,6 @@ if (instance_exists(o_cannon))
 			draw_set_font(global.ui_font);
 		}
 	}
-}
-
 }
 
 // Draw the first-night cultist projectile prompt until the player fires it.

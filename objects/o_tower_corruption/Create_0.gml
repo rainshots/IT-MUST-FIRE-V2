@@ -9,14 +9,11 @@ captured_sprite_index = s_corruption_tower;
 sprite_index = uncaptured_sprite_index;
 image_speed = 0;
 
-// Corruption tower gradually infects nearby ground after capture.
+// Corruption tower infects nearby ground each morning after capture.
 base_effect_radius = BALANCE_TOWER_CORRUPTION_SPREAD_RADIUS;
 effect_radius = base_effect_radius;
-spread_update_interval = BALANCE_TOWER_CORRUPTION_SPREAD_UPDATE_INTERVAL;
-spread_update_timer = irandom(spread_update_interval - 1);
-fire_duration = BALANCE_TOWER_CORRUPTION_FIRE_DURATION * room_speed;
-fire_timer = 0;
-fire_finished = false;
+morning_projectile_count = BALANCE_TOWER_CORRUPTION_MORNING_PROJECTILE_COUNT;
+morning_launch_time = BALANCE_TOWER_CORRUPTION_MORNING_LAUNCH_TIME;
 projectile_spawn_offset_y = -20;
 projectile_layer_name = "Instances";
 projectile_effect_radius = BALANCE_TOWER_CORRUPTION_PROJECTILE_EFFECT_RADIUS;
@@ -25,7 +22,7 @@ projectile_draw_depth = BALANCE_PARTICLE_SYSTEM_TOP_DEPTH - 50;
 
 // Tooltip lines describe captured tower behavior.
 tooltip_lines = [
-	"Captured: spreads Taint in a 600px radius",
+	"Spreads Taint every morning.",
 	"Capture: requires full Taint under the tower",
 	"Hover: shows effect radius"
 ];
@@ -44,7 +41,7 @@ map_building_upgrade_effect_apply = function(_upgrade_index)
 	effect_radius = base_effect_radius * (1 + (building_upgrade_levels[0] * BALANCE_TOWER_CORRUPTION_RADIUS_UPGRADE_BONUS));
 };
 
-tower_corruption_projectile_create = function(_target_x, _target_y, _corruption_amount)
+tower_corruption_projectile_create = function(_target_x, _target_y, _corruption_amount, _launch_delay_seconds = 0)
 {
 	var _projectile_x = x;
 	var _projectile_y = y + projectile_spawn_offset_y;
@@ -64,8 +61,28 @@ tower_corruption_projectile_create = function(_target_x, _target_y, _corruption_
 	_projectile.effect_radius = projectile_effect_radius;
 	_projectile.ground_corruption_amount = _corruption_amount;
 	_projectile.source_instance = id;
+	_projectile.launch_delay_timer = _launch_delay_seconds * room_speed;
 	_projectile.flight_time = _flight_time_seconds * room_speed;
 	_projectile.depth = projectile_draw_depth;
 
 	return _projectile;
+};
+
+tower_corruption_morning_projectiles_fire = function()
+{
+	if (!is_captured || !instance_exists(o_corruption_grid))
+	{
+		return;
+	}
+
+	for (var _projectile_index = 0; _projectile_index < morning_projectile_count; ++_projectile_index)
+	{
+		var _target_direction = random(360);
+		var _target_distance = sqrt(random(1)) * effect_radius;
+		var _target_x = x + lengthdir_x(_target_distance, _target_direction);
+		var _target_y = y + lengthdir_y(_target_distance, _target_direction);
+		var _launch_delay_seconds = random(morning_launch_time);
+
+		tower_corruption_projectile_create(_target_x, _target_y, projectile_corruption_amount, _launch_delay_seconds);
+	}
 };

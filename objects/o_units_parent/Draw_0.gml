@@ -251,12 +251,12 @@ var _is_day_garrison_unit = global.day_phase == DAY_PHASE.DAY
 	&& variable_instance_exists(id, "settlement_garrison_unit")
 	&& settlement_garrison_unit;
 var _should_draw_health_bar = !_is_demon_bar_drawn_by_controller
-	&& !(unit_faction == UNIT_FACTION.ENEMY && _hp_progress >= 1)
 	&& !(_is_day_garrison_unit && _hp_progress >= 1);
 
 if (_should_draw_health_bar)
 {
-	var _bar_x = x - (bar_width * 0.5);
+	var _health_bar_width = health_bar_width_get(bar_width, max_hp);
+	var _bar_x = x - (_health_bar_width * 0.5);
 	var _bar_y = y - bar_offset_y;
 	var _health_bar_color = COLOR_HEALTH_BAR;
 
@@ -267,11 +267,13 @@ if (_should_draw_health_bar)
 
 	draw_set_alpha(0.75);
 	draw_set_color(c_black);
-	draw_rectangle(_bar_x, _bar_y, _bar_x + bar_width, _bar_y + bar_height, false);
+	draw_rectangle(_bar_x, _bar_y, _bar_x + _health_bar_width, _bar_y + bar_height, false);
 
 	draw_set_alpha(1);
 	draw_set_color(_health_bar_color);
-	draw_rectangle(_bar_x, _bar_y, _bar_x + (bar_width * _hp_progress), _bar_y + bar_height, false);
+	draw_rectangle(_bar_x, _bar_y, _bar_x + (_health_bar_width * _hp_progress), _bar_y + bar_height, false);
+	draw_set_color(c_black);
+	health_bar_segments_draw(_bar_x, _bar_y, _health_bar_width, bar_height, max_hp);
 
 	var _status_bar_gap = 2;
 
@@ -290,11 +292,11 @@ if (_should_draw_health_bar)
 
 		draw_set_alpha(0.75);
 		draw_set_color(c_black);
-		draw_rectangle(_bar_x, _whip_bar_y, _bar_x + bar_width, _whip_bar_y + _whip_bar_height, false);
+		draw_rectangle(_bar_x, _whip_bar_y, _bar_x + _health_bar_width, _whip_bar_y + _whip_bar_height, false);
 
 		draw_set_alpha(1);
 		draw_set_color(COLOR_CULTIST_FERVOR);
-		draw_rectangle(_bar_x, _whip_bar_y, _bar_x + (bar_width * _whip_progress), _whip_bar_y + _whip_bar_height, false);
+		draw_rectangle(_bar_x, _whip_bar_y, _bar_x + (_health_bar_width * _whip_progress), _whip_bar_y + _whip_bar_height, false);
 	}
 }
 

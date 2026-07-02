@@ -37,6 +37,10 @@ else if (projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
 {
 	_projectile_color = COLOR_PROJECTILE_BUILDING_SHELL;
 }
+else if (projectile_type == PROJECTILE_TYPE.CLEANSE)
+{
+	_projectile_color = COLOR_PROJECTILE_CLEANSE;
+}
 
 // Draw a round projectile.
 var _draw_radius = projectile_radius * projectile_visual_scale;

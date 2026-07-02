@@ -128,7 +128,7 @@ if (_assigned_worker_count > 0)
 	}
 }
 
-// Remind the player to assign corpse haulers when Taint Shell fuel is waiting.
+// Remind the player to assign corpse haulers when Taint fuel is waiting.
 if (cannon_should_show_hauler_prompt())
 {
 	var _shake_interval = max(0.01, hauler_prompt_shake_interval) * 1000;

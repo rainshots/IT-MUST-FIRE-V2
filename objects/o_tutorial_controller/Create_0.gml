@@ -30,7 +30,7 @@ tutorial_items = [
 	{
 		id: "welcome",
 		title: "Welcome",
-		body: "Greetings, Great Pontiff! This is the prototype of IT MUST FIRE. You lead a cult that worships a possessed cannon with a demon sealed inside.\n\nYour goal: taint 1 shrine while keeping your settlement walls from falling."
+		body: "Greetings, Great Pontiff! This is the prototype of IT MUST FIRE. You lead a cult that worships a possessed cannon with a demon sealed inside.\n\nYour goal: destroy 2 Shrines while keeping your settlement walls from falling."
 	},
 	{
 		id: "construction_start",
@@ -65,7 +65,7 @@ tutorial_items = [
 	{
 		id: "cannon_workers",
 		title: "Cannon Workers",
-		body: "The cannon is hungry! Assign workers directly to the cannon so they carry corpses into it. Later, this will give you Taint Shells at night, letting you spread Taint over much more ground."
+		body: "The cannon is hungry! Assign workers directly to the cannon so they carry corpses into it. Later, this will give you Taint at night, letting you spread Taint over much more ground."
 	},
 	{
 		id: "stamina",
@@ -90,7 +90,7 @@ tutorial_items = [
 	{
 		id: "infection",
 		title: "Taint",
-		body: "In addition to cultist shells, the cannon can gain Taint Shells. A Taint Shell deals heavy damage and spreads Taint over a large area.\n\nTo gain Taint Shells, the cannon needs corpses left after battles. Assign workers directly to the cannon to gather them."
+		body: "In addition to cultist shells, the cannon can gain Taint. Taint deals heavy damage and spreads Taint over a large area.\n\nTo gain Taint, the cannon needs corpses left after battles. Assign workers directly to the cannon to gather them."
 	},
 	{
 		id: "cursed_buildings",

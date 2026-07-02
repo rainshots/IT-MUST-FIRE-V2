@@ -11,6 +11,7 @@ if (is_destroyed)
 }
 
 holy_tower_reinforcement_thresholds_update();
+holy_tower_night_volley_update();
 
 // Holy towers gradually cleanse taint instead of creating protected ground.
 taint_cleanse_update_timer++;
