@@ -26,8 +26,22 @@ if (variable_instance_exists(id, "summon_nights_remaining"))
 
 		draw_rectangle(_square_x, _square_y, _square_x + _square_size, _square_y + _square_size, false);
 	}
+
+	// Last-day goblins get a quiet warning without competing with combat UI.
+	if (summon_nights_remaining == 1)
+	{
+		var _warning_y = _square_y + death_warning_offset_y;
+
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_middle);
+		draw_set_alpha(death_warning_alpha);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text_transformed(x, _warning_y, death_warning_text, death_warning_text_scale, death_warning_text_scale, 0);
+	}
 }
 
 // Restore default draw state.
+draw_set_halign(fa_left);
+draw_set_valign(fa_top);
 draw_set_color(c_white);
 draw_set_alpha(1);

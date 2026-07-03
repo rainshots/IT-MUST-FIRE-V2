@@ -121,6 +121,9 @@ if (hp <= 0)
 	exit;
 }
 
+// Holy ground slowly restores enemy units standing on it.
+enemy_saint_ground_heal_update();
+
 // Stunned units stay vulnerable but cannot move, attack, or progress timers.
 if (is_stunned)
 {
@@ -276,7 +279,7 @@ else if (!_special_behavior_handled && _should_search_target && _is_enemy_unit)
 
 	if (!instance_exists(target_instance))
 	{
-		target_instance = find_nearest_target(o_friendly_units, target_detection_radius);
+		target_instance = find_nearest_player_unit_target(target_detection_radius);
 	}
 
 	if (!instance_exists(target_instance) && !unit_can_attack_cannon && instance_exists(guard_target))
@@ -372,6 +375,20 @@ if (!_special_behavior_handled && instance_exists(target_instance) && !target_ca
 	target_instance = noone;
 }
 
+// Enemies should only keep attacking the wall while no player units are visible.
+if (!_special_behavior_handled
+	&& _is_enemy_unit
+	&& instance_exists(target_instance)
+	&& target_instance.object_index == o_cannon)
+{
+	var _visible_friendly_target = find_nearest_player_unit_target(target_detection_radius);
+
+	if (instance_exists(_visible_friendly_target))
+	{
+		target_instance = _visible_friendly_target;
+	}
+}
+
 // Move to target or attack it when close enough.
 if (!_special_behavior_handled && instance_exists(target_instance))
 {
@@ -390,7 +407,7 @@ if (!_special_behavior_handled && instance_exists(target_instance))
 	}
 	else if (_is_enemy_unit && target_instance.object_index == o_cannon)
 	{
-		_current_attack_radius = BALANCE_UNIT_CANNON_ATTACK_RADIUS;
+		_current_attack_radius = cannon_wall_attack_radius_get();
 	}
 
 	_use_attack_ring = attack_ring_should_use(target_instance, _current_attack_radius);

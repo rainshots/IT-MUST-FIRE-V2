@@ -70,7 +70,10 @@ if (_valid_worker_count <= 0)
 recalculate_production_speed_multiplier();
 
 // Resource building upgrades add free secondary work at a fraction of specialist buildings.
-if (array_length(building_upgrade_flags) > 1 && building_upgrade_flags[1])
+if (production_secondary_effect_upgrade_index != noone
+	&& production_secondary_effect_upgrade_index >= 0
+	&& production_secondary_effect_upgrade_index < array_length(building_upgrade_flags)
+	&& building_upgrade_flags[production_secondary_effect_upgrade_index])
 {
 	if (object_index == o_slaughter_table)
 	{
@@ -164,6 +167,7 @@ if (object_index == o_meat_bath)
 	else if (meat_bath_heal_pool <= 0)
 	{
 		building_missing_resource_show(RESOURCES.FLESH, BALANCE_MEAT_BATH_FLESH_COST);
+		building_workers_release();
 	}
 
 	if (meat_bath_heal_pool <= 0)
@@ -373,6 +377,7 @@ if (object_index == o_workshop)
 	else if (workshop_repair_pool <= 0)
 	{
 		building_missing_resource_show(RESOURCES.IRON, BALANCE_WORKSHOP_IRON_COST);
+		building_workers_release();
 	}
 
 	if (workshop_repair_pool <= 0)
@@ -404,6 +409,7 @@ if (object_index == o_shell_factory)
 	else if (!shell_factory_has_paid_cost)
 	{
 		building_missing_resource_show(RESOURCES.IRON, BALANCE_SHELL_FACTORY_IRON_COST);
+		building_workers_release();
 		exit;
 	}
 
@@ -480,6 +486,7 @@ if (summon_unit_object != noone)
 		if (_missing_cost != noone)
 		{
 			building_missing_resource_show(_missing_cost.resource, _missing_cost.cost);
+			building_workers_release();
 		}
 
 		exit;
@@ -565,6 +572,27 @@ if (production_daily_limit > 0 && production_daily_remaining <= 0)
 {
 	production_progress = 0;
 	building_warning_show("DAILY LIMIT", COLOR_STATUS_NEGATIVE_RED);
+	building_workers_release();
+	exit;
+}
+
+var _resource_capacity = infinity;
+
+if (instance_exists(o_game_controller))
+{
+	var _resource_game_controller = instance_find(o_game_controller, 0);
+
+	if (variable_instance_exists(_resource_game_controller, "resource_capacity_get"))
+	{
+		_resource_capacity = _resource_game_controller.resource_capacity_get(production_resource);
+	}
+}
+
+if (_resource_capacity <= 0)
+{
+	production_progress = 0;
+	building_warning_show("STORAGE FULL", COLOR_STATUS_NEGATIVE_RED);
+	building_workers_release();
 	exit;
 }
 
@@ -580,12 +608,40 @@ if (production_progress >= 1)
 	if (production_daily_limit > 0)
 	{
 		_produced_amount = min(_produced_amount, production_daily_remaining);
-		production_daily_remaining = max(0, production_daily_remaining - _produced_amount);
 	}
+
+	_produced_amount = min(_produced_amount, _resource_capacity);
 
 	if (_produced_amount > 0)
 	{
-		global.resources[production_resource] += _produced_amount;
-		resource_popup_create(x, y - production_bar_offset_y, production_resource, _produced_amount);
+		var _added_amount = _produced_amount;
+
+		if (instance_exists(o_game_controller))
+		{
+			var _add_game_controller = instance_find(o_game_controller, 0);
+
+			if (variable_instance_exists(_add_game_controller, "resource_add"))
+			{
+				_added_amount = _add_game_controller.resource_add(production_resource, _produced_amount);
+			}
+			else
+			{
+				global.resources[production_resource] += _produced_amount;
+			}
+		}
+		else
+		{
+			global.resources[production_resource] += _produced_amount;
+		}
+
+		if (production_daily_limit > 0)
+		{
+			production_daily_remaining = max(0, production_daily_remaining - _added_amount);
+		}
+
+		if (_added_amount > 0)
+		{
+			resource_popup_create(x, y - production_bar_offset_y, production_resource, _added_amount);
+		}
 	}
 }

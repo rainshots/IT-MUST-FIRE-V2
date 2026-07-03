@@ -172,6 +172,41 @@ house_guard_create = function()
 	return _unit;
 };
 
+house_destroyed_guard_create = function()
+{
+	var _spawn_direction = random(360);
+	var _spawn_distance = random(house_spawn_radius);
+	var _spawn_x = x + lengthdir_x(_spawn_distance, _spawn_direction);
+	var _spawn_y = y + lengthdir_y(_spawn_distance, _spawn_direction);
+	var _unit = instance_create_layer(_spawn_x, _spawn_y, "Instances", house_unit_object);
+
+	if (!instance_exists(_unit))
+	{
+		return noone;
+	}
+
+	// These guards have no house to return to, so the next morning cleans them up.
+	_unit.owner_house = noone;
+	_unit.guard_target = noone;
+	_unit.unit_can_attack_cannon = false;
+	_unit.is_night_attack_unit = true;
+	_unit.ignored_for_night_end = false;
+	_unit.destroyed_house_unit = true;
+	_unit.owner_garnizon = noone;
+
+	return _unit;
+};
+
+house_destroyed_guards_spawn = function()
+{
+	var _spawn_count = floor(floor(house_unit_limit) / 2);
+
+	for (var _spawn_index = 0; _spawn_index < _spawn_count; ++_spawn_index)
+	{
+		house_destroyed_guard_create();
+	}
+};
+
 house_guard_call_for_help = function(_attacked_unit, _attacker)
 {
 	if (!instance_exists(_attacked_unit) || !instance_exists(_attacker))
@@ -310,7 +345,10 @@ house_combat_spawn_update = function()
 		return;
 	}
 
-	house_alive_unit_count++;
+	var _unit_limit = floor(house_unit_limit);
+	var _missing_count = max(0, _unit_limit - house_alive_unit_count);
+	var _combat_spawn_count = max(1, floor(_unit_limit / BALANCE_HOUSE_COMBAT_SPAWN_LIMIT_PER_UNIT));
+	house_alive_unit_count += min(_combat_spawn_count, _missing_count);
 
 	if (house_was_visible)
 	{
@@ -351,6 +389,7 @@ house_destroy = function()
 
 	house_saint_source_unregister();
 	house_guards_destroy();
+	house_destroyed_guards_spawn();
 	is_destroyed = true;
 	hp = 0;
 	instance_destroy();

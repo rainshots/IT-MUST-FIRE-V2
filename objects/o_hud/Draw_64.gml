@@ -38,12 +38,18 @@ if (_regular_hud_is_visible)
 	{
 		var _resource = resource_order[_resource_index];
 		var _value = global.resources[_resource];
+		var _value_text = string(_value);
 		var _icon_x = _sidebar_x + ((resource_sidebar_first_icon_offset_x + (resource_sidebar_item_gap * _resource_index)) * _sidebar_scale);
 		var _icon_y = resource_sidebar_y * _sidebar_scale;
 		var _icon_sprite = resource_icon_sprites[_resource];
 		var _icon_size = resource_sidebar_icon_size * _sidebar_scale;
 		var _text_x = _icon_x + (resource_sidebar_value_offset_x * _sidebar_scale);
 		var _text_y = _icon_y;
+
+		if (_resource != RESOURCES.IHOR)
+		{
+			_value_text += "/" + string(BALANCE_PLAYER_RESOURCE_MAX);
+		}
 
 		// Draw resource icon, falling back to a color dot if the sprite is unavailable.
 		draw_set_alpha(1);
@@ -61,7 +67,7 @@ if (_regular_hud_is_visible)
 		}
 
 		draw_set_color(COLOR_HUD_TEXT);
-		draw_text(_text_x, _text_y, string(_value));
+		draw_text(_text_x, _text_y, _value_text);
 	}
 
 	// Draw day phase inside the right HUD sidebar.
@@ -498,72 +504,6 @@ if (instance_exists(o_cannon))
 		}
 
 		draw_set_alpha(1);
-	}
-
-	// Draw objective shrines as fixed landmarks.
-	var _shrine_count = instance_number(o_shrine);
-	var _shrine_size = minimap_shrine_size * _minimap_scale;
-	var _shrine_half_size = _shrine_size * 0.5;
-	var _shrine_outline_size = minimap_shrine_outline_size * _minimap_scale;
-	var _shrine_half_outline_size = _shrine_outline_size * 0.5;
-
-	for (var _shrine_index = 0; _shrine_index < _shrine_count; ++_shrine_index)
-	{
-		var _shrine = instance_find(o_shrine, _shrine_index);
-
-		if (!instance_exists(_shrine))
-		{
-			continue;
-		}
-
-		var _shrine_map_x = _minimap_center_x + ((_shrine.x - _world_center_x) * _world_to_minimap_scale);
-		var _shrine_map_y = _minimap_center_y + ((_shrine.y - _world_center_y) * _world_to_minimap_scale);
-
-		_shrine_map_x = clamp(_shrine_map_x, _minimap_x + _shrine_half_outline_size, _minimap_right - _shrine_half_outline_size);
-		_shrine_map_y = clamp(_shrine_map_y, _minimap_y + _shrine_half_outline_size, _minimap_bottom - _shrine_half_outline_size);
-
-		var _shrine_sprite = s_shrine_normal;
-		var _shrine_color = c_white;
-
-		if (variable_instance_exists(_shrine, "is_corrupted") && _shrine.is_corrupted)
-		{
-			_shrine_sprite = s_shrine_cursed;
-			_shrine_color = COLOR_HUD_MINIMAP_TAINT;
-		}
-
-		draw_set_alpha(0.88);
-		draw_set_color(c_black);
-		draw_rectangle(
-			_shrine_map_x - _shrine_half_outline_size,
-			_shrine_map_y - _shrine_half_outline_size,
-			_shrine_map_x + _shrine_half_outline_size,
-			_shrine_map_y + _shrine_half_outline_size,
-			false
-		);
-
-		draw_set_alpha(1);
-
-		if (sprite_exists(_shrine_sprite))
-		{
-			draw_sprite_stretched_ext(
-				_shrine_sprite,
-				0,
-				_shrine_map_x - _shrine_half_size,
-				_shrine_map_y - _shrine_half_size,
-				_shrine_size,
-				_shrine_size,
-				_shrine_color,
-				1
-			);
-		}
-		else
-		{
-			draw_set_color(_shrine_color);
-			draw_line_width(_shrine_map_x, _shrine_map_y - _shrine_half_size, _shrine_map_x + _shrine_half_size, _shrine_map_y, 2);
-			draw_line_width(_shrine_map_x + _shrine_half_size, _shrine_map_y, _shrine_map_x, _shrine_map_y + _shrine_half_size, 2);
-			draw_line_width(_shrine_map_x, _shrine_map_y + _shrine_half_size, _shrine_map_x - _shrine_half_size, _shrine_map_y, 2);
-			draw_line_width(_shrine_map_x - _shrine_half_size, _shrine_map_y, _shrine_map_x, _shrine_map_y - _shrine_half_size, 2);
-		}
 	}
 
 	// Draw enemy units as red tactical markers.
@@ -1154,7 +1094,9 @@ if (instance_exists(o_cannon))
 		var _bar_width = health_bar_width_get(_gui_width * cannon_hp_bar_width_share, _cannon.max_hp);
 		var _fill_height = max(1, _gui_height * cannon_hp_fill_height_share);
 		var _background_height = max(1, _gui_height * cannon_hp_background_height_share);
-		var _fill_x = (_gui_width - _bar_width) * 0.5;
+		var _sidebar_scale = clamp(_gui_height / 1080, 0.6, 1);
+		var _sidebar_x = _gui_width - (hud_sidebar_width * _sidebar_scale);
+		var _fill_x = max(hud_margin_x, min((_gui_width - _bar_width) * 0.5, _sidebar_x - _bar_width - (cannon_hp_sidebar_gap * _sidebar_scale)));
 		var _fill_y = _gui_height - (_gui_height * cannon_hp_bottom_margin_share) - _fill_height;
 		var _background_y = _fill_y + (_gui_height * cannon_hp_background_offset_share);
 		var _label_x = _fill_x + (_bar_width * 0.5);
@@ -1197,13 +1139,13 @@ if ((_regular_hud_is_visible || _projectile_queue_stays_visible)
 	var _full_moon_bar_width = full_moon_timer_width;
 	var _full_moon_bar_height = full_moon_timer_height;
 	var _full_moon_bar_x = (_full_moon_gui_width - _full_moon_bar_width) * 0.5;
-	var _full_moon_bar_y = _full_moon_gui_height - full_moon_timer_bottom;
 	var _full_moon_duration_frames = max(1, BALANCE_FULL_MOON_NIGHT_DURATION * (variable_global_exists("game_speed_normal") ? global.game_speed_normal : room_speed));
 	var _full_moon_progress = clamp(global.day_timer / _full_moon_duration_frames, 0, 1);
 	var _retreat_button_width = full_moon_retreat_button_width;
 	var _retreat_button_height = full_moon_retreat_button_height;
 	var _retreat_button_x = (_full_moon_gui_width - _retreat_button_width) * 0.5;
 	var _retreat_button_y = _full_moon_gui_height - full_moon_retreat_button_bottom - _retreat_button_height;
+	var _full_moon_bar_y = _retreat_button_y + _retreat_button_height + full_moon_timer_button_gap;
 	var _retreat_mouse_x = device_mouse_x_to_gui(0);
 	var _retreat_mouse_y = device_mouse_y_to_gui(0);
 	var _retreat_is_hovered = _retreat_mouse_x >= _retreat_button_x

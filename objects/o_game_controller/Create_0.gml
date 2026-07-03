@@ -1018,6 +1018,37 @@ global.resources[RESOURCES.SOULS] = BALANCE_STARTING_SOULS;
 global.resources[RESOURCES.IRON] = BALANCE_STARTING_IRON;
 global.resources[RESOURCES.IHOR] = BALANCE_STARTING_IHOR;
 
+resource_max_get = function(_resource)
+{
+	if (_resource == RESOURCES.IHOR)
+	{
+		return infinity;
+	}
+
+	return BALANCE_PLAYER_RESOURCE_MAX;
+};
+
+resource_capacity_get = function(_resource)
+{
+	return max(0, resource_max_get(_resource) - global.resources[_resource]);
+};
+
+resource_add = function(_resource, _amount)
+{
+	var _amount_to_add = min(_amount, resource_capacity_get(_resource));
+	global.resources[_resource] += _amount_to_add;
+
+	return _amount_to_add;
+};
+
+resources_clamp_to_max = function()
+{
+	for (var _resource = 0; _resource < RESOURCES.COUNT; ++_resource)
+	{
+		global.resources[_resource] = min(global.resources[_resource], resource_max_get(_resource));
+	}
+};
+
 player_building_ground_state_update = function()
 {
 	player_building_ground_check_timer++;
@@ -2410,6 +2441,7 @@ cultist_reward_days = [
 next_cultist_reward_index = 0;
 cultists_spawned = false;
 starting_cultist_selection_pending = false;
+starting_goblins_bound_to_first_pit = false;
 cultist_selection_index = 0;
 cultist_selected_demon_type = DEMON_TYPE.IMP;
 cultist_selected_starting_ability = DEMON_ABILITY.IMP_DEMON_LEAP;
@@ -3553,6 +3585,12 @@ building_resource_summary_draw = function(_center_x, _y)
 	{
 		var _resource = _resource_order[_resource_index];
 		var _resource_value_text = string(global.resources[_resource]);
+
+		if (_resource != RESOURCES.IHOR)
+		{
+			_resource_value_text += "/" + string(resource_max_get(_resource));
+		}
+
 		var _item_width = _icon_size + _icon_text_gap + string_width(_resource_value_text);
 
 		_item_widths[_resource_index] = _item_width;
@@ -3576,6 +3614,12 @@ building_resource_summary_draw = function(_center_x, _y)
 		var _resource_icon = resource_icon_get(_resource);
 		var _resource_color = resource_color_get(_resource);
 		var _resource_value_text = string(global.resources[_resource]);
+
+		if (_resource != RESOURCES.IHOR)
+		{
+			_resource_value_text += "/" + string(resource_max_get(_resource));
+		}
+
 		var _icon_y = _y - (_icon_size * 0.5);
 
 		if (_resource_icon != noone && sprite_exists(_resource_icon))
@@ -3662,13 +3706,13 @@ building_choice_requirement_text_get = function(_choice)
 	if (_choice.building_object == o_goblins_pit
 		&& _limit_max < BALANCE_BUILDING_GOBLINS_PIT_LIMIT)
 	{
-		return "Settlement\nExpansion Required";
+		return "Build limit reached.\nBuy Settlement Expansion\nin the possessed cannon\nto expand the cultist settlement.";
 	}
 
 	if (building_choice_uses_expansion_limit(_choice)
 		&& _limit_max < BALANCE_BUILDING_RESOURCE_LIMIT_AFTER_EXPANSION)
 	{
-		return "Settlement\nExpansion Required";
+		return "Build limit reached.\nBuy Settlement Expansion\nin the possessed cannon\nto expand the cultist settlement.";
 	}
 
 	return "";
@@ -3754,6 +3798,43 @@ building_choice_costs_pay = function(_choice, _popup_x, _popup_y)
 	}
 };
 
+starting_goblins_bind_to_first_pit = function(_goblins_pit)
+{
+	if (starting_goblins_bound_to_first_pit || !instance_exists(_goblins_pit))
+	{
+		return;
+	}
+
+	var _bound_count = 0;
+	var _target_count = min(2, starting_goblin_count);
+	var _goblin_count = instance_number(o_goblin);
+
+	for (var _goblin_index = 0; _goblin_index < _goblin_count; ++_goblin_index)
+	{
+		if (_bound_count >= _target_count)
+		{
+			break;
+		}
+
+		var _goblin = instance_find(o_goblin, _goblin_index);
+
+		if (!instance_exists(_goblin)
+			|| !variable_instance_exists(_goblin, "owner_goblins_pit")
+			|| instance_exists(_goblin.owner_goblins_pit)
+			|| (variable_instance_exists(_goblin, "hp") && _goblin.hp <= 0))
+		{
+			continue;
+		}
+
+		_goblin.owner_goblins_pit = _goblins_pit;
+		_goblin.home_offset_x = _goblin.x - _goblins_pit.x;
+		_goblin.home_offset_y = _goblin.y - _goblins_pit.y;
+		_bound_count++;
+	}
+
+	starting_goblins_bound_to_first_pit = true;
+};
+
 construct_building_from_choice = function(_choice)
 {
 	if (instance_exists(building_window_foundry))
@@ -3811,9 +3892,15 @@ construct_building_from_choice = function(_choice)
 			_built_object.garrison_morning_spawn_units();
 		}
 
-		if (variable_instance_exists(_built_object, "shell_factory_morning_projectiles_add"))
+		if (_built_object.object_index == o_shell_factory
+			&& variable_instance_exists(_built_object, "shell_factory_morning_projectiles_add"))
 		{
 			_built_object.shell_factory_morning_projectiles_add();
+		}
+
+		if (_built_object.object_index == o_goblins_pit)
+		{
+			starting_goblins_bind_to_first_pit(_built_object);
 		}
 	}
 
@@ -5986,6 +6073,23 @@ settlement_garrison_units_destroy_at_morning = function()
 	}
 };
 
+destroyed_house_units_destroy_at_morning = function()
+{
+	var _enemy_count = instance_number(o_enemy_units);
+
+	for (var _enemy_index = _enemy_count - 1; _enemy_index >= 0; --_enemy_index)
+	{
+		var _enemy = instance_find(o_enemy_units, _enemy_index);
+
+		if (instance_exists(_enemy)
+			&& variable_instance_exists(_enemy, "destroyed_house_unit")
+			&& _enemy.destroyed_house_unit)
+		{
+			instance_destroy(_enemy);
+		}
+	}
+};
+
 settlement_garrison_buildings_spawn_morning_units = function()
 {
 	with (o_v13buildings_parent)
@@ -7920,6 +8024,7 @@ start_day_phase = function()
 	corpse_decay_at_morning();
 	update_summoned_unit_night_life();
 	settlement_garrison_units_destroy_at_morning();
+	destroyed_house_units_destroy_at_morning();
 
 	cultist_projectile_deploy_assignments_reset();
 	unload_cultist_projectiles_to_day();

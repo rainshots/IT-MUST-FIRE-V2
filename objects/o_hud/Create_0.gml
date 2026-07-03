@@ -21,6 +21,7 @@ cannon_hp_fill_height_share = 0.0236;
 cannon_hp_background_height_share = 0.01205;
 cannon_hp_bottom_margin_share = 0.0185;
 cannon_hp_background_offset_share = 0.006;
+cannon_hp_sidebar_gap = 16;
 cannon_hp_label = "CANNON HP";
 cannon_hp_label_scale = 0.5;
 
@@ -49,9 +50,10 @@ night_panel_visible_count = 11;
 full_moon_timer_width = 360;
 full_moon_timer_height = 18;
 full_moon_timer_bottom = 174;
+full_moon_timer_button_gap = 10;
 full_moon_retreat_button_width = 190;
 full_moon_retreat_button_height = 46;
-full_moon_retreat_button_bottom = 72;
+full_moon_retreat_button_bottom = 218;
 
 // Crusade warning appears during the day when Taint has triggered next-night raids.
 crusade_warning_y = 632;
@@ -190,8 +192,6 @@ minimap_cultist_height = 36;
 minimap_cultist_bar_width = 19;
 minimap_cultist_bar_height = 7;
 minimap_cultist_bar_gap = 2;
-minimap_shrine_size = 24;
-minimap_shrine_outline_size = 30;
 minimap_view_alpha = 0.2;
 minimap_view_border_width = 4;
 minimap_view_min_size = 10;
@@ -275,6 +275,16 @@ minimap_ground_cache_update = function()
 	var _top_cell = clamp(floor((_cannon.y - minimap_world_radius) / _corruption_cell_size), 0, _corruption_grid_object.grid_height - 1);
 	var _bottom_cell = clamp(floor((_cannon.y + minimap_world_radius) / _corruption_cell_size), 0, _corruption_grid_object.grid_height - 1);
 	var _has_saint_grid = variable_instance_exists(_corruption_grid_object, "saint_grid");
+	var _fog_of_war = noone;
+	var _filter_saint_by_fog = variable_global_exists("fog_of_war_visible")
+		&& global.fog_of_war_visible
+		&& instance_exists(o_fog_of_war);
+
+	if (_filter_saint_by_fog)
+	{
+		_fog_of_war = instance_find(o_fog_of_war, 0);
+		_filter_saint_by_fog = variable_instance_exists(_fog_of_war, "fog_cell_is_seen");
+	}
 
 	for (var _cell_x = _left_cell; _cell_x <= _right_cell; ++_cell_x)
 	{
@@ -286,6 +296,18 @@ minimap_ground_cache_update = function()
 			if (_has_saint_grid)
 			{
 				_saint = ds_grid_get(_corruption_grid_object.saint_grid, _cell_x, _cell_y);
+			}
+
+			// Saint ground should not reveal enemy influence through unexplored fog.
+			if (_saint > 0 && _filter_saint_by_fog)
+			{
+				var _cell_center_x = (_cell_x * _corruption_cell_size) + (_corruption_cell_size * 0.5);
+				var _cell_center_y = (_cell_y * _corruption_cell_size) + (_corruption_cell_size * 0.5);
+
+				if (!_fog_of_war.fog_cell_is_seen(_cell_center_x, _cell_center_y))
+				{
+					continue;
+				}
 			}
 
 			if (_saint <= 0 && _corruption < _corruption_grid_object.minimum_draw_corruption)

@@ -5,6 +5,7 @@ if (global.pause)
 }
 
 fog_taint_reveal_cache_scan_update();
+fog_starting_taint_reveal_cache_update();
 
 update_timer++;
 
@@ -102,22 +103,6 @@ if (instance_exists(o_tower_vision))
 			{
 				fog_circle_reveal(_tower_cell_x, _tower_cell_y, _tower_radius_in_cells);
 			}
-		}
-	}
-}
-
-// Objective shrines reveal a small area around themselves as fixed landmarks.
-if (shrine_reveal_radius > 0 && instance_exists(o_shrine))
-{
-	var _shrine_count = instance_number(o_shrine);
-
-	for (var _shrine_index = 0; _shrine_index < _shrine_count; ++_shrine_index)
-	{
-		var _shrine = instance_find(o_shrine, _shrine_index);
-
-		if (instance_exists(_shrine))
-		{
-			fog_world_circle_reveal(_shrine.x, _shrine.y, shrine_reveal_radius);
 		}
 	}
 }

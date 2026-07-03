@@ -1,4 +1,6 @@
 // Keep game surfaces aligned before any tutorial popup can block gameplay input.
+resources_clamp_to_max();
+
 var _window_width = window_get_width();
 var _window_height = window_get_height();
 
@@ -690,10 +692,10 @@ if (global.cheats_enabled)
 	// F2 adds prototype resources for fast construction testing.
 	if (keyboard_check_pressed(vk_f2))
 	{
-		global.resources[RESOURCES.FLESH] += BALANCE_DEBUG_RESOURCE_CHEAT_AMOUNT;
-		global.resources[RESOURCES.SOULS] += BALANCE_DEBUG_RESOURCE_CHEAT_AMOUNT;
-		global.resources[RESOURCES.IRON] += BALANCE_DEBUG_RESOURCE_CHEAT_AMOUNT;
-		global.resources[RESOURCES.IHOR] += BALANCE_DEBUG_RESOURCE_CHEAT_AMOUNT;
+		resource_add(RESOURCES.FLESH, BALANCE_DEBUG_RESOURCE_CHEAT_AMOUNT);
+		resource_add(RESOURCES.SOULS, BALANCE_DEBUG_RESOURCE_CHEAT_AMOUNT);
+		resource_add(RESOURCES.IRON, BALANCE_DEBUG_RESOURCE_CHEAT_AMOUNT);
+		resource_add(RESOURCES.IHOR, BALANCE_DEBUG_RESOURCE_CHEAT_AMOUNT);
 	}
 
 	// F8 skips the current day or night phase.
@@ -783,7 +785,7 @@ if (!global.pause
 	var _retreat_mouse_y = device_mouse_y_to_gui(0);
 	var _retreat_button_width = 190;
 	var _retreat_button_height = 46;
-	var _retreat_button_bottom = 72;
+	var _retreat_button_bottom = 218;
 
 	if (instance_exists(o_hud))
 	{

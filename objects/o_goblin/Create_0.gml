@@ -24,6 +24,10 @@ home_offset_y = 0;
 bar_offset_y = -2;
 summon_nights_remaining = irandom_range(BALANCE_GOBLIN_DAY_LIFE_MIN, BALANCE_GOBLIN_DAY_LIFE_MAX);
 summon_life_label = "Days left";
+death_warning_text = "Will die tomorrow";
+death_warning_alpha = 0.55;
+death_warning_offset_y = 18;
+death_warning_text_scale = 0.55;
 
 // Worker buildings read this fixed multiplier.
 worker_speed_multiplier = BALANCE_GOBLIN_WORK_SPEED_MULTIPLIER;

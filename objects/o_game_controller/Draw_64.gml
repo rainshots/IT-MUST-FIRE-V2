@@ -3597,8 +3597,8 @@ if (player_pause_active && global.focus_window == FOCUS_WINDOW.NOONE)
 	var _pause_margin = 10;
 	var _pause_label_width = 144;
 	var _pause_label_height = 34;
-	var _pause_label_x = (camera_view_width - _pause_label_width) * 0.5;
-	var _pause_label_y = 14;
+	var _pause_label_x = 24;
+	var _pause_label_y = 64;
 
 	draw_set_halign(fa_center);
 	draw_set_valign(fa_middle);

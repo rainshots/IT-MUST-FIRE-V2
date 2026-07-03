@@ -21,7 +21,6 @@ reveal_radius_in_cells = BALANCE_FOG_REVEAL_RADIUS_IN_CELLS;
 demon_reveal_radius_in_pixels = BALANCE_DEMON_FOG_REVEAL_RADIUS_IN_PIXELS;
 demon_reveal_radius_in_cells = ceil(demon_reveal_radius_in_pixels / cell_size);
 enemy_tower_reveal_radius = BALANCE_ENEMY_TOWER_FOG_REVEAL_RADIUS;
-shrine_reveal_radius = BALANCE_SHRINE_FOG_REVEAL_RADIUS;
 neighbor_offset_min = -1;
 neighbor_offset_max = 1;
 
@@ -41,6 +40,9 @@ taint_reveal_pending_cell_xs = [];
 taint_reveal_pending_cell_ys = [];
 revealed_cell_xs = [];
 revealed_cell_ys = [];
+
+// Starting Taint is cached immediately so the first visible area does not wait for the full-map scanner.
+starting_taint_reveal_cache_ready = false;
 
 fog_cell_reveal = function(_cell_x, _cell_y)
 {
@@ -183,4 +185,65 @@ fog_taint_reveal_cache_scan_update = function()
 			taint_scan_cell_index = 0;
 		}
 	}
+};
+
+// Cache only the cannon's starting Taint area before the slower background scanner reaches it.
+fog_starting_taint_reveal_cache_update = function()
+{
+	if (starting_taint_reveal_cache_ready
+		|| !instance_exists(o_cannon)
+		|| !instance_exists(o_corruption_grid))
+	{
+		return;
+	}
+
+	var _cannon = instance_find(o_cannon, 0);
+	var _corruption_grid_object = instance_find(o_corruption_grid, 0);
+	var _start_radius = BALANCE_CANNON_STARTING_CORRUPTION_RADIUS_IN_CELLS * cell_size;
+
+	if (variable_instance_exists(_cannon, "starting_corruption_radius"))
+	{
+		_start_radius = _cannon.starting_corruption_radius;
+	}
+
+	var _safe_radius = max(_start_radius, 1);
+	var _center_cell_x = clamp(floor(_cannon.x / cell_size), 0, grid_width - 1);
+	var _center_cell_y = clamp(floor(_cannon.y / cell_size), 0, grid_height - 1);
+	var _left_cell = clamp(floor((_cannon.x - _safe_radius) / cell_size), 0, grid_width - 1);
+	var _right_cell = clamp(floor((_cannon.x + _safe_radius) / cell_size), 0, grid_width - 1);
+	var _top_cell = clamp(floor((_cannon.y - _safe_radius) / cell_size), 0, grid_height - 1);
+	var _bottom_cell = clamp(floor((_cannon.y + _safe_radius) / cell_size), 0, grid_height - 1);
+	var _sample_step = max(1, taint_reveal_sample_step);
+	var _has_saint_grid = variable_instance_exists(_corruption_grid_object, "saint_grid");
+
+	for (var _cell_x = _left_cell; _cell_x <= _right_cell; ++_cell_x)
+	{
+		for (var _cell_y = _top_cell; _cell_y <= _bottom_cell; ++_cell_y)
+		{
+			var _is_center_cell = (_cell_x == _center_cell_x && _cell_y == _center_cell_y);
+			var _is_sample_cell = ((_cell_x - _left_cell) mod _sample_step == 0)
+				&& ((_cell_y - _top_cell) mod _sample_step == 0);
+
+			if (!_is_center_cell && !_is_sample_cell)
+			{
+				continue;
+			}
+
+			var _corruption = ds_grid_get(_corruption_grid_object.corruption_grid, _cell_x, _cell_y);
+			var _saint = 0;
+
+			if (_has_saint_grid)
+			{
+				_saint = ds_grid_get(_corruption_grid_object.saint_grid, _cell_x, _cell_y);
+			}
+
+			if (_saint <= 0 && _corruption >= full_corruption_value)
+			{
+				array_push(taint_reveal_cell_xs, _cell_x);
+				array_push(taint_reveal_cell_ys, _cell_y);
+			}
+		}
+	}
+
+	starting_taint_reveal_cache_ready = true;
 };

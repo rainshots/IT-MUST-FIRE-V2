@@ -9,10 +9,13 @@ production_bonus_stat_color = COLOR_HUD_TEXT;
 production_progress = 0;
 production_duration = BALANCE_RESOURCE_BUILDING_PRODUCTION_TIME;
 production_amount = BALANCE_RESOURCE_BUILDING_PRODUCTION_AMOUNT;
+production_daily_base_limit = 0;
 production_daily_limit = 0;
 production_daily_remaining = 0;
 production_speed_multiplier = 0;
 production_speed_upgrade_index = 0;
+production_daily_limit_upgrade_index = noone;
+production_secondary_effect_upgrade_index = noone;
 building_accepts_workers = false;
 summon_unit_object = noone;
 summon_resource = RESOURCES.SOULS;
@@ -55,6 +58,8 @@ goblin_status_line_height = 14;
 // Production bar visual settings.
 production_bar_width = 62;
 production_bar_height = 6;
+production_daily_bar_height = 9;
+production_daily_bar_gap = 4;
 production_bar_offset_y = 125;
 production_bar_outline_alpha = 0.85;
 production_bar_background_alpha = 0.72;
@@ -293,6 +298,94 @@ summon_costs_pay = function()
 	}
 };
 
+production_daily_limit_upgrade_level_get = function()
+{
+	if (production_daily_limit_upgrade_index == noone
+		|| !variable_instance_exists(id, "building_upgrade_levels")
+		|| production_daily_limit_upgrade_index < 0
+		|| production_daily_limit_upgrade_index >= array_length(building_upgrade_levels))
+	{
+		return 0;
+	}
+
+	return building_upgrade_levels[production_daily_limit_upgrade_index];
+};
+
+production_daily_limit_get = function()
+{
+	var _upgrade_level = production_daily_limit_upgrade_level_get();
+	var _limit_multiplier = 1 + (_upgrade_level * BALANCE_RESOURCE_BUILDING_DAILY_LIMIT_UPGRADE_BONUS);
+
+	return floor(production_daily_base_limit * _limit_multiplier);
+};
+
+production_daily_limit_refresh = function(_add_new_capacity = false)
+{
+	if (production_daily_base_limit <= 0)
+	{
+		return;
+	}
+
+	var _old_limit = production_daily_limit;
+	production_daily_limit = production_daily_limit_get();
+
+	if (_add_new_capacity)
+	{
+		production_daily_remaining = min(
+			production_daily_limit,
+			production_daily_remaining + max(0, production_daily_limit - _old_limit)
+		);
+	}
+	else
+	{
+		production_daily_remaining = min(production_daily_remaining, production_daily_limit);
+	}
+
+	if (production_bonus_stat_name != "")
+	{
+		building_tooltip_detail = "Daily limit: " + string(production_daily_limit) + ". Bonus: "
+			+ production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
+	}
+};
+
+production_daily_limit_upgrade_resource_get = function()
+{
+	if (object_index == o_quarry)
+	{
+		return RESOURCES.FLESH;
+	}
+
+	if (object_index == o_souls_well)
+	{
+		return RESOURCES.IRON;
+	}
+
+	return RESOURCES.SOULS;
+};
+
+production_daily_limit_upgrade_next_cost_get = function()
+{
+	var _next_level = min(
+		production_daily_limit_upgrade_level_get() + 1,
+		BALANCE_RESOURCE_BUILDING_DAILY_LIMIT_UPGRADE_MAX
+	);
+
+	return BALANCE_RESOURCE_BUILDING_DAILY_LIMIT_UPGRADE_BASE_COST
+		+ ((_next_level - 1) * BALANCE_RESOURCE_BUILDING_DAILY_LIMIT_UPGRADE_COST_GAIN);
+};
+
+production_daily_limit_upgrade_description_get = function()
+{
+	var _next_level = min(
+		production_daily_limit_upgrade_level_get() + 1,
+		BALANCE_RESOURCE_BUILDING_DAILY_LIMIT_UPGRADE_MAX
+	);
+	var _bonus_percent = round(BALANCE_RESOURCE_BUILDING_DAILY_LIMIT_UPGRADE_BONUS * 100);
+	var _next_limit = floor(production_daily_base_limit * (1 + (_next_level * BALANCE_RESOURCE_BUILDING_DAILY_LIMIT_UPGRADE_BONUS)));
+
+	return "+" + string(_bonus_percent) + "% daily resource limit. Next limit: " + string(_next_limit) + ".";
+};
+
 // Configure the first resource production buildings by object type.
 if (object_index == o_slaughter_table)
 {
@@ -301,7 +394,8 @@ if (object_index == o_slaughter_table)
 	production_resource_name = "Flesh";
 	production_resource_icon = s_flesh_icon;
 	production_resource_color = COLOR_HUD_FLESH;
-	production_daily_limit = BALANCE_RESOURCE_BUILDING_DAILY_LIMIT;
+	production_daily_base_limit = BALANCE_RESOURCE_BUILDING_DAILY_LIMIT;
+	production_daily_limit = production_daily_base_limit;
 	production_daily_remaining = production_daily_limit;
 	production_bonus_stat = CULTIST_STAT.FERVOR;
 	production_bonus_stat_name = "FERVOR";
@@ -311,12 +405,20 @@ if (object_index == o_slaughter_table)
 	building_tooltip_detail = "Daily limit: " + string(BALANCE_RESOURCE_BUILDING_DAILY_LIMIT) + ". Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
 	building_tooltip_detail_color = production_bonus_stat_color;
 	building_has_upgrades = true;
+	building_upgrade_levels = [0, 0, 0];
+	building_upgrade_flags = [false, false, false];
+	building_upgrade_names = ["", "", ""];
+	building_upgrade_descriptions = ["", "", ""];
+	building_upgrade_costs = [BALANCE_BUILDING_UPGRADE_IRON_COST, BALANCE_BLOOD_POULTICE_UPGRADE_SOUL_COST, 0];
+	building_upgrade_resources = [RESOURCES.IRON, RESOURCES.SOULS, RESOURCES.SOULS];
+	production_daily_limit_upgrade_index = 2;
 	building_upgrade_names[0] = "Faster Butchery";
 	building_upgrade_descriptions[0] = "+0.5x Flesh production while at least one worker assigned.";
 	building_upgrade_names[1] = "Blood Poultice";
 	building_upgrade_descriptions[1] = "Slowly heals workers who assigned on this building.";
-	building_upgrade_resources[1] = RESOURCES.SOULS;
-	building_upgrade_costs[1] = BALANCE_BLOOD_POULTICE_UPGRADE_SOUL_COST;
+	production_secondary_effect_upgrade_index = 1;
+	building_upgrade_names[2] = "Expanded Stores";
+	building_upgrade_descriptions[2] = production_daily_limit_upgrade_description_get();
 }
 else if (object_index == o_quarry)
 {
@@ -325,7 +427,8 @@ else if (object_index == o_quarry)
 	production_resource_name = "Iron";
 	production_resource_icon = s_iron_icon;
 	production_resource_color = COLOR_HUD_IRON;
-	production_daily_limit = BALANCE_RESOURCE_BUILDING_DAILY_LIMIT;
+	production_daily_base_limit = BALANCE_RESOURCE_BUILDING_DAILY_LIMIT;
+	production_daily_limit = production_daily_base_limit;
 	production_daily_remaining = production_daily_limit;
 	production_bonus_stat = CULTIST_STAT.BODY;
 	production_bonus_stat_name = "BODY";
@@ -335,13 +438,17 @@ else if (object_index == o_quarry)
 	building_tooltip_detail = "Daily limit: " + string(BALANCE_RESOURCE_BUILDING_DAILY_LIMIT) + ". Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
 	building_tooltip_detail_color = production_bonus_stat_color;
 	building_has_upgrades = true;
-	building_upgrade_flags = [false];
-	building_upgrade_names = [""];
-	building_upgrade_descriptions = [""];
-	building_upgrade_costs = [BALANCE_BUILDING_UPGRADE_IRON_COST];
-	building_upgrade_resources = [RESOURCES.IRON];
+	building_upgrade_levels = [0, 0];
+	building_upgrade_flags = [false, false];
+	building_upgrade_names = ["", ""];
+	building_upgrade_descriptions = ["", ""];
+	building_upgrade_costs = [BALANCE_BUILDING_UPGRADE_IRON_COST, 0];
+	building_upgrade_resources = [RESOURCES.IRON, RESOURCES.FLESH];
+	production_daily_limit_upgrade_index = 1;
 	building_upgrade_names[0] = "Reinforced Tools";
 	building_upgrade_descriptions[0] = "+0.5x Iron production while at least one worker assigned.";
+	building_upgrade_names[1] = "Expanded Stores";
+	building_upgrade_descriptions[1] = production_daily_limit_upgrade_description_get();
 }
 else if (object_index == o_souls_well)
 {
@@ -350,7 +457,8 @@ else if (object_index == o_souls_well)
 	production_resource_name = "Souls";
 	production_resource_icon = s_soul_icon;
 	production_resource_color = COLOR_HUD_SOULS;
-	production_daily_limit = BALANCE_RESOURCE_BUILDING_DAILY_LIMIT;
+	production_daily_base_limit = BALANCE_RESOURCE_BUILDING_DAILY_LIMIT;
+	production_daily_limit = production_daily_base_limit;
 	production_daily_remaining = production_daily_limit;
 	production_bonus_stat = CULTIST_STAT.SPIRIT;
 	production_bonus_stat_name = "SPIRIT";
@@ -360,12 +468,20 @@ else if (object_index == o_souls_well)
 	building_tooltip_detail = "Daily limit: " + string(BALANCE_RESOURCE_BUILDING_DAILY_LIMIT) + ". Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
 	building_tooltip_detail_color = production_bonus_stat_color;
 	building_has_upgrades = true;
+	building_upgrade_levels = [0, 0, 0];
+	building_upgrade_flags = [false, false, false];
+	building_upgrade_names = ["", "", ""];
+	building_upgrade_descriptions = ["", "", ""];
+	building_upgrade_costs = [BALANCE_BUILDING_UPGRADE_IRON_COST, BALANCE_BONE_WHISPER_UPGRADE_SOUL_COST, 0];
+	building_upgrade_resources = [RESOURCES.IRON, RESOURCES.SOULS, RESOURCES.IRON];
+	production_daily_limit_upgrade_index = 2;
 	building_upgrade_names[0] = "Deeper Echo";
 	building_upgrade_descriptions[0] = "+0.5x Souls production while at least one worker assigned.";
 	building_upgrade_names[1] = "Bone Whisper";
 	building_upgrade_descriptions[1] = "Slowly summons Skeletons while at least one worker assigned.";
-	building_upgrade_resources[1] = RESOURCES.SOULS;
-	building_upgrade_costs[1] = BALANCE_BONE_WHISPER_UPGRADE_SOUL_COST;
+	production_secondary_effect_upgrade_index = 1;
+	building_upgrade_names[2] = "Expanded Stores";
+	building_upgrade_descriptions[2] = production_daily_limit_upgrade_description_get();
 }
 else if (object_index == o_meat_bath)
 {
@@ -819,6 +935,42 @@ ritual_circle_workers_release = function()
 	recalculate_production_speed_multiplier();
 };
 
+building_workers_release = function()
+{
+	var _worker_count = array_length(worker_cultists);
+
+	if (_worker_count <= 0)
+	{
+		return;
+	}
+
+	var _workers = array_create(_worker_count);
+
+	for (var _copy_index = 0; _copy_index < _worker_count; ++_copy_index)
+	{
+		_workers[_copy_index] = worker_cultists[_copy_index];
+	}
+
+	if (instance_exists(o_game_controller))
+	{
+		var _game_controller = instance_find(o_game_controller, 0);
+
+		for (var _worker_index = 0; _worker_index < _worker_count; ++_worker_index)
+		{
+			var _worker = _workers[_worker_index];
+
+			if (instance_exists(_worker)
+				&& variable_instance_exists(_game_controller, "clear_cultist_building_assignment"))
+			{
+				_game_controller.clear_cultist_building_assignment(_worker);
+			}
+		}
+	}
+
+	worker_cultists = array_create(0);
+	recalculate_production_speed_multiplier();
+};
+
 ritual_circle_daily_exp_limit_get = function()
 {
 	var _daily_exp_limit = BALANCE_RITUAL_CIRCLE_DAILY_EXP_LIMIT;
@@ -992,6 +1144,18 @@ building_upgrade_buy = function(_upgrade_index)
 		global.resources[_level_upgrade_resource] -= _level_upgrade_cost;
 		resource_popup_create(x, y - production_bar_offset_y, _level_upgrade_resource, -_level_upgrade_cost);
 		building_upgrade_levels[_upgrade_index]++;
+
+		if (_upgrade_index >= 0 && _upgrade_index < array_length(building_upgrade_flags))
+		{
+			building_upgrade_flags[_upgrade_index] = building_upgrade_levels[_upgrade_index] > 0;
+		}
+
+		if (production_daily_limit_upgrade_index != noone
+			&& _upgrade_index == production_daily_limit_upgrade_index)
+		{
+			production_daily_limit_refresh(true);
+		}
+
 		garrison_owned_units_stats_refresh();
 
 		if (garrison_building_is_active() && _upgrade_index == 0)
@@ -1253,6 +1417,16 @@ cannon_upgrade_level_max_get = function(_upgrade_index)
 		return BALANCE_SHELL_FACTORY_UPGRADE_MAX;
 	}
 
+	if (production_daily_limit_upgrade_index != noone)
+	{
+		if (_upgrade_index == production_daily_limit_upgrade_index)
+		{
+			return BALANCE_RESOURCE_BUILDING_DAILY_LIMIT_UPGRADE_MAX;
+		}
+
+		return 1;
+	}
+
 	if (!garrison_building_is_active())
 	{
 		return 1;
@@ -1299,6 +1473,21 @@ cannon_upgrade_resource_get = function(_upgrade_index)
 		return RESOURCES.IRON;
 	}
 
+	if (production_daily_limit_upgrade_index != noone)
+	{
+		if (_upgrade_index == production_daily_limit_upgrade_index)
+		{
+			return production_daily_limit_upgrade_resource_get();
+		}
+
+		if (_upgrade_index >= 0 && _upgrade_index < array_length(building_upgrade_resources))
+		{
+			return building_upgrade_resources[_upgrade_index];
+		}
+
+		return RESOURCES.IRON;
+	}
+
 	if (_upgrade_index == 0)
 	{
 		return object_index == o_graveyard2 ? RESOURCES.SOULS : RESOURCES.FLESH;
@@ -1329,6 +1518,21 @@ cannon_upgrade_next_cost_get = function(_upgrade_index)
 		}
 
 		return BALANCE_SHELL_FACTORY_UPGRADE_IRON_COST_LEVEL_3;
+	}
+
+	if (production_daily_limit_upgrade_index != noone)
+	{
+		if (_upgrade_index == production_daily_limit_upgrade_index)
+		{
+			return production_daily_limit_upgrade_next_cost_get();
+		}
+
+		if (_upgrade_index >= 0 && _upgrade_index < array_length(building_upgrade_costs))
+		{
+			return building_upgrade_costs[_upgrade_index];
+		}
+
+		return BALANCE_BUILDING_UPGRADE_IRON_COST;
 	}
 
 	if (_upgrade_index == 0)
@@ -1368,6 +1572,21 @@ building_upgrade_description_get = function(_upgrade_index)
 	if (object_index == o_shell_factory)
 	{
 		return "+1 random special shell every morning for this Shell Factory.";
+	}
+
+	if (production_daily_limit_upgrade_index != noone)
+	{
+		if (_upgrade_index == production_daily_limit_upgrade_index)
+		{
+			return production_daily_limit_upgrade_description_get();
+		}
+
+		if (_upgrade_index >= 0 && _upgrade_index < array_length(building_upgrade_descriptions))
+		{
+			return building_upgrade_descriptions[_upgrade_index];
+		}
+
+		return "";
 	}
 
 	if (_upgrade_index == 0)
@@ -1464,6 +1683,11 @@ shell_factory_morning_projectile_count_get = function()
 
 shell_factory_morning_projectiles_add = function()
 {
+	if (object_index != o_shell_factory)
+	{
+		return;
+	}
+
 	var _projectile_count = shell_factory_morning_projectile_count_get();
 	var _added_count = 0;
 

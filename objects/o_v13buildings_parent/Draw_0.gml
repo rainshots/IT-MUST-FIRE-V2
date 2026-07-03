@@ -509,8 +509,8 @@ draw_rectangle(_bar_x, _bar_y, _bar_x + production_bar_width, _bar_y + productio
 // Draw daily production reserve below the main production bar.
 if (production_daily_limit > 0)
 {
-	var _daily_bar_height = 3;
-	var _daily_bar_gap = 3;
+	var _daily_bar_height = production_daily_bar_height;
+	var _daily_bar_gap = production_daily_bar_gap;
 	var _daily_bar_y = _bar_y + production_bar_height + _daily_bar_gap;
 	var _daily_progress = clamp(production_daily_remaining / max(1, production_daily_limit), 0, 1);
 

@@ -19,6 +19,7 @@ friendly_guard_cannon_enabled = true;
 target_instance = noone;
 target_search_update_interval = BALANCE_UNIT_TARGET_SEARCH_UPDATE_INTERVAL;
 target_search_update_timer = irandom(target_search_update_interval - 1);
+target_switch_distance_margin = BALANCE_UNIT_TARGET_SWITCH_DISTANCE_MARGIN;
 cached_follow_target = noone;
 alert_target = noone;
 alert_target_timer = 0;
@@ -26,6 +27,8 @@ alert_target_time = BALANCE_UNIT_ALERT_TARGET_TIME * room_speed;
 fog_hidden_check_interval = BALANCE_UNIT_FOG_HIDDEN_CHECK_INTERVAL;
 fog_hidden_check_timer = irandom(fog_hidden_check_interval - 1);
 cached_is_hidden_by_fog = false;
+saint_ground_heal_interval = BALANCE_SAINT_GROUND_ENEMY_HEAL_INTERVAL;
+saint_ground_heal_timer = irandom(max(1, saint_ground_heal_interval) - 1);
 forced_attack_target = noone;
 forced_attack_target_timer = 0;
 is_being_hooked = false;
@@ -258,15 +261,6 @@ target_can_be_attacked = function(_target)
 		return false;
 	}
 
-	// Cultists only commit to holy towers after closing the gap.
-	if (unit_faction == UNIT_FACTION.FRIENDLY
-		&& _target.object_index == o_holy_tower
-		&& (object_index == o_cultist || is_demon_form_unit())
-		&& point_distance(x, y, _target.x, _target.y) > BALANCE_HOLY_TOWER_CULTIST_TARGET_RADIUS)
-	{
-		return false;
-	}
-
 	return true;
 };
 
@@ -282,6 +276,62 @@ status_effect_is_negative = function(_status_type)
 status_effect_has = function(_status_type)
 {
 	return status_effect_timers[_status_type] > 0;
+};
+
+ground_cell_saint_amount_get = function(_world_x, _world_y)
+{
+	if (!instance_exists(o_corruption_grid))
+	{
+		return 0;
+	}
+
+	var _corruption_grid = instance_find(o_corruption_grid, 0);
+	var _cell_x = floor(_world_x / _corruption_grid.cell_size);
+	var _cell_y = floor(_world_y / _corruption_grid.cell_size);
+	var _is_inside_grid = _cell_x >= 0
+		&& _cell_x < _corruption_grid.grid_width
+		&& _cell_y >= 0
+		&& _cell_y < _corruption_grid.grid_height;
+
+	if (!_is_inside_grid
+		|| !variable_instance_exists(_corruption_grid, "saint_grid"))
+	{
+		return 0;
+	}
+
+	return ds_grid_get(_corruption_grid.saint_grid, _cell_x, _cell_y);
+};
+
+enemy_saint_ground_heal_update = function()
+{
+	if (unit_faction != UNIT_FACTION.ENEMY
+		|| hp <= 0
+		|| hp >= max_hp)
+	{
+		return;
+	}
+
+	saint_ground_heal_timer++;
+
+	if (saint_ground_heal_timer < saint_ground_heal_interval)
+	{
+		return;
+	}
+
+	saint_ground_heal_timer = 0;
+
+	var _saint_amount = ground_cell_saint_amount_get(x, y);
+
+	if (_saint_amount <= 0)
+	{
+		return;
+	}
+
+	var _heal_share = BALANCE_SAINT_GROUND_ENEMY_HEAL_MAX_HP_PER_SECOND
+		* (saint_ground_heal_interval / max(1, room_speed));
+	var _heal_amount = max_hp * _heal_share * clamp(_saint_amount, 0, 1);
+
+	hp = min(hp + _heal_amount, max_hp);
 };
 
 status_effect_apply = function(_status_type, _duration_seconds, _strength = 0, _secondary_value = 0, _tick_interval_seconds = 0, _source_faction = UNIT_FACTION.NOONE)
@@ -1181,6 +1231,11 @@ cannon_wall_is_active = function()
 	return instance_exists(o_cannon);
 };
 
+cannon_wall_attack_radius_get = function()
+{
+	return BALANCE_CANNON_WALL_RADIUS + cannon_attack_radius;
+};
+
 clamp_outside_cannon_wall = function()
 {
 	if (!cannon_wall_is_active() || !is_blocked_by_cannon_wall())
@@ -1349,22 +1404,124 @@ find_nearest_target = function(_object_index, _max_distance)
 			continue;
 		}
 
-		if (unit_faction == UNIT_FACTION.ENEMY
-			&& _object_index == o_friendly_units
-			&& global.day_phase == DAY_PHASE.NIGHT
-			&& target_is_inside_cannon_wall(_target))
-		{
-			continue;
-		}
-
 		var _target_distance_x = _target.x - x;
 		var _target_distance_y = _target.y - y;
 		var _target_distance_squared = (_target_distance_x * _target_distance_x) + (_target_distance_y * _target_distance_y);
 
-		if (_target_distance_squared <= _nearest_distance_squared)
+		if (_target_distance_squared < _nearest_distance_squared)
 		{
 			_nearest_target = _target;
 			_nearest_distance_squared = _target_distance_squared;
+		}
+	}
+
+	return _nearest_target;
+};
+
+target_candidate_should_replace = function(_candidate_distance_squared, _nearest_distance_squared, _use_switch_margin)
+{
+	if (!_use_switch_margin)
+	{
+		return _candidate_distance_squared < _nearest_distance_squared;
+	}
+
+	var _nearest_distance = sqrt(_nearest_distance_squared);
+	var _required_distance = max(0, _nearest_distance - target_switch_distance_margin);
+
+	return _candidate_distance_squared < _required_distance * _required_distance;
+};
+
+target_is_player_unit = function(_target)
+{
+	if (!instance_exists(_target))
+	{
+		return false;
+	}
+
+	if (_target.object_index == o_cultist)
+	{
+		return _target.visible;
+	}
+
+	return variable_instance_exists(_target, "unit_faction")
+		&& _target.unit_faction == UNIT_FACTION.FRIENDLY;
+};
+
+find_nearest_player_unit_target = function(_max_distance)
+{
+	var _nearest_distance_squared = _max_distance * _max_distance;
+	var _nearest_target = noone;
+	var _use_switch_margin = false;
+
+	// Keep the current player-unit target unless another target is clearly closer.
+	if (target_can_be_attacked(target_instance) && target_is_player_unit(target_instance))
+	{
+		var _current_target_distance_x = target_instance.x - x;
+		var _current_target_distance_y = target_instance.y - y;
+		var _current_target_distance_squared = (_current_target_distance_x * _current_target_distance_x) + (_current_target_distance_y * _current_target_distance_y);
+
+		if (_current_target_distance_squared <= _nearest_distance_squared)
+		{
+			_nearest_target = target_instance;
+			_nearest_distance_squared = _current_target_distance_squared;
+			_use_switch_margin = true;
+		}
+	}
+
+	var _friendly_count = instance_number(o_friendly_units);
+
+	for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_index)
+	{
+		var _friendly_unit = instance_find(o_friendly_units, _friendly_index);
+
+		if (!target_can_be_attacked(_friendly_unit))
+		{
+			continue;
+		}
+
+		var _friendly_distance_x = _friendly_unit.x - x;
+		var _friendly_distance_y = _friendly_unit.y - y;
+		var _friendly_distance_squared = (_friendly_distance_x * _friendly_distance_x) + (_friendly_distance_y * _friendly_distance_y);
+
+		if (target_candidate_should_replace(_friendly_distance_squared, _nearest_distance_squared, _use_switch_margin))
+		{
+			_nearest_target = _friendly_unit;
+			_nearest_distance_squared = _friendly_distance_squared;
+			_use_switch_margin = false;
+		}
+	}
+
+	if (!variable_global_exists("cultists"))
+	{
+		return _nearest_target;
+	}
+
+	var _cultist_count = array_length(global.cultists);
+
+	// Cultists are player units but are not children of o_friendly_units.
+	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+	{
+		var _cultist = global.cultists[_cultist_index];
+
+		if (!target_can_be_attacked(_cultist))
+		{
+			continue;
+		}
+
+		if (!_cultist.visible)
+		{
+			continue;
+		}
+
+		var _cultist_distance_x = _cultist.x - x;
+		var _cultist_distance_y = _cultist.y - y;
+		var _cultist_distance_squared = (_cultist_distance_x * _cultist_distance_x) + (_cultist_distance_y * _cultist_distance_y);
+
+		if (target_candidate_should_replace(_cultist_distance_squared, _nearest_distance_squared, _use_switch_margin))
+		{
+			_nearest_target = _cultist;
+			_nearest_distance_squared = _cultist_distance_squared;
+			_use_switch_margin = false;
 		}
 	}
 
@@ -1468,8 +1625,6 @@ find_nearest_enemy_object = function(_max_distance)
 {
 	var _nearest_target = noone;
 	var _nearest_distance_squared = _max_distance * _max_distance;
-	var _cultist_holy_tower_distance_squared = BALANCE_HOLY_TOWER_CULTIST_TARGET_RADIUS
-		* BALANCE_HOLY_TOWER_CULTIST_TARGET_RADIUS;
 
 	// Holy towers are hostile structures for friendly units.
 	if (instance_exists(o_holy_tower))
@@ -1485,12 +1640,8 @@ find_nearest_enemy_object = function(_max_distance)
 				var _tower_distance_x = _tower.x - x;
 				var _tower_distance_y = _tower.y - y;
 				var _tower_distance_squared = (_tower_distance_x * _tower_distance_x) + (_tower_distance_y * _tower_distance_y);
-				var _is_cultist_combat_unit = object_index == o_cultist || is_demon_form_unit();
-				var _cultist_can_target_tower = !_is_cultist_combat_unit
-					|| _tower_distance_squared <= _cultist_holy_tower_distance_squared;
 
-				if (_cultist_can_target_tower
-					&& _tower_distance_squared <= _nearest_distance_squared)
+				if (_tower_distance_squared <= _nearest_distance_squared)
 				{
 					_nearest_distance_squared = _tower_distance_squared;
 					_nearest_target = _tower;
