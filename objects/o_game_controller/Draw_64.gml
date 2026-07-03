@@ -503,6 +503,29 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 	draw_set_alpha(target_selection_outline_alpha);
 	draw_circle(_mouse_x, _mouse_y, _draw_radius, true);
 
+	if (target_selection_projectile_type == PROJECTILE_TYPE.CULTIST
+		&& variable_global_exists("full_moon_night_active")
+		&& global.full_moon_night_active
+		&& instance_exists(o_cannon))
+	{
+		var _arrow_cannon = instance_find(o_cannon, 0);
+		var _arrow_start_x = ((_arrow_cannon.x - _camera_x) / _camera_width) * camera_view_width;
+		var _arrow_start_y = ((_arrow_cannon.y - _camera_y) / _camera_height) * camera_view_height;
+		var _arrow_direction = point_direction(_arrow_start_x, _arrow_start_y, _mouse_x, _mouse_y);
+		var _arrow_end_x = _mouse_x;
+		var _arrow_end_y = _mouse_y;
+		var _arrow_head_x = _arrow_end_x + lengthdir_x(24, _arrow_direction + 180);
+		var _arrow_head_y = _arrow_end_y + lengthdir_y(24, _arrow_direction + 180);
+
+		draw_set_alpha(0.95);
+		draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+		draw_line_width(_arrow_start_x, _arrow_start_y, _arrow_end_x, _arrow_end_y, 5);
+		draw_line_width(_arrow_end_x, _arrow_end_y, _arrow_head_x + lengthdir_x(18, _arrow_direction + 135), _arrow_head_y + lengthdir_y(18, _arrow_direction + 135), 5);
+		draw_line_width(_arrow_end_x, _arrow_end_y, _arrow_head_x + lengthdir_x(18, _arrow_direction - 135), _arrow_head_y + lengthdir_y(18, _arrow_direction - 135), 5);
+		draw_set_alpha(1);
+		draw_set_color(c_white);
+	}
+
 	if (target_selection_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
 	{
 		if (is_struct(_projectile_payload)

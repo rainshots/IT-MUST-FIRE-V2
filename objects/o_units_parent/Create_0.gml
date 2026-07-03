@@ -258,6 +258,15 @@ target_can_be_attacked = function(_target)
 		return false;
 	}
 
+	// Cultists only commit to holy towers after closing the gap.
+	if (unit_faction == UNIT_FACTION.FRIENDLY
+		&& _target.object_index == o_holy_tower
+		&& (object_index == o_cultist || is_demon_form_unit())
+		&& point_distance(x, y, _target.x, _target.y) > BALANCE_HOLY_TOWER_CULTIST_TARGET_RADIUS)
+	{
+		return false;
+	}
+
 	return true;
 };
 
@@ -1459,6 +1468,8 @@ find_nearest_enemy_object = function(_max_distance)
 {
 	var _nearest_target = noone;
 	var _nearest_distance_squared = _max_distance * _max_distance;
+	var _cultist_holy_tower_distance_squared = BALANCE_HOLY_TOWER_CULTIST_TARGET_RADIUS
+		* BALANCE_HOLY_TOWER_CULTIST_TARGET_RADIUS;
 
 	// Holy towers are hostile structures for friendly units.
 	if (instance_exists(o_holy_tower))
@@ -1474,8 +1485,12 @@ find_nearest_enemy_object = function(_max_distance)
 				var _tower_distance_x = _tower.x - x;
 				var _tower_distance_y = _tower.y - y;
 				var _tower_distance_squared = (_tower_distance_x * _tower_distance_x) + (_tower_distance_y * _tower_distance_y);
+				var _is_cultist_combat_unit = object_index == o_cultist || is_demon_form_unit();
+				var _cultist_can_target_tower = !_is_cultist_combat_unit
+					|| _tower_distance_squared <= _cultist_holy_tower_distance_squared;
 
-				if (_tower_distance_squared <= _nearest_distance_squared)
+				if (_cultist_can_target_tower
+					&& _tower_distance_squared <= _nearest_distance_squared)
 				{
 					_nearest_distance_squared = _tower_distance_squared;
 					_nearest_target = _tower;

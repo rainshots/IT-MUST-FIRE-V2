@@ -771,6 +771,44 @@ if (keyboard_check_pressed(vk_escape))
 // Play UI feedback for the currently hovered or clicked button.
 ui_audio_update();
 
+// Full moon retreat button lets the player end the attack night manually.
+if (!global.pause
+	&& variable_global_exists("full_moon_night_active")
+	&& global.full_moon_night_active
+	&& global.day_phase == DAY_PHASE.NIGHT
+	&& global.focus_window == FOCUS_WINDOW.NOONE
+	&& mouse_check_button_pressed(mb_left))
+{
+	var _retreat_mouse_x = device_mouse_x_to_gui(0);
+	var _retreat_mouse_y = device_mouse_y_to_gui(0);
+	var _retreat_button_width = 190;
+	var _retreat_button_height = 46;
+	var _retreat_button_bottom = 72;
+
+	if (instance_exists(o_hud))
+	{
+		var _retreat_hud = instance_find(o_hud, 0);
+		_retreat_button_width = _retreat_hud.full_moon_retreat_button_width;
+		_retreat_button_height = _retreat_hud.full_moon_retreat_button_height;
+		_retreat_button_bottom = _retreat_hud.full_moon_retreat_button_bottom;
+	}
+
+	var _retreat_button_x = (display_get_gui_width() - _retreat_button_width) * 0.5;
+	var _retreat_button_y = display_get_gui_height() - _retreat_button_bottom - _retreat_button_height;
+
+	if (ui_mouse_is_inside_rect(
+		_retreat_mouse_x,
+		_retreat_mouse_y,
+		_retreat_button_x,
+		_retreat_button_y,
+		_retreat_button_width,
+		_retreat_button_height
+	))
+	{
+		start_day_phase();
+	}
+}
+
 // Update the day timer and let night end only after the attack is cleared.
 if (!global.pause && global.day_cycle_enabled)
 {
@@ -794,7 +832,14 @@ if (!global.pause && global.day_cycle_enabled)
 	{
 		global.day_timer = max(global.day_timer - 1, 0);
 
-		if (!night_force_end_active)
+		if (variable_global_exists("full_moon_night_active") && global.full_moon_night_active)
+		{
+			if (global.day_timer <= 0)
+			{
+				start_day_phase();
+			}
+		}
+		else if (!night_force_end_active)
 		{
 			night_force_end_timer = max(night_force_end_timer - 1, 0);
 
@@ -1159,12 +1204,16 @@ if (!global.pause
 update_cultists_loading_into_cannon();
 
 // Release planned night attack waves while the night phase is active.
-night_attack_spawning_update();
+if (!variable_global_exists("full_moon_night_active") || !global.full_moon_night_active)
+{
+	night_attack_spawning_update();
+}
 
 // Morning starts once every planned enemy has spawned and no enemies remain alive.
 if (!global.pause
 	&& global.day_cycle_enabled
 	&& global.day_phase == DAY_PHASE.NIGHT
+	&& (!variable_global_exists("full_moon_night_active") || !global.full_moon_night_active)
 	&& night_attack_is_complete())
 {
 	start_day_phase();
@@ -1311,6 +1360,15 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && mouse_check_button_p
 
 		if (_target_can_be_confirmed)
 		{
+			if (target_selection_projectile_type == PROJECTILE_TYPE.CULTIST
+				&& variable_global_exists("full_moon_night_active")
+				&& global.full_moon_night_active
+				&& instance_exists(o_cannon))
+			{
+				var _attack_cannon = instance_find(o_cannon, 0);
+				global.full_moon_attack_direction = point_direction(_attack_cannon.x, _attack_cannon.y, _target_world_x, _target_world_y);
+			}
+
 			global.cannon_target_exists = true;
 			global.cannon_target_x = _target_world_x;
 			global.cannon_target_y = _target_world_y;

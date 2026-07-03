@@ -20,6 +20,8 @@ global.day_duration = BALANCE_DAY_DURATION;
 global.night_duration = BALANCE_NIGHT_DURATION;
 global.day_timer = global.day_duration * global.game_speed_normal;
 global.night_attack_unit_count = 0;
+global.full_moon_night_active = false;
+global.full_moon_attack_direction = 0;
 global.day_cycle_enabled = true;
 global.legacy_building_logic_enabled = false;
 global.cultists = array_create(0);
@@ -62,6 +64,7 @@ night_effect_layer_names = [
 	"NightEffect2",
 	"NightEffect3"
 ];
+full_moon_effect_layer_name = "FullMoon_effect";
 night_effect_transition_duration = 6 * room_speed;
 night_effect_transition_timer = 0;
 night_effect_transition_active = false;
@@ -2458,6 +2461,7 @@ boss_griffith_nights = [10, 20, 30, 40, 50];
 boss_griffith_pending_next_night = false;
 boss_griffith_pending_direction = 0;
 boss_griffith_force_next_night = false;
+full_moon_night_interval = BALANCE_FULL_MOON_NIGHT_INTERVAL;
 crusade_taint_trigger_amount = BALANCE_ENEMY_CATAPULT_CRUSADE_TAINT_TRIGGER_AMOUNT;
 crusade_pending_count = 0;
 crusade_pending_directions = [];
@@ -7221,6 +7225,16 @@ boss_griffith_night_is_scheduled = function(_night_index)
 	return false;
 };
 
+full_moon_night_is_scheduled = function(_night_index)
+{
+	if (boss_griffith_night_is_scheduled(_night_index))
+	{
+		return false;
+	}
+
+	return _night_index > 0 && (_night_index mod full_moon_night_interval) == 0;
+};
+
 boss_griffith_prepare_next_night = function()
 {
 	if (boss_griffith_pending_next_night)
@@ -7730,6 +7744,16 @@ phase_banner_show = function(_text)
 	phase_banner_timer = phase_banner_duration;
 };
 
+full_moon_effect_layer_set_visible = function(_is_visible)
+{
+	var _layer_id = layer_get_id(full_moon_effect_layer_name);
+
+	if (_layer_id != -1)
+	{
+		layer_set_visible(_layer_id, _is_visible);
+	}
+};
+
 night_effect_layers_set_progress = function(_progress)
 {
 	var _layer_count = array_length(night_effect_layer_names);
@@ -7754,6 +7778,7 @@ night_effect_transition_start = function()
 	night_effect_transition_timer = 0;
 	night_effect_transition_active = true;
 	night_effect_layers_set_progress(0);
+	full_moon_effect_layer_set_visible(global.full_moon_night_active);
 };
 
 night_effect_layers_disable = function()
@@ -7761,6 +7786,7 @@ night_effect_layers_disable = function()
 	night_effect_transition_timer = 0;
 	night_effect_transition_active = false;
 	night_effect_layers_set_progress(0);
+	full_moon_effect_layer_set_visible(false);
 };
 
 night_effect_layers_disable();
@@ -7769,13 +7795,16 @@ start_night_phase = function()
 {
 	clear_dragged_unit();
 	cannon_corpse_workers_drop_all();
+	var _is_full_moon_night = full_moon_night_is_scheduled(night_attack_night_index);
 	global.day_phase = DAY_PHASE.NIGHT;
-	global.day_timer = global.night_duration * global.game_speed_normal;
+	global.full_moon_night_active = _is_full_moon_night;
+	global.day_timer = (_is_full_moon_night ? BALANCE_FULL_MOON_NIGHT_DURATION : global.night_duration) * global.game_speed_normal;
 	global.night_attack_unit_count = 0;
 	night_force_end_timer = BALANCE_NIGHT_FORCE_END_TIME * room_speed;
 	night_force_end_active = false;
 	adaptive_night_cultist_knocked_out = false;
-	phase_banner_show("NIGHT FALLS");
+	phase_banner_show(_is_full_moon_night ? "FULL MOON" : "NIGHT FALLS");
+
 	night_effect_transition_start();
 	global.sound_play_random(global.night_start_sounds);
 	update_goblin_evening_life();
@@ -7799,9 +7828,14 @@ start_night_phase = function()
 
 	adaptive_difficulty_night_hp_start_store();
 
-	if (!night_attack_plan_exists)
+	if (!_is_full_moon_night && !night_attack_plan_exists)
 	{
 		night_attack_plan_create();
+	}
+	else if (_is_full_moon_night)
+	{
+		night_attack_plan_exists = false;
+		night_attack_directions = [];
 	}
 
 	start_cultists_loading_into_cannon();
@@ -7843,7 +7877,11 @@ start_night_phase = function()
 		enemy_night_hp_scale_apply(_existing_enemy);
 	}
 
-	if (boss_griffith_pending_next_night)
+	if (_is_full_moon_night)
+	{
+		// Full moon nights are player attack nights; enemies do not start an assault.
+	}
+	else if (boss_griffith_pending_next_night)
 	{
 		boss_griffith_spawn_for_night();
 	}
@@ -7857,6 +7895,7 @@ start_day_phase = function()
 {
 	clear_dragged_unit();
 	global.day_phase = DAY_PHASE.DAY;
+	global.full_moon_night_active = false;
 	global.day_timer = global.day_duration * global.game_speed_normal;
 	global.night_attack_unit_count = 0;
 	night_force_end_timer = 0;
@@ -7865,6 +7904,12 @@ start_day_phase = function()
 	night_effect_layers_disable();
 	adaptive_difficulty_evaluate_night();
 	night_attack_night_index++;
+
+	if (full_moon_night_is_scheduled(night_attack_night_index)
+		&& variable_global_exists("tutorial_hint_trigger"))
+	{
+		global.tutorial_hint_trigger("full_moon_night");
+	}
 
 	if (!crusade_taint_tracking_initialized)
 	{

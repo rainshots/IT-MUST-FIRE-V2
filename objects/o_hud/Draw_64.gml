@@ -968,6 +968,56 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 	var _satiety_bar_y = _satiety_y + ((cannon_satiety_height - cannon_satiety_bar_height) * 0.5);
 	var _satiety_bar_label_x = _satiety_bar_x + cannon_satiety_bar_width + cannon_satiety_bar_label_gap;
 
+	// Draw the night schedule strip above satiety; the panel pivot marks the current night.
+	if (instance_exists(o_game_controller))
+	{
+		var _night_panel_game_controller = instance_find(o_game_controller, 0);
+		var _night_panel_current_day = 1;
+		var _night_panel_scale = clamp(display_get_gui_height() / 1080, 0.6, 1);
+		var _night_panel_anchor_x = _satiety_x + (cannon_satiety_width * 0.5) + (night_panel_satiety_offset_x * _night_panel_scale);
+		var _night_panel_anchor_y = _satiety_y + (night_panel_satiety_offset_y * _night_panel_scale);
+		var _night_panel_icon_gap = night_panel_icon_gap * _night_panel_scale;
+		var _night_panel_icon_size = night_panel_icon_size * _night_panel_scale;
+
+		if (variable_instance_exists(_night_panel_game_controller, "night_attack_night_index"))
+		{
+			_night_panel_current_day = max(1, _night_panel_game_controller.night_attack_night_index);
+		}
+
+		if (sprite_exists(s_day_night_pannel))
+		{
+			draw_sprite_ext(s_day_night_pannel, 0, _night_panel_anchor_x, _night_panel_anchor_y, _night_panel_scale, _night_panel_scale, 0, c_white, 1);
+		}
+
+		for (var _night_offset = -1; _night_offset < night_panel_visible_count - 1; ++_night_offset)
+		{
+			var _night_index = max(1, _night_panel_current_day + _night_offset);
+			var _night_icon_sprite = s_regular_night_icon;
+
+			if (variable_instance_exists(_night_panel_game_controller, "boss_griffith_night_is_scheduled")
+				&& _night_panel_game_controller.boss_griffith_night_is_scheduled(_night_index))
+			{
+				_night_icon_sprite = s_boss_icon;
+			}
+			else if (variable_instance_exists(_night_panel_game_controller, "full_moon_night_is_scheduled")
+				&& _night_panel_game_controller.full_moon_night_is_scheduled(_night_index))
+			{
+				_night_icon_sprite = s_full_moon_icon;
+			}
+
+			var _night_icon_x = _night_panel_anchor_x + (_night_offset * _night_panel_icon_gap);
+			var _night_icon_y = _night_panel_anchor_y;
+			var _night_icon_alpha = (_night_offset == 0) ? 1 : 0.72;
+
+			if (sprite_exists(_night_icon_sprite))
+			{
+				var _night_sprite_size = max(1, max(sprite_get_width(_night_icon_sprite), sprite_get_height(_night_icon_sprite)));
+				var _night_icon_scale = _night_panel_icon_size / _night_sprite_size;
+				draw_sprite_ext(_night_icon_sprite, 0, _night_icon_x, _night_icon_y, _night_icon_scale, _night_icon_scale, 0, c_white, _night_icon_alpha);
+			}
+		}
+	}
+
 	draw_set_halign(fa_left);
 	draw_set_valign(fa_middle);
 	draw_set_alpha(0.72);
@@ -1135,6 +1185,57 @@ if (instance_exists(o_cannon))
 			draw_set_font(global.ui_font);
 		}
 	}
+}
+
+// Draw full moon timer and retreat button at the bottom center.
+if ((_regular_hud_is_visible || _projectile_queue_stays_visible)
+	&& variable_global_exists("full_moon_night_active")
+	&& global.full_moon_night_active)
+{
+	var _full_moon_gui_width = display_get_gui_width();
+	var _full_moon_gui_height = display_get_gui_height();
+	var _full_moon_bar_width = full_moon_timer_width;
+	var _full_moon_bar_height = full_moon_timer_height;
+	var _full_moon_bar_x = (_full_moon_gui_width - _full_moon_bar_width) * 0.5;
+	var _full_moon_bar_y = _full_moon_gui_height - full_moon_timer_bottom;
+	var _full_moon_duration_frames = max(1, BALANCE_FULL_MOON_NIGHT_DURATION * (variable_global_exists("game_speed_normal") ? global.game_speed_normal : room_speed));
+	var _full_moon_progress = clamp(global.day_timer / _full_moon_duration_frames, 0, 1);
+	var _retreat_button_width = full_moon_retreat_button_width;
+	var _retreat_button_height = full_moon_retreat_button_height;
+	var _retreat_button_x = (_full_moon_gui_width - _retreat_button_width) * 0.5;
+	var _retreat_button_y = _full_moon_gui_height - full_moon_retreat_button_bottom - _retreat_button_height;
+	var _retreat_mouse_x = device_mouse_x_to_gui(0);
+	var _retreat_mouse_y = device_mouse_y_to_gui(0);
+	var _retreat_is_hovered = _retreat_mouse_x >= _retreat_button_x
+		&& _retreat_mouse_x <= _retreat_button_x + _retreat_button_width
+		&& _retreat_mouse_y >= _retreat_button_y
+		&& _retreat_mouse_y <= _retreat_button_y + _retreat_button_height;
+
+	draw_set_alpha(0.88);
+	draw_set_color(c_black);
+	draw_rectangle(_full_moon_bar_x, _full_moon_bar_y, _full_moon_bar_x + _full_moon_bar_width, _full_moon_bar_y + _full_moon_bar_height, false);
+
+	draw_set_alpha(1);
+	draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+	draw_rectangle(_full_moon_bar_x, _full_moon_bar_y, _full_moon_bar_x + (_full_moon_bar_width * _full_moon_progress), _full_moon_bar_y + _full_moon_bar_height, false);
+	draw_set_color(c_white);
+	draw_rectangle(_full_moon_bar_x, _full_moon_bar_y, _full_moon_bar_x + _full_moon_bar_width, _full_moon_bar_y + _full_moon_bar_height, true);
+
+	draw_set_alpha(_retreat_is_hovered ? 0.95 : 0.78);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_rectangle(_retreat_button_x, _retreat_button_y, _retreat_button_x + _retreat_button_width, _retreat_button_y + _retreat_button_height, false);
+	draw_set_alpha(1);
+	draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+	draw_rectangle(_retreat_button_x, _retreat_button_y, _retreat_button_x + _retreat_button_width, _retreat_button_y + _retreat_button_height, true);
+
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
+	draw_set_color(COLOR_HUD_TEXT);
+	draw_text(_retreat_button_x + (_retreat_button_width * 0.5), _retreat_button_y + (_retreat_button_height * 0.5), "RETREAT");
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
 }
 
 // Draw the first-night cultist projectile prompt until the player fires it.

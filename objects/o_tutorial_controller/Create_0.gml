@@ -101,6 +101,11 @@ tutorial_items = [
 		id: "holy_towers",
 		title: "Holy Towers",
 		body: "Holy Towers make the ground around them Holy. It cannot be tainted until the tower is destroyed."
+	},
+	{
+		id: "full_moon_night",
+		title: "Full Moon",
+		body: "No enemies will attack tonight. Instead, this is your chance to strike first.\n\nFire your cultists and combat units from the cannon as usual. Cultist demons will advance away from the cannon when they have no target.\n\nThe night ends when the timer runs out, or you can press RETREAT to end it early."
 	}
 ];
 

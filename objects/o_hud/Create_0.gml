@@ -41,6 +41,17 @@ day_phase_objective_y = 1027;
 shrine_icon_size = 30;
 shrine_icon_gap = 8;
 shrine_icon_y_offset = 55;
+night_panel_satiety_offset_x = -150;
+night_panel_satiety_offset_y = -55;
+night_panel_icon_gap = 34;
+night_panel_icon_size = 28;
+night_panel_visible_count = 11;
+full_moon_timer_width = 360;
+full_moon_timer_height = 18;
+full_moon_timer_bottom = 174;
+full_moon_retreat_button_width = 190;
+full_moon_retreat_button_height = 46;
+full_moon_retreat_button_bottom = 72;
 
 // Crusade warning appears during the day when Taint has triggered next-night raids.
 crusade_warning_y = 632;
