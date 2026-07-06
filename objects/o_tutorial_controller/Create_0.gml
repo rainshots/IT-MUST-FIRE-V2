@@ -297,6 +297,11 @@ tutorial_current_day_get = function()
 
 global.tutorial_hint_trigger = function(_hint_id)
 {
+	if (variable_global_exists("tutorial_hints_enabled") && !global.tutorial_hints_enabled)
+	{
+		return;
+	}
+
 	if (!instance_exists(o_tutorial_controller))
 	{
 		return;

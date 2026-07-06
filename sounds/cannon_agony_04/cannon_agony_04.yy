@@ -1,4 +1,4 @@
-﻿{
+{
   "$GMSound":"v2",
   "%Name":"cannon_agony_04",
   "audioGroupId":{
@@ -10,7 +10,7 @@
   "compression":0,
   "compressionQuality":4,
   "conversionMode":0,
-  "duration":4.400431,
+  "duration":4.4004307,
   "exportDir":"",
   "name":"cannon_agony_04",
   "parent":{

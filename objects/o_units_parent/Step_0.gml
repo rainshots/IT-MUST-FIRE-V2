@@ -37,6 +37,33 @@ if (cultist_projectile_deploy_assigned || cultist_projectile_deploy_waiting)
 	exit;
 }
 
+// House guards return to their home during the day instead of chasing player structures.
+if (global.day_phase == DAY_PHASE.DAY
+	&& variable_instance_exists(id, "owner_house")
+	&& instance_exists(owner_house))
+{
+	var _house_guard_return_distance = point_distance(x, y, owner_house.x, owner_house.y);
+	var _house_guard_wait_radius = max(8, guard_radius * 0.5);
+
+	target_instance = noone;
+	alert_target = noone;
+	is_attacking_target = false;
+	visual_attack_offset_x = 0;
+	visual_attack_offset_y = 0;
+
+	if (_house_guard_return_distance <= _house_guard_wait_radius)
+	{
+		is_walking = false;
+		update_walk_sway();
+	}
+	else
+	{
+		move_towards_world_point(owner_house.x, owner_house.y);
+	}
+
+	exit;
+}
+
 // Settlement garrison units move to their daytime rally point before waiting.
 if (global.day_phase == DAY_PHASE.DAY
 	&& variable_instance_exists(id, "settlement_garrison_unit")

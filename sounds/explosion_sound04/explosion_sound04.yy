@@ -1,4 +1,4 @@
-﻿{
+{
   "$GMSound":"v2",
   "%Name":"explosion_sound04",
   "audioGroupId":{
@@ -10,7 +10,7 @@
   "compression":0,
   "compressionQuality":4,
   "conversionMode":0,
-  "duration":4.339683,
+  "duration":4.3396826,
   "exportDir":"",
   "name":"explosion_sound04",
   "parent":{

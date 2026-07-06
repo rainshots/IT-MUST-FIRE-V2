@@ -1,4 +1,4 @@
-﻿{
+{
   "$GMSound":"v2",
   "%Name":"death_sound01",
   "audioGroupId":{
@@ -10,7 +10,7 @@
   "compression":0,
   "compressionQuality":4,
   "conversionMode":0,
-  "duration":4.48585,
+  "duration":4.4858503,
   "exportDir":"",
   "name":"death_sound01",
   "parent":{

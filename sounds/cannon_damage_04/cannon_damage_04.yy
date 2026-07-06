@@ -10,7 +10,7 @@
   "compression":0,
   "compressionQuality":4,
   "conversionMode":0,
-  "duration":4.615079,
+  "duration":4.6150794,
   "exportDir":"",
   "name":"cannon_damage_04",
   "parent":{

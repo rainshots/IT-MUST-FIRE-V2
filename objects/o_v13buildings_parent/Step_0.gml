@@ -241,9 +241,6 @@ if (object_index == o_ritual_circle)
 	if (ritual_circle_exp_pool <= 0)
 	{
 		building_warning_show("No XP", COLOR_STATUS_NEGATIVE_RED);
-		ritual_circle_workers_release();
-		production_speed_multiplier = 0;
-		exit;
 	}
 
 	var _ritual_exp_multiplier = 1;
@@ -255,6 +252,7 @@ if (object_index == o_ritual_circle)
 
 	var _exp_step = (ritual_circle_exp_pool_amount * production_speed_multiplier * _ritual_exp_multiplier) / max(1, BALANCE_RITUAL_CIRCLE_EXP_TIME * room_speed);
 
+	// Ritual Circle restores stamina even when its daily XP reserve is empty.
 	for (var _stamina_worker_index = 0; _stamina_worker_index < _valid_worker_count; ++_stamina_worker_index)
 	{
 		var _stamina_worker = worker_cultists[_stamina_worker_index];
@@ -273,6 +271,11 @@ if (object_index == o_ritual_circle)
 
 		var _stamina_restore_step = (_stamina_max * production_speed_multiplier) / max(1, BALANCE_RITUAL_CIRCLE_STAMINA_RESTORE_TIME * room_speed);
 		_stamina_worker.stamina_amount = min(_stamina_worker.stamina_amount + _stamina_restore_step, _stamina_max);
+	}
+
+	if (ritual_circle_exp_pool <= 0)
+	{
+		exit;
 	}
 
 	for (var _exp_worker_index = 0; _exp_worker_index < _valid_worker_count; ++_exp_worker_index)
@@ -308,8 +311,6 @@ if (object_index == o_ritual_circle)
 	{
 		ritual_circle_exp_pool = 0;
 		building_warning_show("No XP", COLOR_STATUS_NEGATIVE_RED);
-		ritual_circle_workers_release();
-		production_speed_multiplier = 0;
 	}
 
 	exit;
@@ -397,18 +398,30 @@ if (object_index == o_workshop)
 	exit;
 }
 
-// Shell Factory converts Iron into random special cannon projectiles.
+// Shell Factory converts resources into random special cannon projectiles.
 if (object_index == o_shell_factory)
 {
-	if (!shell_factory_has_paid_cost && global.resources[RESOURCES.IRON] >= BALANCE_SHELL_FACTORY_IRON_COST)
+	if (!shell_factory_has_paid_cost
+		&& global.resources[RESOURCES.SOULS] >= BALANCE_SHELL_FACTORY_SOUL_COST
+		&& global.resources[RESOURCES.IRON] >= BALANCE_SHELL_FACTORY_IRON_COST)
 	{
+		global.resources[RESOURCES.SOULS] -= BALANCE_SHELL_FACTORY_SOUL_COST;
 		global.resources[RESOURCES.IRON] -= BALANCE_SHELL_FACTORY_IRON_COST;
 		shell_factory_has_paid_cost = true;
-		resource_popup_create(x, y - production_bar_offset_y, RESOURCES.IRON, -BALANCE_SHELL_FACTORY_IRON_COST);
+		resource_popup_create(x - 18, y - production_bar_offset_y, RESOURCES.SOULS, -BALANCE_SHELL_FACTORY_SOUL_COST);
+		resource_popup_create(x + 18, y - production_bar_offset_y, RESOURCES.IRON, -BALANCE_SHELL_FACTORY_IRON_COST);
 	}
 	else if (!shell_factory_has_paid_cost)
 	{
-		building_missing_resource_show(RESOURCES.IRON, BALANCE_SHELL_FACTORY_IRON_COST);
+		if (global.resources[RESOURCES.SOULS] < BALANCE_SHELL_FACTORY_SOUL_COST)
+		{
+			building_missing_resource_show(RESOURCES.SOULS, BALANCE_SHELL_FACTORY_SOUL_COST);
+		}
+		else
+		{
+			building_missing_resource_show(RESOURCES.IRON, BALANCE_SHELL_FACTORY_IRON_COST);
+		}
+
 		building_workers_release();
 		exit;
 	}

@@ -30,6 +30,8 @@ house_combat_spawn_timer = irandom(max(round(house_combat_spawn_interval) - 1, 0
 house_visibility_check_interval = BALANCE_HOUSE_VISIBILITY_CHECK_INTERVAL;
 house_visibility_check_timer = irandom(house_visibility_check_interval - 1);
 house_visible_sample_radius = BALANCE_HOUSE_VISIBLE_SAMPLE_RADIUS;
+house_guard_active_player_radius = BALANCE_HOUSE_GUARD_ACTIVE_PLAYER_RADIUS;
+house_guard_camera_padding = BALANCE_HOUSE_GUARD_CAMERA_PADDING;
 
 // Tooltip lines describe house behavior for projectile targeting.
 tooltip_lines = [
@@ -70,6 +72,27 @@ house_saint_source_unregister = function()
 	}
 
 	saint_source_registered = false;
+};
+
+house_destroyed_ground_corrupt = function()
+{
+	if (!instance_exists(o_corruption_grid))
+	{
+		return;
+	}
+
+	var _corruption_grid = instance_find(o_corruption_grid, 0);
+
+	// Remove the house Saint shield before adding Taint in the same radius.
+	if (variable_instance_exists(_corruption_grid, "saint_circle_clear"))
+	{
+		_corruption_grid.saint_circle_clear(x, y, saint_radius);
+	}
+
+	if (variable_instance_exists(_corruption_grid, "corrupt_circle"))
+	{
+		_corruption_grid.corrupt_circle(x, y, saint_radius, 1);
+	}
 };
 
 house_guard_visible_count_get = function()
@@ -148,6 +171,98 @@ house_is_visible_by_fog = function()
 	return false;
 };
 
+house_is_inside_camera = function()
+{
+	if (!instance_exists(o_camera_controller))
+	{
+		return true;
+	}
+
+	var _camera_controller = instance_find(o_camera_controller, 0);
+	var _camera_x = camera_get_view_x(_camera_controller.camera_id);
+	var _camera_y = camera_get_view_y(_camera_controller.camera_id);
+	var _camera_width = camera_get_view_width(_camera_controller.camera_id);
+	var _camera_height = camera_get_view_height(_camera_controller.camera_id);
+	var _camera_left = _camera_x - house_guard_camera_padding;
+	var _camera_top = _camera_y - house_guard_camera_padding;
+	var _camera_right = _camera_x + _camera_width + house_guard_camera_padding;
+	var _camera_bottom = _camera_y + _camera_height + house_guard_camera_padding;
+
+	return x >= _camera_left
+		&& x <= _camera_right
+		&& y >= _camera_top
+		&& y <= _camera_bottom;
+};
+
+house_player_unit_is_near = function()
+{
+	var _active_radius_squared = house_guard_active_player_radius * house_guard_active_player_radius;
+	var _friendly_count = instance_number(o_friendly_units);
+
+	for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_index)
+	{
+		var _friendly_unit = instance_find(o_friendly_units, _friendly_index);
+
+		if (!instance_exists(_friendly_unit)
+			|| !variable_instance_exists(_friendly_unit, "hp")
+			|| _friendly_unit.hp <= 0)
+		{
+			continue;
+		}
+
+		var _friendly_distance_x = _friendly_unit.x - x;
+		var _friendly_distance_y = _friendly_unit.y - y;
+		var _friendly_distance_squared = (_friendly_distance_x * _friendly_distance_x) + (_friendly_distance_y * _friendly_distance_y);
+
+		if (_friendly_distance_squared <= _active_radius_squared)
+		{
+			return true;
+		}
+	}
+
+	if (!variable_global_exists("cultists"))
+	{
+		return false;
+	}
+
+	var _cultist_count = array_length(global.cultists);
+
+	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+	{
+		var _cultist = global.cultists[_cultist_index];
+
+		if (!instance_exists(_cultist)
+			|| !_cultist.visible
+			|| !variable_instance_exists(_cultist, "hp")
+			|| _cultist.hp <= 0)
+		{
+			continue;
+		}
+
+		var _cultist_distance_x = _cultist.x - x;
+		var _cultist_distance_y = _cultist.y - y;
+		var _cultist_distance_squared = (_cultist_distance_x * _cultist_distance_x) + (_cultist_distance_y * _cultist_distance_y);
+
+		if (_cultist_distance_squared <= _active_radius_squared)
+		{
+			return true;
+		}
+	}
+
+	return false;
+};
+
+house_should_keep_guards_active = function()
+{
+	if (!house_is_visible_by_fog())
+	{
+		return false;
+	}
+
+	return house_is_inside_camera()
+		|| house_player_unit_is_near();
+};
+
 house_guard_create = function()
 {
 	var _spawn_direction = random(360);
@@ -205,6 +320,44 @@ house_destroyed_guards_spawn = function()
 	{
 		house_destroyed_guard_create();
 	}
+};
+
+house_artifact_drop_try = function()
+{
+	if (random(1) >= BALANCE_HOUSE_ARTIFACT_DROP_CHANCE)
+	{
+		return;
+	}
+
+	var _drop_direction = random(360);
+	var _drop_distance = random_range(12, 42);
+	var _drop_x = x + lengthdir_x(_drop_distance, _drop_direction);
+	var _drop_y = y + lengthdir_y(_drop_distance, _drop_direction);
+
+	instance_create_layer(_drop_x, _drop_y, "Instances", o_artifact);
+};
+
+house_ruins_create = function()
+{
+	var _ruins_layer = "Instances";
+	var _ruins = instance_create_layer(x, y, _ruins_layer, o_tower_ruins);
+
+	if (!instance_exists(_ruins))
+	{
+		return;
+	}
+
+	// The original house instance is removed, so the ruins keep only the visual shell.
+	_ruins.sprite_index = s_house2_destroyed;
+	_ruins.image_index = 0;
+	_ruins.image_speed = 0;
+	_ruins.image_xscale = image_xscale;
+	_ruins.image_yscale = image_yscale;
+	_ruins.image_angle = image_angle;
+	_ruins.image_blend = image_blend;
+	_ruins.image_alpha = image_alpha;
+	_ruins.y_sort_enabled = false;
+	_ruins.depth = depth;
 };
 
 house_guard_call_for_help = function(_attacked_unit, _attacker)
@@ -388,10 +541,19 @@ house_destroy = function()
 	}
 
 	house_saint_source_unregister();
+	house_destroyed_ground_corrupt();
 	house_guards_destroy();
 	house_destroyed_guards_spawn();
+	house_artifact_drop_try();
+
+	if (variable_global_exists("construction_sound_play"))
+	{
+		global.construction_sound_play();
+	}
+
 	is_destroyed = true;
 	hp = 0;
+	house_ruins_create();
 	instance_destroy();
 };
 

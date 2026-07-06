@@ -533,7 +533,7 @@ else if (object_index == o_shell_factory)
 	production_bonus_stat_color = COLOR_CULTIST_BODY;
 	building_tooltip_title = "Shell Production";
 	building_tooltip_description = "Produces random special shells";
-	building_tooltip_detail = "Uses " + string(BALANCE_SHELL_FACTORY_IRON_COST) + " Iron. Morning shells: " + string(BALANCE_SHELL_FACTORY_MORNING_PROJECTILE_COUNT) + ". Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
+	building_tooltip_detail = "Uses " + string(BALANCE_SHELL_FACTORY_SOUL_COST) + " Souls + " + string(BALANCE_SHELL_FACTORY_IRON_COST) + " Iron. Morning shells: " + string(BALANCE_SHELL_FACTORY_MORNING_PROJECTILE_COUNT) + ". Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
 	building_tooltip_detail_color = production_bonus_stat_color;
 	building_has_upgrades = true;
 	building_upgrade_levels = [0];
@@ -752,7 +752,8 @@ production_speed_multiplier_draw = function(_text_x, _text_y)
 
 building_worker_stamina_multiplier_get = function(_worker)
 {
-	if (object_index == o_ritual_circle)
+	if (object_index == o_ritual_circle
+		|| object_index == o_meat_bath)
 	{
 		return 1;
 	}
@@ -1495,7 +1496,7 @@ cannon_upgrade_resource_get = function(_upgrade_index)
 
 	if (_upgrade_index == 2)
 	{
-		return RESOURCES.FLESH;
+		return object_index == o_graveyard2 ? RESOURCES.FLESH : RESOURCES.SOULS;
 	}
 
 	return RESOURCES.IRON;
@@ -1551,7 +1552,7 @@ cannon_upgrade_next_cost_get = function(_upgrade_index)
 
 	return object_index == o_graveyard2
 		? BALANCE_GRAVEYARD2_DAMAGE_UPGRADE_FLESH_COST
-		: BALANCE_PITLINGS_PIT2_DAMAGE_UPGRADE_FLESH_COST;
+		: BALANCE_PITLINGS_PIT2_DAMAGE_UPGRADE_SOUL_COST;
 };
 
 cannon_upgrade_cost_text_get = function(_upgrade_index)

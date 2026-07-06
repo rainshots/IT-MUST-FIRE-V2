@@ -353,6 +353,7 @@ if (phase_banner_timer > 0 && phase_banner_text != "")
 
 // Draw a non-blocking worker assignment hint above the first Quarry.
 if (!worker_assignment_hint_completed
+	&& global.tutorial_hints_enabled
 	&& worker_assignment_hint_delay_started
 	&& worker_assignment_hint_delay_timer <= 0
 	&& global.focus_window == FOCUS_WINDOW.NOONE
@@ -1755,23 +1756,32 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 	var _button_height = 44;
 	var _button_gap = 18;
 	var _button_start_x = _panel_x + 92;
-	var _button_y = _panel_y + 550;
+	var _attribute_button_y = _panel_y + 486;
+	var _ability_button_y = _panel_y + 560;
+	var _confirm_width = 210;
+	var _confirm_height = 42;
+	var _confirm_x = _panel_x + ((_panel_width - _confirm_width) * 0.5);
+	var _confirm_y = _panel_y + 612;
 	var _stat_names = ["Body", "Spirit", "Fervor"];
 	var _attribute_stat_order = [CULTIST_STAT.BODY, CULTIST_STAT.FERVOR, CULTIST_STAT.SPIRIT];
 	var _mouse_x = device_mouse_x_to_gui(0);
 	var _mouse_y = device_mouse_y_to_gui(0);
 	var _hovered_stat = -1;
 	var _hovered_ability_choice = -1;
-	var _reward_type = CULTIST_LEVEL_REWARD.ATTRIBUTE;
+	var _ability_reward_type = -1;
+	var _has_attribute_choice = false;
+	var _has_ability_choice = false;
 
 	if (instance_exists(_cultist))
 	{
 		ensure_cultist_levelup_options(_cultist);
-		_reward_type = cultist_level_reward_type_get(_cultist);
+		_ability_reward_type = cultist_levelup_ability_reward_type_get(_cultist);
+		_has_attribute_choice = cultist_levelup_has_attribute_choice(_cultist);
+		_has_ability_choice = _ability_reward_type != -1;
 	}
 
 	// Detect button hover before drawing stats so bonuses can preview the next point.
-	if (_reward_type == CULTIST_LEVEL_REWARD.ATTRIBUTE)
+	if (_has_attribute_choice)
 	{
 		var _attribute_stat_count = array_length(_attribute_stat_order);
 
@@ -1779,7 +1789,7 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 		{
 			var _hover_button_x = _button_start_x + ((_button_width + _button_gap) * _hover_stat_index);
 			var _is_button_hovered = _mouse_x >= _hover_button_x && _mouse_x <= _hover_button_x + _button_width
-				&& _mouse_y >= _button_y && _mouse_y <= _button_y + _button_height;
+				&& _mouse_y >= _attribute_button_y && _mouse_y <= _attribute_button_y + _button_height;
 
 			if (_is_button_hovered)
 			{
@@ -1787,24 +1797,16 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 			}
 		}
 	}
-	else if (instance_exists(_cultist))
-	{
-		var _ability_options = _cultist.passive_choice_options;
 
-		if (_reward_type == CULTIST_LEVEL_REWARD.ACTIVE)
-		{
-			_ability_options = _cultist.active_choice_options;
-		}
-		else if (_reward_type == CULTIST_LEVEL_REWARD.ABILITY_UPGRADE)
-		{
-			_ability_options = _cultist.ability_upgrade_choice_options;
-		}
+	if (_has_ability_choice && instance_exists(_cultist))
+	{
+		var _ability_options = cultist_levelup_ability_options_get(_cultist, _ability_reward_type);
 
 		for (var _hover_choice_index = 0; _hover_choice_index < array_length(_ability_options); ++_hover_choice_index)
 		{
 			var _hover_button_x = _button_start_x + ((_button_width + _button_gap) * _hover_choice_index);
 			var _is_button_hovered = _mouse_x >= _hover_button_x && _mouse_x <= _hover_button_x + _button_width
-				&& _mouse_y >= _button_y && _mouse_y <= _button_y + _button_height;
+				&& _mouse_y >= _ability_button_y && _mouse_y <= _ability_button_y + _button_height;
 
 			if (_is_button_hovered)
 			{
@@ -1953,22 +1955,27 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 
 		draw_set_color(COLOR_HUD_TEXT);
 
-		if (_reward_type == CULTIST_LEVEL_REWARD.PASSIVE)
+		var _pending_text = "";
+
+		if (_has_attribute_choice)
 		{
-			draw_text(_panel_x + (_panel_width * 0.5), _panel_y + 158, "Passive choices: " + string(_pending_passive_choices));
+			_pending_text = "Attribute points: " + string(_pending_level_points);
 		}
-		else if (_reward_type == CULTIST_LEVEL_REWARD.ACTIVE)
+
+		if (_ability_reward_type == CULTIST_LEVEL_REWARD.PASSIVE)
 		{
-			draw_text(_panel_x + (_panel_width * 0.5), _panel_y + 158, "Active choices: " + string(_pending_active_choices));
+			_pending_text += (_pending_text == "" ? "" : "   ") + "Passive choices: " + string(_pending_passive_choices);
 		}
-		else if (_reward_type == CULTIST_LEVEL_REWARD.ABILITY_UPGRADE)
+		else if (_ability_reward_type == CULTIST_LEVEL_REWARD.ACTIVE)
 		{
-			draw_text(_panel_x + (_panel_width * 0.5), _panel_y + 158, "Ability upgrades: " + string(_pending_ability_upgrade_choices));
+			_pending_text += (_pending_text == "" ? "" : "   ") + "Active choices: " + string(_pending_active_choices);
 		}
-		else
+		else if (_ability_reward_type == CULTIST_LEVEL_REWARD.ABILITY_UPGRADE)
 		{
-			draw_text(_panel_x + (_panel_width * 0.5), _panel_y + 158, "Attribute points: " + string(_pending_level_points));
+			_pending_text += (_pending_text == "" ? "" : "   ") + "Ability upgrades: " + string(_pending_ability_upgrade_choices);
 		}
+
+		draw_text(_panel_x + (_panel_width * 0.5), _panel_y + 158, _pending_text);
 
 		if (variable_instance_exists(_cultist, "demon_type") && _cultist.demon_type != DEMON_TYPE.NONE)
 		{
@@ -1985,16 +1992,22 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 			var _preview_body_points = _body_points;
 			var _preview_spirit_points = _spirit_points;
 			var _preview_fervor_points = _fervor_points;
+			var _preview_stat = _hovered_stat;
 
-			if (_hovered_stat == CULTIST_STAT.BODY)
+			if (_preview_stat < 0 && cultist_levelup_selected_stat >= 0)
+			{
+				_preview_stat = cultist_levelup_selected_stat;
+			}
+
+			if (_preview_stat == CULTIST_STAT.BODY)
 			{
 				_preview_body_points++;
 			}
-			else if (_hovered_stat == CULTIST_STAT.SPIRIT)
+			else if (_preview_stat == CULTIST_STAT.SPIRIT)
 			{
 				_preview_spirit_points++;
 			}
-			else if (_hovered_stat == CULTIST_STAT.FERVOR)
+			else if (_preview_stat == CULTIST_STAT.FERVOR)
 			{
 				_preview_fervor_points++;
 			}
@@ -2048,7 +2061,7 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 					draw_rectangle(_square_x, _row_y, _square_x + _square_size, _row_y + _square_size, false);
 				}
 
-				if (_hovered_stat == _attribute_stat)
+				if (_preview_stat == _attribute_stat)
 				{
 					var _preview_square_x = _square_start_x + ((_square_size + _square_gap) * _attribute_points[_attribute_stat]);
 					draw_rectangle(_preview_square_x, _row_y, _preview_square_x + _square_size, _row_y + _square_size, true);
@@ -2197,27 +2210,13 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 	draw_set_halign(fa_center);
 	draw_set_valign(fa_middle);
 	draw_set_color(COLOR_HUD_TEXT);
-	var _choice_header = "Choose one attribute point";
-
-	if (_reward_type == CULTIST_LEVEL_REWARD.PASSIVE)
-	{
-		_choice_header = "Choose one passive ability";
-	}
-	else if (_reward_type == CULTIST_LEVEL_REWARD.ACTIVE)
-	{
-		_choice_header = "Choose one active ability";
-	}
-	else if (_reward_type == CULTIST_LEVEL_REWARD.ABILITY_UPGRADE)
-	{
-		_choice_header = "Choose one ability upgrade";
-	}
-
-	draw_text(_panel_x + (_panel_width * 0.5), _button_y - 28, _choice_header);
 
 	var _levelup_stat_colors = [COLOR_CULTIST_BODY, COLOR_CULTIST_SPIRIT, COLOR_CULTIST_FERVOR];
 
-	if (_reward_type == CULTIST_LEVEL_REWARD.ATTRIBUTE)
+	if (_has_attribute_choice)
 	{
+		draw_text(_panel_x + (_panel_width * 0.5), _attribute_button_y - 24, "Choose one attribute point");
+
 		var _attribute_button_count = array_length(_attribute_stat_order);
 
 		for (var _stat_index = 0; _stat_index < _attribute_button_count; ++_stat_index)
@@ -2225,7 +2224,8 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 			var _button_stat = _attribute_stat_order[_stat_index];
 			var _button_x = _button_start_x + ((_button_width + _button_gap) * _stat_index);
 			var _is_hovered = _mouse_x >= _button_x && _mouse_x <= _button_x + _button_width
-				&& _mouse_y >= _button_y && _mouse_y <= _button_y + _button_height;
+				&& _mouse_y >= _attribute_button_y && _mouse_y <= _attribute_button_y + _button_height;
+			var _is_selected = cultist_levelup_selected_stat == _button_stat;
 
 			if (_is_hovered)
 			{
@@ -2234,35 +2234,44 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 
 			draw_set_halign(fa_center);
 			draw_set_valign(fa_middle);
-			draw_set_color(c_white);
-			draw_rectangle(_button_x, _button_y, _button_x + _button_width, _button_y + _button_height, true);
+			draw_set_color(_is_selected ? _levelup_stat_colors[_button_stat] : c_white);
+			draw_rectangle(_button_x, _attribute_button_y, _button_x + _button_width, _attribute_button_y + _button_height, true);
 			draw_set_color(_levelup_stat_colors[_button_stat]);
-			draw_text(_button_x + (_button_width * 0.5), _button_y + (_button_height * 0.5), _stat_names[_button_stat]);
+			draw_text(_button_x + (_button_width * 0.5), _attribute_button_y + (_button_height * 0.5), _stat_names[_button_stat]);
 		}
 	}
-	else if (instance_exists(_cultist))
-	{
-		var _ability_options = _cultist.passive_choice_options;
-		var _ability_color = COLOR_CULTIST_SPIRIT;
 
-		if (_reward_type == CULTIST_LEVEL_REWARD.ACTIVE)
+	if (_has_ability_choice && instance_exists(_cultist))
+	{
+		var _ability_options = cultist_levelup_ability_options_get(_cultist, _ability_reward_type);
+		var _ability_color = COLOR_CULTIST_SPIRIT;
+		var _ability_header = "Choose one passive ability";
+
+		if (_ability_reward_type == CULTIST_LEVEL_REWARD.ACTIVE)
 		{
-			_ability_options = _cultist.active_choice_options;
 			_ability_color = COLOR_CULTIST_FERVOR;
+			_ability_header = "Choose one active ability";
 		}
-		else if (_reward_type == CULTIST_LEVEL_REWARD.ABILITY_UPGRADE)
+		else if (_ability_reward_type == CULTIST_LEVEL_REWARD.ABILITY_UPGRADE)
 		{
-			_ability_options = _cultist.ability_upgrade_choice_options;
 			_ability_color = COLOR_ABILITY_BAR;
+			_ability_header = "Choose one ability upgrade";
 		}
+
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_middle);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text(_panel_x + (_panel_width * 0.5), _ability_button_y - 24, _ability_header);
 
 		for (var _choice_index = 0; _choice_index < array_length(_ability_options); ++_choice_index)
 		{
 			var _button_x = _button_start_x + ((_button_width + _button_gap) * _choice_index);
 			var _ability = _ability_options[_choice_index];
 			var _button_text = cultist_ability_name_get(_ability);
+			var _is_selected = cultist_levelup_selected_ability == _ability
+				&& cultist_levelup_selected_reward_type == _ability_reward_type;
 
-			if (_reward_type == CULTIST_LEVEL_REWARD.ABILITY_UPGRADE)
+			if (_ability_reward_type == CULTIST_LEVEL_REWARD.ABILITY_UPGRADE)
 			{
 				_button_text += "\nLv." + string(cultist_ability_level_get(_cultist, _ability))
 					+ " -> Lv." + string(min(4, cultist_ability_level_get(_cultist, _ability) + 1));
@@ -2270,14 +2279,14 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 
 			draw_set_halign(fa_center);
 			draw_set_valign(fa_middle);
-			draw_set_color(c_white);
-			draw_rectangle(_button_x, _button_y, _button_x + _button_width, _button_y + _button_height, true);
+			draw_set_color(_is_selected ? _ability_color : c_white);
+			draw_rectangle(_button_x, _ability_button_y, _button_x + _button_width, _ability_button_y + _button_height, true);
 			draw_set_color(_ability_color);
 			draw_set_halign(fa_left);
 			draw_set_valign(fa_top);
 			draw_text_ext(
 				_button_x + 8,
-				_button_y + 10,
+				_ability_button_y + 10,
 				_button_text,
 				14,
 				_button_width - 16
@@ -2285,7 +2294,20 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 		}
 	}
 
-	if (_reward_type == CULTIST_LEVEL_REWARD.ATTRIBUTE && _hovered_stat >= 0)
+	if (instance_exists(_cultist) && cultist_levelup_confirm_can_apply(_cultist))
+	{
+		var _is_confirm_hovered = _mouse_x >= _confirm_x && _mouse_x <= _confirm_x + _confirm_width
+			&& _mouse_y >= _confirm_y && _mouse_y <= _confirm_y + _confirm_height;
+
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_middle);
+		draw_set_color(_is_confirm_hovered ? COLOR_CULTIST_FERVOR : c_white);
+		draw_rectangle(_confirm_x, _confirm_y, _confirm_x + _confirm_width, _confirm_y + _confirm_height, true);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text(_confirm_x + (_confirm_width * 0.5), _confirm_y + (_confirm_height * 0.5), "Confirm");
+	}
+
+	if (_has_attribute_choice && _hovered_stat >= 0)
 	{
 		var _tooltip_width = 250;
 		var _tooltip_height = 158;
@@ -2343,18 +2365,9 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 		draw_set_color(COLOR_HUD_TEXT);
 		draw_text_ext(_tooltip_x + 12, _tooltip_y + 34, _tooltip_text, 18, _tooltip_width - 24);
 	}
-	else if (_reward_type != CULTIST_LEVEL_REWARD.ATTRIBUTE && _hovered_ability_choice >= 0 && instance_exists(_cultist))
+	else if (_has_ability_choice && _hovered_ability_choice >= 0 && instance_exists(_cultist))
 	{
-		var _ability_options = _cultist.passive_choice_options;
-
-		if (_reward_type == CULTIST_LEVEL_REWARD.ACTIVE)
-		{
-			_ability_options = _cultist.active_choice_options;
-		}
-		else if (_reward_type == CULTIST_LEVEL_REWARD.ABILITY_UPGRADE)
-		{
-			_ability_options = _cultist.ability_upgrade_choice_options;
-		}
+		var _ability_options = cultist_levelup_ability_options_get(_cultist, _ability_reward_type);
 
 		if (_hovered_ability_choice < array_length(_ability_options))
 		{
@@ -2376,7 +2389,7 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 			draw_set_color(COLOR_HUD_TEXT);
 			var _tooltip_description = cultist_ability_description_get(_ability);
 
-			if (_reward_type == CULTIST_LEVEL_REWARD.ABILITY_UPGRADE)
+			if (_ability_reward_type == CULTIST_LEVEL_REWARD.ABILITY_UPGRADE)
 			{
 				var _current_ability_level = cultist_ability_level_get(_cultist, _ability);
 				var _target_ability_level = min(4, _current_ability_level + 1);
@@ -3625,8 +3638,10 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 	&& variable_global_exists("cultists")
 	&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active))
 {
-	var _should_draw_pickup_hand = instance_exists(global.dragged_cultist);
+	var _artifact_is_dragged = variable_global_exists("dragged_artifact") && instance_exists(global.dragged_artifact);
+	var _should_draw_pickup_hand = instance_exists(global.dragged_cultist) || _artifact_is_dragged;
 	var _should_draw_whip_prompt = false;
+	var _hovered_artifact = noone;
 
 	if (!_should_draw_pickup_hand
 		&& instance_exists(o_camera_controller))
@@ -3644,6 +3659,41 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 		var _cultist_count = array_length(global.cultists);
 
 		_should_draw_whip_prompt = instance_exists(_whip_target);
+
+		if (instance_exists(o_artifact))
+		{
+			var _artifact_count = instance_number(o_artifact);
+
+			for (var _artifact_index = 0; _artifact_index < _artifact_count; ++_artifact_index)
+			{
+				var _artifact = instance_find(o_artifact, _artifact_index);
+
+				if (!instance_exists(_artifact))
+				{
+					continue;
+				}
+
+				var _artifact_pickup_radius = 0;
+
+				if (variable_instance_exists(_artifact, "artifact_pickup_radius"))
+				{
+					_artifact_pickup_radius = _artifact.artifact_pickup_radius;
+				}
+
+				var _artifact_is_hovered = (_mouse_world_x >= _artifact.bbox_left
+						&& _mouse_world_x <= _artifact.bbox_right
+						&& _mouse_world_y >= _artifact.bbox_top
+						&& _mouse_world_y <= _artifact.bbox_bottom)
+					|| point_distance(_mouse_world_x, _mouse_world_y, _artifact.x, _artifact.y) <= _artifact_pickup_radius;
+
+				if (_artifact_is_hovered)
+				{
+					_should_draw_pickup_hand = true;
+					_hovered_artifact = _artifact;
+					break;
+				}
+			}
+		}
 
 		for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 		{
@@ -3692,22 +3742,88 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 		}
 	}
 
+	if (instance_exists(_hovered_artifact) && !_artifact_is_dragged)
+	{
+		var _artifact_tooltip_width = 270;
+		var _artifact_tooltip_height = 104;
+		var _artifact_tooltip_padding = 14;
+		var _artifact_tooltip_line_height = 22;
+		var _artifact_tooltip_x = _artifact_tooltip_padding;
+		var _artifact_tooltip_y = 84;
+		var _artifact_stat = _hovered_artifact.artifact_stat;
+		var _artifact_stat_color = COLOR_CULTIST_FERVOR;
+		var _artifact_stat_name = "Fervor";
+		var _artifact_apply_text = "Drag onto a cultist to apply.";
+
+		if (_artifact_stat == CULTIST_STAT.BODY)
+		{
+			_artifact_stat_color = COLOR_CULTIST_BODY;
+			_artifact_stat_name = "Body";
+		}
+		else if (_artifact_stat == CULTIST_STAT.SPIRIT)
+		{
+			_artifact_stat_color = COLOR_CULTIST_SPIRIT;
+			_artifact_stat_name = "Spirit";
+		}
+
+		var _artifact_bonus_text = "Grants +1 " + _artifact_stat_name;
+
+		draw_set_alpha(0.9);
+		draw_set_color(COLOR_HUD_BACKGROUND);
+		draw_rectangle(
+			_artifact_tooltip_x,
+			_artifact_tooltip_y,
+			_artifact_tooltip_x + _artifact_tooltip_width,
+			_artifact_tooltip_y + _artifact_tooltip_height,
+			false
+		);
+
+		draw_set_alpha(1);
+		draw_set_color(_artifact_stat_color);
+		draw_rectangle(
+			_artifact_tooltip_x,
+			_artifact_tooltip_y,
+			_artifact_tooltip_x + _artifact_tooltip_width,
+			_artifact_tooltip_y + _artifact_tooltip_height,
+			true
+		);
+
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text(_artifact_tooltip_x + _artifact_tooltip_padding, _artifact_tooltip_y + _artifact_tooltip_padding, "Artifact");
+
+		draw_set_color(_artifact_stat_color);
+		draw_text(
+			_artifact_tooltip_x + _artifact_tooltip_padding,
+			_artifact_tooltip_y + _artifact_tooltip_padding + _artifact_tooltip_line_height,
+			_artifact_bonus_text
+		);
+
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text(
+			_artifact_tooltip_x + _artifact_tooltip_padding,
+			_artifact_tooltip_y + _artifact_tooltip_padding + (_artifact_tooltip_line_height * 2),
+			_artifact_apply_text
+		);
+	}
+
 	if (_should_draw_pickup_hand)
 	{
 		var _hand_x = device_mouse_x_to_gui(0);
 		var _hand_y = device_mouse_y_to_gui(0);
 		var _hand_scale = 0.33;
 
-		if (instance_exists(global.dragged_cultist) && instance_exists(o_camera_controller))
+		if ((instance_exists(global.dragged_cultist) || _artifact_is_dragged) && instance_exists(o_camera_controller))
 		{
 			var _drag_hand_camera = instance_find(o_camera_controller, 0);
 			var _drag_hand_camera_x = camera_get_view_x(_drag_hand_camera.camera_id);
 			var _drag_hand_camera_y = camera_get_view_y(_drag_hand_camera.camera_id);
 			var _drag_hand_camera_width = camera_get_view_width(_drag_hand_camera.camera_id);
 			var _drag_hand_camera_height = camera_get_view_height(_drag_hand_camera.camera_id);
-			var _dragged_unit = global.dragged_cultist;
-			var _hand_world_x = _dragged_unit.x;
-			var _hand_world_y = _dragged_unit.bbox_bottom - pickup_hand_drag_offset_y;
+			var _dragged_instance = _artifact_is_dragged ? global.dragged_artifact : global.dragged_cultist;
+			var _hand_world_x = _dragged_instance.x;
+			var _hand_world_y = _dragged_instance.bbox_bottom - pickup_hand_drag_offset_y;
 
 			_hand_x = ((_hand_world_x - _drag_hand_camera_x) / _drag_hand_camera_width) * camera_view_width;
 			_hand_y = ((_hand_world_y - _drag_hand_camera_y) / _drag_hand_camera_height) * camera_view_height;
@@ -3726,7 +3842,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 		draw_set_valign(fa_top);
 		draw_set_color(COLOR_HUD_TEXT);
 
-		if (!instance_exists(global.dragged_cultist))
+		if (!instance_exists(global.dragged_cultist) && !_artifact_is_dragged)
 		{
 			draw_text(_hand_x, _hand_y + 28, "PRESS LMB");
 		}

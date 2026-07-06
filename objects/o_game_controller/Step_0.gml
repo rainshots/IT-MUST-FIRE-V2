@@ -121,7 +121,8 @@ if (global.cheats_enabled && debug_menu_open && mouse_check_button_pressed(mb_le
 if (keyboard_check_pressed(vk_space)
 	&& global.focus_window == FOCUS_WINDOW.NOONE
 	&& !pause_menu_open
-	&& !instance_exists(global.dragged_cultist))
+	&& !instance_exists(global.dragged_cultist)
+	&& !instance_exists(global.dragged_artifact))
 {
 	player_pause_active = !player_pause_active;
 	global.pause = player_pause_active;
@@ -157,6 +158,7 @@ if (!global.pause)
 
 // Delay the first worker assignment hint until gameplay has been visible for a moment.
 if (!global.pause
+	&& global.tutorial_hints_enabled
 	&& global.focus_window == FOCUS_WINDOW.NOONE
 	&& worker_assignment_hint_delay_started
 	&& worker_assignment_hint_delay_timer > 0)
@@ -178,8 +180,43 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 	var _mouse_world_y = _camera_y + ((_mouse_gui_y / camera_view_height) * _camera_height);
 	var _cultist_status_card_clicked = false;
 	var _minimap_camera_clicked = false;
+	var _artifact_clicked = false;
+
+	if (mouse_check_button_pressed(mb_left) && instance_exists(o_artifact))
+	{
+		var _artifact_count = instance_number(o_artifact);
+
+		for (var _artifact_index = 0; _artifact_index < _artifact_count; ++_artifact_index)
+		{
+			var _artifact = instance_find(o_artifact, _artifact_index);
+
+			if (!instance_exists(_artifact))
+			{
+				continue;
+			}
+
+			var _artifact_pickup_radius = 0;
+
+			if (variable_instance_exists(_artifact, "artifact_pickup_radius"))
+			{
+				_artifact_pickup_radius = _artifact.artifact_pickup_radius;
+			}
+
+			if (instance_exists(_artifact)
+				&& ((_mouse_world_x >= _artifact.bbox_left
+						&& _mouse_world_x <= _artifact.bbox_right
+						&& _mouse_world_y >= _artifact.bbox_top
+						&& _mouse_world_y <= _artifact.bbox_bottom)
+					|| point_distance(_mouse_world_x, _mouse_world_y, _artifact.x, _artifact.y) <= _artifact_pickup_radius))
+			{
+				_artifact_clicked = true;
+				break;
+			}
+		}
+	}
 
 	if (!instance_exists(global.dragged_cultist)
+		&& !instance_exists(global.dragged_artifact)
 		&& mouse_check_button_pressed(mb_left)
 		&& instance_exists(o_hud))
 	{
@@ -209,6 +246,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 	}
 
 	if (!instance_exists(global.dragged_cultist)
+		&& !instance_exists(global.dragged_artifact)
 		&& mouse_check_button(mb_left)
 		&& instance_exists(o_hud))
 	{
@@ -239,6 +277,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 
 	if (global.day_phase == DAY_PHASE.DAY
 		&& !instance_exists(global.dragged_cultist)
+		&& !instance_exists(global.dragged_artifact)
 		&& mouse_check_button_pressed(mb_right))
 	{
 		var _whip_target = find_worker_whip_target_at_position(_mouse_world_x, _mouse_world_y);
@@ -290,6 +329,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 		if (instance_exists(global.cultist_assignment_preview_building)
 			&& day_worker_is_out_of_stamina(_dragged_cultist)
 			&& global.cultist_assignment_preview_building.object_index != o_ritual_circle
+			&& global.cultist_assignment_preview_building.object_index != o_meat_bath
 			&& variable_instance_exists(global.cultist_assignment_preview_building, "building_warning_show"))
 		{
 			global.cultist_assignment_preview_building.building_warning_show("NO STAMINA", COLOR_STATUS_NEGATIVE_RED);
@@ -322,7 +362,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 			global.cultist_assignment_preview_building = noone;
 		}
 	}
-	else if (mouse_check_button_pressed(mb_left) && !_cultist_status_card_clicked && !_minimap_camera_clicked)
+	else if (mouse_check_button_pressed(mb_left) && !_artifact_clicked && !_cultist_status_card_clicked && !_minimap_camera_clicked)
 	{
 		var _levelup_cultist = cultist_levelup_button_find_at_gui(_mouse_gui_x, _mouse_gui_y);
 
@@ -622,6 +662,10 @@ if (global.cheats_enabled)
 			if (_target_instance.object_index == o_holy_tower)
 			{
 				_damage_amount = max(1, _target_instance.max_hp * 0.5);
+			}
+			else if (_target_instance.object_index == o_house)
+			{
+				_damage_amount = max(1, _target_instance.max_hp * 0.34);
 			}
 
 			if (variable_instance_exists(_target_instance, "unit_faction"))
@@ -1077,11 +1121,16 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP && mouse_check_button_p
 	var _mouse_y = device_mouse_y_to_gui(0);
 	var _panel_x = (camera_view_width - cultist_panel_width) * 0.5;
 	var _panel_y = (camera_view_height - 660) * 0.5;
-	var _button_y = _panel_y + 550;
+	var _attribute_button_y = _panel_y + 486;
+	var _ability_button_y = _panel_y + 560;
 	var _button_width = 150;
 	var _button_height = 44;
 	var _button_gap = 18;
 	var _button_start_x = _panel_x + 92;
+	var _confirm_width = 210;
+	var _confirm_height = 42;
+	var _confirm_x = _panel_x + ((cultist_panel_width - _confirm_width) * 0.5);
+	var _confirm_y = _panel_y + 612;
 	var _cultist = noone;
 
 	if (cultist_levelup_index >= 0 && cultist_levelup_index < array_length(global.cultists))
@@ -1092,47 +1141,52 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP && mouse_check_button_p
 	if (instance_exists(_cultist))
 	{
 		ensure_cultist_levelup_options(_cultist);
-		var _reward_type = cultist_level_reward_type_get(_cultist);
+		var _ability_reward_type = cultist_levelup_ability_reward_type_get(_cultist);
+		var _has_attribute_choice = cultist_levelup_has_attribute_choice(_cultist);
+		var _has_ability_choice = _ability_reward_type != -1;
 		var _attribute_stat_order = [CULTIST_STAT.BODY, CULTIST_STAT.FERVOR, CULTIST_STAT.SPIRIT];
-		var _button_count = array_length(_attribute_stat_order);
 
-		if (_reward_type == CULTIST_LEVEL_REWARD.PASSIVE)
+		if (_has_attribute_choice)
 		{
-			_button_count = array_length(_cultist.passive_choice_options);
-		}
-		else if (_reward_type == CULTIST_LEVEL_REWARD.ACTIVE)
-		{
-			_button_count = array_length(_cultist.active_choice_options);
-		}
-		else if (_reward_type == CULTIST_LEVEL_REWARD.ABILITY_UPGRADE)
-		{
-			_button_count = array_length(_cultist.ability_upgrade_choice_options);
-		}
+			var _attribute_button_count = array_length(_attribute_stat_order);
 
-		for (var _choice_index = 0; _choice_index < _button_count; ++_choice_index)
-		{
-			var _button_x = _button_start_x + ((_button_width + _button_gap) * _choice_index);
-
-			if (_mouse_x >= _button_x && _mouse_x <= _button_x + _button_width
-				&& _mouse_y >= _button_y && _mouse_y <= _button_y + _button_height)
+			for (var _stat_choice_index = 0; _stat_choice_index < _attribute_button_count; ++_stat_choice_index)
 			{
-				if (_reward_type == CULTIST_LEVEL_REWARD.ATTRIBUTE)
+				var _stat_button_x = _button_start_x + ((_button_width + _button_gap) * _stat_choice_index);
+
+				if (_mouse_x >= _stat_button_x && _mouse_x <= _stat_button_x + _button_width
+					&& _mouse_y >= _attribute_button_y && _mouse_y <= _attribute_button_y + _button_height)
 				{
-					add_cultist_level_point(_attribute_stat_order[_choice_index]);
-				}
-				else if (_reward_type == CULTIST_LEVEL_REWARD.PASSIVE)
-				{
-					add_cultist_level_ability(_cultist.passive_choice_options[_choice_index]);
-				}
-				else if (_reward_type == CULTIST_LEVEL_REWARD.ACTIVE)
-				{
-					add_cultist_level_ability(_cultist.active_choice_options[_choice_index]);
-				}
-				else if (_reward_type == CULTIST_LEVEL_REWARD.ABILITY_UPGRADE)
-				{
-					add_cultist_level_ability(_cultist.ability_upgrade_choice_options[_choice_index]);
+					cultist_levelup_selected_stat = _attribute_stat_order[_stat_choice_index];
+					break;
 				}
 			}
+		}
+
+		if (_has_ability_choice)
+		{
+			var _ability_options = cultist_levelup_ability_options_get(_cultist, _ability_reward_type);
+			var _ability_button_count = array_length(_ability_options);
+
+			for (var _ability_choice_index = 0; _ability_choice_index < _ability_button_count; ++_ability_choice_index)
+			{
+				var _ability_button_x = _button_start_x + ((_button_width + _button_gap) * _ability_choice_index);
+
+				if (_mouse_x >= _ability_button_x && _mouse_x <= _ability_button_x + _button_width
+					&& _mouse_y >= _ability_button_y && _mouse_y <= _ability_button_y + _button_height)
+				{
+					cultist_levelup_selected_ability = _ability_options[_ability_choice_index];
+					cultist_levelup_selected_reward_type = _ability_reward_type;
+					break;
+				}
+			}
+		}
+
+		if (cultist_levelup_confirm_can_apply(_cultist)
+			&& _mouse_x >= _confirm_x && _mouse_x <= _confirm_x + _confirm_width
+			&& _mouse_y >= _confirm_y && _mouse_y <= _confirm_y + _confirm_height)
+		{
+			cultist_levelup_apply_selected();
 		}
 	}
 }
