@@ -60,6 +60,7 @@ guard_target = noone;
 guard_radius = 220;
 unit_can_attack_cannon = true;
 is_night_attack_unit = false;
+holy_tower_reinforcement_waits_for_night = false;
 
 // Unit separation keeps units from stacking into one point.
 separation_radius = 26;

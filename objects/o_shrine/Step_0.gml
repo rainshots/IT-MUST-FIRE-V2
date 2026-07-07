@@ -11,6 +11,8 @@ if (is_corrupted)
 	exit;
 }
 
+shrine_day_volley_update();
+
 if (!is_attackable)
 {
 	exit;

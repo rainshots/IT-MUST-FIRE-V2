@@ -35,12 +35,21 @@ night_saint_direction_index = 0;
 night_saint_direction_max_distance = BALANCE_SHRINE_NIGHT_SAINT_DIRECTION_MAX_DISTANCE;
 night_saint_direction_angle_step = BALANCE_SHRINE_NIGHT_SAINT_DIRECTION_ANGLE_STEP;
 night_saint_direction_match_angle = BALANCE_SHRINE_NIGHT_SAINT_DIRECTION_MATCH_ANGLE;
+day_volley_projectile_count_min = BALANCE_SHRINE_DAY_VOLLEY_PROJECTILE_COUNT_MIN;
+day_volley_projectile_count_max = BALANCE_SHRINE_DAY_VOLLEY_PROJECTILE_COUNT_MAX;
+day_volley_taint_search_radius = BALANCE_SHRINE_DAY_VOLLEY_TAINT_SEARCH_RADIUS;
+day_volley_target_spread_radius = BALANCE_SHRINE_DAY_VOLLEY_TARGET_SPREAD_RADIUS;
+day_volley_launch_time = BALANCE_SHRINE_DAY_VOLLEY_LAUNCH_TIME;
+day_volley_cleanse_radius = BALANCE_SHRINE_DAY_VOLLEY_CLEANSE_RADIUS;
+day_volley_cleanse_amount = BALANCE_SHRINE_DAY_VOLLEY_CLEANSE_AMOUNT;
+day_volley_last_day_index = -1;
 
 // Shrine tooltip describes the run objective.
 tooltip_lines = [
 	"Shrine",
 	"Destroy its Holy Towers to make it vulnerable",
-	"Then destroy the Shrine"
+	"Then destroy the Shrine",
+	"Day: cleanses tainted ground from long range"
 ];
 
 unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true, _source_instance = noone)
@@ -299,6 +308,138 @@ shrine_saint_projectile_create = function(_target_x, _target_y, _launch_delay_se
 	_projectile.depth = night_saint_projectile_draw_depth;
 
 	return _projectile;
+};
+
+shrine_cleanse_projectile_create = function(_target_x, _target_y, _launch_delay_seconds = 0)
+{
+	var _projectile_x = x;
+	var _projectile_y = y + night_saint_projectile_spawn_offset_y;
+	var _projectile = instance_create_layer(_projectile_x, _projectile_y, night_saint_projectile_layer_name, o_projectile);
+	var _projectile_distance = point_distance(_projectile_x, _projectile_y, _target_x, _target_y);
+	var _flight_time_seconds = clamp(
+		_projectile_distance / _projectile.projectile_speed,
+		_projectile.minimum_flight_time,
+		_projectile.maximum_flight_time
+	);
+
+	_projectile.start_x = _projectile_x;
+	_projectile.start_y = _projectile_y;
+	_projectile.target_x = _target_x;
+	_projectile.target_y = _target_y;
+	_projectile.projectile_type = PROJECTILE_TYPE.CLEANSE;
+	_projectile.effect_radius = day_volley_cleanse_radius;
+	_projectile.cleanse_amount = day_volley_cleanse_amount;
+	_projectile.saint_amount = 0;
+	_projectile.damage_faction = UNIT_FACTION.ENEMY;
+	_projectile.source_instance = id;
+	_projectile.flight_time = _flight_time_seconds * room_speed;
+	_projectile.launch_delay_timer = _launch_delay_seconds * room_speed;
+	_projectile.depth = night_saint_projectile_draw_depth;
+
+	return _projectile;
+};
+
+shrine_taint_target_find = function()
+{
+	if (!instance_exists(o_corruption_grid))
+	{
+		return noone;
+	}
+
+	var _corruption_grid = instance_find(o_corruption_grid, 0);
+	var _cell_size = _corruption_grid.cell_size;
+	var _left_cell = clamp(floor((x - day_volley_taint_search_radius) / _cell_size), 0, _corruption_grid.grid_width - 1);
+	var _right_cell = clamp(floor((x + day_volley_taint_search_radius) / _cell_size), 0, _corruption_grid.grid_width - 1);
+	var _top_cell = clamp(floor((y - day_volley_taint_search_radius) / _cell_size), 0, _corruption_grid.grid_height - 1);
+	var _bottom_cell = clamp(floor((y + day_volley_taint_search_radius) / _cell_size), 0, _corruption_grid.grid_height - 1);
+	var _targets = [];
+
+	for (var _cell_x = _left_cell; _cell_x <= _right_cell; ++_cell_x)
+	{
+		for (var _cell_y = _top_cell; _cell_y <= _bottom_cell; ++_cell_y)
+		{
+			if (variable_instance_exists(_corruption_grid, "saint_grid")
+				&& ds_grid_get(_corruption_grid.saint_grid, _cell_x, _cell_y) > 0)
+			{
+				continue;
+			}
+
+			var _corruption = ds_grid_get(_corruption_grid.corruption_grid, _cell_x, _cell_y);
+
+			if (_corruption <= 0)
+			{
+				continue;
+			}
+
+			var _cell_center_x = (_cell_x * _cell_size) + (_cell_size * 0.5);
+			var _cell_center_y = (_cell_y * _cell_size) + (_cell_size * 0.5);
+
+			if (point_distance(x, y, _cell_center_x, _cell_center_y) <= day_volley_taint_search_radius)
+			{
+				array_push(
+					_targets,
+					{
+						x: _cell_center_x,
+						y: _cell_center_y
+					}
+				);
+			}
+		}
+	}
+
+	if (array_length(_targets) <= 0)
+	{
+		return noone;
+	}
+
+	return _targets[irandom(array_length(_targets) - 1)];
+};
+
+shrine_day_volley_update = function()
+{
+	if (global.day_phase != DAY_PHASE.DAY)
+	{
+		return;
+	}
+
+	var _day_index = 0;
+
+	if (instance_exists(o_game_controller))
+	{
+		var _game_controller = instance_find(o_game_controller, 0);
+
+		if (variable_instance_exists(_game_controller, "night_attack_night_index"))
+		{
+			_day_index = _game_controller.night_attack_night_index;
+		}
+	}
+
+	if (day_volley_last_day_index == _day_index)
+	{
+		return;
+	}
+
+	day_volley_last_day_index = _day_index;
+
+	var _taint_target = shrine_taint_target_find();
+
+	if (!is_struct(_taint_target))
+	{
+		return;
+	}
+
+	var _projectile_count = irandom_range(day_volley_projectile_count_min, day_volley_projectile_count_max);
+
+	for (var _projectile_index = 0; _projectile_index < _projectile_count; ++_projectile_index)
+	{
+		var _spread_direction = random(360);
+		var _spread_distance = sqrt(random(1)) * day_volley_target_spread_radius;
+		var _target_x = _taint_target.x + lengthdir_x(_spread_distance, _spread_direction);
+		var _target_y = _taint_target.y + lengthdir_y(_spread_distance, _spread_direction);
+		var _launch_delay_seconds = random(day_volley_launch_time);
+
+		shrine_cleanse_projectile_create(_target_x, _target_y, _launch_delay_seconds);
+	}
 };
 
 shrine_saint_direction_offset_get = function()

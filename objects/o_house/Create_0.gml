@@ -33,11 +33,12 @@ house_visible_sample_radius = BALANCE_HOUSE_VISIBLE_SAMPLE_RADIUS;
 house_guard_active_player_radius = BALANCE_HOUSE_GUARD_ACTIVE_PLAYER_RADIUS;
 house_guard_camera_padding = BALANCE_HOUSE_GUARD_CAMERA_PADDING;
 
-// Tooltip lines describe house behavior for projectile targeting.
+// Tooltip lines describe house behavior.
 tooltip_lines = [
-	"Damage: Takes damage",
-	"Saint: Nearby ground resists Taint",
-	"Morning: Spawns local guards"
+	"House.",
+	"Contains enemy troops. Their numbers grow each day.",
+	"Has a chance to drop an Artifact when destroyed.",
+	"Spreads Taint around itself when destroyed."
 ];
 
 house_saint_source_register = function()

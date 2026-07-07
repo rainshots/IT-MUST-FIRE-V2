@@ -88,6 +88,7 @@ holy_tower_enemy_spawn = function(_enemy_object)
 	if (instance_exists(_enemy))
 	{
 		_enemy.unit_can_attack_cannon = true;
+		_enemy.holy_tower_reinforcement_waits_for_night = (global.day_phase == DAY_PHASE.NIGHT);
 		_enemy.owner_garnizon = noone;
 		_enemy.guard_target = noone;
 

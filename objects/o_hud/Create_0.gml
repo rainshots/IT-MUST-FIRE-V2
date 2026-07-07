@@ -367,8 +367,8 @@ objective_complete_notice_width = 420;
 objective_complete_notice_height = 92;
 objective_complete_notice_y = 96;
 objective_complete_notice_padding = 12;
-objective_complete_title = "SHRINES CLAIMED";
-objective_complete_description = "Two Shrines have fallen to the cannon.";
+objective_complete_title = "SHRINE CLAIMED";
+objective_complete_description = "One Shrine has fallen to the cannon.";
 
 // Resource display order from left to right in the top-left corner.
 resource_order = [

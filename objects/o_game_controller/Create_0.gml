@@ -3662,15 +3662,41 @@ building_resource_summary_draw = function(_center_x, _y)
 
 building_choice_costs_get = function(_choice)
 {
+	var _cost_multiplier = 1;
+
+	// Duplicate base buildings cost more, while Foundry shell choices keep their own prices.
+	if (!instance_exists(building_window_foundry)
+		&& building_choice_count_get(_choice) > 0)
+	{
+		_cost_multiplier = 2;
+	}
+
+	var _costs = [];
+
 	if (variable_struct_exists(_choice, "construction_costs"))
 	{
-		return _choice.construction_costs;
+		var _construction_cost_count = array_length(_choice.construction_costs);
+
+		for (var _cost_index = 0; _cost_index < _construction_cost_count; ++_cost_index)
+		{
+			var _cost_data = _choice.construction_costs[_cost_index];
+
+			array_push(
+				_costs,
+				{
+					resource: _cost_data.resource,
+					cost: _cost_data.cost * _cost_multiplier
+				}
+			);
+		}
+
+		return _costs;
 	}
 
 	return [
 		{
 			resource: RESOURCES.IRON,
-			cost: _choice.iron_cost
+			cost: _choice.iron_cost * _cost_multiplier
 		}
 	];
 };
@@ -3900,9 +3926,8 @@ construct_building_from_choice = function(_choice)
 	}
 
 	var _slot = building_window_slot;
-	var _built_object = instance_create_layer(_slot.x, _slot.y, "Instances", _choice.building_object);
-
 	building_choice_costs_pay(_choice, _slot.x, _slot.y - 84);
+	var _built_object = instance_create_layer(_slot.x, _slot.y, "Instances", _choice.building_object);
 
 	if (instance_exists(_built_object))
 	{
@@ -8038,11 +8063,6 @@ start_night_phase = function()
 	global.sound_play_random(global.night_start_sounds);
 	update_goblin_evening_life();
 	move_goblins_to_cannon_inner();
-
-	with (o_shrine)
-	{
-		shrine_night_saint_projectiles_fire();
-	}
 
 	if (instance_exists(o_cannon))
 	{

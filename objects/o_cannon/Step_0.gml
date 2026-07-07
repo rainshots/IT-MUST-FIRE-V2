@@ -55,10 +55,10 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 
 			global.cannon_taint_projectiles_fired++;
 
-			if (global.cannon_taint_projectiles_fired >= 3
+			if (global.cannon_taint_projectiles_fired >= 5
 				&& variable_global_exists("tutorial_hint_trigger"))
 			{
-				global.tutorial_hint_trigger("holy_towers");
+				global.tutorial_hint_trigger("holy_ground");
 			}
 		}
 

@@ -73,6 +73,7 @@ production_tooltip_padding = 8;
 production_tooltip_line_height = 16;
 production_tooltip_width = 270;
 production_tooltip_offset_y = 148;
+building_display_name = "";
 building_tooltip_title = "";
 building_tooltip_description = "";
 building_tooltip_detail = "";
@@ -195,6 +196,109 @@ resource_color_get = function(_resource)
 
 	return c_white;
 };
+
+settlement_expansion_is_purchased = function()
+{
+	if (!instance_exists(o_cannon))
+	{
+		return false;
+	}
+
+	var _cannon = instance_find(o_cannon, 0);
+
+	return variable_instance_exists(_cannon, "building_upgrade_levels")
+		&& array_length(_cannon.building_upgrade_levels) > CANNON_UPGRADE.SETTLEMENT_EXPANSION
+		&& _cannon.building_upgrade_levels[CANNON_UPGRADE.SETTLEMENT_EXPANSION] > 0;
+};
+
+building_upgrade_requires_settlement_expansion = function(_upgrade_index)
+{
+	return object_index == o_slaughter_table
+		&& _upgrade_index == 1;
+};
+
+building_upgrade_requirement_met = function(_upgrade_index)
+{
+	if (building_upgrade_requires_settlement_expansion(_upgrade_index)
+		&& !settlement_expansion_is_purchased())
+	{
+		return false;
+	}
+
+	return true;
+};
+
+building_display_name_get = function()
+{
+	if (object_index == o_souls_well)
+	{
+		return "Souls Well";
+	}
+
+	if (object_index == o_slaughter_table)
+	{
+		return "Slaughter Table";
+	}
+
+	if (object_index == o_quarry)
+	{
+		return "Quarry";
+	}
+
+	if (object_index == o_goblins_pit)
+	{
+		return "Goblins Pit";
+	}
+
+	if (object_index == o_pitlings_pit2)
+	{
+		return "Pitlings Pit";
+	}
+
+	if (object_index == o_graveyard2)
+	{
+		return "Graveyard";
+	}
+
+	if (object_index == o_meat_bath)
+	{
+		return "Meat Bath";
+	}
+
+	if (object_index == o_ritual_circle)
+	{
+		return "Ritual Circle";
+	}
+
+	if (object_index == o_workshop)
+	{
+		return "Workshop";
+	}
+
+	if (object_index == o_shell_factory)
+	{
+		return "Shell Factory";
+	}
+
+	if (object_index == o_foundry)
+	{
+		return "Foundry";
+	}
+
+	if (object_index == o_graveyardv13)
+	{
+		return "Graveyard";
+	}
+
+	if (object_index == o_hell_pit)
+	{
+		return "Hell Pit";
+	}
+
+	return building_tooltip_title;
+};
+
+building_display_name = building_display_name_get();
 
 building_missing_resource_show = function(_resource, _cost)
 {
@@ -593,7 +697,7 @@ else if (object_index == o_graveyard2)
 	summon_duration = BALANCE_GRAVEYARD2_SKELETON_PRODUCTION_TIME;
 	building_tooltip_title = "Garrison";
 	building_tooltip_description = "Raises Skeletons each morning up to this Graveyard's limit";
-	building_tooltip_detail = "Morning limit: " + string(BALANCE_GRAVEYARD2_BASE_SKELETON_LIMIT) + ". Workers make extra Skeletons with " + summon_cost_text_get() + ".";
+	building_tooltip_detail = "Each morning spawns: " + string(BALANCE_GRAVEYARD2_BASE_SKELETON_LIMIT) + " Skeletons. Workers make extra Skeletons with " + summon_cost_text_get() + ".";
 	building_tooltip_detail_color = production_bonus_stat_color;
 	building_has_upgrades = true;
 	production_speed_upgrade_index = noone;
@@ -641,7 +745,7 @@ else if (object_index == o_pitlings_pit2)
 	summon_duration = BALANCE_PITLINGS_PIT2_PITLING_PRODUCTION_TIME;
 	building_tooltip_title = "Garrison";
 	building_tooltip_description = "Spawns Pitlings each morning up to this Pit's limit";
-	building_tooltip_detail = "Morning limit: " + string(BALANCE_PITLINGS_PIT2_BASE_PITLING_LIMIT) + ". Workers make extra Pitlings with " + summon_cost_text_get() + ".";
+	building_tooltip_detail = "Each morning spawns: " + string(BALANCE_PITLINGS_PIT2_BASE_PITLING_LIMIT) + " Pitlings. Workers make extra Pitlings with " + summon_cost_text_get() + ".";
 	building_tooltip_detail_color = production_bonus_stat_color;
 	building_has_upgrades = true;
 	production_speed_upgrade_index = noone;
@@ -1047,6 +1151,11 @@ building_upgrade_can_buy = function(_upgrade_index)
 			return false;
 		}
 
+		if (!building_upgrade_requirement_met(_upgrade_index))
+		{
+			return false;
+		}
+
 		if (object_index == o_shell_factory)
 		{
 			return building_has_upgrades
@@ -1068,6 +1177,11 @@ building_upgrade_can_buy = function(_upgrade_index)
 		return false;
 	}
 
+	if (!building_upgrade_requirement_met(_upgrade_index))
+	{
+		return false;
+	}
+
 	var _upgrade_resource = building_upgrade_resources[_upgrade_index];
 
 	return building_has_upgrades
@@ -1079,6 +1193,12 @@ building_upgrade_buy = function(_upgrade_index)
 {
 	if (!building_upgrade_can_buy(_upgrade_index))
 	{
+		if (!building_upgrade_requirement_met(_upgrade_index))
+		{
+			building_warning_show("Requires Settlement Expansion", COLOR_STATUS_NEGATIVE_RED);
+			return false;
+		}
+
 		if (object_index == o_shell_factory
 			&& variable_instance_exists(id, "building_upgrade_levels")
 			&& _upgrade_index >= 0
@@ -1536,23 +1656,38 @@ cannon_upgrade_next_cost_get = function(_upgrade_index)
 		return BALANCE_BUILDING_UPGRADE_IRON_COST;
 	}
 
+	var _current_upgrade_level = 0;
+
+	if (_upgrade_index >= 0 && _upgrade_index < array_length(building_upgrade_levels))
+	{
+		_current_upgrade_level = building_upgrade_levels[_upgrade_index];
+	}
+
+	var _garrison_cost_gain = _current_upgrade_level * BALANCE_GARRISON_UPGRADE_COST_GAIN;
+
 	if (_upgrade_index == 0)
 	{
-		return object_index == o_graveyard2
+		var _summon_upgrade_cost = object_index == o_graveyard2
 			? BALANCE_GRAVEYARD2_SUMMON_UPGRADE_SOUL_COST
 			: BALANCE_PITLINGS_PIT2_SUMMON_UPGRADE_FLESH_COST;
+
+		return _summon_upgrade_cost + _garrison_cost_gain;
 	}
 
 	if (_upgrade_index == 1)
 	{
-		return object_index == o_graveyard2
+		var _armor_upgrade_cost = object_index == o_graveyard2
 			? BALANCE_GRAVEYARD2_ARMOR_UPGRADE_IRON_COST
 			: BALANCE_PITLINGS_PIT2_ARMOR_UPGRADE_IRON_COST;
+
+		return _armor_upgrade_cost + _garrison_cost_gain;
 	}
 
-	return object_index == o_graveyard2
+	var _damage_upgrade_cost = object_index == o_graveyard2
 		? BALANCE_GRAVEYARD2_DAMAGE_UPGRADE_FLESH_COST
 		: BALANCE_PITLINGS_PIT2_DAMAGE_UPGRADE_SOUL_COST;
+
+	return _damage_upgrade_cost + _garrison_cost_gain;
 };
 
 cannon_upgrade_cost_text_get = function(_upgrade_index)
@@ -1584,7 +1719,14 @@ building_upgrade_description_get = function(_upgrade_index)
 
 		if (_upgrade_index >= 0 && _upgrade_index < array_length(building_upgrade_descriptions))
 		{
-			return building_upgrade_descriptions[_upgrade_index];
+			var _description = building_upgrade_descriptions[_upgrade_index];
+
+			if (!building_upgrade_requirement_met(_upgrade_index))
+			{
+				_description += " Requires Settlement Expansion.";
+			}
+
+			return _description;
 		}
 
 		return "";
@@ -1706,6 +1848,32 @@ shell_factory_morning_projectiles_add = function()
 	{
 		building_warning_show("+" + string(_added_count) + " shells", COLOR_PROJECTILE_BUILDING_SHELL);
 	}
+};
+
+building_tooltip_detail_get = function()
+{
+	if (garrison_building_is_active())
+	{
+		var _unit_name = object_index == o_graveyard2 ? "Skeletons" : "Pitlings";
+		return "Each morning spawns: " + string(garrison_unit_limit_get()) + " " + _unit_name + ". Workers make extra " + _unit_name + " with " + summon_cost_text_get() + ".";
+	}
+
+	if (object_index == o_shell_factory)
+	{
+		return "Uses " + string(BALANCE_SHELL_FACTORY_SOUL_COST) + " Souls + "
+			+ string(BALANCE_SHELL_FACTORY_IRON_COST) + " Iron. Morning shells: "
+			+ string(shell_factory_morning_projectile_count_get()) + ". Bonus: "
+			+ production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
+	}
+
+	if (object_index == o_goblins_pit)
+	{
+		return "Uses " + summon_cost_text_get() + ". Keeps up to "
+			+ string(goblins_pit_goblin_limit_get()) + " own Goblins. Goblins work +"
+			+ string(BALANCE_GOBLIN_WORK_SPEED_MULTIPLIER) + "x";
+	}
+
+	return building_tooltip_detail;
 };
 
 building_warning_show = function(_text, _color)

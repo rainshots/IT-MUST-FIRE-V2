@@ -2598,10 +2598,19 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 		var _can_pay_choice = building_choice_can_pay(_choice);
 		var _can_build_choice = _can_pay_choice && !_limit_reached;
 		var _requirement_text = building_choice_requirement_text_get(_choice);
+		var _should_pulse_ritual_circle = !_is_foundry_window
+			&& _choice.building_object == o_ritual_circle
+			&& instance_number(o_ritual_circle) <= 0;
+		var _ritual_circle_pulse = 1;
 
 		if (_is_hovered)
 		{
 			_hovered_choice = _choice_index;
+		}
+
+		if (_should_pulse_ritual_circle)
+		{
+			_ritual_circle_pulse = 1 + (sin(current_time * 0.008) * 0.08);
 		}
 
 		draw_set_alpha(0.82);
@@ -2612,11 +2621,27 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 		draw_set_color(_limit_reached ? COLOR_PROJECTILE_DAMAGE : (_is_hovered ? COLOR_HUD_IRON : c_white));
 		draw_rectangle(_tile_x, _tile_y, _tile_x + building_tile_width, _tile_y + building_tile_height, true);
 
+		if (_should_pulse_ritual_circle)
+		{
+			var _pulse_padding = 5 + ((_ritual_circle_pulse - 1) * 32);
+
+			draw_set_alpha(0.35 + ((_ritual_circle_pulse - 1) * 2.2));
+			draw_set_color(COLOR_CULTIST_SPIRIT);
+			draw_rectangle(
+				_tile_x - _pulse_padding,
+				_tile_y - _pulse_padding,
+				_tile_x + building_tile_width + _pulse_padding,
+				_tile_y + building_tile_height + _pulse_padding,
+				true
+			);
+			draw_set_alpha(1);
+		}
+
 		if (sprite_exists(_sprite))
 		{
 			var _sprite_width = sprite_get_width(_sprite);
 			var _sprite_height = sprite_get_height(_sprite);
-			var _sprite_scale = building_tile_sprite_size / max(_sprite_width, _sprite_height);
+			var _sprite_scale = (building_tile_sprite_size / max(_sprite_width, _sprite_height)) * _ritual_circle_pulse;
 			var _sprite_draw_width = _sprite_width * _sprite_scale;
 			var _sprite_draw_height = _sprite_height * _sprite_scale;
 

@@ -98,9 +98,9 @@ tutorial_items = [
 		body: "The map contains many different buildings that can help you spread even more Taint. To awaken them, taint the ground underneath them."
 	},
 	{
-		id: "holy_towers",
-		title: "Holy Towers",
-		body: "Holy Towers make the ground around them Holy. It cannot be tainted until the tower is destroyed."
+		id: "holy_ground",
+		title: "Holy Ground",
+		body: "Holy Ground appears around all enemy structures: Houses, Towers, and Shrines.\n\nHoly Ground cannot be tainted. To remove it, destroy its source building."
 	},
 	{
 		id: "full_moon_night",

@@ -89,11 +89,13 @@ draw_set_alpha(1);
 draw_set_halign(fa_left);
 draw_set_valign(fa_top);
 draw_set_color(COLOR_HUD_TEXT);
-draw_text(_tooltip_x + production_tooltip_padding, _tooltip_y + production_tooltip_padding, building_tooltip_title);
+draw_text(_tooltip_x + production_tooltip_padding, _tooltip_y + production_tooltip_padding, building_display_name);
 draw_text(_tooltip_x + production_tooltip_padding, _tooltip_y + production_tooltip_padding + production_tooltip_line_height, building_tooltip_description);
 
+var _building_tooltip_detail = building_tooltip_detail_get();
+
 draw_set_color(building_tooltip_detail_color);
-draw_text(_tooltip_x + production_tooltip_padding, _tooltip_y + production_tooltip_padding + (production_tooltip_line_height * 2), building_tooltip_detail);
+draw_text(_tooltip_x + production_tooltip_padding, _tooltip_y + production_tooltip_padding + (production_tooltip_line_height * 2), _building_tooltip_detail);
 
 // Restore default draw state.
 draw_set_halign(fa_left);

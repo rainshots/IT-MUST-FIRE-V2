@@ -37,6 +37,23 @@ if (cultist_projectile_deploy_assigned || cultist_projectile_deploy_waiting)
 	exit;
 }
 
+// Night-spawned tower reinforcements wait through the day and attack next night.
+if (global.day_phase == DAY_PHASE.DAY
+	&& holy_tower_reinforcement_waits_for_night
+	&& !forced_retreat_active)
+{
+	target_instance = noone;
+	alert_target = noone;
+	forced_attack_target = noone;
+	forced_attack_target_timer = 0;
+	is_attacking_target = false;
+	is_walking = false;
+	visual_attack_offset_x = 0;
+	visual_attack_offset_y = 0;
+	update_walk_sway();
+	exit;
+}
+
 // House guards return to their home during the day instead of chasing player structures.
 if (global.day_phase == DAY_PHASE.DAY
 	&& variable_instance_exists(id, "owner_house")
