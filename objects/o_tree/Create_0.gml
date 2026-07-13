@@ -146,5 +146,17 @@ tree_corruption_update = function()
 
 		// A newly infected tree spreads Taint into nearby ground cells.
 		corrupt_circle(x, y, corruption_spread_radius, _corruption_grid_object.full_corruption_value);
+
+		if (instance_exists(o_game_controller))
+		{
+			var _game_controller = instance_find(o_game_controller, 0);
+
+			if (variable_instance_exists(_game_controller, "tree_corruption_hint_target")
+				&& _game_controller.tree_corruption_hint_target == id
+				&& variable_instance_exists(_game_controller, "tree_corruption_hint_completed"))
+			{
+				_game_controller.tree_corruption_hint_completed = true;
+			}
+		}
 	}
 };

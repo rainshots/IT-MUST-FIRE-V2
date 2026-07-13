@@ -111,6 +111,7 @@
     {"id":{"name":"o_skeleton","path":"objects/o_skeleton/o_skeleton.yy",},},
     {"id":{"name":"o_slaughter_table","path":"objects/o_slaughter_table/o_slaughter_table.yy",},},
     {"id":{"name":"o_souls_well","path":"objects/o_souls_well/o_souls_well.yy",},},
+    {"id":{"name":"o_taint_hint","path":"objects/o_taint_hint/o_taint_hint.yy",},},
     {"id":{"name":"o_tester","path":"objects/o_tester/o_tester.yy",},},
     {"id":{"name":"o_tower_corruption","path":"objects/o_tower_corruption/o_tower_corruption.yy",},},
     {"id":{"name":"o_tower_damage","path":"objects/o_tower_damage/o_tower_damage.yy",},},

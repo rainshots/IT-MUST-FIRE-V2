@@ -166,6 +166,9 @@ if (!global.pause
 	worker_assignment_hint_delay_timer--;
 }
 
+// Delay the full moon tutorial until the player has unobstructed daytime control.
+full_moon_hint_delay_update();
+
 // Allow the player to pick up and reposition cultists during gameplay.
 if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultists") && instance_exists(o_camera_controller))
 {
@@ -345,6 +348,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 			{
 				_dragged_cultist.x = _dragged_cultist.drag_drop_x;
 				_dragged_cultist.y = _dragged_cultist.drag_drop_y;
+				demon_manual_structure_target_assign_near_drop(_dragged_cultist);
 			}
 
 			_dragged_cultist.is_being_dragged = false;

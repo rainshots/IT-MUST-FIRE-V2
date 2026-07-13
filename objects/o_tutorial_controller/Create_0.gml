@@ -26,11 +26,13 @@ construction_window_was_open = false;
 previous_day_phase = global.day_phase;
 tutorial_start_delay_timer = 2;
 
+var _shrine_objective_name = BALANCE_SHRINE_OBJECTIVE_REQUIRED == 1 ? " Shrine" : " Shrines";
+
 tutorial_items = [
 	{
 		id: "welcome",
 		title: "Welcome",
-		body: "Greetings, Great Pontiff! This is the prototype of IT MUST FIRE. You lead a cult that worships a possessed cannon with a demon sealed inside.\n\nYour goal: destroy 2 Shrines while keeping your settlement walls from falling."
+		body: "Greetings, Great Pontiff! This is the prototype of IT MUST FIRE. You lead a cult that worships a possessed cannon with a demon sealed inside.\n\nYour goal: destroy " + string(BALANCE_SHRINE_OBJECTIVE_REQUIRED) + _shrine_objective_name + " while keeping your settlement walls from falling."
 	},
 	{
 		id: "construction_start",
@@ -95,7 +97,7 @@ tutorial_items = [
 	{
 		id: "cursed_buildings",
 		title: "Tainted Buildings",
-		body: "The map contains many different buildings that can help you spread even more Taint. To awaken them, taint the ground underneath them."
+		body: "The map has special pictogram points. Spread Taint until it reaches one of these points, then you can summon a structure there."
 	},
 	{
 		id: "holy_ground",

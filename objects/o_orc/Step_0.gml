@@ -50,7 +50,9 @@ if (!variable_instance_exists(_game_controller, "cannon_worker_carried_corpses_s
 	|| !variable_instance_exists(_game_controller, "corpse_nearest_reserve")
 	|| !variable_instance_exists(_game_controller, "corpse_reserved_take")
 	|| !variable_instance_exists(_game_controller, "corpse_reservation_clear")
-	|| !variable_instance_exists(_game_controller, "cannon_satiety_add"))
+	|| !variable_instance_exists(_game_controller, "corpse_drop_at_position")
+	|| !variable_instance_exists(_game_controller, "cannon_corpses_deliver")
+	|| !variable_instance_exists(_game_controller, "cannon_corpse_delivery_limit_reached"))
 {
 	orc_move_towards(home_x, home_y);
 	exit;
@@ -65,7 +67,13 @@ if (_carried_corpse_count > 0)
 
 	if (_deliver_distance <= BALANCE_CANNON_CORPSE_DELIVER_RADIUS)
 	{
-		_game_controller.cannon_satiety_add(BALANCE_CANNON_SATIETY_PER_CORPSE * _carried_corpse_count);
+		var _accepted_corpse_count = _game_controller.cannon_corpses_deliver(_carried_corpse_count);
+
+		for (var _corpse_index = _accepted_corpse_count; _corpse_index < _carried_corpse_count; ++_corpse_index)
+		{
+			_game_controller.corpse_drop_at_position(carried_corpses[_corpse_index], x, y);
+		}
+
 		carried_corpses = [];
 		carried_corpse = noone;
 		reserved_corpse_id = noone;
@@ -78,6 +86,14 @@ if (_carried_corpse_count > 0)
 }
 
 var _reserved_corpse = noone;
+
+if (_game_controller.cannon_corpse_delivery_limit_reached())
+{
+	_game_controller.corpse_reservation_clear(reserved_corpse_id, id);
+	reserved_corpse_id = noone;
+	orc_move_towards(home_x, home_y);
+	exit;
+}
 
 if (reserved_corpse_id != noone)
 {

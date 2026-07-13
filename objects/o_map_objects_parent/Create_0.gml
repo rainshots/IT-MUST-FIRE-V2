@@ -289,17 +289,68 @@ cannon_upgrade_next_cost_get = function(_upgrade_index)
 {
 	if (_upgrade_index >= 0 && _upgrade_index < array_length(building_upgrade_costs))
 	{
-		return building_upgrade_costs[_upgrade_index];
+		var _upgrade_cost = building_upgrade_costs[_upgrade_index];
+
+		if (is_array(_upgrade_cost))
+		{
+			var _total_cost = 0;
+			var _cost_count = array_length(_upgrade_cost);
+
+			for (var _cost_index = 0; _cost_index < _cost_count; ++_cost_index)
+			{
+				_total_cost += _upgrade_cost[_cost_index].cost;
+			}
+
+			return _total_cost;
+		}
+
+		return _upgrade_cost;
 	}
 
 	return 0;
 };
 
+cannon_upgrade_costs_get = function(_upgrade_index)
+{
+	if (_upgrade_index < 0 || _upgrade_index >= array_length(building_upgrade_costs))
+	{
+		return [];
+	}
+
+	var _upgrade_cost = building_upgrade_costs[_upgrade_index];
+
+	if (is_array(_upgrade_cost))
+	{
+		return _upgrade_cost;
+	}
+
+	return [
+		{
+			resource: cannon_upgrade_resource_get(_upgrade_index),
+			cost: _upgrade_cost
+		}
+	];
+};
+
 cannon_upgrade_cost_text_get = function(_upgrade_index)
 {
-	var _cost = cannon_upgrade_next_cost_get(_upgrade_index);
-	var _resource = cannon_upgrade_resource_get(_upgrade_index);
-	return string(_cost) + " " + resource_name_get(_resource);
+	var _costs = cannon_upgrade_costs_get(_upgrade_index);
+	var _cost_count = array_length(_costs);
+	var _cost_text = "";
+
+	for (var _cost_index = 0; _cost_index < _cost_count; ++_cost_index)
+	{
+		var _cost_data = _costs[_cost_index];
+
+		if (_cost_text != "")
+		{
+			_cost_text += " + ";
+		}
+
+		_cost_text += string(_cost_data.cost) + " " + resource_name_get(_cost_data.resource);
+	}
+
+	return _cost_text;
 };
 
 building_upgrade_description_get = function(_upgrade_index)
@@ -323,11 +374,20 @@ building_upgrade_can_buy = function(_upgrade_index)
 
 	var _upgrade_level = building_upgrade_levels[_upgrade_index];
 	var _upgrade_level_max = cannon_upgrade_level_max_get(_upgrade_index);
-	var _upgrade_resource = cannon_upgrade_resource_get(_upgrade_index);
-	var _upgrade_cost = cannon_upgrade_next_cost_get(_upgrade_index);
+	var _upgrade_costs = cannon_upgrade_costs_get(_upgrade_index);
+	var _cost_count = array_length(_upgrade_costs);
 
-	return _upgrade_level < _upgrade_level_max
-		&& global.resources[_upgrade_resource] >= _upgrade_cost;
+	for (var _cost_index = 0; _cost_index < _cost_count; ++_cost_index)
+	{
+		var _cost_data = _upgrade_costs[_cost_index];
+
+		if (global.resources[_cost_data.resource] < _cost_data.cost)
+		{
+			return false;
+		}
+	}
+
+	return _upgrade_level < _upgrade_level_max;
 };
 
 building_upgrade_buy = function(_upgrade_index)
@@ -336,18 +396,41 @@ building_upgrade_buy = function(_upgrade_index)
 	{
 		if (_upgrade_index >= 0 && _upgrade_index < array_length(building_upgrade_levels))
 		{
-			var _missing_resource = cannon_upgrade_resource_get(_upgrade_index);
-			var _missing_cost = cannon_upgrade_next_cost_get(_upgrade_index);
-			building_warning_show("Need " + string(_missing_cost) + " " + resource_name_get(_missing_resource), COLOR_STATUS_NEGATIVE_RED);
+			var _missing_costs = cannon_upgrade_costs_get(_upgrade_index);
+			var _missing_cost_count = array_length(_missing_costs);
+
+			for (var _missing_cost_index = 0; _missing_cost_index < _missing_cost_count; ++_missing_cost_index)
+			{
+				var _missing_cost_data = _missing_costs[_missing_cost_index];
+
+				if (global.resources[_missing_cost_data.resource] < _missing_cost_data.cost)
+				{
+					building_warning_show(
+						"Need " + string(_missing_cost_data.cost) + " " + resource_name_get(_missing_cost_data.resource),
+						COLOR_STATUS_NEGATIVE_RED
+					);
+					break;
+				}
+			}
 		}
 
 		return false;
 	}
 
-	var _upgrade_resource = cannon_upgrade_resource_get(_upgrade_index);
-	var _upgrade_cost = cannon_upgrade_next_cost_get(_upgrade_index);
-	global.resources[_upgrade_resource] -= _upgrade_cost;
-	resource_popup_create(x, y - bar_offset_y, _upgrade_resource, -_upgrade_cost);
+	var _upgrade_costs = cannon_upgrade_costs_get(_upgrade_index);
+	var _cost_count = array_length(_upgrade_costs);
+	var _popup_gap = 46;
+	var _popup_start_x = x - ((_cost_count - 1) * _popup_gap * 0.5);
+
+	for (var _cost_index = 0; _cost_index < _cost_count; ++_cost_index)
+	{
+		var _cost_data = _upgrade_costs[_cost_index];
+		var _popup_x = _popup_start_x + (_cost_index * _popup_gap);
+
+		global.resources[_cost_data.resource] -= _cost_data.cost;
+		resource_popup_create(_popup_x, y - bar_offset_y, _cost_data.resource, -_cost_data.cost);
+	}
+
 	building_upgrade_levels[_upgrade_index]++;
 	map_building_upgrade_effect_apply(_upgrade_index);
 
@@ -361,6 +444,60 @@ player_building_damage_sound_play = function()
 	{
 		global.sound_play_random(global.cannon_damage_sounds);
 	}
+};
+
+player_building_destroy_effect_create = function()
+{
+	if (variable_global_exists("construction_sound_play"))
+	{
+		global.construction_sound_play();
+	}
+
+	instance_create_layer(x, y, "Instances", o_particle_explosion);
+
+	var _smoke_radius = 120;
+	var _smoke_count = 32;
+
+	for (var _smoke_index = 0; _smoke_index < _smoke_count; ++_smoke_index)
+	{
+		var _smoke_direction = random(360);
+		var _smoke_distance = sqrt(random(1)) * _smoke_radius;
+		var _smoke_x = x + lengthdir_x(_smoke_distance, _smoke_direction);
+		var _smoke_y = y + lengthdir_y(_smoke_distance, _smoke_direction);
+
+		instance_create_layer(_smoke_x, _smoke_y, "Instances", o_particle_smoke);
+	}
+};
+
+player_building_restore_point_create = function()
+{
+	if (!building_constructed_by_cursed_point
+		|| !variable_instance_exists(id, "cursed_point_restore_choice")
+		|| !is_struct(cursed_point_restore_choice))
+	{
+		return noone;
+	}
+
+	var _restore_point = instance_create_layer(x, y, "Instances", o_cursed_point);
+
+	if (instance_exists(_restore_point))
+	{
+		_restore_point.depth = -floor(_restore_point.y);
+		_restore_point.is_captured = true;
+		_restore_point.restore_structure_choice = cursed_point_restore_choice;
+		_restore_point.structure_choice_options = [cursed_point_restore_choice];
+		_restore_point.structure_choice_options_rolled = true;
+		_restore_point.corruption = _restore_point.max_corruption;
+
+		if (_restore_point.captured_sprite_index != noone)
+		{
+			_restore_point.sprite_index = _restore_point.captured_sprite_index;
+			_restore_point.image_index = 0;
+			_restore_point.image_speed = 0;
+		}
+	}
+
+	return _restore_point;
 };
 
 player_building_is_owned_by_player = function()
@@ -409,6 +546,7 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 	var _applied_damage = min(_damage_amount, hp);
 	hp = max(hp - _damage_amount, 0);
 	var _is_player_structure = building_constructed_by_shell
+		|| building_constructed_by_cursed_point
 		|| (variable_instance_exists(id, "is_captured") && is_captured && object_index != o_cursed_point);
 
 	if (_applied_damage > 0 && _is_player_structure)
@@ -418,6 +556,8 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 
 	if (_is_player_structure && hp <= 0)
 	{
+		player_building_destroy_effect_create();
+		player_building_restore_point_create();
 		instance_destroy();
 	}
 

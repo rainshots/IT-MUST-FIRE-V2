@@ -2,9 +2,9 @@
   "$GMSprite":"v2",
   "%Name":"s_goblins_pit",
   "bboxMode":0,
-  "bbox_bottom":97,
-  "bbox_left":0,
-  "bbox_right":160,
+  "bbox_bottom":113,
+  "bbox_left":1,
+  "bbox_right":174,
   "bbox_top":0,
   "collisionKind":1,
   "collisionTolerance":0,
@@ -12,14 +12,14 @@
   "edgeFiltering":false,
   "For3D":false,
   "frames":[
-    {"$GMSpriteFrame":"v1","%Name":"59568681-8545-4559-a627-bbdde26e8a58","name":"59568681-8545-4559-a627-bbdde26e8a58","resourceType":"GMSpriteFrame","resourceVersion":"2.0",},
+    {"$GMSpriteFrame":"v1","%Name":"81541146-3af8-452c-911b-d5293687067c","name":"81541146-3af8-452c-911b-d5293687067c","resourceType":"GMSpriteFrame","resourceVersion":"2.0",},
   ],
   "gridX":0,
   "gridY":0,
-  "height":98,
+  "height":114,
   "HTile":false,
   "layers":[
-    {"$GMImageLayer":"","%Name":"a2f74626-16d8-4312-a348-0d9070f8d90e","blendMode":0,"displayName":"default","isLocked":false,"name":"a2f74626-16d8-4312-a348-0d9070f8d90e","opacity":100.0,"resourceType":"GMImageLayer","resourceVersion":"2.0","visible":true,},
+    {"$GMImageLayer":"","%Name":"5b646cce-786a-4346-a870-b8ae70459bb8","blendMode":0,"displayName":"default","isLocked":false,"name":"5b646cce-786a-4346-a870-b8ae70459bb8","opacity":100.0,"resourceType":"GMImageLayer","resourceVersion":"2.0","visible":true,},
   ],
   "name":"s_goblins_pit",
   "nineSlice":null,
@@ -69,8 +69,8 @@
     "tracks":[
       {"$GMSpriteFramesTrack":"","builtinName":0,"events":[],"inheritsTrackColour":true,"interpolation":1,"isCreationTrack":false,"keyframes":{"$KeyframeStore<SpriteFrameKeyframe>":"","Keyframes":[
             {"$Keyframe<SpriteFrameKeyframe>":"","Channels":{
-                "0":{"$SpriteFrameKeyframe":"","Id":{"name":"59568681-8545-4559-a627-bbdde26e8a58","path":"sprites/s_goblins_pit/s_goblins_pit.yy",},"resourceType":"SpriteFrameKeyframe","resourceVersion":"2.0",},
-              },"Disabled":false,"id":"7e6866d4-9800-430e-a8d4-a9b3f609513a","IsCreationKey":false,"Key":0.0,"Length":1.0,"resourceType":"Keyframe<SpriteFrameKeyframe>","resourceVersion":"2.0","Stretch":false,},
+                "0":{"$SpriteFrameKeyframe":"","Id":{"name":"81541146-3af8-452c-911b-d5293687067c","path":"sprites/s_goblins_pit/s_goblins_pit.yy",},"resourceType":"SpriteFrameKeyframe","resourceVersion":"2.0",},
+              },"Disabled":false,"id":"c304184d-a57d-406f-beef-633a8172ec4d","IsCreationKey":false,"Key":0.0,"Length":1.0,"resourceType":"Keyframe<SpriteFrameKeyframe>","resourceVersion":"2.0","Stretch":false,},
           ],"resourceType":"KeyframeStore<SpriteFrameKeyframe>","resourceVersion":"2.0",},"modifiers":[],"name":"frames","resourceType":"GMSpriteFramesTrack","resourceVersion":"2.0","spriteId":null,"trackColour":0,"tracks":[],"traits":0,},
     ],
     "visibleRange":null,
@@ -86,5 +86,5 @@
   },
   "type":0,
   "VTile":false,
-  "width":161,
+  "width":175,
 }

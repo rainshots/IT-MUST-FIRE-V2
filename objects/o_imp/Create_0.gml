@@ -95,6 +95,30 @@ demon_leap_target = noone;
 demon_leap_is_returning = false;
 demon_leap_hit_targets = [];
 
+imp_active_ability_cancel_for_death = function()
+{
+	// Demon Leap stores an arced visual position, so land on the matching ground point before knockout.
+	if (demon_leap_is_active)
+	{
+		var _flight_progress = 1 - clamp(demon_leap_flight_timer / max(1, demon_leap_flight_duration), 0, 1);
+		x = lerp(demon_leap_flight_start_x, demon_leap_flight_end_x, _flight_progress);
+		y = lerp(demon_leap_flight_start_y, demon_leap_flight_end_y, _flight_progress);
+	}
+
+	demon_leap_is_active = false;
+	demon_leap_target = noone;
+	demon_leap_is_returning = false;
+	demon_leap_flight_timer = 0;
+	demon_leap_hit_targets = [];
+	crimson_guillotine_strike_timer = 0;
+	crimson_guillotine_target = noone;
+	crimson_guillotine_repeat_count = 0;
+	visual_offset_is_ability_controlled = false;
+	visual_attack_offset_x = 0;
+	visual_attack_offset_y = 0;
+	image_alpha = 1;
+};
+
 brute_blood_anvil_active_recharge = function(_recharge_share)
 {
 	var _recharge_amount = 0;

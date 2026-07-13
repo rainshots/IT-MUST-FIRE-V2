@@ -19,7 +19,9 @@ var _draw_width = _button_rect[2] * _pulse;
 var _draw_height = _button_rect[3] * _pulse;
 var _draw_x = _button_center_x - (_draw_width * 0.5);
 var _draw_y = _button_center_y - (_draw_height * 0.5);
-var _button_color = summon_button_hovered ? COLOR_PROJECTILE_SUMMON : COLOR_HUD_TEXT;
+var _is_restore_button = is_struct(restore_structure_choice);
+var _can_restore = !_is_restore_button || cursed_point_restore_can_pay();
+var _button_color = _can_restore ? (summon_button_hovered ? COLOR_PROJECTILE_SUMMON : COLOR_HUD_TEXT) : COLOR_PROJECTILE_DAMAGE;
 
 draw_set_alpha(0.9);
 draw_set_color(COLOR_HUD_BACKGROUND);
@@ -32,7 +34,20 @@ draw_rectangle(_draw_x, _draw_y, _draw_x + _draw_width, _draw_y + _draw_height, 
 draw_set_halign(fa_center);
 draw_set_valign(fa_middle);
 draw_set_color(COLOR_HUD_TEXT);
-draw_text_transformed(_button_center_x, _button_center_y, summon_button_text, _pulse, _pulse, 0);
+
+if (_is_restore_button)
+{
+	var _restore_title = "RESTORE " + restore_structure_choice.building_name;
+	var _restore_cost_text = "Cost: " + cursed_point_restore_cost_text_get();
+
+	draw_text_transformed(_button_center_x, _button_center_y - (8 * _pulse), _restore_title, _pulse, _pulse, 0);
+	draw_set_color(_can_restore ? COLOR_PROJECTILE_SUMMON : COLOR_PROJECTILE_DAMAGE);
+	draw_text_transformed(_button_center_x, _button_center_y + (8 * _pulse), _restore_cost_text, _pulse, _pulse, 0);
+}
+else
+{
+	draw_text_transformed(_button_center_x, _button_center_y, summon_button_text, _pulse, _pulse, 0);
+}
 
 // Restore default draw state.
 draw_set_halign(fa_left);

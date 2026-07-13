@@ -302,6 +302,11 @@ if (!_current_target_is_valid)
 	target_instance = noone;
 }
 
+if (instance_exists(manual_structure_target) && !target_can_be_attacked(manual_structure_target))
+{
+	manual_structure_target = noone;
+}
+
 if (!_special_behavior_handled && _has_forced_target)
 {
 	target_instance = forced_attack_target;
@@ -361,12 +366,29 @@ else if (!_special_behavior_handled && _should_search_target && _is_friendly_uni
 		}
 	}
 
-	if (!instance_exists(target_instance))
+	if (_is_cultist_demon_unit && target_can_be_attacked(manual_structure_target))
+	{
+		target_instance = manual_structure_target;
+	}
+	else if (_is_cultist_demon_unit)
+	{
+		var _nearest_enemy_unit = find_nearest_target(o_enemy_units, vision_radius);
+
+		if (instance_exists(_nearest_enemy_unit))
+		{
+			target_instance = _nearest_enemy_unit;
+		}
+		else
+		{
+			target_instance = find_nearest_enemy_object(vision_radius);
+		}
+	}
+	else if (!instance_exists(target_instance))
 	{
 		target_instance = find_nearest_target(o_enemy_units, vision_radius);
 	}
 
-	if (!instance_exists(target_instance))
+	if (!_is_cultist_demon_unit && !instance_exists(target_instance))
 	{
 		target_instance = find_nearest_enemy_object(vision_radius);
 	}

@@ -29,8 +29,12 @@ fog_hidden_check_timer = irandom(fog_hidden_check_interval - 1);
 cached_is_hidden_by_fog = false;
 saint_ground_heal_interval = BALANCE_SAINT_GROUND_ENEMY_HEAL_INTERVAL;
 saint_ground_heal_timer = irandom(max(1, saint_ground_heal_interval) - 1);
+tainted_ground_check_interval = BALANCE_TAINT_FRIENDLY_GROUND_CHECK_INTERVAL;
+tainted_ground_check_timer = tainted_ground_check_interval;
+cached_is_on_tainted_ground = false;
 forced_attack_target = noone;
 forced_attack_target_timer = 0;
+manual_structure_target = noone;
 is_being_hooked = false;
 
 // Rally command state is assigned by rally projectiles.
@@ -63,8 +67,8 @@ is_night_attack_unit = false;
 holy_tower_reinforcement_waits_for_night = false;
 
 // Unit separation keeps units from stacking into one point.
-separation_radius = 26;
-separation_strength = 0.55;
+separation_radius = BALANCE_UNIT_SEPARATION_RADIUS;
+separation_strength = BALANCE_UNIT_SEPARATION_STRENGTH;
 separation_update_interval = 5;
 separation_update_timer = irandom(separation_update_interval - 1);
 separation_max_neighbors = 6;
@@ -303,6 +307,50 @@ ground_cell_saint_amount_get = function(_world_x, _world_y)
 	return ds_grid_get(_corruption_grid.saint_grid, _cell_x, _cell_y);
 };
 
+unit_is_on_tainted_ground = function()
+{
+	tainted_ground_check_timer++;
+
+	if (tainted_ground_check_timer < tainted_ground_check_interval)
+	{
+		return cached_is_on_tainted_ground;
+	}
+
+	tainted_ground_check_timer = 0;
+
+	if (!instance_exists(o_corruption_grid))
+	{
+		cached_is_on_tainted_ground = false;
+		return false;
+	}
+
+	var _corruption_grid = instance_find(o_corruption_grid, 0);
+	var _cell_x = floor(x / _corruption_grid.cell_size);
+	var _cell_y = floor(y / _corruption_grid.cell_size);
+	var _is_inside_grid = _cell_x >= 0
+		&& _cell_x < _corruption_grid.grid_width
+		&& _cell_y >= 0
+		&& _cell_y < _corruption_grid.grid_height;
+
+	if (!_is_inside_grid)
+	{
+		cached_is_on_tainted_ground = false;
+		return false;
+	}
+
+	var _saint_amount = 0;
+
+	if (variable_instance_exists(_corruption_grid, "saint_grid"))
+	{
+		_saint_amount = ds_grid_get(_corruption_grid.saint_grid, _cell_x, _cell_y);
+	}
+
+	cached_is_on_tainted_ground = _saint_amount <= 0
+		&& ds_grid_get(_corruption_grid.corruption_grid, _cell_x, _cell_y) > 0;
+
+	return cached_is_on_tainted_ground;
+};
+
 enemy_saint_ground_heal_update = function()
 {
 	if (unit_faction != UNIT_FACTION.ENEMY
@@ -484,6 +532,11 @@ unit_attack_reload_multiplier_get = function()
 	var _reload_multiplier = status_effect_attack_reload_multiplier()
 		* demonic_infusion_reload_multiplier_get();
 
+	if (unit_faction == UNIT_FACTION.FRIENDLY && !unit_is_on_tainted_ground())
+	{
+		_reload_multiplier /= BALANCE_TAINT_FRIENDLY_ATTACK_SPEED_MULTIPLIER;
+	}
+
 	if (variable_instance_exists(id, "imp_blood_frenzy_reload_multiplier_get"))
 	{
 		_reload_multiplier *= imp_blood_frenzy_reload_multiplier_get();
@@ -505,6 +558,11 @@ ability_cooldown_time_get = function(_base_cooldown)
 unit_move_speed_multiplier_get = function()
 {
 	var _move_multiplier = status_effect_movement_multiplier();
+
+	if (unit_faction == UNIT_FACTION.FRIENDLY && !unit_is_on_tainted_ground())
+	{
+		_move_multiplier *= BALANCE_TAINT_FRIENDLY_MOVE_SPEED_MULTIPLIER;
+	}
 
 	if (variable_instance_exists(id, "imp_blood_frenzy_move_multiplier_get"))
 	{
@@ -1622,7 +1680,7 @@ find_nearest_cannon_attacker = function()
 	return _nearest_attacker;
 };
 
-find_nearest_enemy_object = function(_max_distance)
+find_nearest_enemy_object_from_point = function(_origin_x, _origin_y, _max_distance)
 {
 	var _nearest_target = noone;
 	var _nearest_distance_squared = _max_distance * _max_distance;
@@ -1638,8 +1696,8 @@ find_nearest_enemy_object = function(_max_distance)
 
 			if (instance_exists(_tower) && _tower.hp > 0)
 			{
-				var _tower_distance_x = _tower.x - x;
-				var _tower_distance_y = _tower.y - y;
+				var _tower_distance_x = _tower.x - _origin_x;
+				var _tower_distance_y = _tower.y - _origin_y;
 				var _tower_distance_squared = (_tower_distance_x * _tower_distance_x) + (_tower_distance_y * _tower_distance_y);
 
 				if (_tower_distance_squared <= _nearest_distance_squared)
@@ -1662,8 +1720,8 @@ find_nearest_enemy_object = function(_max_distance)
 
 			if (target_can_be_attacked(_shrine))
 			{
-				var _shrine_distance_x = _shrine.x - x;
-				var _shrine_distance_y = _shrine.y - y;
+				var _shrine_distance_x = _shrine.x - _origin_x;
+				var _shrine_distance_y = _shrine.y - _origin_y;
 				var _shrine_distance_squared = (_shrine_distance_x * _shrine_distance_x) + (_shrine_distance_y * _shrine_distance_y);
 
 				if (_shrine_distance_squared <= _nearest_distance_squared)
@@ -1686,8 +1744,8 @@ find_nearest_enemy_object = function(_max_distance)
 
 			if (instance_exists(_garnizon) && _garnizon.hp > 0)
 			{
-				var _garnizon_distance_x = _garnizon.x - x;
-				var _garnizon_distance_y = _garnizon.y - y;
+				var _garnizon_distance_x = _garnizon.x - _origin_x;
+				var _garnizon_distance_y = _garnizon.y - _origin_y;
 				var _garnizon_distance_squared = (_garnizon_distance_x * _garnizon_distance_x) + (_garnizon_distance_y * _garnizon_distance_y);
 
 				if (_garnizon_distance_squared <= _nearest_distance_squared)
@@ -1710,8 +1768,8 @@ find_nearest_enemy_object = function(_max_distance)
 
 			if (instance_exists(_house) && _house.hp > 0)
 			{
-				var _house_distance_x = _house.x - x;
-				var _house_distance_y = _house.y - y;
+				var _house_distance_x = _house.x - _origin_x;
+				var _house_distance_y = _house.y - _origin_y;
 				var _house_distance_squared = (_house_distance_x * _house_distance_x) + (_house_distance_y * _house_distance_y);
 
 				if (_house_distance_squared <= _nearest_distance_squared)
@@ -1724,6 +1782,11 @@ find_nearest_enemy_object = function(_max_distance)
 	}
 
 	return _nearest_target;
+};
+
+find_nearest_enemy_object = function(_max_distance)
+{
+	return find_nearest_enemy_object_from_point(x, y, _max_distance);
 };
 
 find_nearest_visible_cultist = function()

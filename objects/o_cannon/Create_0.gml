@@ -643,7 +643,7 @@ cannon_corrupted_ground_damage_get = function()
 		return BALANCE_CANNON_CORRUPTED_GROUND_DAMAGE_LEVEL_3;
 	}
 
-	return 0;
+	return BALANCE_CANNON_CORRUPTED_GROUND_DAMAGE_BASE;
 };
 
 cannon_morning_skeleton_count_range_get = function()
@@ -764,7 +764,7 @@ building_upgrade_description_get = function(_upgrade_index)
 
 	if (_upgrade_index == CANNON_UPGRADE.CORRUPTED_GROUND_DAMAGE)
 	{
-		var _damage = 0;
+		var _damage = BALANCE_CANNON_CORRUPTED_GROUND_DAMAGE_BASE;
 
 		if (_next_level == 1)
 		{
@@ -779,7 +779,8 @@ building_upgrade_description_get = function(_upgrade_index)
 			_damage = BALANCE_CANNON_CORRUPTED_GROUND_DAMAGE_LEVEL_3;
 		}
 
-		return "Enemies on fully tainted ground take " + string(_damage) + " damage/sec.";
+		return "Enemies on tainted ground always take " + string(BALANCE_CANNON_CORRUPTED_GROUND_DAMAGE_BASE)
+			+ " damage/sec. Upgrade: " + string(_damage) + " damage/sec.";
 	}
 	else if (_upgrade_index == CANNON_UPGRADE.SETTLEMENT_EXPANSION)
 	{

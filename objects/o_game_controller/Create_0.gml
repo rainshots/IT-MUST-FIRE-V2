@@ -50,6 +50,23 @@ worker_assignment_hint_line_height = 16;
 worker_assignment_hint_offset_y = 150;
 worker_assignment_hint_background_alpha = 0.86;
 
+// World hint for tree corruption spread.
+tree_corruption_hint_completed = false;
+tree_corruption_hint_target = noone;
+tree_corruption_hint_min_cannon_distance = 1200;
+tree_corruption_hint_text = "Infect the ground under a tree to make it spread Taint farther.";
+tree_corruption_hint_width = 330;
+tree_corruption_hint_padding_x = 10;
+tree_corruption_hint_padding_y = 7;
+tree_corruption_hint_line_height = 16;
+tree_corruption_hint_offset_y = 58;
+tree_corruption_hint_background_alpha = 0.86;
+
+// Full moon tutorial appears after the player has seen unobstructed daytime gameplay.
+full_moon_hint_delay_time = BALANCE_FULL_MOON_HINT_DELAY * room_speed;
+full_moon_hint_delay_timer = -1;
+full_moon_hint_delay_pending = false;
+
 // Phase banner briefly announces day and night transitions.
 phase_banner_text = "";
 phase_banner_timer = 0;
@@ -481,6 +498,7 @@ global.cannon_taint_projectiles_fired = 0;
 global.rally_projectile_group_id = 0;
 global.cannon_satiety = 0;
 global.cannon_satiety_max = BALANCE_CANNON_SATIETY_MAX;
+global.cannon_corpses_delivered_today = 0;
 
 // Global one-shot sound groups used by gameplay feedback.
 global.night_start_sounds = [
@@ -1156,6 +1174,11 @@ corpse_decay_at_morning = function()
 
 corpse_available_for_hauling_exists = function()
 {
+	if (cannon_corpse_delivery_limit_reached())
+	{
+		return false;
+	}
+
 	var _corpse_count = array_length(corpse_draw_data);
 
 	for (var _corpse_index = 0; _corpse_index < _corpse_count; ++_corpse_index)
@@ -2669,7 +2692,7 @@ cannon_corrupted_ground_damage_update = function()
 			_saint = ds_grid_get(_corruption_grid.saint_grid, _cell_x, _cell_y);
 		}
 
-		if (_saint > 0 || _corruption < _corruption_grid.full_corruption_value)
+		if (_saint > 0 || _corruption <= 0)
 		{
 			continue;
 		}
@@ -3701,9 +3724,8 @@ building_choice_costs_get = function(_choice)
 	];
 };
 
-building_choice_cost_text_get = function(_choice)
+building_costs_text_get = function(_costs)
 {
-	var _costs = building_choice_costs_get(_choice);
 	var _cost_count = array_length(_costs);
 	var _cost_text = "";
 
@@ -3722,9 +3744,15 @@ building_choice_cost_text_get = function(_choice)
 	return _cost_text;
 };
 
-building_choice_can_pay = function(_choice)
+building_choice_cost_text_get = function(_choice)
 {
 	var _costs = building_choice_costs_get(_choice);
+
+	return building_costs_text_get(_costs);
+};
+
+building_costs_can_pay = function(_costs)
+{
 	var _cost_count = array_length(_costs);
 
 	for (var _cost_index = 0; _cost_index < _cost_count; ++_cost_index)
@@ -3738,6 +3766,13 @@ building_choice_can_pay = function(_choice)
 	}
 
 	return true;
+};
+
+building_choice_can_pay = function(_choice)
+{
+	var _costs = building_choice_costs_get(_choice);
+
+	return building_costs_can_pay(_costs);
 };
 
 building_choice_requirement_text_get = function(_choice)
@@ -3828,7 +3863,11 @@ building_upgrade_costs_get = function(_building, _upgrade_index)
 
 building_choice_costs_pay = function(_choice, _popup_x, _popup_y)
 {
-	var _costs = building_choice_costs_get(_choice);
+	building_costs_pay(building_choice_costs_get(_choice), _popup_x, _popup_y);
+};
+
+building_costs_pay = function(_costs, _popup_x, _popup_y)
+{
 	var _cost_count = array_length(_costs);
 	var _popup_gap = 46;
 	var _popup_start_x = _popup_x - ((_cost_count - 1) * _popup_gap * 0.5);
@@ -4030,6 +4069,33 @@ assign_cultist_to_worker_building = function(_cultist, _building)
 	}
 
 	return true;
+};
+
+demon_manual_structure_target_assign_near_drop = function(_unit)
+{
+	if (!instance_exists(_unit)
+		|| !variable_instance_exists(_unit, "demon_type")
+		|| _unit.demon_type == DEMON_TYPE.NONE
+		|| !variable_instance_exists(_unit, "find_nearest_enemy_object_from_point")
+		|| !variable_instance_exists(_unit, "manual_structure_target"))
+	{
+		return;
+	}
+
+	_unit.manual_structure_target = noone;
+
+	var _structure_target = _unit.find_nearest_enemy_object_from_point(
+		_unit.x,
+		_unit.y,
+		BALANCE_DEMON_DROP_STRUCTURE_PRIORITY_RADIUS
+	);
+
+	if (instance_exists(_structure_target))
+	{
+		_unit.manual_structure_target = _structure_target;
+		_unit.target_instance = _structure_target;
+		_unit.target_search_update_timer = 0;
+	}
 };
 
 worker_idle_wander_target_pick = function(_worker)
@@ -4234,6 +4300,31 @@ cannon_satiety_add = function(_amount)
 	global.cannon_satiety = max(0, global.cannon_satiety + _amount);
 };
 
+cannon_corpse_delivery_remaining_get = function()
+{
+	return max(0, BALANCE_CANNON_CORPSE_DAILY_DELIVERY_LIMIT - global.cannon_corpses_delivered_today);
+};
+
+cannon_corpse_delivery_limit_reached = function()
+{
+	return cannon_corpse_delivery_remaining_get() <= 0;
+};
+
+cannon_corpses_deliver = function(_corpse_count)
+{
+	var _accepted_corpse_count = min(max(0, _corpse_count), cannon_corpse_delivery_remaining_get());
+
+	if (_accepted_corpse_count <= 0)
+	{
+		return 0;
+	}
+
+	global.cannon_corpses_delivered_today += _accepted_corpse_count;
+	cannon_satiety_add(BALANCE_CANNON_SATIETY_PER_CORPSE * _accepted_corpse_count);
+
+	return _accepted_corpse_count;
+};
+
 cannon_satiety_can_fire_feast = function()
 {
 	return global.cannon_satiety >= global.cannon_satiety_max;
@@ -4383,7 +4474,13 @@ cannon_corpse_worker_update = function(_worker, _cannon)
 
 		if (_deliver_distance <= BALANCE_CANNON_CORPSE_DELIVER_RADIUS)
 		{
-			cannon_satiety_add(BALANCE_CANNON_SATIETY_PER_CORPSE * _carried_corpse_count);
+			var _accepted_corpse_count = cannon_corpses_deliver(_carried_corpse_count);
+
+			for (var _corpse_index = _accepted_corpse_count; _corpse_index < _carried_corpse_count; ++_corpse_index)
+			{
+				corpse_drop_at_position(_worker.carried_corpses[_corpse_index], _worker.x, _worker.y);
+			}
+
 			_worker.carried_corpses = [];
 			_worker.carried_corpse = noone;
 			_worker.reserved_corpse_id = noone;
@@ -4391,7 +4488,9 @@ cannon_corpse_worker_update = function(_worker, _cannon)
 		}
 
 		// After the first corpse, take a second only if it is closer than the cannon.
-		if (_carried_corpse_count < _worker.corpse_carry_capacity)
+		var _remaining_delivery_count = cannon_corpse_delivery_remaining_get();
+
+		if (_carried_corpse_count < min(_worker.corpse_carry_capacity, _remaining_delivery_count))
 		{
 			var _second_corpse = noone;
 
@@ -4443,6 +4542,14 @@ cannon_corpse_worker_update = function(_worker, _cannon)
 	}
 
 	var _reserved_corpse = noone;
+
+	if (cannon_corpse_delivery_limit_reached())
+	{
+		corpse_reservation_clear(_worker.reserved_corpse_id, _worker);
+		_worker.reserved_corpse_id = noone;
+		cannon_worker_move_towards(_worker, _cannon.x, _cannon.y);
+		return true;
+	}
 
 	if (_worker.reserved_corpse_id != noone)
 	{
@@ -4935,6 +5042,54 @@ worker_assignment_hint_delay_start = function()
 
 	worker_assignment_hint_delay_started = true;
 	worker_assignment_hint_delay_timer = worker_assignment_hint_delay_time;
+};
+
+full_moon_hint_delay_start = function()
+{
+	if (!global.tutorial_hints_enabled)
+	{
+		return;
+	}
+
+	full_moon_hint_delay_pending = true;
+	full_moon_hint_delay_timer = full_moon_hint_delay_time;
+};
+
+full_moon_hint_delay_update = function()
+{
+	if (!full_moon_hint_delay_pending)
+	{
+		return;
+	}
+
+	if (global.day_phase != DAY_PHASE.DAY)
+	{
+		full_moon_hint_delay_pending = false;
+		full_moon_hint_delay_timer = -1;
+		return;
+	}
+
+	if (global.pause
+		|| global.focus_window != FOCUS_WINDOW.NOONE
+		|| (variable_global_exists("tutorial_popup_active") && global.tutorial_popup_active))
+	{
+		return;
+	}
+
+	full_moon_hint_delay_timer--;
+
+	if (full_moon_hint_delay_timer > 0)
+	{
+		return;
+	}
+
+	full_moon_hint_delay_pending = false;
+	full_moon_hint_delay_timer = -1;
+
+	if (variable_global_exists("tutorial_hint_trigger"))
+	{
+		global.tutorial_hint_trigger("full_moon_night");
+	}
 };
 
 assign_current_cultist_demon = function()
@@ -8144,6 +8299,7 @@ start_day_phase = function()
 {
 	clear_dragged_unit();
 	global.day_phase = DAY_PHASE.DAY;
+	global.cannon_corpses_delivered_today = 0;
 	global.full_moon_night_active = false;
 	global.day_timer = global.day_duration * global.game_speed_normal;
 	global.night_attack_unit_count = 0;
@@ -8154,10 +8310,14 @@ start_day_phase = function()
 	adaptive_difficulty_evaluate_night();
 	night_attack_night_index++;
 
-	if (full_moon_night_is_scheduled(night_attack_night_index)
-		&& variable_global_exists("tutorial_hint_trigger"))
+	if (full_moon_night_is_scheduled(night_attack_night_index))
 	{
-		global.tutorial_hint_trigger("full_moon_night");
+		full_moon_hint_delay_start();
+	}
+	else
+	{
+		full_moon_hint_delay_pending = false;
+		full_moon_hint_delay_timer = -1;
 	}
 
 	if (!crusade_taint_tracking_initialized)

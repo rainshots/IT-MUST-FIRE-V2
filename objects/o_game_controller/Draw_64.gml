@@ -405,6 +405,99 @@ if (!worker_assignment_hint_completed
 	}
 }
 
+// Draw a non-blocking tree corruption hint above the nearest uncorrupted tree to the cannon.
+if (!tree_corruption_hint_completed
+	&& global.tutorial_hints_enabled
+	&& global.focus_window == FOCUS_WINDOW.NOONE
+	&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active)
+	&& instance_exists(o_camera_controller)
+	&& instance_exists(o_cannon)
+	&& instance_exists(o_tree))
+{
+	var _tree_hint_camera_controller = instance_find(o_camera_controller, 0);
+	var _tree_hint_camera_x = camera_get_view_x(_tree_hint_camera_controller.camera_id);
+	var _tree_hint_camera_y = camera_get_view_y(_tree_hint_camera_controller.camera_id);
+	var _tree_hint_camera_width = camera_get_view_width(_tree_hint_camera_controller.camera_id);
+	var _tree_hint_camera_height = camera_get_view_height(_tree_hint_camera_controller.camera_id);
+	var _tree_hint_cannon = instance_find(o_cannon, 0);
+	var _tree_hint_target = noone;
+
+	if (instance_exists(tree_corruption_hint_target)
+		&& !tree_corruption_hint_target.is_corrupted
+		&& point_distance(
+			tree_corruption_hint_target.x,
+			tree_corruption_hint_target.y,
+			_tree_hint_cannon.x,
+			_tree_hint_cannon.y
+		) >= tree_corruption_hint_min_cannon_distance)
+	{
+		_tree_hint_target = tree_corruption_hint_target;
+	}
+	else
+	{
+		var _tree_hint_best_distance = infinity;
+		var _tree_hint_count = instance_number(o_tree);
+
+		for (var _tree_hint_index = 0; _tree_hint_index < _tree_hint_count; ++_tree_hint_index)
+		{
+			var _tree_hint_tree = instance_find(o_tree, _tree_hint_index);
+
+			if (!instance_exists(_tree_hint_tree) || _tree_hint_tree.is_corrupted)
+			{
+				continue;
+			}
+
+			var _tree_hint_distance = point_distance(
+				_tree_hint_tree.x,
+				_tree_hint_tree.y,
+				_tree_hint_cannon.x,
+				_tree_hint_cannon.y
+			);
+
+			if (_tree_hint_distance >= tree_corruption_hint_min_cannon_distance
+				&& _tree_hint_distance < _tree_hint_best_distance)
+			{
+				_tree_hint_best_distance = _tree_hint_distance;
+				_tree_hint_target = _tree_hint_tree;
+			}
+		}
+
+		tree_corruption_hint_target = _tree_hint_target;
+	}
+
+	if (instance_exists(_tree_hint_target))
+	{
+		var _tree_hint_anchor_x = ((_tree_hint_target.x - _tree_hint_camera_x) / _tree_hint_camera_width) * camera_view_width;
+		var _tree_hint_anchor_y = (((_tree_hint_target.bbox_top - tree_corruption_hint_offset_y) - _tree_hint_camera_y) / _tree_hint_camera_height) * camera_view_height;
+		var _tree_hint_width = min(tree_corruption_hint_width, camera_view_width - 36);
+		var _tree_hint_text_width = _tree_hint_width - (tree_corruption_hint_padding_x * 2);
+		var _tree_hint_height = (tree_corruption_hint_padding_y * 2)
+			+ string_height_ext(tree_corruption_hint_text, tree_corruption_hint_line_height, _tree_hint_text_width);
+		var _tree_hint_x = clamp(_tree_hint_anchor_x - (_tree_hint_width * 0.5), 18, camera_view_width - _tree_hint_width - 18);
+		var _tree_hint_y = max(18, _tree_hint_anchor_y - _tree_hint_height);
+		var _tree_hint_pulse = 0.88 + (sin(current_time * 0.006) * 0.08);
+
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_alpha(tree_corruption_hint_background_alpha * _tree_hint_pulse);
+		draw_set_color(COLOR_HUD_BACKGROUND);
+		draw_rectangle(_tree_hint_x, _tree_hint_y, _tree_hint_x + _tree_hint_width, _tree_hint_y + _tree_hint_height, false);
+
+		draw_set_alpha(_tree_hint_pulse);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text_ext(
+			_tree_hint_x + tree_corruption_hint_padding_x,
+			_tree_hint_y + tree_corruption_hint_padding_y,
+			tree_corruption_hint_text,
+			tree_corruption_hint_line_height,
+			_tree_hint_text_width
+		);
+
+		draw_set_alpha(1);
+		draw_set_color(c_white);
+	}
+}
+
 // Draw target selection radius under the cursor.
 if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_camera_controller))
 {

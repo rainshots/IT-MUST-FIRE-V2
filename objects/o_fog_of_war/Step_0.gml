@@ -1,15 +1,21 @@
-// Pause freezes fog updates together with gameplay state changes.
-if (global.pause)
-{
-	exit;
-}
-
+// Fog updates faster only while dragging a demon so placement checks use the current revealed area.
 fog_taint_reveal_cache_scan_update();
 fog_starting_taint_reveal_cache_update();
 
+var _dragged_demon_exists = instance_exists(global.dragged_cultist)
+	&& variable_instance_exists(global.dragged_cultist, "demon_type")
+	&& global.dragged_cultist.demon_type != DEMON_TYPE.NONE
+	&& global.dragged_cultist.object_index != o_cultist;
+var _update_interval = update_interval;
+
+if (_dragged_demon_exists)
+{
+	_update_interval = 1;
+}
+
 update_timer++;
 
-if (update_timer < update_interval)
+if (update_timer < _update_interval)
 {
 	exit;
 }
@@ -38,8 +44,8 @@ for (var _taint_reveal_cell_index = 0; _taint_reveal_cell_index < _taint_reveal_
 	);
 }
 
-// Combat demons reveal nearby fog during the night.
-if (global.day_phase == DAY_PHASE.NIGHT && demon_reveal_radius_in_cells > 0)
+// Combat demon fog reveal is disabled while any demon is being dragged.
+if (global.day_phase == DAY_PHASE.NIGHT && demon_reveal_radius_in_cells > 0 && !_dragged_demon_exists)
 {
 	var _friendly_count = instance_number(o_friendly_units);
 

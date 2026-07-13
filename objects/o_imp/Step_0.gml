@@ -3,6 +3,12 @@ if (!demon_leap_is_active && crimson_guillotine_strike_timer <= 0)
 {
 	event_inherited();
 }
+else if (hp <= 0)
+{
+	imp_active_ability_cancel_for_death();
+	event_inherited();
+	exit;
+}
 
 if (global.pause || hp <= 0)
 {
