@@ -242,13 +242,13 @@ if (_flight_progress >= 1)
 
 		ds_list_destroy(_friendly_list);
 
-		if (variable_global_exists("cultists"))
+		if (variable_global_exists("archdemons"))
 		{
-			var _cultist_count = array_length(global.cultists);
+			var _cultist_count = array_length(global.archdemons);
 
 			for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 			{
-				var _cultist = global.cultists[_cultist_index];
+				var _cultist = global.archdemons[_cultist_index];
 
 				if (!instance_exists(_cultist)
 					|| !_cultist.visible
@@ -512,6 +512,24 @@ if (_flight_progress >= 1)
 	if (projectile_type == PROJECTILE_TYPE.CULTIST && instance_exists(cultist_payload))
 	{
 		var _cultist = cultist_payload;
+		var _is_regular_squad_unit = variable_instance_exists(_cultist, "squad")
+			&& is_struct(_cultist.squad)
+			&& _cultist.squad.squad_type != SQUAD_TYPE.ARCHDEMON;
+
+		if (_is_regular_squad_unit)
+		{
+			_cultist.x = target_x;
+			_cultist.y = target_y;
+			_cultist.drag_drop_x = target_x;
+			_cultist.drag_drop_y = target_y;
+			_cultist.visible = true;
+			_cultist.cannon_loading = false;
+			_cultist.cannon_loaded = false;
+			_cultist.cultist_projectile_deploy_assigned = false;
+			_cultist.cultist_projectile_deploy_waiting = false;
+		}
+		else
+		{
 		var _demon_object = cultist_demon_object_get(_cultist.demon_type);
 
 		if (_demon_object != noone)
@@ -580,19 +598,21 @@ if (_flight_progress >= 1)
 				_demon.base_reload_time = _demon.reload_time;
 			}
 
-			var _cultist_count = array_length(global.cultists);
+			var _cultist_count = array_length(global.archdemons);
 
 			for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 			{
-				if (global.cultists[_cultist_index] == _cultist)
+				if (global.archdemons[_cultist_index] == _cultist)
 				{
-					global.cultists[_cultist_index] = _demon;
+					global.archdemons[_cultist_index] = _demon;
+					squad_unit_reference_replace(_cultist, _demon);
 					break;
 				}
 			}
 		}
 
 		instance_destroy(_cultist);
+		}
 	}
 
 	instance_destroy();

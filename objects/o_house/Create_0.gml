@@ -221,16 +221,16 @@ house_player_unit_is_near = function()
 		}
 	}
 
-	if (!variable_global_exists("cultists"))
+	if (!variable_global_exists("archdemons"))
 	{
 		return false;
 	}
 
-	var _cultist_count = array_length(global.cultists);
+	var _cultist_count = array_length(global.archdemons);
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
-		var _cultist = global.cultists[_cultist_index];
+		var _cultist = global.archdemons[_cultist_index];
 
 		if (!instance_exists(_cultist)
 			|| !_cultist.visible

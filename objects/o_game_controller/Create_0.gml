@@ -25,7 +25,29 @@ global.full_moon_night_active = false;
 global.full_moon_attack_direction = 0;
 global.day_cycle_enabled = true;
 global.legacy_building_logic_enabled = false;
-global.cultists = array_create(0);
+global.archdemons = array_create(0);
+global.squads = [];
+global.dragged_squad = noone;
+global.squad_limits = [BALANCE_SQUAD_ARCHDEMON_LIMIT, BALANCE_SQUAD_UNDEAD_LIMIT, BALANCE_SQUAD_DEMON_LIMIT];
+// Archdemons keep the existing combat and cannon lifecycle; regular cultists belong to day events.
+global.event_cultists = array_create(0);
+global.cultist_limit = BALANCE_STARTING_CULTIST_LIMIT;
+global.blood_bath_crimson_baptism_uses = 0;
+global.blood_bath_harden_vessel_used = false;
+global.squad_blood_warpaint_pending = false;
+global.event_cultist_names = [
+	"Alden", "Bram", "Corvin", "Dorian", "Edric", "Fenric",
+	"Garrick", "Hadrian", "Ivor", "Jareth", "Kael", "Lucan",
+	"Marek", "Nolan", "Orin", "Perrin", "Quill", "Roderic",
+	"Silas", "Theron", "Ulric", "Varen", "Wystan", "Xander",
+	"Yorick", "Zevran", "Alaric", "Cedric", "Leoric", "Mordren"
+];
+global.day_events = array_create(0);
+
+if (!instance_exists(o_jobs_ui))
+{
+	instance_create_layer(0, 0, "Instances", o_jobs_ui);
+}
 global.shrine_objective_complete = false;
 global.first_night_cultist_projectile_fired = false;
 global.tutorial_popup_active = false;
@@ -37,8 +59,8 @@ player_building_ground_check_interval = BALANCE_PLAYER_BUILDING_CORRUPTION_CHECK
 player_building_ground_check_timer = irandom(player_building_ground_check_interval - 1);
 
 // World hint for the first worker assignment.
-worker_assignment_hint_completed = false;
-first_day_timer_waiting_for_worker_assignment = true;
+worker_assignment_hint_completed = true;
+first_day_timer_waiting_for_worker_assignment = false;
 worker_assignment_hint_delay_started = false;
 worker_assignment_hint_delay_time = 2 * room_speed;
 worker_assignment_hint_delay_timer = -1;
@@ -933,9 +955,9 @@ ui_hover_candidate_get = function(_mouse_x, _mouse_y)
 		var _level_confirm_y = _level_panel_y + 612;
 		var _cultist = noone;
 
-		if (cultist_levelup_index >= 0 && cultist_levelup_index < array_length(global.cultists))
+		if (cultist_levelup_index >= 0 && cultist_levelup_index < array_length(global.archdemons))
 		{
-			_cultist = global.cultists[cultist_levelup_index];
+			_cultist = global.archdemons[cultist_levelup_index];
 		}
 
 		if (instance_exists(_cultist))
@@ -2475,6 +2497,7 @@ settings_edge_toggle_rect_get = function()
 // Cultist prototype state.
 cultist_start_count = BALANCE_STARTING_CULTIST_COUNT;
 starting_goblin_count = BALANCE_STARTING_GOBLIN_COUNT;
+starting_event_cultist_count = BALANCE_STARTING_EVENT_CULTIST_COUNT;
 cultist_reward_days = [
 	BALANCE_SECOND_CULTIST_REWARD_DAY,
 	BALANCE_THIRD_CULTIST_REWARD_DAY
@@ -2720,7 +2743,7 @@ unit_is_demon_form = function(_unit)
 	return instance_exists(_unit)
 		&& variable_instance_exists(_unit, "demon_type")
 		&& _unit.demon_type != DEMON_TYPE.NONE
-		&& _unit.object_index != o_cultist;
+		&& _unit.object_index != o_archdemon;
 };
 
 unit_is_blocked_by_cannon_wall = function(_unit)
@@ -2730,8 +2753,11 @@ unit_is_blocked_by_cannon_wall = function(_unit)
 		return false;
 	}
 
-	var _is_summoned_night_unit = variable_instance_exists(_unit, "summon_nights_remaining")
-		&& global.day_phase == DAY_PHASE.NIGHT;
+	var _is_summoned_night_unit = global.day_phase == DAY_PHASE.NIGHT
+		&& (variable_instance_exists(_unit, "summon_nights_remaining")
+			|| (variable_instance_exists(_unit, "squad")
+				&& is_struct(_unit.squad)
+				&& _unit.squad.squad_type != SQUAD_TYPE.ARCHDEMON));
 
 	return unit_is_demon_form(_unit) || _is_summoned_night_unit;
 };
@@ -2953,6 +2979,12 @@ drag_cultist_can_be_picked = function(_cultist)
 		return false;
 	}
 
+	// Archdemons can be repositioned in combat, but are not assigned to buildings by dragging during the day.
+	if (_cultist.object_index == o_archdemon && global.day_phase != DAY_PHASE.NIGHT)
+	{
+		return false;
+	}
+
 	var _is_knocked_out = variable_instance_exists(_cultist, "is_knocked_out")
 		&& _cultist.is_knocked_out;
 	var _has_usable_hp = !variable_instance_exists(_cultist, "hp")
@@ -2980,7 +3012,7 @@ drag_cultist_can_be_picked = function(_cultist)
 worker_whip_target_is_valid = function(_unit)
 {
 	if (!instance_exists(_unit)
-		|| (_unit.object_index != o_cultist && _unit.object_index != o_goblin)
+		|| (_unit.object_index != o_archdemon && _unit.object_index != o_goblin)
 		|| !variable_instance_exists(_unit, "hp")
 		|| !variable_instance_exists(_unit, "max_hp")
 		|| _unit.hp <= 0)
@@ -3028,11 +3060,11 @@ find_worker_whip_target_at_position = function(_world_x, _world_y)
 {
 	var _target_unit = noone;
 	var _target_depth = infinity;
-	var _cultist_count = array_length(global.cultists);
+	var _cultist_count = array_length(global.archdemons);
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
-		var _cultist = global.cultists[_cultist_index];
+		var _cultist = global.archdemons[_cultist_index];
 
 		if (worker_whip_target_can_be_hit(_cultist)
 			&& _world_x >= _cultist.bbox_left
@@ -3148,11 +3180,11 @@ worker_whip_unit_update = function(_unit)
 
 worker_whip_effects_update = function()
 {
-	var _cultist_count = array_length(global.cultists);
+	var _cultist_count = array_length(global.archdemons);
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
-		worker_whip_unit_update(global.cultists[_cultist_index]);
+		worker_whip_unit_update(global.archdemons[_cultist_index]);
 	}
 
 	var _goblin_count = instance_number(o_goblin);
@@ -3977,12 +4009,6 @@ construct_building_from_choice = function(_choice)
 			_built_object.garrison_morning_spawn_units();
 		}
 
-		if (_built_object.object_index == o_shell_factory
-			&& variable_instance_exists(_built_object, "shell_factory_morning_projectiles_add"))
-		{
-			_built_object.shell_factory_morning_projectiles_add();
-		}
-
 		if (_built_object.object_index == o_goblins_pit)
 		{
 			starting_goblins_bind_to_first_pit(_built_object);
@@ -4007,7 +4033,7 @@ assign_cultist_to_worker_building = function(_cultist, _building)
 {
 	if (!instance_exists(_cultist)
 		|| !instance_exists(_building)
-		|| (_cultist.object_index != o_cultist && !variable_instance_exists(_cultist, "worker_speed_multiplier"))
+		|| (_cultist.object_index != o_archdemon && !variable_instance_exists(_cultist, "worker_speed_multiplier"))
 		|| (variable_instance_exists(_cultist, "hp") && _cultist.hp <= 0))
 	{
 		return false;
@@ -4124,7 +4150,7 @@ worker_idle_wander_can_update = function(_worker, _allow_cannon_assignment = fal
 {
 	if (!instance_exists(_worker)
 		|| global.day_phase != DAY_PHASE.DAY
-		|| (_worker.object_index != o_cultist && _worker.object_index != o_goblin)
+		|| (_worker.object_index != o_archdemon && _worker.object_index != o_goblin)
 		|| !variable_instance_exists(_worker, "hp")
 		|| _worker.hp <= 0)
 	{
@@ -4282,16 +4308,16 @@ day_worker_stamina_spend = function(_worker, _drain_multiplier = 1)
 
 day_idle_cultists_wander_update = function()
 {
-	if (!variable_global_exists("cultists"))
+	if (!variable_global_exists("archdemons"))
 	{
 		return;
 	}
 
-	var _cultist_count = array_length(global.cultists);
+	var _cultist_count = array_length(global.archdemons);
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
-		worker_idle_wander_update(global.cultists[_cultist_index]);
+		worker_idle_wander_update(global.archdemons[_cultist_index]);
 	}
 };
 
@@ -4667,11 +4693,11 @@ cannon_corpse_workers_drop_all = function()
 		}
 	}
 
-	var _cultist_count = array_length(global.cultists);
+	var _cultist_count = array_length(global.archdemons);
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
-		var _cultist = global.cultists[_cultist_index];
+		var _cultist = global.archdemons[_cultist_index];
 
 		if (instance_exists(_cultist))
 		{
@@ -4748,28 +4774,41 @@ spawn_starting_cultists = function()
 		return;
 	}
 
-	global.cultists = array_create(0);
-	var _starting_unit_count = cultist_start_count + starting_goblin_count;
+	global.archdemons = array_create(0);
+	global.event_cultists = array_create(0);
+	var _starting_unit_count = cultist_start_count + starting_event_cultist_count;
 
-	// Spawn initial cultists and workers together so they do not overlap.
+	// Spawn the single archdemon before placing regular cultists around the cannon.
 	for (var _cultist_index = 0; _cultist_index < cultist_start_count; ++_cultist_index)
 	{
 		var _spawn_position = cannon_inner_position_get(_cultist_index, _starting_unit_count);
 		var _spawn_x = _spawn_position[0];
 		var _spawn_y = _spawn_position[1];
-		var _cultist = instance_create_layer(_spawn_x, _spawn_y, "Instances", o_cultist);
+		var _cultist = instance_create_layer(_spawn_x, _spawn_y, "Instances", o_archdemon);
 
-		array_push(global.cultists, _cultist);
+		array_push(global.archdemons, _cultist);
+		squad_register_existing_unit(SQUAD_TYPE.ARCHDEMON, _cultist);
 	}
 
-	for (var _goblin_index = 0; _goblin_index < starting_goblin_count; ++_goblin_index)
+	// Spawn regular cultists separately from the single archdemon.
+	var _cannon = instance_find(o_cannon, 0);
+	var _cultist_spacing = (BALANCE_EVENT_CULTIST_WANDER_HORIZONTAL_DISTANCE * 2)
+		/ max(1, starting_event_cultist_count - 1);
+
+	var _starting_event_cultist_count = min(starting_event_cultist_count, global.cultist_limit);
+
+	for (var _event_cultist_index = 0; _event_cultist_index < _starting_event_cultist_count; ++_event_cultist_index)
 	{
-		var _unit_index = cultist_start_count + _goblin_index;
-		var _spawn_position = cannon_inner_position_get(_unit_index, _starting_unit_count);
-		var _spawn_x = _spawn_position[0];
-		var _spawn_y = _spawn_position[1];
-		instance_create_layer(_spawn_x, _spawn_y, "Instances", o_goblin);
+		var _spawn_x = _cannon.x - BALANCE_EVENT_CULTIST_WANDER_HORIZONTAL_DISTANCE
+			+ (_cultist_spacing * _event_cultist_index);
+		var _spawn_y = _cannon.y + BALANCE_EVENT_CULTIST_WANDER_VERTICAL_DISTANCE_MIN;
+		var _event_cultist = instance_create_layer(_spawn_x, _spawn_y, "Instances", o_cultist);
+		_event_cultist.cultist_name = day_event_cultist_random_name_get();
+		array_push(global.event_cultists, _event_cultist);
 	}
+
+	// Buildings provide their guaranteed event after the starting roster exists.
+	day_event_generate_for_buildings();
 
 	cultists_spawned = true;
 	starting_cultist_selection_pending = true;
@@ -4955,7 +4994,6 @@ open_cultist_demon_selection = function(_selection_index)
 // Add extra cultists on fixed early days.
 award_day_cultists = function()
 {
-	var _selection_start_index = -1;
 	var _reward_count = array_length(cultist_reward_days);
 
 	for (var _reward_index = next_cultist_reward_index; _reward_index < _reward_count; ++_reward_index)
@@ -4967,34 +5005,23 @@ award_day_cultists = function()
 			break;
 		}
 
-		var _new_cultist_index = array_length(global.cultists);
-		var _spawn_position = cannon_inner_position_get(_new_cultist_index, _new_cultist_index + 1);
-		var _spawn_x = _spawn_position[0];
-		var _spawn_y = _spawn_position[1];
-		var _cultist = instance_create_layer(_spawn_x, _spawn_y, "Instances", o_cultist);
+		// New followers are regular event workers, never additional archdemons.
+		var _new_cultist = day_event_cultist_add();
 
-		array_push(global.cultists, _cultist);
-
-		if (_selection_start_index < 0)
+		if (!instance_exists(_new_cultist))
 		{
-			_selection_start_index = _new_cultist_index;
+			break;
 		}
 
 		next_cultist_reward_index = _reward_index + 1;
-	}
-
-	if (_selection_start_index >= 0)
-	{
-		move_cultists_to_cannon_inner();
-		open_cultist_demon_selection(_selection_start_index);
 	}
 };
 
 get_current_cultist = function()
 {
-	if (cultist_selection_index >= 0 && cultist_selection_index < array_length(global.cultists))
+	if (cultist_selection_index >= 0 && cultist_selection_index < array_length(global.archdemons))
 	{
-		var _cultist = global.cultists[cultist_selection_index];
+		var _cultist = global.archdemons[cultist_selection_index];
 
 		if (instance_exists(_cultist))
 		{
@@ -5109,6 +5136,11 @@ assign_current_cultist_demon = function()
 	}
 
 	_cultist.cultist_name = string_copy(_typed_name, 1, 16);
+
+	if (variable_instance_exists(_cultist, "squad") && is_struct(_cultist.squad))
+	{
+		_cultist.squad.name = _cultist.cultist_name;
+	}
 	_cultist.demon_type = cultist_selected_demon_type;
 	cultist_selected_starting_ability_validate();
 	_cultist.demon_ability = cultist_selected_starting_ability;
@@ -5124,12 +5156,17 @@ assign_current_cultist_demon = function()
 	cultist_ability_level_set(_cultist, _cultist.demon_ability, 1);
 	cultist_day_health_apply(_cultist, true);
 
+	if (variable_instance_exists(_cultist, "archdemon_visual_apply"))
+	{
+		_cultist.archdemon_visual_apply();
+	}
+
 	cultist_selection_index++;
 	keyboard_string = "";
 	cultist_selected_demon_type = DEMON_TYPE.IMP;
 	cultist_selected_starting_ability = cultist_starting_ability_default_get(cultist_selected_demon_type);
 
-	if (cultist_selection_index >= array_length(global.cultists))
+	if (cultist_selection_index >= array_length(global.archdemons))
 	{
 		global.pause = false;
 		global.focus_window = FOCUS_WINDOW.NOONE;
@@ -5139,15 +5176,15 @@ assign_current_cultist_demon = function()
 
 transform_cultists_to_demons = function()
 {
-	var _cultist_count = array_length(global.cultists);
+	var _cultist_count = array_length(global.archdemons);
 	var _new_units = array_create(0);
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
-		var _cultist = global.cultists[_cultist_index];
+		var _cultist = global.archdemons[_cultist_index];
 
 		if (!instance_exists(_cultist)
-			|| _cultist.object_index != o_cultist
+			|| _cultist.object_index != o_archdemon
 			|| _cultist.demon_type == DEMON_TYPE.NONE
 			|| _cultist.hp <= 0
 			|| (variable_instance_exists(_cultist, "morning_respawn_pending") && _cultist.morning_respawn_pending))
@@ -5231,7 +5268,7 @@ transform_cultists_to_demons = function()
 		instance_destroy(_cultist);
 	}
 
-	global.cultists = _new_units;
+	global.archdemons = _new_units;
 };
 
 cultist_projectile_deploy_assignments_reset = function()
@@ -5393,6 +5430,29 @@ cultist_projectile_deploy_units_take = function(_remaining_cultist_projectile_co
 	return _taken_units;
 };
 
+squad_projectile_deploy_units_take = function(_primary_unit)
+{
+	var _deploy_units = [];
+
+	if (!instance_exists(_primary_unit) || !variable_instance_exists(_primary_unit, "squad") || !is_struct(_primary_unit.squad))
+	{
+		return cultist_projectile_deploy_units_take(1);
+	}
+
+	var _squad_units = _primary_unit.squad.units;
+
+	for (var _unit_index = 0; _unit_index < array_length(_squad_units); ++_unit_index)
+	{
+		var _unit = _squad_units[_unit_index];
+		if (!instance_exists(_unit) || _unit == _primary_unit) continue;
+		cultist_projectile_deploy_unit_hide(_unit);
+		_unit.cultist_projectile_deploy_assigned = true;
+		array_push(_deploy_units, _unit);
+	}
+
+	return _deploy_units;
+};
+
 queue_cultist_projectile = function(_cultist)
 {
 	if (!instance_exists(_cultist))
@@ -5456,14 +5516,37 @@ start_cultists_loading_into_cannon = function()
 {
 	clear_cannon_projectile_queues(false);
 
-	var _cultist_count = array_length(global.cultists);
+	for (var _squad_index = 0; _squad_index < array_length(global.squads); ++_squad_index)
+	{
+		var _squad = global.squads[_squad_index];
+		if (_squad.squad_type == SQUAD_TYPE.ARCHDEMON) continue;
+
+		var _primary_unit = noone;
+
+		for (var _unit_index = 0; _unit_index < array_length(_squad.units); ++_unit_index)
+		{
+			var _unit = _squad.units[_unit_index];
+			if (!instance_exists(_unit)) continue;
+			if (!instance_exists(_primary_unit)) _primary_unit = _unit;
+			cultist_projectile_deploy_unit_hide(_unit);
+		}
+
+		if (instance_exists(_primary_unit))
+		{
+			_primary_unit.cannon_loading = true;
+			_primary_unit.cannon_loaded = false;
+			queue_cultist_projectile(_primary_unit);
+		}
+	}
+
+	var _cultist_count = array_length(global.archdemons);
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
-		var _cultist = global.cultists[_cultist_index];
+		var _cultist = global.archdemons[_cultist_index];
 
 		if (!instance_exists(_cultist)
-			|| _cultist.object_index != o_cultist
+			|| _cultist.object_index != o_archdemon
 			|| _cultist.demon_type == DEMON_TYPE.NONE)
 		{
 			continue;
@@ -5486,14 +5569,14 @@ update_cultists_loading_into_cannon = function()
 	}
 
 	var _cannon = instance_find(o_cannon, 0);
-	var _cultist_count = array_length(global.cultists);
+	var _cultist_count = array_length(global.archdemons);
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
-		var _cultist = global.cultists[_cultist_index];
+		var _cultist = global.archdemons[_cultist_index];
 
 		if (!instance_exists(_cultist)
-			|| _cultist.object_index != o_cultist
+			|| _cultist.object_index != o_archdemon
 			|| !variable_instance_exists(_cultist, "cannon_loading")
 			|| !_cultist.cannon_loading
 			|| _cultist.cannon_loaded)
@@ -5542,14 +5625,14 @@ unload_cultist_projectiles_to_day = function()
 		}
 	}
 
-	var _cultist_count = array_length(global.cultists);
+	var _cultist_count = array_length(global.archdemons);
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
-		var _cultist = global.cultists[_cultist_index];
+		var _cultist = global.archdemons[_cultist_index];
 
 		if (instance_exists(_cultist)
-			&& _cultist.object_index == o_cultist
+			&& _cultist.object_index == o_archdemon
 			&& variable_instance_exists(_cultist, "cannon_loading"))
 		{
 			_cultist.cannon_loading = false;
@@ -5841,11 +5924,11 @@ move_summoned_units_outside_cannon_wall = function()
 
 move_cultists_to_cannon_inner = function()
 {
-	var _cultist_count = array_length(global.cultists);
+	var _cultist_count = array_length(global.archdemons);
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
-		var _cultist = global.cultists[_cultist_index];
+		var _cultist = global.archdemons[_cultist_index];
 
 		if (instance_exists(_cultist))
 		{
@@ -5857,11 +5940,11 @@ move_cultists_to_cannon_inner = function()
 
 restore_dead_cultists_at_morning = function()
 {
-	var _cultist_count = array_length(global.cultists);
+	var _cultist_count = array_length(global.archdemons);
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
-		var _cultist = global.cultists[_cultist_index];
+		var _cultist = global.archdemons[_cultist_index];
 
 		if (!instance_exists(_cultist)
 			|| !variable_instance_exists(_cultist, "morning_respawn_pending")
@@ -5892,6 +5975,11 @@ restore_dead_cultists_at_morning = function()
 
 clear_dragged_unit = function()
 {
+	if (is_struct(global.dragged_squad))
+	{
+		squad_drag_end(global.dragged_squad, false);
+	}
+
 	if (instance_exists(global.dragged_cultist))
 	{
 		global.dragged_cultist.is_being_dragged = false;
@@ -5901,21 +5989,21 @@ clear_dragged_unit = function()
 	global.cultist_assignment_preview_building = noone;
 };
 
-transform_demons_to_cultists = function()
+transform_demons_to_archdemons = function()
 {
-	var _unit_count = array_length(global.cultists);
+	var _unit_count = array_length(global.archdemons);
 	var _new_cultists = array_create(0);
 
 	for (var _unit_index = 0; _unit_index < _unit_count; ++_unit_index)
 	{
-		var _unit = global.cultists[_unit_index];
+		var _unit = global.archdemons[_unit_index];
 
 		if (!instance_exists(_unit))
 		{
 			continue;
 		}
 
-		if (_unit.object_index == o_cultist || !variable_instance_exists(_unit, "demon_type") || _unit.demon_type == DEMON_TYPE.NONE)
+		if (_unit.object_index == o_archdemon || !variable_instance_exists(_unit, "demon_type") || _unit.demon_type == DEMON_TYPE.NONE)
 		{
 			array_push(_new_cultists, _unit);
 			continue;
@@ -5924,7 +6012,7 @@ transform_demons_to_cultists = function()
 		clear_cultist_building_assignment(_unit);
 
 		global.cultist_sprite_randomization_enabled = false;
-		var _cultist = instance_create_layer(_unit.x, _unit.y, "Instances", o_cultist);
+		var _cultist = instance_create_layer(_unit.x, _unit.y, "Instances", o_archdemon);
 		global.cultist_sprite_randomization_enabled = true;
 		var _unit_hp = _unit.hp;
 		var _was_dead = _unit_hp <= 0;
@@ -5960,6 +6048,11 @@ transform_demons_to_cultists = function()
 			_cultist.sprite_index = _unit.cultist_sprite_index;
 		}
 
+		if (variable_instance_exists(_cultist, "archdemon_visual_apply"))
+		{
+			_cultist.archdemon_visual_apply();
+		}
+
 		if (variable_instance_exists(_unit, "cultist_starting_abilities"))
 		{
 			_cultist.cultist_starting_abilities = _unit.cultist_starting_abilities;
@@ -5984,6 +6077,7 @@ transform_demons_to_cultists = function()
 		_cultist.has_warlock_demonic_infusion = _unit.has_warlock_demonic_infusion;
 		_cultist.hp = _unit_hp;
 		cultist_day_health_apply(_cultist, false);
+		squad_unit_reference_replace(_unit, _cultist);
 
 		if (_was_dead)
 		{
@@ -5997,16 +6091,16 @@ transform_demons_to_cultists = function()
 		instance_destroy(_unit);
 	}
 
-	global.cultists = _new_cultists;
+	global.archdemons = _new_cultists;
 };
 
 cultist_levelup_find_next = function(_start_index)
 {
-	var _cultist_count = array_length(global.cultists);
+	var _cultist_count = array_length(global.archdemons);
 
 	for (var _cultist_index = max(0, _start_index); _cultist_index < _cultist_count; ++_cultist_index)
 	{
-		var _cultist = global.cultists[_cultist_index];
+		var _cultist = global.archdemons[_cultist_index];
 
 		if (instance_exists(_cultist)
 			&& variable_instance_exists(_cultist, "pending_ability_upgrade_choices")
@@ -6178,18 +6272,18 @@ cultist_levelup_button_rect_get = function(_cultist)
 
 cultist_levelup_button_find_at_gui = function(_mouse_x, _mouse_y)
 {
-	if (!variable_global_exists("cultists"))
+	if (!variable_global_exists("archdemons"))
 	{
 		return noone;
 	}
 
-	var _cultist_count = array_length(global.cultists);
+	var _cultist_count = array_length(global.archdemons);
 	var _target_cultist = noone;
 	var _target_depth = infinity;
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
-		var _cultist = global.cultists[_cultist_index];
+		var _cultist = global.archdemons[_cultist_index];
 
 		if (!cultist_has_pending_levelup(_cultist)
 			|| (variable_instance_exists(_cultist, "hp") && _cultist.hp <= 0)
@@ -6222,11 +6316,11 @@ open_cultist_levelup_for_cultist = function(_cultist)
 		return false;
 	}
 
-	var _cultist_count = array_length(global.cultists);
+	var _cultist_count = array_length(global.archdemons);
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
-		if (global.cultists[_cultist_index] == _cultist)
+		if (global.archdemons[_cultist_index] == _cultist)
 		{
 			cultist_levelup_open = true;
 			cultist_levelup_index = _cultist_index;
@@ -6267,12 +6361,12 @@ open_cultist_levelup = function()
 
 award_cultist_night_exp = function()
 {
-	var _cultist_count = array_length(global.cultists);
+	var _cultist_count = array_length(global.archdemons);
 	var _valid_cultists = [];
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
-		var _cultist = global.cultists[_cultist_index];
+		var _cultist = global.archdemons[_cultist_index];
 
 		if (instance_exists(_cultist)
 			&& variable_instance_exists(_cultist, "current_exp")
@@ -6292,7 +6386,7 @@ award_cultist_night_exp = function()
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
-		var _cultist = global.cultists[_cultist_index];
+		var _cultist = global.archdemons[_cultist_index];
 		var _exp_reward = BALANCE_CULTIST_NIGHT_EXP_MINOR_REWARD;
 
 		if (_cultist == _full_reward_cultist)
@@ -6440,7 +6534,7 @@ update_goblin_evening_life = function()
 
 night_attack_total_difficulty_get = function()
 {
-	var _extra_cultist_count = max(0, array_length(global.cultists) - BALANCE_STARTING_CULTIST_COUNT);
+	var _extra_cultist_count = max(0, array_length(global.archdemons) - BALANCE_STARTING_CULTIST_COUNT);
 	var _night_index = max(1, night_attack_night_index);
 	var _early_night_count = max(0, min(_night_index - 1, BALANCE_NIGHT_ATTACK_DIFFICULTY_LATE_START_NIGHT - 2));
 	var _late_night_count = max(0, _night_index - BALANCE_NIGHT_ATTACK_DIFFICULTY_LATE_START_NIGHT + 1);
@@ -6462,7 +6556,7 @@ night_attack_difficulty_debug_log = function(_total_difficulty, _direction_count
 		return;
 	}
 
-	var _extra_cultist_count = max(0, array_length(global.cultists) - BALANCE_STARTING_CULTIST_COUNT);
+	var _extra_cultist_count = max(0, array_length(global.archdemons) - BALANCE_STARTING_CULTIST_COUNT);
 	var _night_index = max(1, night_attack_night_index);
 	var _early_night_count = max(0, min(_night_index - 1, BALANCE_NIGHT_ATTACK_DIFFICULTY_LATE_START_NIGHT - 2));
 	var _late_night_count = max(0, _night_index - BALANCE_NIGHT_ATTACK_DIFFICULTY_LATE_START_NIGHT + 1);
@@ -6516,11 +6610,11 @@ night_attack_difficulty_debug_log = function(_total_difficulty, _direction_count
 adaptive_difficulty_low_hp_cultist_count_get = function()
 {
 	var _low_hp_count = 0;
-	var _cultist_count = array_length(global.cultists);
+	var _cultist_count = array_length(global.archdemons);
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
-		var _cultist = global.cultists[_cultist_index];
+		var _cultist = global.archdemons[_cultist_index];
 
 		if (!instance_exists(_cultist)
 			|| !variable_instance_exists(_cultist, "hp")
@@ -6542,11 +6636,11 @@ adaptive_difficulty_low_hp_cultist_count_get = function()
 adaptive_difficulty_night_hp_start_store = function()
 {
 	adaptive_night_tracked_cultist_count = 0;
-	var _cultist_count = array_length(global.cultists);
+	var _cultist_count = array_length(global.archdemons);
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
-		var _cultist = global.cultists[_cultist_index];
+		var _cultist = global.archdemons[_cultist_index];
 
 		if (!instance_exists(_cultist)
 			|| !variable_instance_exists(_cultist, "hp")
@@ -6565,11 +6659,11 @@ adaptive_difficulty_night_hp_start_store = function()
 adaptive_difficulty_heavy_damage_cultist_count_get = function()
 {
 	var _heavy_damage_count = 0;
-	var _cultist_count = array_length(global.cultists);
+	var _cultist_count = array_length(global.archdemons);
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
-		var _cultist = global.cultists[_cultist_index];
+		var _cultist = global.archdemons[_cultist_index];
 
 		if (!instance_exists(_cultist)
 			|| !variable_instance_exists(_cultist, "hp")
@@ -8204,6 +8298,7 @@ start_night_phase = function()
 {
 	clear_dragged_unit();
 	cannon_corpse_workers_drop_all();
+	squad_blood_warpaint_start_night();
 	var _is_full_moon_night = full_moon_night_is_scheduled(night_attack_night_index);
 	global.day_phase = DAY_PHASE.NIGHT;
 	global.full_moon_night_active = _is_full_moon_night;
@@ -8298,6 +8393,10 @@ start_night_phase = function()
 start_day_phase = function()
 {
 	clear_dragged_unit();
+	squad_blood_warpaint_end_night();
+	// Previous day event cards and their assignments never carry into a new day.
+	day_event_new_day_reset();
+	day_event_generate_for_buildings();
 	global.day_phase = DAY_PHASE.DAY;
 	global.cannon_corpses_delivered_today = 0;
 	global.full_moon_night_active = false;
@@ -8333,8 +8432,9 @@ start_day_phase = function()
 
 	cultist_projectile_deploy_assignments_reset();
 	unload_cultist_projectiles_to_day();
-	transform_demons_to_cultists();
+	transform_demons_to_archdemons();
 	restore_dead_cultists_at_morning();
+	squad_units_restore_morning();
 	move_cultists_to_cannon_inner();
 	settlement_garrison_buildings_spawn_morning_units();
 	move_summoned_units_to_cannon_inner();
@@ -8370,14 +8470,6 @@ start_day_phase = function()
 	with (o_ihor_extractor)
 	{
 		ihor_extractor_morning_income_collect();
-	}
-
-	with (o_shell_factory)
-	{
-		if (variable_instance_exists(id, "shell_factory_morning_projectiles_add"))
-		{
-			shell_factory_morning_projectiles_add();
-		}
 	}
 
 	with (o_ritual_circle)
@@ -8427,7 +8519,7 @@ cultist_level_point_apply = function(_cultist, _stat_index)
 	_cultist.cultist_points[_stat_index]++;
 	_cultist.pending_level_points = max(_cultist.pending_level_points - 1, 0);
 
-	if (variable_instance_exists(_cultist, "demon_type") && _cultist.demon_type != DEMON_TYPE.NONE && _cultist.object_index != o_cultist)
+	if (variable_instance_exists(_cultist, "demon_type") && _cultist.demon_type != DEMON_TYPE.NONE && _cultist.object_index != o_archdemon)
 	{
 		var _cultist_hp = _cultist.hp;
 
@@ -8475,12 +8567,12 @@ cultist_level_ability_apply = function(_cultist, _reward_type, _ability)
 
 add_cultist_level_point = function(_stat_index)
 {
-	if (cultist_levelup_index < 0 || cultist_levelup_index >= array_length(global.cultists))
+	if (cultist_levelup_index < 0 || cultist_levelup_index >= array_length(global.archdemons))
 	{
 		return;
 	}
 
-	var _cultist = global.cultists[cultist_levelup_index];
+	var _cultist = global.archdemons[cultist_levelup_index];
 
 	if (cultist_level_point_apply(_cultist, _stat_index))
 	{
@@ -8519,12 +8611,12 @@ ensure_cultist_levelup_options = function(_cultist)
 
 add_cultist_level_ability = function(_ability)
 {
-	if (cultist_levelup_index < 0 || cultist_levelup_index >= array_length(global.cultists))
+	if (cultist_levelup_index < 0 || cultist_levelup_index >= array_length(global.archdemons))
 	{
 		return;
 	}
 
-	var _cultist = global.cultists[cultist_levelup_index];
+	var _cultist = global.archdemons[cultist_levelup_index];
 
 	if (!instance_exists(_cultist))
 	{
@@ -8541,12 +8633,12 @@ add_cultist_level_ability = function(_ability)
 
 cultist_levelup_apply_selected = function()
 {
-	if (cultist_levelup_index < 0 || cultist_levelup_index >= array_length(global.cultists))
+	if (cultist_levelup_index < 0 || cultist_levelup_index >= array_length(global.archdemons))
 	{
 		return false;
 	}
 
-	var _cultist = global.cultists[cultist_levelup_index];
+	var _cultist = global.archdemons[cultist_levelup_index];
 
 	if (!cultist_levelup_confirm_can_apply(_cultist))
 	{

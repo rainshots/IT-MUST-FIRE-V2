@@ -80,18 +80,18 @@ artifact_cultist_can_receive = function(_cultist)
 
 artifact_cultist_find_at_position = function(_world_x, _world_y)
 {
-	if (!variable_global_exists("cultists"))
+	if (!variable_global_exists("archdemons"))
 	{
 		return noone;
 	}
 
 	var _best_cultist = noone;
 	var _best_distance = infinity;
-	var _cultist_count = array_length(global.cultists);
+	var _cultist_count = array_length(global.archdemons);
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
-		var _cultist = global.cultists[_cultist_index];
+		var _cultist = global.archdemons[_cultist_index];
 
 		if (!artifact_cultist_can_receive(_cultist))
 		{
@@ -102,13 +102,13 @@ artifact_cultist_find_at_position = function(_world_x, _world_y)
 			&& _world_x <= _cultist.bbox_right + artifact_highlight_padding
 			&& _world_y >= _cultist.bbox_top - artifact_highlight_padding
 			&& _world_y <= _cultist.bbox_bottom + artifact_highlight_padding;
-		var _distance_to_cultist = point_distance(_world_x, _world_y, _cultist.x, _cultist.y);
+		var _distance_to_archdemon = point_distance(_world_x, _world_y, _cultist.x, _cultist.y);
 
-		if ((_is_inside_box || _distance_to_cultist <= artifact_target_radius)
-			&& _distance_to_cultist < _best_distance)
+		if ((_is_inside_box || _distance_to_archdemon <= artifact_target_radius)
+			&& _distance_to_archdemon < _best_distance)
 		{
 			_best_cultist = _cultist;
-			_best_distance = _distance_to_cultist;
+			_best_distance = _distance_to_archdemon;
 		}
 	}
 
@@ -146,7 +146,7 @@ artifact_sound_play = function()
 	}
 };
 
-artifact_apply_to_cultist = function(_cultist)
+artifact_apply_to_archdemon = function(_cultist)
 {
 	if (!artifact_cultist_can_receive(_cultist))
 	{
@@ -155,7 +155,7 @@ artifact_apply_to_cultist = function(_cultist)
 
 	_cultist.cultist_points[artifact_stat]++;
 
-	if (variable_instance_exists(_cultist, "demon_type") && _cultist.demon_type != DEMON_TYPE.NONE && _cultist.object_index != o_cultist)
+	if (variable_instance_exists(_cultist, "demon_type") && _cultist.demon_type != DEMON_TYPE.NONE && _cultist.object_index != o_archdemon)
 	{
 		var _cultist_hp = _cultist.hp;
 

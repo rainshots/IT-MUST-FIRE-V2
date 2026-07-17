@@ -12,6 +12,3 @@ move_speed = BALANCE_PITLING_MOVE_SPEED;
 
 // Pitling health is drawn near the sprite pivot instead of above the head.
 bar_offset_y = -2;
-
-// Pitlings survive several completed nights.
-summon_nights_remaining = BALANCE_PITLING_NIGHT_LIFE;

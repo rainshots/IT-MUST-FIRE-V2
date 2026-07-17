@@ -5,7 +5,7 @@ fog_starting_taint_reveal_cache_update();
 var _dragged_demon_exists = instance_exists(global.dragged_cultist)
 	&& variable_instance_exists(global.dragged_cultist, "demon_type")
 	&& global.dragged_cultist.demon_type != DEMON_TYPE.NONE
-	&& global.dragged_cultist.object_index != o_cultist;
+	&& global.dragged_cultist.object_index != o_archdemon;
 var _update_interval = update_interval;
 
 if (_dragged_demon_exists)

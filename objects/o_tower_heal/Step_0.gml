@@ -61,21 +61,21 @@ for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_ind
 }
 
 // Visible cultists are player troops but not children of o_friendly_units.
-if (variable_global_exists("cultists"))
+if (variable_global_exists("archdemons"))
 {
-	var _cultist_count = array_length(global.cultists);
+	var _cultist_count = array_length(global.archdemons);
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
-		var _cultist = global.cultists[_cultist_index];
+		var _cultist = global.archdemons[_cultist_index];
 
 		if (tower_heal_target_is_valid(_cultist))
 		{
-			var _distance_to_cultist = point_distance(x, y, _cultist.x, _cultist.y);
+			var _distance_to_archdemon = point_distance(x, y, _cultist.x, _cultist.y);
 
-			if (_distance_to_cultist <= _nearest_distance)
+			if (_distance_to_archdemon <= _nearest_distance)
 			{
-				_nearest_distance = _distance_to_cultist;
+				_nearest_distance = _distance_to_archdemon;
 				_target_instance = _cultist;
 			}
 		}

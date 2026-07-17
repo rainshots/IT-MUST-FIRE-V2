@@ -1,4 +1,6 @@
-// Draw current music track label in the top-left corner.
+// The compact now-playing label is hidden while the HUD is being redesigned.
+if (false)
+{
 var _track_name = "none";
 
 if (current_music_name != "")
@@ -24,6 +26,7 @@ draw_rectangle(_track_x, _track_y, _track_x + _track_width, _track_y + _track_he
 draw_set_alpha(1);
 draw_set_color(c_white);
 draw_text(_track_x + _track_padding_x, _track_y + _track_padding_y, _track_text);
+}
 
 // Temporary audio diagnostics while music playback is being verified.
 if (!music_debug_visible)

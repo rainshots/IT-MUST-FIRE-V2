@@ -221,7 +221,7 @@ map_object_unit_occlusion_update = function()
 	if (!_has_unit_behind_object)
 	{
 		_has_unit_behind_object = map_object_unit_occlusion_object_check(
-			o_cultist,
+			o_archdemon,
 			_check_left,
 			_check_top,
 			_check_right,

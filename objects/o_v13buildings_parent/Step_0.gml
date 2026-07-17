@@ -23,7 +23,7 @@ for (var _worker_index = 0; _worker_index < _worker_count; ++_worker_index)
 	var _worker = worker_cultists[_worker_index];
 
 	if (instance_exists(_worker)
-		&& (_worker.object_index == o_cultist
+		&& (_worker.object_index == o_archdemon
 			|| variable_instance_exists(_worker, "worker_speed_multiplier")))
 	{
 		worker_cultists[_valid_worker_count] = _worker;

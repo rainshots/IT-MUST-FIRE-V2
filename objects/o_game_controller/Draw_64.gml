@@ -21,6 +21,9 @@ else if (global.day_phase == DAY_PHASE.NIGHT)
 	draw_set_color(c_white);
 }
 
+// Draw night squad markers above world units but below the rest of the GUI.
+squad_night_markers_draw_gui();
+
 // Draw attack warning arrows during the day and briefly at the start of the night.
 var _game_speed_normal = variable_global_exists("game_speed_normal") ? global.game_speed_normal : room_speed;
 var _night_warning_time = 10 * _game_speed_normal;
@@ -1836,9 +1839,9 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 {
 	var _cultist = noone;
 
-	if (cultist_levelup_index >= 0 && cultist_levelup_index < array_length(global.cultists))
+	if (cultist_levelup_index >= 0 && cultist_levelup_index < array_length(global.archdemons))
 	{
-		_cultist = global.cultists[cultist_levelup_index];
+		_cultist = global.archdemons[cultist_levelup_index];
 	}
 
 	var _panel_width = cultist_panel_width;
@@ -3184,15 +3187,15 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE)
 
 // Draw cultist stat hover in regular gameplay.
 if (global.focus_window == FOCUS_WINDOW.NOONE
-	&& variable_global_exists("cultists")
+	&& variable_global_exists("archdemons")
 	&& instance_exists(o_camera_controller)
 	&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active))
 {
-	var _levelup_cultist_count = array_length(global.cultists);
+	var _levelup_cultist_count = array_length(global.archdemons);
 
 	for (var _levelup_cultist_index = 0; _levelup_cultist_index < _levelup_cultist_count; ++_levelup_cultist_index)
 	{
-		var _levelup_cultist = global.cultists[_levelup_cultist_index];
+		var _levelup_cultist = global.archdemons[_levelup_cultist_index];
 
 		if (!cultist_has_pending_levelup(_levelup_cultist)
 			|| (variable_instance_exists(_levelup_cultist, "hp") && _levelup_cultist.hp <= 0)
@@ -3235,7 +3238,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 }
 
 if (global.focus_window == FOCUS_WINDOW.NOONE
-	&& variable_global_exists("cultists")
+	&& variable_global_exists("archdemons")
 	&& instance_exists(o_camera_controller)
 	&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active))
 {
@@ -3250,11 +3253,11 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 	var _mouse_world_y = _camera_y + ((_mouse_gui_y / camera_view_height) * _camera_height);
 	var _hovered_cultist = noone;
 	var _nearest_distance = infinity;
-	var _cultist_count = array_length(global.cultists);
+	var _cultist_count = array_length(global.archdemons);
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
-		var _cultist = global.cultists[_cultist_index];
+		var _cultist = global.archdemons[_cultist_index];
 
 		if (instance_exists(_cultist)
 			&& variable_instance_exists(_cultist, "cultist_points")
@@ -3267,11 +3270,11 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 
 			if (_is_inside_cultist_collision)
 			{
-				var _distance_to_cultist = point_distance(_mouse_world_x, _mouse_world_y, _cultist.x, _cultist.y);
+				var _distance_to_archdemon = point_distance(_mouse_world_x, _mouse_world_y, _cultist.x, _cultist.y);
 
-				if (_distance_to_cultist <= _nearest_distance)
+				if (_distance_to_archdemon <= _nearest_distance)
 				{
-					_nearest_distance = _distance_to_cultist;
+					_nearest_distance = _distance_to_archdemon;
 					_hovered_cultist = _cultist;
 				}
 			}
@@ -3728,8 +3731,8 @@ if (player_pause_active && global.focus_window == FOCUS_WINDOW.NOONE)
 	var _pause_margin = 10;
 	var _pause_label_width = 144;
 	var _pause_label_height = 34;
-	var _pause_label_x = 24;
-	var _pause_label_y = 64;
+	var _pause_label_x = (camera_view_width - _pause_label_width) * 0.5;
+	var _pause_label_y = 24;
 
 	draw_set_halign(fa_center);
 	draw_set_valign(fa_middle);
@@ -3753,11 +3756,12 @@ if (player_pause_active && global.focus_window == FOCUS_WINDOW.NOONE)
 
 // Draw pickup hand over the cursor when a draggable unit can be grabbed or is being dragged.
 if (global.focus_window == FOCUS_WINDOW.NOONE
-	&& variable_global_exists("cultists")
+	&& variable_global_exists("archdemons")
 	&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active))
 {
 	var _artifact_is_dragged = variable_global_exists("dragged_artifact") && instance_exists(global.dragged_artifact);
-	var _should_draw_pickup_hand = instance_exists(global.dragged_cultist) || _artifact_is_dragged;
+	var _squad_is_dragged = variable_global_exists("dragged_squad") && is_struct(global.dragged_squad);
+	var _should_draw_pickup_hand = instance_exists(global.dragged_cultist) || _artifact_is_dragged || _squad_is_dragged;
 	var _should_draw_whip_prompt = false;
 	var _hovered_artifact = noone;
 
@@ -3774,9 +3778,15 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 		var _mouse_world_x = _camera_x + ((_mouse_gui_x / camera_view_width) * _camera_width);
 		var _mouse_world_y = _camera_y + ((_mouse_gui_y / camera_view_height) * _camera_height);
 		var _whip_target = find_worker_whip_target_at_position(_mouse_world_x, _mouse_world_y);
-		var _cultist_count = array_length(global.cultists);
+		var _cultist_count = array_length(global.archdemons);
 
 		_should_draw_whip_prompt = instance_exists(_whip_target);
+
+		if (global.day_phase == DAY_PHASE.NIGHT
+			&& is_struct(squad_marker_find_at_position(_mouse_world_x, _mouse_world_y)))
+		{
+			_should_draw_pickup_hand = true;
+		}
 
 		if (instance_exists(o_artifact))
 		{
@@ -3815,7 +3825,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 
 		for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 		{
-			var _cultist = global.cultists[_cultist_index];
+			var _cultist = global.archdemons[_cultist_index];
 
 			if (drag_cultist_can_be_picked(_cultist)
 				&& _mouse_world_x >= _cultist.bbox_left
@@ -3932,16 +3942,29 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 		var _hand_y = device_mouse_y_to_gui(0);
 		var _hand_scale = 0.33;
 
-		if ((instance_exists(global.dragged_cultist) || _artifact_is_dragged) && instance_exists(o_camera_controller))
+		if ((instance_exists(global.dragged_cultist) || _artifact_is_dragged || _squad_is_dragged)
+			&& instance_exists(o_camera_controller))
 		{
 			var _drag_hand_camera = instance_find(o_camera_controller, 0);
 			var _drag_hand_camera_x = camera_get_view_x(_drag_hand_camera.camera_id);
 			var _drag_hand_camera_y = camera_get_view_y(_drag_hand_camera.camera_id);
 			var _drag_hand_camera_width = camera_get_view_width(_drag_hand_camera.camera_id);
 			var _drag_hand_camera_height = camera_get_view_height(_drag_hand_camera.camera_id);
-			var _dragged_instance = _artifact_is_dragged ? global.dragged_artifact : global.dragged_cultist;
-			var _hand_world_x = _dragged_instance.x;
-			var _hand_world_y = _dragged_instance.bbox_bottom - pickup_hand_drag_offset_y;
+			var _hand_world_x = 0;
+			var _hand_world_y = 0;
+
+			if (_squad_is_dragged)
+			{
+				_hand_world_x = global.dragged_squad.properties.marker_x;
+				_hand_world_y = global.dragged_squad.properties.marker_y
+					- (BALANCE_SQUAD_MARKER_OFFSET_Y * (_drag_hand_camera_height / max(1, camera_view_height)));
+			}
+			else
+			{
+				var _dragged_instance = _artifact_is_dragged ? global.dragged_artifact : global.dragged_cultist;
+				_hand_world_x = _dragged_instance.x;
+				_hand_world_y = _dragged_instance.bbox_bottom - pickup_hand_drag_offset_y;
+			}
 
 			_hand_x = ((_hand_world_x - _drag_hand_camera_x) / _drag_hand_camera_width) * camera_view_width;
 			_hand_y = ((_hand_world_y - _drag_hand_camera_y) / _drag_hand_camera_height) * camera_view_height;
@@ -3960,7 +3983,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 		draw_set_valign(fa_top);
 		draw_set_color(COLOR_HUD_TEXT);
 
-		if (!instance_exists(global.dragged_cultist) && !_artifact_is_dragged)
+		if (!instance_exists(global.dragged_cultist) && !_artifact_is_dragged && !_squad_is_dragged)
 		{
 			draw_text(_hand_x, _hand_y + 28, "PRESS LMB");
 		}
@@ -3988,14 +4011,14 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 }
 
 // Draw demon health bars above world objects so the player can find them in combat.
-if (variable_global_exists("cultists") && instance_exists(o_camera_controller))
+if (variable_global_exists("archdemons") && instance_exists(o_camera_controller))
 {
 	var _camera_controller = instance_find(o_camera_controller, 0);
 	var _camera_x = camera_get_view_x(_camera_controller.camera_id);
 	var _camera_y = camera_get_view_y(_camera_controller.camera_id);
 	var _camera_width = camera_get_view_width(_camera_controller.camera_id);
 	var _camera_height = camera_get_view_height(_camera_controller.camera_id);
-	var _cultist_count = array_length(global.cultists);
+	var _cultist_count = array_length(global.archdemons);
 	var _demon_bar_width = 62;
 	var _demon_bar_height = 8;
 	var _demon_bar_offset_y = 12;
@@ -4005,10 +4028,10 @@ if (variable_global_exists("cultists") && instance_exists(o_camera_controller))
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
-		var _cultist = global.cultists[_cultist_index];
+		var _cultist = global.archdemons[_cultist_index];
 
 		if (!instance_exists(_cultist)
-			|| _cultist.object_index == o_cultist
+			|| _cultist.object_index == o_archdemon
 			|| !variable_instance_exists(_cultist, "demon_type")
 			|| _cultist.demon_type == DEMON_TYPE.NONE
 			|| !variable_instance_exists(_cultist, "hp")

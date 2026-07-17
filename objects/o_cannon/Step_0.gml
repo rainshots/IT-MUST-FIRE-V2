@@ -148,7 +148,7 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 				if (instance_exists(o_game_controller))
 				{
 					var _game_controller = instance_find(o_game_controller, 0);
-					_projectile.cultist_deploy_units = _game_controller.cultist_projectile_deploy_units_take(_remaining_cultist_projectile_count);
+					_projectile.cultist_deploy_units = _game_controller.squad_projectile_deploy_units_take(_projectile_payload);
 				}
 			}
 			else if (target_projectile_type == PROJECTILE_TYPE.FEAST)

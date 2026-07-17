@@ -1,18 +1,16 @@
 {
   "$GMObject":"",
-  "%Name":"o_cultist",
+  "%Name":"o_jobs_ui",
   "eventList":[
     {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":0,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
     {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":3,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
-    {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":8,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
+    {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":64,"eventType":8,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
+    {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":12,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
   ],
   "managed":true,
-  "name":"o_cultist",
+  "name":"o_jobs_ui",
   "overriddenProperties":[],
-  "parent":{
-    "name":"Friendly",
-    "path":"folders/Objects/Units/Friendly.yy",
-  },
+  "parent":{"name":"Objects","path":"folders/Objects.yy"},
   "parentObjectId":null,
   "persistent":false,
   "physicsAngularDamping":0.1,
@@ -31,10 +29,7 @@
   "resourceType":"GMObject",
   "resourceVersion":"2.0",
   "solid":false,
-  "spriteId":{
-    "name":"s_cultist_01",
-    "path":"sprites/s_cultist_01/s_cultist_01.yy",
-  },
+  "spriteId":null,
   "spriteMaskId":null,
-  "visible":true,
+  "visible":true
 }

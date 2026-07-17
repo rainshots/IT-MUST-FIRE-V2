@@ -161,7 +161,7 @@ function cultist_demon_level_scale_get(_level)
 function cultist_demon_scale_apply(_demon)
 {
 	if (!instance_exists(_demon)
-		|| _demon.object_index == o_cultist
+		|| _demon.object_index == o_archdemon
 		|| !variable_instance_exists(_demon, "demon_type")
 		|| _demon.demon_type == DEMON_TYPE.NONE
 		|| !variable_instance_exists(_demon, "current_lvl"))

@@ -33,7 +33,7 @@ if (artifact_is_dragged)
 
 	if (!mouse_check_button(mb_left))
 	{
-		if (artifact_apply_to_cultist(artifact_target_cultist))
+		if (artifact_apply_to_archdemon(artifact_target_cultist))
 		{
 			if (variable_global_exists("dragged_artifact") && global.dragged_artifact == id)
 			{

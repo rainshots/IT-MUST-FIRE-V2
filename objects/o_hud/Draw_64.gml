@@ -24,15 +24,166 @@ if (_regular_hud_is_visible)
 	var _sidebar_width = hud_sidebar_width * _sidebar_scale;
 	var _sidebar_x = _sidebar_gui_width - _sidebar_width;
 
-	// Draw the right-side HUD panel from the concept layout.
-	draw_set_alpha(1);
-	draw_set_color(COLOR_HUD_SIDEBAR);
-	draw_rectangle(_sidebar_x, 0, _sidebar_gui_width, _sidebar_gui_height, false);
+	// Draw squad cards in type order, followed by the available empty slots.
+	if (variable_global_exists("squads") && variable_global_exists("squad_limits"))
+	{
+		var _squad_card_width = 112 * _sidebar_scale;
+		var _squad_card_height = 145 * _sidebar_scale;
+		var _squad_card_gap = 19 * _sidebar_scale;
+		var _squad_card_x = 53 * _sidebar_scale;
+		var _squad_card_y = 42 * _sidebar_scale;
+		var _squad_card_index = 0;
+
+		for (var _squad_type = SQUAD_TYPE.ARCHDEMON; _squad_type < SQUAD_TYPE.COUNT; ++_squad_type)
+		{
+			var _type_name = _squad_type == SQUAD_TYPE.ARCHDEMON ? "ARCHDEMON" : (_squad_type == SQUAD_TYPE.UNDEAD ? "UNDEAD SQUAD" : "DEMON SQUAD");
+			var _type_squad_count = 0;
+
+			for (var _squad_index = 0; _squad_index < array_length(global.squads); ++_squad_index)
+			{
+				var _squad = global.squads[_squad_index];
+				if (_squad.squad_type != _squad_type) continue;
+				_type_squad_count++;
+				var _card_x = _squad_card_x + (_squad_card_index * (_squad_card_width + _squad_card_gap));
+				var _card_center_x = _card_x + (_squad_card_width * 0.5);
+				var _hp_values = squad_total_hp_get(_squad);
+				var _hp_progress = clamp(_hp_values[0] / _hp_values[1], 0, 1);
+				var _primary_unit = noone;
+
+				for (var _unit_index = 0; _unit_index < array_length(_squad.units); ++_unit_index)
+				{
+					if (instance_exists(_squad.units[_unit_index]))
+					{
+						_primary_unit = _squad.units[_unit_index];
+						break;
+					}
+				}
+
+				draw_set_alpha(1);
+				draw_set_color(COLOR_SQUAD_CARD_BACKGROUND);
+				draw_rectangle(_card_x, _squad_card_y, _card_x + _squad_card_width, _squad_card_y + _squad_card_height, false);
+				draw_set_color(COLOR_SQUAD_CARD_BORDER);
+				draw_rectangle(_card_x, _squad_card_y, _card_x + _squad_card_width, _squad_card_y + _squad_card_height, true);
+				draw_set_halign(fa_center);
+				draw_set_valign(fa_top);
+				draw_set_color(COLOR_SQUAD_CARD_TYPE);
+				draw_text_transformed(_card_center_x, 22 * _sidebar_scale, _type_name, 0.55 * _sidebar_scale, 0.55 * _sidebar_scale, 0);
+
+				if (instance_exists(_primary_unit))
+				{
+					var _squad_sprite = _primary_unit.sprite_index;
+					var _sprite_size = max(1, max(sprite_get_width(_squad_sprite), sprite_get_height(_squad_sprite)));
+					var _sprite_scale = (82 * _sidebar_scale) / _sprite_size;
+					var _sprite_y = _squad_card_y + (78 * _sidebar_scale);
+
+					if (array_length(_squad.unit_objects) > 1)
+					{
+						draw_sprite_ext(_squad_sprite, 0, _card_center_x - (24 * _sidebar_scale), _sprite_y + (8 * _sidebar_scale), _sprite_scale * 0.78, _sprite_scale * 0.78, 0, c_white, 0.5);
+						draw_sprite_ext(_squad_sprite, 0, _card_center_x + (24 * _sidebar_scale), _sprite_y + (8 * _sidebar_scale), _sprite_scale * 0.78, _sprite_scale * 0.78, 0, c_white, 0.5);
+					}
+
+					draw_sprite_ext(_squad_sprite, 0, _card_center_x, _sprite_y, _sprite_scale, _sprite_scale, 0, c_white, 1);
+				}
+
+				draw_set_color(COLOR_SQUAD_CARD_TEXT);
+				draw_text_transformed(_card_center_x, _squad_card_y + (109 * _sidebar_scale), _squad.name, 0.75 * _sidebar_scale, 0.75 * _sidebar_scale, 0);
+				var _hp_x = _card_x + (8 * _sidebar_scale);
+				var _hp_y = _squad_card_y + (128 * _sidebar_scale);
+				var _hp_width = _squad_card_width - (16 * _sidebar_scale);
+				draw_set_color(COLOR_SQUAD_HP_BACKGROUND);
+				draw_rectangle(_hp_x, _hp_y, _hp_x + _hp_width, _hp_y + (13 * _sidebar_scale), false);
+				draw_set_color(COLOR_SQUAD_HP_FILL);
+				draw_rectangle(_hp_x + (3 * _sidebar_scale), _hp_y + (3 * _sidebar_scale), _hp_x + (3 * _sidebar_scale) + ((_hp_width - (6 * _sidebar_scale)) * _hp_progress), _hp_y + (10 * _sidebar_scale), false);
+				_squad_card_index++;
+			}
+
+			for (var _empty_index = _type_squad_count; _empty_index < global.squad_limits[_squad_type]; ++_empty_index)
+			{
+				var _empty_x = _squad_card_x + (_squad_card_index * (_squad_card_width + _squad_card_gap));
+				draw_set_color(COLOR_SQUAD_CARD_BACKGROUND);
+				draw_rectangle(_empty_x, _squad_card_y, _empty_x + _squad_card_width, _squad_card_y + _squad_card_height, false);
+				draw_set_color(COLOR_SQUAD_CARD_BORDER);
+				draw_rectangle(_empty_x, _squad_card_y, _empty_x + _squad_card_width, _squad_card_y + _squad_card_height, true);
+				draw_set_color(COLOR_SQUAD_CARD_TYPE);
+				draw_text_transformed(_empty_x + (_squad_card_width * 0.5), 22 * _sidebar_scale, _type_name, 0.55 * _sidebar_scale, 0.55 * _sidebar_scale, 0);
+				draw_set_color(COLOR_SQUAD_CARD_TEXT);
+				draw_text_transformed(_empty_x + (_squad_card_width * 0.5), _squad_card_y + (109 * _sidebar_scale), "Empty", 0.75 * _sidebar_scale, 0.75 * _sidebar_scale, 0);
+				_squad_card_index++;
+			}
+		}
+	}
+
+	// Draw the regular-cultist counter as a squad-style card below the roster.
+	if (variable_global_exists("event_cultists") && variable_global_exists("cultist_limit"))
+	{
+		var _cultist_counter_x = cultist_counter_x * _sidebar_scale;
+		var _cultist_counter_y = cultist_counter_y * _sidebar_scale;
+		var _cultist_counter_width = cultist_counter_width * _sidebar_scale;
+		var _cultist_counter_height = cultist_counter_height * _sidebar_scale;
+		var _cultist_counter_icon_x = _cultist_counter_x + (cultist_counter_icon_x * _sidebar_scale);
+		var _cultist_counter_icon_y = _cultist_counter_y + (cultist_counter_icon_y * _sidebar_scale);
+		var _cultist_counter_count = day_event_cultist_count_get();
+		var _cultist_counter_text = string(_cultist_counter_count) + "/" + string(global.cultist_limit);
+
+		draw_set_alpha(1);
+		draw_set_color(COLOR_SQUAD_CARD_BACKGROUND);
+		draw_rectangle(
+			_cultist_counter_x,
+			_cultist_counter_y,
+			_cultist_counter_x + _cultist_counter_width,
+			_cultist_counter_y + _cultist_counter_height,
+			false
+		);
+
+		// Draw a two-pixel frame to match squad cards in the design.
+		draw_set_color(COLOR_SQUAD_CARD_BORDER);
+		for (var _cultist_counter_border = 0; _cultist_counter_border < 2; ++_cultist_counter_border)
+		{
+			draw_rectangle(
+				_cultist_counter_x + _cultist_counter_border,
+				_cultist_counter_y + _cultist_counter_border,
+				_cultist_counter_x + _cultist_counter_width - _cultist_counter_border,
+				_cultist_counter_y + _cultist_counter_height - _cultist_counter_border,
+				true
+			);
+		}
+
+		if (sprite_exists(s_cultist_04))
+		{
+			var _cultist_counter_sprite_width = max(1, sprite_get_width(s_cultist_04));
+			var _cultist_counter_sprite_height = max(1, sprite_get_height(s_cultist_04));
+			var _cultist_counter_sprite_scale = (cultist_counter_icon_height * _sidebar_scale) / _cultist_counter_sprite_height;
+			var _cultist_counter_sprite_x = _cultist_counter_icon_x
+				+ ((sprite_get_xoffset(s_cultist_04) - (_cultist_counter_sprite_width * 0.5)) * _cultist_counter_sprite_scale);
+			var _cultist_counter_sprite_y = _cultist_counter_icon_y
+				+ ((sprite_get_yoffset(s_cultist_04) - (_cultist_counter_sprite_height * 0.5)) * _cultist_counter_sprite_scale);
+			draw_sprite_ext(
+				s_cultist_04,
+				0,
+				_cultist_counter_sprite_x,
+				_cultist_counter_sprite_y,
+				_cultist_counter_sprite_scale,
+				_cultist_counter_sprite_scale,
+				0,
+				c_white,
+				1
+			);
+		}
+
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_middle);
+		draw_set_color(COLOR_CULTIST_COUNTER_TEXT);
+		draw_text(
+			_cultist_counter_x + (cultist_counter_text_x * _sidebar_scale),
+			_cultist_counter_icon_y,
+			_cultist_counter_text
+		);
+	}
 
 	draw_set_halign(fa_center);
 	draw_set_valign(fa_middle);
 
-	var _resource_count = array_length(resource_order);
+	var _resource_count = 0;
 
 	for (var _resource_index = 0; _resource_index < _resource_count; ++_resource_index)
 	{
@@ -71,7 +222,7 @@ if (_regular_hud_is_visible)
 	}
 
 	// Draw day phase inside the right HUD sidebar.
-	if (variable_global_exists("day_phase"))
+	if (false && variable_global_exists("day_phase"))
 	{
 		var _current_day = 1;
 		var _day_progress = 0;
@@ -123,6 +274,9 @@ if (_regular_hud_is_visible)
 		draw_rectangle(_day_bar_x, _day_bar_y, _day_bar_x + (_day_bar_width * _day_progress), _day_bar_y + _day_bar_height, false);
 	}
 
+	// Legacy unit counters and individual cultist cards are no longer part of the squad HUD.
+	if (false)
+	{
 	// Draw player unit counts immediately left of the right sidebar.
 	var _unit_counter_count = array_length(unit_counter_unit_objects);
 	var _unit_counter_width = unit_counter_width * _sidebar_scale;
@@ -191,7 +345,7 @@ if (_regular_hud_is_visible)
 	}
 
 	// Draw compact cultist status cards while gameplay is unobstructed.
-	if (variable_global_exists("cultists")
+	if (variable_global_exists("archdemons")
 		&& variable_global_exists("focus_window")
 		&& global.focus_window == FOCUS_WINDOW.NOONE
 		&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active))
@@ -216,7 +370,7 @@ if (_regular_hud_is_visible)
 	var _cultist_card_bar_gap = cultist_status_card_bar_gap * _cultist_card_scale;
 	var _cultist_card_label_gap = cultist_status_card_label_gap * _cultist_card_scale;
 	var _cultist_card_x = _sidebar_x + ((_sidebar_width - _cultist_card_width) * 0.5);
-	var _cultist_card_count = array_length(global.cultists);
+	var _cultist_card_count = array_length(global.archdemons);
 	var _cultist_card_slot_count = cultist_status_card_slot_count;
 
 	for (var _cultist_card_index = 0; _cultist_card_index < _cultist_card_slot_count; ++_cultist_card_index)
@@ -225,7 +379,7 @@ if (_regular_hud_is_visible)
 
 		if (_cultist_card_index < _cultist_card_count)
 		{
-			_cultist = global.cultists[_cultist_card_index];
+			_cultist = global.archdemons[_cultist_card_index];
 		}
 
 		var _cultist_card_y = cultist_status_card_y
@@ -390,6 +544,7 @@ if (_regular_hud_is_visible)
 		}
 		}
 	}
+	}
 
 	// Warn the player when accumulated Taint will trigger Crusades next night.
 	if (variable_global_exists("day_phase")
@@ -455,10 +610,8 @@ if (instance_exists(o_cannon))
 	var _minimap_gui_width = display_get_gui_width();
 	var _minimap_gui_height = display_get_gui_height();
 	var _minimap_scale = clamp(_minimap_gui_height / 1080, 0.6, 1);
-	var _minimap_sidebar_width = hud_sidebar_width * _minimap_scale;
-	var _minimap_sidebar_x = _minimap_gui_width - _minimap_sidebar_width;
 	var _minimap_size = minimap_size * _minimap_scale;
-	var _minimap_x = _minimap_sidebar_x + ((_minimap_sidebar_width - _minimap_size) * 0.5);
+	var _minimap_x = _minimap_gui_width - (minimap_margin_right * _minimap_scale) - _minimap_size;
 	var _minimap_y = minimap_y * _minimap_scale;
 	var _minimap_right = _minimap_x + _minimap_size;
 	var _minimap_bottom = _minimap_y + _minimap_size;
@@ -555,9 +708,9 @@ if (instance_exists(o_cannon))
 	}
 
 	// Draw cultists with their icons and compact health bars.
-	if (variable_global_exists("cultists"))
+	if (variable_global_exists("archdemons"))
 	{
-		var _minimap_cultist_count = array_length(global.cultists);
+		var _minimap_cultist_count = array_length(global.archdemons);
 		var _cultist_width = minimap_cultist_width * _minimap_scale;
 		var _cultist_height = minimap_cultist_height * _minimap_scale;
 		var _cultist_half_width = _cultist_width * 0.5;
@@ -568,7 +721,7 @@ if (instance_exists(o_cannon))
 
 		for (var _minimap_cultist_index = 0; _minimap_cultist_index < _minimap_cultist_count; ++_minimap_cultist_index)
 		{
-			var _minimap_cultist = global.cultists[_minimap_cultist_index];
+			var _minimap_cultist = global.archdemons[_minimap_cultist_index];
 
 			if (!instance_exists(_minimap_cultist))
 			{
@@ -888,8 +1041,90 @@ if (variable_global_exists("shrine_objective_complete") && global.shrine_objecti
 	);
 }
 
-// Draw cannon satiety in the top-center HUD.
-if (global.focus_window == FOCUS_WINDOW.NOONE
+// Draw the upcoming-day strip to the left of the minimap.
+if (global.focus_window == FOCUS_WINDOW.NOONE && instance_exists(o_game_controller))
+{
+	var _night_panel_game_controller = instance_find(o_game_controller, 0);
+	var _night_panel_current_day = 1;
+	var _night_panel_scale = clamp(display_get_gui_height() / 1080, 0.6, 1);
+	var _night_panel_minimap_size = minimap_size * _night_panel_scale;
+	var _night_panel_minimap_left = display_get_gui_width()
+		- (minimap_margin_right * _night_panel_scale)
+		- _night_panel_minimap_size;
+	var _night_panel_origin_offset = sprite_get_xoffset(s_day_night_pannel) * _night_panel_scale;
+	var _night_panel_anchor_x = _night_panel_minimap_left + _night_panel_origin_offset;
+	var _night_panel_anchor_y = (minimap_y - 55) * _night_panel_scale;
+	var _night_panel_icon_gap = night_panel_icon_gap * _night_panel_scale;
+	var _night_panel_icon_size = night_panel_icon_size * _night_panel_scale;
+
+	if (variable_instance_exists(_night_panel_game_controller, "night_attack_night_index"))
+	{
+		_night_panel_current_day = max(1, _night_panel_game_controller.night_attack_night_index);
+	}
+
+	// Draw the current day label directly above and aligned with the day strip.
+	var _day_label_width = night_panel_day_label_width * _night_panel_scale;
+	var _day_label_height = night_panel_day_label_height * _night_panel_scale;
+	var _day_label_x = _night_panel_minimap_left;
+	var _day_label_y = _night_panel_anchor_y - _day_label_height;
+	draw_set_alpha(1);
+	draw_set_color(COLOR_HUD_MINIMAP_BACKGROUND);
+	draw_rectangle(
+		_day_label_x,
+		_day_label_y,
+		_day_label_x + _day_label_width,
+		_day_label_y + _day_label_height,
+		false
+	);
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
+	draw_set_color(COLOR_SQUAD_CARD_TYPE);
+	draw_text_transformed(
+		_day_label_x + (_day_label_width * 0.5),
+		_day_label_y + (_day_label_height * 0.5),
+		"DAY " + string(_night_panel_current_day),
+		_night_panel_scale,
+		_night_panel_scale,
+		0
+	);
+
+	if (sprite_exists(s_day_night_pannel))
+	{
+		draw_sprite_ext(s_day_night_pannel, 0, _night_panel_anchor_x, _night_panel_anchor_y, _night_panel_scale, _night_panel_scale, 0, c_white, 1);
+	}
+
+	for (var _night_offset = -1; _night_offset < night_panel_visible_count - 1; ++_night_offset)
+	{
+		var _night_index = max(1, _night_panel_current_day + _night_offset);
+		var _night_icon_sprite = s_regular_night_icon;
+
+		if (variable_instance_exists(_night_panel_game_controller, "boss_griffith_night_is_scheduled")
+			&& _night_panel_game_controller.boss_griffith_night_is_scheduled(_night_index))
+		{
+			_night_icon_sprite = s_boss_icon;
+		}
+		else if (variable_instance_exists(_night_panel_game_controller, "full_moon_night_is_scheduled")
+			&& _night_panel_game_controller.full_moon_night_is_scheduled(_night_index))
+		{
+			_night_icon_sprite = s_full_moon_icon;
+		}
+
+		var _night_icon_x = _night_panel_anchor_x + (_night_offset * _night_panel_icon_gap);
+		var _night_icon_alpha = _night_offset == 0 ? 1 : 0.72;
+
+		if (sprite_exists(_night_icon_sprite))
+		{
+			var _night_sprite_size = max(1, max(sprite_get_width(_night_icon_sprite), sprite_get_height(_night_icon_sprite)));
+			var _night_icon_scale = _night_panel_icon_size / _night_sprite_size;
+			draw_sprite_ext(_night_icon_sprite, 0, _night_icon_x, _night_panel_anchor_y, _night_icon_scale, _night_icon_scale, 0, c_white, _night_icon_alpha);
+		}
+	}
+
+}
+
+// Satiety remains active as a mechanic, but its HUD is hidden for now.
+if (false
+	&& global.focus_window == FOCUS_WINDOW.NOONE
 	&& variable_global_exists("cannon_satiety")
 	&& variable_global_exists("cannon_satiety_max"))
 {
@@ -914,8 +1149,8 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 		var _night_panel_game_controller = instance_find(o_game_controller, 0);
 		var _night_panel_current_day = 1;
 		var _night_panel_scale = clamp(display_get_gui_height() / 1080, 0.6, 1);
-		var _night_panel_anchor_x = _satiety_x + (cannon_satiety_width * 0.5) + (night_panel_satiety_offset_x * _night_panel_scale);
-		var _night_panel_anchor_y = _satiety_y + (night_panel_satiety_offset_y * _night_panel_scale);
+		var _night_panel_anchor_x = display_get_gui_width() - ((hud_sidebar_width * 0.5) * _night_panel_scale);
+		var _night_panel_anchor_y = (minimap_y - 55) * _night_panel_scale;
 		var _night_panel_icon_gap = night_panel_icon_gap * _night_panel_scale;
 		var _night_panel_icon_size = night_panel_icon_size * _night_panel_scale;
 
@@ -1324,8 +1559,13 @@ if (variable_global_exists("cannon_projectile_queue")
 		{
 			var _friendly_unit = instance_find(o_friendly_units, _friendly_index);
 
+			var _is_squad_combat_unit = instance_exists(_friendly_unit)
+				&& (_friendly_unit.object_index == o_pitling || _friendly_unit.object_index == o_skeleton)
+				&& variable_instance_exists(_friendly_unit, "squad")
+				&& is_struct(_friendly_unit.squad);
+
 			if (!instance_exists(_friendly_unit)
-				|| !variable_instance_exists(_friendly_unit, "summon_nights_remaining")
+				|| (!variable_instance_exists(_friendly_unit, "summon_nights_remaining") && !_is_squad_combat_unit)
 				|| !variable_instance_exists(_friendly_unit, "cultist_projectile_deploy_assigned")
 				|| _friendly_unit.cultist_projectile_deploy_assigned
 				|| (_friendly_unit.object_index != o_skeleton && _friendly_unit.object_index != o_pitling))
@@ -1511,6 +1751,13 @@ if (variable_global_exists("cannon_projectile_queue")
 			var _cultist_payload = global.cannon_projectile_payload_queue[_projectile_index];
 
 			if (instance_exists(_cultist_payload)
+				&& variable_instance_exists(_cultist_payload, "squad")
+				&& is_struct(_cultist_payload.squad)
+				&& _cultist_payload.squad.name != "")
+			{
+				_projectile_name = string_copy(_cultist_payload.squad.name, 1, 10);
+			}
+			else if (instance_exists(_cultist_payload)
 				&& variable_instance_exists(_cultist_payload, "cultist_name")
 				&& _cultist_payload.cultist_name != "")
 			{
@@ -1743,6 +1990,13 @@ if (variable_global_exists("cannon_projectile_queue")
 				_description_payload = global.cannon_projectile_payload_queue[_description_queue_index];
 
 				if (instance_exists(_description_payload)
+					&& variable_instance_exists(_description_payload, "squad")
+					&& is_struct(_description_payload.squad)
+					&& _description_payload.squad.name != "")
+				{
+					_description_name = _description_payload.squad.name;
+				}
+				else if (instance_exists(_description_payload)
 					&& variable_instance_exists(_description_payload, "cultist_name")
 					&& _description_payload.cultist_name != "")
 				{

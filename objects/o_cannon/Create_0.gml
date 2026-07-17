@@ -894,7 +894,7 @@ building_upgrade_buy = function(_upgrade_index)
 cannon_worker_is_behind_sprite = function(_worker)
 {
 	if (!instance_exists(_worker)
-		|| (_worker.object_index != o_cultist && _worker.object_index != o_goblin)
+		|| (_worker.object_index != o_archdemon && _worker.object_index != o_goblin)
 		|| !variable_instance_exists(_worker, "hp")
 		|| _worker.hp <= 0)
 	{
@@ -915,16 +915,16 @@ cannon_worker_is_behind_sprite = function(_worker)
 
 cannon_has_worker_behind_sprite = function()
 {
-	if (!variable_global_exists("cultists"))
+	if (!variable_global_exists("archdemons"))
 	{
 		return false;
 	}
 
-	var _cultist_count = array_length(global.cultists);
+	var _cultist_count = array_length(global.archdemons);
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
-		if (cannon_worker_is_behind_sprite(global.cultists[_cultist_index]))
+		if (cannon_worker_is_behind_sprite(global.archdemons[_cultist_index]))
 		{
 			return true;
 		}

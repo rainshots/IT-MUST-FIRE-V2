@@ -47,6 +47,16 @@ night_panel_satiety_offset_y = -55;
 night_panel_icon_gap = 34;
 night_panel_icon_size = 28;
 night_panel_visible_count = 11;
+night_panel_day_label_width = 150;
+night_panel_day_label_height = 48;
+cultist_counter_x = 53;
+cultist_counter_y = 203;
+cultist_counter_width = 167;
+cultist_counter_height = 80;
+cultist_counter_icon_x = 48;
+cultist_counter_icon_y = 40;
+cultist_counter_icon_height = 58;
+cultist_counter_text_x = 80;
 full_moon_timer_width = 360;
 full_moon_timer_height = 18;
 full_moon_timer_bottom = 174;
@@ -74,7 +84,7 @@ unit_counter_background_alpha = 0.68;
 unit_counter_row_alpha = 0.26;
 unit_counter_empty_alpha = 0.36;
 unit_counter_unit_objects = [
-	o_cultist,
+	o_archdemon,
 	o_imp,
 	o_brute,
 	o_warlock,
@@ -138,7 +148,10 @@ cultist_status_card_rect_get = function(_card_index)
 
 cultist_status_card_find_at_gui = function(_mouse_x, _mouse_y)
 {
-	if (!variable_global_exists("cultists")
+	// Legacy cultist cards are hidden and must not intercept world clicks.
+	return noone;
+
+	if (!variable_global_exists("archdemons")
 		|| !variable_global_exists("focus_window")
 		|| global.focus_window != FOCUS_WINDOW.NOONE
 		|| (variable_global_exists("tutorial_popup_active") && global.tutorial_popup_active))
@@ -147,7 +160,7 @@ cultist_status_card_find_at_gui = function(_mouse_x, _mouse_y)
 	}
 
 	var _gui_height = display_get_gui_height();
-	var _cultist_count = array_length(global.cultists);
+	var _cultist_count = array_length(global.archdemons);
 	var _slot_count = min(cultist_status_card_slot_count, _cultist_count);
 
 	for (var _card_index = 0; _card_index < _slot_count; ++_card_index)
@@ -168,7 +181,7 @@ cultist_status_card_find_at_gui = function(_mouse_x, _mouse_y)
 			&& _mouse_y >= _card_y
 			&& _mouse_y <= _card_y + _card_height)
 		{
-			var _cultist = global.cultists[_card_index];
+			var _cultist = global.archdemons[_card_index];
 
 			if (instance_exists(_cultist))
 			{
@@ -181,9 +194,9 @@ cultist_status_card_find_at_gui = function(_mouse_x, _mouse_y)
 };
 
 // Minimap mirrors the current battle around the cannon in the right HUD sidebar.
-minimap_size = 334;
+minimap_size = 384;
 minimap_margin_right = 48;
-minimap_y = 683;
+minimap_y = 633;
 minimap_world_radius = 5600;
 minimap_base_size = 74;
 minimap_enemy_size = 11;
@@ -212,10 +225,8 @@ minimap_geometry_get = function()
 	var _gui_width = display_get_gui_width();
 	var _gui_height = display_get_gui_height();
 	var _minimap_scale = clamp(_gui_height / 1080, 0.6, 1);
-	var _sidebar_width = hud_sidebar_width * _minimap_scale;
-	var _sidebar_x = _gui_width - _sidebar_width;
 	var _minimap_size = minimap_size * _minimap_scale;
-	var _minimap_x = _sidebar_x + ((_sidebar_width - _minimap_size) * 0.5);
+	var _minimap_x = _gui_width - (minimap_margin_right * _minimap_scale) - _minimap_size;
 	var _minimap_y = minimap_y * _minimap_scale;
 	var _minimap_cannon = instance_find(o_cannon, 0);
 

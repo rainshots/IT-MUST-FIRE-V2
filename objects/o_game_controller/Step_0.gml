@@ -169,8 +169,11 @@ if (!global.pause
 // Delay the full moon tutorial until the player has unobstructed daytime control.
 full_moon_hint_delay_update();
 
+// Keep every night squad marker centered between its surviving units.
+squad_night_markers_update();
+
 // Allow the player to pick up and reposition cultists during gameplay.
-if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultists") && instance_exists(o_camera_controller))
+if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("archdemons") && instance_exists(o_camera_controller))
 {
 	var _camera_controller = instance_find(o_camera_controller, 0);
 	var _mouse_gui_x = device_mouse_x_to_gui(0);
@@ -184,8 +187,43 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 	var _cultist_status_card_clicked = false;
 	var _minimap_camera_clicked = false;
 	var _artifact_clicked = false;
+	var _squad_marker_input_handled = false;
 
-	if (mouse_check_button_pressed(mb_left) && instance_exists(o_artifact))
+	// Night squad markers move every surviving member toward one shared cursor target.
+	if (global.day_phase == DAY_PHASE.NIGHT)
+	{
+		if (is_struct(global.dragged_squad))
+		{
+			var _squad_marker_world_offset_y = BALANCE_SQUAD_MARKER_OFFSET_Y
+				* (_camera_height / max(1, camera_view_height));
+			squad_drag_update(
+				global.dragged_squad,
+				_mouse_world_x,
+				_mouse_world_y + _squad_marker_world_offset_y
+			);
+			_squad_marker_input_handled = true;
+
+			if (!mouse_check_button(mb_left))
+			{
+				squad_drag_end(global.dragged_squad, true);
+				global.sound_play_random(global.release_worker_sounds);
+			}
+		}
+		else if (mouse_check_button_pressed(mb_left))
+		{
+			var _picked_squad = squad_marker_find_at_position(_mouse_world_x, _mouse_world_y);
+
+			if (is_struct(_picked_squad) && squad_drag_begin(_picked_squad))
+			{
+				_squad_marker_input_handled = true;
+				global.sound_play_random(global.pick_worker_sounds);
+			}
+		}
+	}
+
+	if (!_squad_marker_input_handled
+		&& mouse_check_button_pressed(mb_left)
+		&& instance_exists(o_artifact))
 	{
 		var _artifact_count = instance_number(o_artifact);
 
@@ -220,6 +258,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 
 	if (!instance_exists(global.dragged_cultist)
 		&& !instance_exists(global.dragged_artifact)
+		&& !is_struct(global.dragged_squad)
 		&& mouse_check_button_pressed(mb_left)
 		&& instance_exists(o_hud))
 	{
@@ -250,6 +289,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 
 	if (!instance_exists(global.dragged_cultist)
 		&& !instance_exists(global.dragged_artifact)
+		&& !is_struct(global.dragged_squad)
 		&& mouse_check_button(mb_left)
 		&& instance_exists(o_hud))
 	{
@@ -281,6 +321,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 	if (global.day_phase == DAY_PHASE.DAY
 		&& !instance_exists(global.dragged_cultist)
 		&& !instance_exists(global.dragged_artifact)
+		&& !is_struct(global.dragged_squad)
 		&& mouse_check_button_pressed(mb_right))
 	{
 		var _whip_target = find_worker_whip_target_at_position(_mouse_world_x, _mouse_world_y);
@@ -354,8 +395,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 			_dragged_cultist.is_being_dragged = false;
 			global.sound_play_random(global.release_worker_sounds);
 
-			if (_dragged_cultist.object_index != o_cultist
-				&& variable_instance_exists(_dragged_cultist, "demon_type")
+			if (variable_instance_exists(_dragged_cultist, "demon_type")
 				&& _dragged_cultist.demon_type != DEMON_TYPE.NONE
 				&& variable_instance_exists(_dragged_cultist, "stun_apply"))
 			{
@@ -366,7 +406,11 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 			global.cultist_assignment_preview_building = noone;
 		}
 	}
-	else if (mouse_check_button_pressed(mb_left) && !_artifact_clicked && !_cultist_status_card_clicked && !_minimap_camera_clicked)
+	else if (mouse_check_button_pressed(mb_left)
+		&& !_squad_marker_input_handled
+		&& !_artifact_clicked
+		&& !_cultist_status_card_clicked
+		&& !_minimap_camera_clicked)
 	{
 		var _levelup_cultist = cultist_levelup_button_find_at_gui(_mouse_gui_x, _mouse_gui_y);
 
@@ -376,13 +420,13 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 			exit;
 		}
 
-		var _cultist_count = array_length(global.cultists);
+		var _cultist_count = array_length(global.archdemons);
 		var _closest_cultist = noone;
 		var _closest_distance = infinity;
 
 		for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 		{
-			var _cultist = global.cultists[_cultist_index];
+			var _cultist = global.archdemons[_cultist_index];
 
 			if (drag_cultist_can_be_picked(_cultist)
 				&& _mouse_world_x >= _cultist.bbox_left
@@ -390,11 +434,11 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 				&& _mouse_world_y >= _cultist.bbox_top
 				&& _mouse_world_y <= _cultist.bbox_bottom)
 			{
-				var _distance_to_cultist = point_distance(_mouse_world_x, _mouse_world_y, _cultist.x, _cultist.y);
+				var _distance_to_archdemon = point_distance(_mouse_world_x, _mouse_world_y, _cultist.x, _cultist.y);
 
-				if (_distance_to_cultist < _closest_distance)
+				if (_distance_to_archdemon < _closest_distance)
 				{
-					_closest_distance = _distance_to_cultist;
+					_closest_distance = _distance_to_archdemon;
 					_closest_cultist = _cultist;
 				}
 			}
@@ -467,6 +511,10 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("cultist
 		}
 	}
 }
+else if (is_struct(global.dragged_squad))
+{
+	squad_drag_end(global.dragged_squad, false);
+}
 else if (instance_exists(global.dragged_cultist))
 {
 	global.dragged_cultist.x = global.dragged_cultist.drag_drop_x;
@@ -474,8 +522,7 @@ else if (instance_exists(global.dragged_cultist))
 	global.dragged_cultist.is_being_dragged = false;
 	global.sound_play_random(global.release_worker_sounds);
 
-	if (global.dragged_cultist.object_index != o_cultist
-		&& variable_instance_exists(global.dragged_cultist, "demon_type")
+	if (variable_instance_exists(global.dragged_cultist, "demon_type")
 		&& global.dragged_cultist.demon_type != DEMON_TYPE.NONE
 		&& variable_instance_exists(global.dragged_cultist, "stun_apply"))
 	{
@@ -491,10 +538,11 @@ else
 }
 
 // Worker whip bonuses tick only while gameplay is running.
-if (!global.pause && variable_global_exists("cultists"))
+if (!global.pause && variable_global_exists("archdemons"))
 {
 	worker_whip_effects_update();
 	day_idle_cultists_wander_update();
+	squad_day_group_update();
 }
 
 // Assigned cannon workers haul corpses during the day.
@@ -753,6 +801,7 @@ if (global.cheats_enabled)
 	{
 		if (global.day_phase == DAY_PHASE.DAY)
 		{
+			day_event_finish_day();
 			start_night_phase();
 		}
 		else
@@ -799,6 +848,14 @@ if (keyboard_check_pressed(vk_escape))
 		{
 			global.focus_window = FOCUS_WINDOW.NOONE;
 			global.pause = false;
+		}
+	}
+	else if (global.focus_window == FOCUS_WINDOW.JOBS)
+	{
+		if (instance_exists(o_jobs_ui))
+		{
+			var _jobs_ui = instance_find(o_jobs_ui, 0);
+			_jobs_ui.jobs_window_close();
 		}
 	}
 	else if (global.focus_window == FOCUS_WINDOW.PAUSE_MENU)
@@ -862,23 +919,7 @@ if (!global.pause
 // Update the day timer and let night end only after the attack is cleared.
 if (!global.pause && global.day_cycle_enabled)
 {
-	if (global.day_phase == DAY_PHASE.DAY)
-	{
-		// Keep the first day from advancing until the player assigns a worker.
-		var _first_day_waits_for_worker = night_attack_night_index == 1
-			&& first_day_timer_waiting_for_worker_assignment;
-
-		if (!_first_day_waits_for_worker)
-		{
-			global.day_timer--;
-		}
-
-		if (global.day_timer <= 0)
-		{
-			start_night_phase();
-		}
-	}
-	else if (global.day_phase == DAY_PHASE.NIGHT)
+	if (global.day_phase == DAY_PHASE.NIGHT)
 	{
 		global.day_timer = max(global.day_timer - 1, 0);
 
@@ -1137,9 +1178,9 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP && mouse_check_button_p
 	var _confirm_y = _panel_y + 612;
 	var _cultist = noone;
 
-	if (cultist_levelup_index >= 0 && cultist_levelup_index < array_length(global.cultists))
+	if (cultist_levelup_index >= 0 && cultist_levelup_index < array_length(global.archdemons))
 	{
-		_cultist = global.cultists[cultist_levelup_index];
+		_cultist = global.archdemons[cultist_levelup_index];
 	}
 
 	if (instance_exists(_cultist))

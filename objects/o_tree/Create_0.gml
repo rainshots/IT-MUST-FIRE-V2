@@ -68,7 +68,7 @@ tree_unit_occlusion_update = function()
 	if (!_has_unit_behind_tree)
 	{
 		_has_unit_behind_tree = tree_unit_occlusion_object_check(
-			o_cultist,
+			o_archdemon,
 			_check_left,
 			_check_top,
 			_check_right,

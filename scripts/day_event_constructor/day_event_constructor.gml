@@ -1,0 +1,103 @@
+/// @description Creates a day event with cultist cost, activation limit, and multiple actions.
+/// @param {String} _event_id Stable event identifier.
+/// @param {String} _title Player-facing title.
+/// @param {String} _description Player-facing description.
+/// @param {Real} _cultist_cost Cultists required for one activation.
+/// @param {Real} _activation_limit Maximum activations during the day.
+/// @param {Array<Struct>} _actions Actions executed in array order.
+function day_event_constructor(_event_id, _title, _description, _cultist_cost, _activation_limit, _actions = []) constructor
+{
+	event_id = _event_id;
+	title = _title;
+	description = _description;
+	cultist_cost = max(1, floor(_cultist_cost));
+	activation_limit = max(1, floor(_activation_limit));
+	actions = _actions;
+	assigned_cultists = [];
+	activation_count = 0;
+	is_resolved = false;
+
+	activation_ready_count_get = function()
+	{
+		var _assigned_count = array_length(assigned_cultists);
+		var _funded_count = floor(_assigned_count / cultist_cost);
+		return min(_funded_count, activation_limit - activation_count);
+	};
+
+	cultist_assign = function(_cultist)
+	{
+		if (!instance_exists(_cultist)
+			|| !variable_instance_exists(_cultist, "is_available")
+			|| !_cultist.is_available()
+			|| is_resolved
+			|| array_length(assigned_cultists) >= cultist_cost * activation_limit)
+		{
+			return false;
+		}
+
+		array_push(assigned_cultists, _cultist);
+		_cultist.assigned_event = self;
+		return true;
+	};
+
+	cultist_unassign = function(_cultist)
+	{
+		if (!instance_exists(_cultist))
+		{
+			return false;
+		}
+
+		var _cultist_count = array_length(assigned_cultists);
+
+		for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+		{
+			if (assigned_cultists[_cultist_index] == _cultist)
+			{
+				array_delete(assigned_cultists, _cultist_index, 1);
+				_cultist.assigned_event = noone;
+				return true;
+			}
+		}
+
+		return false;
+	};
+
+	execute = function()
+	{
+		var _ready_count = activation_ready_count_get();
+
+		for (var _activation_index = 0; _activation_index < _ready_count; ++_activation_index)
+		{
+			var _first_cultist_index = _activation_index * cultist_cost;
+			var _activation_cultists = array_create(cultist_cost);
+			array_copy(_activation_cultists, 0, assigned_cultists, _first_cultist_index, cultist_cost);
+			var _action_count = array_length(actions);
+
+			for (var _action_index = 0; _action_index < _action_count; ++_action_index)
+			{
+				var _action = actions[_action_index];
+
+				if (is_struct(_action) && variable_struct_exists(_action, "execute"))
+				{
+					_action.execute(self, _activation_cultists);
+				}
+			}
+
+			activation_count++;
+		}
+
+		is_resolved = true;
+
+		for (var _assigned_index = 0; _assigned_index < array_length(assigned_cultists); ++_assigned_index)
+		{
+			var _assigned_cultist = assigned_cultists[_assigned_index];
+
+			if (instance_exists(_assigned_cultist))
+			{
+				_assigned_cultist.assigned_event = noone;
+			}
+		}
+
+		return _ready_count;
+	};
+}

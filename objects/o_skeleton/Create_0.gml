@@ -13,9 +13,6 @@ move_speed = 1.35;
 // Skeleton health is drawn near the sprite pivot instead of above the head.
 bar_offset_y = -2;
 
-// Summoned skeletons survive long enough to regroup at the cannon during daytime.
-summon_nights_remaining = BALANCE_SKELETON_NIGHT_LIFE;
-
 // Skeleton hits can make most enemies briefly panic and run while the skeleton gives chase.
 unit_attack_landed = function(_target, _is_critical_hit = false, _target_was_killed = false)
 {

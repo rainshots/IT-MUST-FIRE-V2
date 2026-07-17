@@ -1,4 +1,4 @@
-﻿{
+{
   "$GMSound":"v2",
   "%Name":"death_sound07",
   "audioGroupId":{

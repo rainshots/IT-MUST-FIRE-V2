@@ -52,6 +52,10 @@ rally_has_arrived = false;
 cultist_projectile_deploy_assigned = false;
 cultist_projectile_deploy_waiting = false;
 
+// Squad membership persists through the squad system and can be replaced after transformations.
+squad = noone;
+squad_unit_index = -1;
+
 // Regroup movement sends newly spawned friendly summons toward the cannon day area.
 regroup_is_active = false;
 regroup_target_x = x;
@@ -1154,7 +1158,7 @@ unit_death_process = function()
 		}
 	}
 
-	if (is_demon_form_unit() || object_index == o_cultist)
+	if (is_demon_form_unit() || object_index == o_archdemon)
 	{
 		if (!is_knocked_out)
 		{
@@ -1265,12 +1269,15 @@ is_demon_form_unit = function()
 {
 	return variable_instance_exists(id, "demon_type")
 		&& demon_type != DEMON_TYPE.NONE
-		&& object_index != o_cultist;
+		&& object_index != o_archdemon;
 };
 
 is_summoned_unit = function()
 {
-	return variable_instance_exists(id, "summon_nights_remaining");
+	return variable_instance_exists(id, "summon_nights_remaining")
+		|| (variable_instance_exists(id, "squad")
+			&& is_struct(squad)
+			&& squad.squad_type != SQUAD_TYPE.ARCHDEMON);
 };
 
 is_wall_blocked_friendly_unit = function()
@@ -1497,7 +1504,7 @@ target_is_player_unit = function(_target)
 		return false;
 	}
 
-	if (_target.object_index == o_cultist)
+	if (_target.object_index == o_archdemon)
 	{
 		return _target.visible;
 	}
@@ -1550,17 +1557,17 @@ find_nearest_player_unit_target = function(_max_distance)
 		}
 	}
 
-	if (!variable_global_exists("cultists"))
+	if (!variable_global_exists("archdemons"))
 	{
 		return _nearest_target;
 	}
 
-	var _cultist_count = array_length(global.cultists);
+	var _cultist_count = array_length(global.archdemons);
 
 	// Cultists are player units but are not children of o_friendly_units.
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
-		var _cultist = global.cultists[_cultist_index];
+		var _cultist = global.archdemons[_cultist_index];
 
 		if (!target_can_be_attacked(_cultist))
 		{
@@ -1793,11 +1800,11 @@ find_nearest_visible_cultist = function()
 {
 	var _nearest_cultist = noone;
 	var _nearest_distance_squared = infinity;
-	var _cultist_count = array_length(global.cultists);
+	var _cultist_count = array_length(global.archdemons);
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
-		var _cultist = global.cultists[_cultist_index];
+		var _cultist = global.archdemons[_cultist_index];
 
 		if (!instance_exists(_cultist)
 			|| _cultist == id

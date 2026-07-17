@@ -1504,6 +1504,12 @@ garrison_owned_units_stats_refresh = function()
 
 garrison_morning_spawn_units = function()
 {
+	// Graveyard and Pitlings Pit now create persistent squads exclusively through day events.
+	if (object_index == o_graveyard2 || object_index == o_pitlings_pit2)
+	{
+		return;
+	}
+
 	if (!garrison_building_is_active())
 	{
 		return;
