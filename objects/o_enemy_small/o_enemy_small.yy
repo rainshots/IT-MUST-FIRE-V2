@@ -32,10 +32,7 @@
   "resourceType":"GMObject",
   "resourceVersion":"2.0",
   "solid":false,
-  "spriteId":{
-    "name":"s_enemy_small",
-    "path":"sprites/s_enemy_small/s_enemy_small.yy",
-  },
+  "spriteId":null,
   "spriteMaskId":null,
   "visible":true,
 }

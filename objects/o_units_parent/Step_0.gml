@@ -383,9 +383,23 @@ else if (!_special_behavior_handled && _should_search_target && _is_friendly_uni
 			target_instance = find_nearest_enemy_object(vision_radius);
 		}
 	}
-	else if (!instance_exists(target_instance))
+	else if (!_is_cultist_demon_unit)
 	{
-		target_instance = find_nearest_target(o_enemy_units, vision_radius);
+		var _priority_target = noone;
+
+		if (!instance_exists(alert_target))
+		{
+			_priority_target = friendly_priority_target_find(vision_radius);
+		}
+
+		if (instance_exists(_priority_target))
+		{
+			target_instance = _priority_target;
+		}
+		else if (!instance_exists(target_instance))
+		{
+			target_instance = find_nearest_target(o_enemy_units, vision_radius);
+		}
 	}
 
 	if (!_is_cultist_demon_unit && !instance_exists(target_instance))

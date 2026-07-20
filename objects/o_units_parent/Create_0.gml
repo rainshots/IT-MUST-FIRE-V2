@@ -1454,6 +1454,12 @@ unit_damage_modifier_get = function(_target, _is_magic_damage)
 	return 1;
 };
 
+// Friendly unit subclasses may override this to prefer a specific enemy role.
+friendly_priority_target_find = function(_max_distance)
+{
+	return noone;
+};
+
 find_nearest_target = function(_object_index, _max_distance)
 {
 	var _nearest_target = noone;

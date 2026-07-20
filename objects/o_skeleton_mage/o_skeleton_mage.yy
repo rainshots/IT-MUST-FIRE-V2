@@ -1,20 +1,12 @@
 {
   "$GMObject":"",
-  "%Name":"o_enemy_big",
-  "eventList":[
-    {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":0,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
-  ],
+  "%Name":"o_skeleton_mage",
+  "eventList":[{"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":0,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",}],
   "managed":true,
-  "name":"o_enemy_big",
+  "name":"o_skeleton_mage",
   "overriddenProperties":[],
-  "parent":{
-    "name":"Enemies",
-    "path":"folders/Objects/Units/Enemies.yy",
-  },
-  "parentObjectId":{
-    "name":"o_enemy_units",
-    "path":"objects/o_enemy_units/o_enemy_units.yy",
-  },
+  "parent":{"name":"Friendly","path":"folders/Objects/Units/Friendly.yy",},
+  "parentObjectId":{"name":"o_friendly_units","path":"objects/o_friendly_units/o_friendly_units.yy",},
   "persistent":false,
   "physicsAngularDamping":0.1,
   "physicsDensity":0.5,
@@ -32,7 +24,7 @@
   "resourceType":"GMObject",
   "resourceVersion":"2.0",
   "solid":false,
-  "spriteId":null,
+  "spriteId":{"name":"s_skeleton","path":"sprites/s_skeleton/s_skeleton.yy",},
   "spriteMaskId":null,
   "visible":true,
 }
