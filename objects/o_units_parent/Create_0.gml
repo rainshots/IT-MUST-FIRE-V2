@@ -67,6 +67,8 @@ owner_garnizon = noone;
 guard_target = noone;
 guard_radius = 220;
 unit_can_attack_cannon = true;
+// Debug-spawned units use combat deployment rules without joining persistent squads.
+debug_combat_spawned = false;
 is_night_attack_unit = false;
 holy_tower_reinforcement_waits_for_night = false;
 
@@ -116,6 +118,7 @@ armor_debuff_timer = 0;
 crit_chance = 0;
 crit_damage = BALANCE_CULTIST_CRIT_DAMAGE_BASE;
 aoe_radius = 0;
+attack_target_count = 0; // Zero allows every valid target inside the AOE.
 next_attack_damage_multiplier = 1;
 next_attack_radius_multiplier = 1;
 demonic_infusion_timer = 0;
@@ -916,6 +919,66 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 
 	damage_popup_create(x, y, _applied_damage, unit_faction, _is_critical);
 
+	if (_can_trigger_soul_chain)
+	{
+		// Idle units retaliate against the hostile instance that damaged them.
+		var _has_combat_target = target_can_be_attacked(target_instance);
+		var _source_has_faction = instance_exists(_source_instance)
+			&& variable_instance_exists(_source_instance, "unit_faction");
+		var _source_is_hostile = _source_has_faction
+			&& _source_instance.unit_faction != unit_faction;
+
+		if (!_has_combat_target
+			&& _source_is_hostile
+			&& target_can_be_attacked(_source_instance))
+		{
+			target_instance = _source_instance;
+			alert_target = _source_instance;
+			alert_target_timer = alert_target_time;
+			target_search_update_timer = target_search_update_interval;
+		}
+
+		// Share the attacker with nearby idle allies of the damaged unit.
+		if (_source_is_hostile && target_can_be_attacked(_source_instance))
+		{
+			var _damage_alert_radius_squared = sqr(BALANCE_UNIT_DAMAGE_ALERT_RADIUS);
+			var _unit_count = instance_number(o_units_parent);
+
+			for (var _unit_index = 0; _unit_index < _unit_count; ++_unit_index)
+			{
+				var _ally = instance_find(o_units_parent, _unit_index);
+
+				if (!instance_exists(_ally)
+					|| _ally == id
+					|| !variable_instance_exists(_ally, "unit_faction")
+					|| _ally.unit_faction != unit_faction
+					|| !variable_instance_exists(_ally, "hp")
+					|| _ally.hp <= 0
+					|| _ally.target_can_be_attacked(_ally.target_instance))
+				{
+					continue;
+				}
+
+				var _ally_distance_x = _ally.x - x;
+				var _ally_distance_y = _ally.y - y;
+				var _ally_distance_squared = (_ally_distance_x * _ally_distance_x)
+					+ (_ally_distance_y * _ally_distance_y);
+
+				if (_ally_distance_squared > _damage_alert_radius_squared)
+				{
+					continue;
+				}
+
+				_ally.target_instance = _source_instance;
+				_ally.alert_target = _source_instance;
+				_ally.alert_target_timer = _ally.alert_target_time;
+				_ally.target_search_update_timer = _ally.target_search_update_interval;
+			}
+		}
+
+		unit_damage_received(_source_instance, _source_faction, _applied_damage);
+	}
+
 	if (variable_instance_exists(id, "owner_house")
 		&& instance_exists(owner_house)
 		&& instance_exists(_source_instance)
@@ -1283,12 +1346,15 @@ is_summoned_unit = function()
 is_wall_blocked_friendly_unit = function()
 {
 	return is_demon_form_unit()
-		|| (is_summoned_unit() && object_index != o_goblin && global.day_phase == DAY_PHASE.NIGHT);
+		|| (object_index != o_goblin
+			&& (debug_combat_spawned
+				|| (is_summoned_unit() && global.day_phase == DAY_PHASE.NIGHT)));
 };
 
 is_blocked_by_cannon_wall = function()
 {
-	return (unit_faction == UNIT_FACTION.ENEMY && global.day_phase == DAY_PHASE.NIGHT)
+	return (unit_faction == UNIT_FACTION.ENEMY
+			&& (global.day_phase == DAY_PHASE.NIGHT || debug_combat_spawned))
 		|| is_wall_blocked_friendly_unit();
 };
 
@@ -1355,6 +1421,26 @@ panic_flee_apply = function(_source, _duration_seconds, _cooldown_seconds, _spee
 	is_walking = false;
 
 	return true;
+};
+
+ranged_unit_melee_flee_on_damage = function(_source_instance)
+{
+	if (hp <= 0
+		|| !instance_exists(_source_instance)
+		|| !variable_instance_exists(_source_instance, "unit_faction")
+		|| _source_instance.unit_faction == unit_faction
+		|| !variable_instance_exists(_source_instance, "attack_radius")
+		|| _source_instance.attack_radius > BALANCE_UNIT_MELEE_DAMAGE_RADIUS_MAX)
+	{
+		return;
+	}
+
+	panic_flee_apply(
+		_source_instance,
+		BALANCE_RANGED_UNIT_MELEE_FLEE_DURATION,
+		BALANCE_RANGED_UNIT_MELEE_FLEE_COOLDOWN,
+		BALANCE_RANGED_UNIT_MELEE_FLEE_SPEED_MULTIPLIER
+	);
 };
 
 panic_flee_update = function()
@@ -1446,6 +1532,11 @@ unit_special_behavior_update = function()
 };
 
 unit_attack_landed = function(_target, _is_critical_hit = false, _target_was_killed = false)
+{
+};
+
+// Unit subclasses may react after incoming damage has been applied.
+unit_damage_received = function(_source_instance, _source_faction, _applied_damage)
 {
 };
 
@@ -2133,19 +2224,14 @@ attack_target = function(_target)
 		return;
 	}
 
-	var _is_magic_damage = magic_damage > 0;
-	var _base_attack_damage = damage;
-
-	if (_is_magic_damage)
-	{
-		_base_attack_damage = magic_damage;
-	}
-
-	var _damage_amount = _base_attack_damage * next_attack_damage_multiplier;
+	// Physical and magic components are calculated independently before being combined.
+	var _raw_physical_damage = damage * next_attack_damage_multiplier;
+	var _raw_magic_damage = magic_damage * next_attack_damage_multiplier;
 
 	if (variable_instance_exists(id, "unit_damage_modifier_get"))
 	{
-		_damage_amount *= unit_damage_modifier_get(_target, _is_magic_damage);
+		_raw_physical_damage *= unit_damage_modifier_get(_target, false);
+		_raw_magic_damage *= unit_damage_modifier_get(_target, true);
 	}
 
 	var _is_critical_hit = false;
@@ -2153,11 +2239,14 @@ attack_target = function(_target)
 
 	if (_current_crit_chance > 0 && random(1) < _current_crit_chance)
 	{
-		_damage_amount *= unit_crit_damage_get();
+		var _critical_damage_multiplier = unit_crit_damage_get();
+		_raw_physical_damage *= _critical_damage_multiplier;
+		_raw_magic_damage *= _critical_damage_multiplier;
 		_is_critical_hit = true;
 	}
 
-	var _raw_damage_amount = _damage_amount;
+	var _damage_amount = physical_damage_after_armor(_raw_physical_damage, _target)
+		+ magic_damage_after_resistance(_raw_magic_damage, _target);
 	var _target_hp_before_hit = 0;
 	var _target_hit_x = _target.x;
 	var _target_hit_y = _target.y;
@@ -2165,15 +2254,6 @@ attack_target = function(_target)
 	if (variable_instance_exists(_target, "hp"))
 	{
 		_target_hp_before_hit = _target.hp;
-	}
-
-	if (!_is_magic_damage)
-	{
-		_damage_amount = physical_damage_after_armor(_raw_damage_amount, _target);
-	}
-	else
-	{
-		_damage_amount = magic_damage_after_resistance(_raw_damage_amount, _target);
 	}
 
 	if (variable_instance_exists(_target, "hp"))
@@ -2230,24 +2310,22 @@ attack_target = function(_target)
 
 		var _aoe_list = ds_list_create();
 		var _aoe_range = aoe_radius * next_attack_radius_multiplier;
-		var _aoe_count = collision_circle_list(_target_hit_x, _target_hit_y, _aoe_range, _aoe_object, false, true, _aoe_list, false);
+		var _aoe_count = collision_circle_list(_target_hit_x, _target_hit_y, _aoe_range, _aoe_object, false, true, _aoe_list, true);
+		var _attack_targets_hit = 1; // The primary target was already hit.
 
 		for (var _aoe_index = 0; _aoe_index < _aoe_count; ++_aoe_index)
 		{
+			if (attack_target_count > 0 && _attack_targets_hit >= attack_target_count)
+			{
+				break;
+			}
+
 			var _aoe_target = _aoe_list[| _aoe_index];
 
 			if (target_can_be_attacked(_aoe_target) && _aoe_target != _target && variable_instance_exists(_aoe_target, "hp"))
 			{
-				var _aoe_damage_amount = _raw_damage_amount;
-
-				if (!_is_magic_damage)
-				{
-					_aoe_damage_amount = physical_damage_after_armor(_raw_damage_amount, _aoe_target);
-				}
-				else
-				{
-					_aoe_damage_amount = magic_damage_after_resistance(_raw_damage_amount, _aoe_target);
-				}
+				var _aoe_damage_amount = physical_damage_after_armor(_raw_physical_damage, _aoe_target)
+					+ magic_damage_after_resistance(_raw_magic_damage, _aoe_target);
 
 				if (variable_instance_exists(_aoe_target, "unit_damage_receive"))
 				{
@@ -2262,6 +2340,8 @@ attack_target = function(_target)
 						damage_popup_create(_aoe_target.x, _aoe_target.y, _aoe_damage_amount, _aoe_target.unit_faction);
 					}
 				}
+
+				_attack_targets_hit++;
 			}
 		}
 

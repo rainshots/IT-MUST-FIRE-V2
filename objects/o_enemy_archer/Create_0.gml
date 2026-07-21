@@ -12,3 +12,9 @@ reload_time = BALANCE_ENEMY_ARCHER_RELOAD_TIME * room_speed;
 attack_radius = BALANCE_ENEMY_ARCHER_ATTACK_RADIUS;
 cannon_attack_radius = BALANCE_ENEMY_ARCHER_CANNON_ATTACK_RADIUS;
 move_speed = BALANCE_ENEMY_ARCHER_MOVE_SPEED;
+
+// Melee damage periodically makes the Archer disengage from its attacker.
+unit_damage_received = function(_source_instance, _source_faction, _applied_damage)
+{
+	ranged_unit_melee_flee_on_damage(_source_instance);
+};

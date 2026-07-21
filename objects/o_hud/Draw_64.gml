@@ -1052,8 +1052,10 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && instance_exists(o_game_controll
 		- (minimap_margin_right * _night_panel_scale)
 		- _night_panel_minimap_size;
 	var _night_panel_origin_offset = sprite_get_xoffset(s_day_night_pannel) * _night_panel_scale;
+	var _night_panel_origin_offset_y = sprite_get_yoffset(s_day_night_pannel) * _night_panel_scale;
 	var _night_panel_anchor_x = _night_panel_minimap_left + _night_panel_origin_offset;
 	var _night_panel_anchor_y = (minimap_y - 55) * _night_panel_scale;
+	var _night_panel_top = _night_panel_anchor_y - _night_panel_origin_offset_y;
 	var _night_panel_icon_gap = night_panel_icon_gap * _night_panel_scale;
 	var _night_panel_icon_size = night_panel_icon_size * _night_panel_scale;
 
@@ -1066,7 +1068,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && instance_exists(o_game_controll
 	var _day_label_width = night_panel_day_label_width * _night_panel_scale;
 	var _day_label_height = night_panel_day_label_height * _night_panel_scale;
 	var _day_label_x = _night_panel_minimap_left;
-	var _day_label_y = _night_panel_anchor_y - _day_label_height;
+	var _day_label_y = _night_panel_top - _day_label_height;
 	draw_set_alpha(1);
 	draw_set_color(COLOR_HUD_MINIMAP_BACKGROUND);
 	draw_rectangle(

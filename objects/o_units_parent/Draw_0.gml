@@ -22,17 +22,20 @@ if (variable_instance_exists(id, "whip_timer") && whip_timer > 0)
 	_whip_shake_x = sin(current_time * BALANCE_WORKER_WHIP_SHAKE_SPEED) * BALANCE_WORKER_WHIP_SHAKE_OFFSET;
 }
 
-draw_sprite_ext(
-	sprite_index,
-	image_index,
-	x + visual_attack_offset_x + _whip_shake_x,
-	y + visual_attack_offset_y,
-	image_xscale,
-	image_yscale,
-	image_angle,
-	image_blend,
-	image_alpha
-);
+if (sprite_exists(sprite_index))
+{
+	draw_sprite_ext(
+		sprite_index,
+		image_index,
+		x + visual_attack_offset_x + _whip_shake_x,
+		y + visual_attack_offset_y,
+		image_xscale,
+		image_yscale,
+		image_angle,
+		image_blend,
+		image_alpha
+	);
+}
 
 // Corpse Armor is shown as a white defense particle over the protected unit.
 if (corpse_armor_timer > 0 && sprite_exists(s_defense_particle))

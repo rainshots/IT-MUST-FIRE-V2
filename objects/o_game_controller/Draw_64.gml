@@ -4254,7 +4254,6 @@ if (instance_exists(o_tutorial_controller))
 // Draw nothing while the pause menu is closed.
 if (!pause_menu_open)
 {
-	debug_menu_draw();
 	exit;
 }
 
@@ -4402,8 +4401,6 @@ if (instance_exists(o_tutorial_controller))
 		tutorial_draw();
 	}
 }
-
-debug_menu_draw();
 
 // Restore default draw state.
 draw_set_halign(fa_left);

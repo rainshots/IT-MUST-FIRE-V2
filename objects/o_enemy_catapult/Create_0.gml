@@ -1,7 +1,7 @@
 // Initialize shared enemy unit state.
 event_inherited();
 
-// Holy Catapult searches for Taint and cleanses it with arcing shots.
+// Catapult attacks player troops with physical AOE projectiles.
 max_hp = BALANCE_ENEMY_CATAPULT_HP;
 hp = max_hp;
 armor = BALANCE_ENEMY_CATAPULT_ARMOR;
@@ -10,84 +10,96 @@ damage = BALANCE_ENEMY_CATAPULT_DAMAGE;
 magic_damage = BALANCE_ENEMY_CATAPULT_MAGIC_DAMAGE;
 reload_time = BALANCE_ENEMY_CATAPULT_RELOAD_TIME * room_speed;
 attack_radius = BALANCE_ENEMY_CATAPULT_ATTACK_RADIUS;
-cannon_attack_radius = BALANCE_ENEMY_CATAPULT_CANNON_ATTACK_RADIUS;
 move_speed = BALANCE_ENEMY_CATAPULT_MOVE_SPEED;
-target_detection_radius = BALANCE_ENEMY_CATAPULT_TAINT_SEARCH_RADIUS;
-vision_radius = BALANCE_ENEMY_CATAPULT_TAINT_SEARCH_RADIUS;
-catapult_taint_search_radius = BALANCE_ENEMY_CATAPULT_TAINT_SEARCH_RADIUS;
-catapult_taint_search_interval = BALANCE_ENEMY_CATAPULT_TAINT_SEARCH_INTERVAL;
-catapult_taint_search_timer = irandom(catapult_taint_search_interval - 1);
-catapult_target_error_radius = BALANCE_ENEMY_CATAPULT_PROJECTILE_TARGET_ERROR_RADIUS;
-catapult_cleanse_radius = BALANCE_ENEMY_CATAPULT_PROJECTILE_CLEANSE_RADIUS;
-catapult_cleanse_amount = BALANCE_ENEMY_CATAPULT_PROJECTILE_CLEANSE_AMOUNT;
-catapult_projectile_spawn_offset_y = -54;
+target_detection_radius = attack_radius;
+vision_radius = attack_radius;
+
+catapult_minimum_attack_radius = BALANCE_ENEMY_CATAPULT_MINIMUM_ATTACK_RADIUS;
+catapult_projectile_aoe_radius = BALANCE_ENEMY_CATAPULT_PROJECTILE_AOE_RADIUS;
+catapult_projectile_target_count = BALANCE_ENEMY_CATAPULT_TARGET_COUNT;
+catapult_projectile_spawn_offset_y = BALANCE_ENEMY_CATAPULT_PROJECTILE_SPAWN_OFFSET_Y;
 catapult_projectile_layer_name = "Instances";
 catapult_projectile_draw_depth = BALANCE_PARTICLE_SYSTEM_TOP_DEPTH - 50;
-catapult_taint_target_x = x;
-catapult_taint_target_y = y;
-catapult_has_taint_target = false;
+catapult_target_search_timer = target_search_update_interval;
 
-catapult_taint_target_find = function()
+catapult_target_is_in_attack_band = function(_target)
 {
-	catapult_has_taint_target = false;
-
-	if (!instance_exists(o_corruption_grid))
+	if (!target_can_be_attacked(_target) || !target_is_player_unit(_target))
 	{
 		return false;
 	}
 
-	var _corruption_grid = instance_find(o_corruption_grid, 0);
-	var _safe_radius = max(catapult_taint_search_radius, 1);
-	var _left_cell = clamp(floor((x - _safe_radius) / _corruption_grid.cell_size), 0, _corruption_grid.grid_width - 1);
-	var _right_cell = clamp(floor((x + _safe_radius) / _corruption_grid.cell_size), 0, _corruption_grid.grid_width - 1);
-	var _top_cell = clamp(floor((y - _safe_radius) / _corruption_grid.cell_size), 0, _corruption_grid.grid_height - 1);
-	var _bottom_cell = clamp(floor((y + _safe_radius) / _corruption_grid.cell_size), 0, _corruption_grid.grid_height - 1);
-	var _nearest_distance = _safe_radius;
+	var _target_distance = point_distance(x, y, _target.x, _target.y);
+	return _target_distance >= catapult_minimum_attack_radius
+		&& _target_distance <= attack_radius;
+};
 
-	for (var _cell_x = _left_cell; _cell_x <= _right_cell; ++_cell_x)
+catapult_target_find = function()
+{
+	var _nearest_target = noone;
+	var _nearest_distance_squared = attack_radius * attack_radius;
+	var _minimum_distance_squared = catapult_minimum_attack_radius * catapult_minimum_attack_radius;
+	var _friendly_count = instance_number(o_friendly_units);
+
+	// Find the nearest friendly combat unit outside the catapult dead zone.
+	for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_index)
 	{
-		for (var _cell_y = _top_cell; _cell_y <= _bottom_cell; ++_cell_y)
+		var _friendly_unit = instance_find(o_friendly_units, _friendly_index);
+
+		if (!target_can_be_attacked(_friendly_unit))
 		{
-			if (variable_instance_exists(_corruption_grid, "saint_grid")
-				&& ds_grid_get(_corruption_grid.saint_grid, _cell_x, _cell_y) > 0)
-			{
-				continue;
-			}
+			continue;
+		}
 
-			var _corruption = ds_grid_get(_corruption_grid.corruption_grid, _cell_x, _cell_y);
+		var _distance_x = _friendly_unit.x - x;
+		var _distance_y = _friendly_unit.y - y;
+		var _distance_squared = (_distance_x * _distance_x) + (_distance_y * _distance_y);
 
-			if (_corruption < _corruption_grid.full_corruption_value)
-			{
-				continue;
-			}
-
-			var _cell_center_x = (_cell_x * _corruption_grid.cell_size) + (_corruption_grid.cell_size * 0.5);
-			var _cell_center_y = (_cell_y * _corruption_grid.cell_size) + (_corruption_grid.cell_size * 0.5);
-			var _cell_distance = point_distance(x, y, _cell_center_x, _cell_center_y);
-
-			if (_cell_distance <= _nearest_distance)
-			{
-				_nearest_distance = _cell_distance;
-				catapult_taint_target_x = _cell_center_x;
-				catapult_taint_target_y = _cell_center_y;
-				catapult_has_taint_target = true;
-			}
+		if (_distance_squared >= _minimum_distance_squared
+			&& _distance_squared <= _nearest_distance_squared)
+		{
+			_nearest_target = _friendly_unit;
+			_nearest_distance_squared = _distance_squared;
 		}
 	}
 
-	return catapult_has_taint_target;
+	if (!variable_global_exists("archdemons"))
+	{
+		return _nearest_target;
+	}
+
+	// Archdemons are player units but do not inherit from o_friendly_units.
+	for (var _cultist_index = 0; _cultist_index < array_length(global.archdemons); ++_cultist_index)
+	{
+		var _cultist = global.archdemons[_cultist_index];
+
+		if (!target_can_be_attacked(_cultist) || !_cultist.visible)
+		{
+			continue;
+		}
+
+		var _cultist_distance_x = _cultist.x - x;
+		var _cultist_distance_y = _cultist.y - y;
+		var _cultist_distance_squared = (_cultist_distance_x * _cultist_distance_x)
+			+ (_cultist_distance_y * _cultist_distance_y);
+
+		if (_cultist_distance_squared >= _minimum_distance_squared
+			&& _cultist_distance_squared <= _nearest_distance_squared)
+		{
+			_nearest_target = _cultist;
+			_nearest_distance_squared = _cultist_distance_squared;
+		}
+	}
+
+	return _nearest_target;
 };
 
-catapult_cleanse_projectile_create = function(_target_x, _target_y)
+catapult_projectile_create = function(_target_x, _target_y)
 {
-	var _target_direction = random(360);
-	var _target_distance = sqrt(random(1)) * catapult_target_error_radius;
-	var _target_error_x = _target_x + lengthdir_x(_target_distance, _target_direction);
-	var _target_error_y = _target_y + lengthdir_y(_target_distance, _target_direction);
 	var _projectile_x = x;
 	var _projectile_y = y + catapult_projectile_spawn_offset_y;
 	var _projectile = instance_create_layer(_projectile_x, _projectile_y, catapult_projectile_layer_name, o_projectile);
-	var _projectile_distance = point_distance(_projectile_x, _projectile_y, _target_error_x, _target_error_y);
+	var _projectile_distance = point_distance(_projectile_x, _projectile_y, _target_x, _target_y);
 	var _flight_time_seconds = clamp(
 		_projectile_distance / BALANCE_ENEMY_CATAPULT_PROJECTILE_SPEED,
 		_projectile.minimum_flight_time,
@@ -96,12 +108,13 @@ catapult_cleanse_projectile_create = function(_target_x, _target_y)
 
 	_projectile.start_x = _projectile_x;
 	_projectile.start_y = _projectile_y;
-	_projectile.target_x = _target_error_x;
-	_projectile.target_y = _target_error_y;
-	_projectile.projectile_type = PROJECTILE_TYPE.CLEANSE;
-	_projectile.effect_radius = catapult_cleanse_radius;
-	_projectile.cleanse_amount = catapult_cleanse_amount;
+	_projectile.target_x = _target_x;
+	_projectile.target_y = _target_y;
+	_projectile.projectile_type = PROJECTILE_TYPE.ARTILLERY;
+	_projectile.effect_radius = catapult_projectile_aoe_radius;
+	_projectile.damage_amount = damage;
 	_projectile.damage_faction = UNIT_FACTION.ENEMY;
+	_projectile.damage_target_count = catapult_projectile_target_count;
 	_projectile.source_instance = id;
 	_projectile.projectile_speed = BALANCE_ENEMY_CATAPULT_PROJECTILE_SPEED;
 	_projectile.flight_time = _flight_time_seconds * room_speed;
@@ -112,39 +125,40 @@ catapult_cleanse_projectile_create = function(_target_x, _target_y)
 
 catapult_behavior_update = function()
 {
-	catapult_taint_search_timer++;
+	catapult_target_search_timer++;
 
-	if (catapult_taint_search_timer >= catapult_taint_search_interval)
+	if (!catapult_target_is_in_attack_band(target_instance)
+		|| catapult_target_search_timer >= target_search_update_interval)
 	{
-		catapult_taint_search_timer = 0;
-		catapult_taint_target_find();
+		catapult_target_search_timer = 0;
+		target_instance = catapult_target_find();
 	}
 
-	if (!catapult_has_taint_target)
+	if (instance_exists(target_instance))
 	{
-		return false;
-	}
+		is_walking = false;
+		face_world_x(target_instance.x);
 
-	var _target_distance = point_distance(x, y, catapult_taint_target_x, catapult_taint_target_y);
+		if (reload_timer > 0)
+		{
+			reload_timer--;
+			return true;
+		}
 
-	if (_target_distance > catapult_taint_search_radius)
-	{
-		catapult_has_taint_target = false;
-		return false;
-	}
-
-	is_walking = false;
-	face_world_x(catapult_taint_target_x);
-
-	if (reload_timer > 0)
-	{
-		reload_timer--;
+		catapult_projectile_create(target_instance.x, target_instance.y);
+		reload_timer = reload_time * unit_attack_reload_multiplier_get();
 		return true;
 	}
 
-	catapult_cleanse_projectile_create(catapult_taint_target_x, catapult_taint_target_y);
-	reload_timer = reload_time * unit_attack_reload_multiplier_get();
-	catapult_has_taint_target = false;
+	// With no valid target, continue advancing toward the player's cannon.
+	if (instance_exists(o_cannon))
+	{
+		move_towards_target(instance_find(o_cannon, 0));
+	}
+	else
+	{
+		is_walking = false;
+	}
 
 	return true;
 };

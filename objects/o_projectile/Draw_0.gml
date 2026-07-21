@@ -41,6 +41,10 @@ else if (projectile_type == PROJECTILE_TYPE.CLEANSE)
 {
 	_projectile_color = COLOR_PROJECTILE_CLEANSE;
 }
+else if (projectile_type == PROJECTILE_TYPE.ARTILLERY)
+{
+	_projectile_color = COLOR_PROJECTILE_BOMB;
+}
 
 // Draw a round projectile.
 var _draw_radius = projectile_radius * projectile_visual_scale;

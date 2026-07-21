@@ -13,6 +13,7 @@ source_instance = noone;
 effect_radius = BALANCE_PROJECTILE_EFFECT_RADIUS;
 damage_amount = BALANCE_PROJECTILE_DAMAGE_AMOUNT;
 damage_faction = UNIT_FACTION.NOONE;
+damage_target_count = 0;
 summon_count = BALANCE_PROJECTILE_SKELETON_COUNT;
 corruption_amount = 1;
 ground_corruption_amount = BALANCE_PROJECTILE_GROUND_CORRUPTION_AMOUNT;

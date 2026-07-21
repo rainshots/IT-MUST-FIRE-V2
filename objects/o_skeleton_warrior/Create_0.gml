@@ -12,6 +12,9 @@ reload_time = BALANCE_SKELETON_WARRIOR_RELOAD_TIME * room_speed;
 attack_radius = BALANCE_SKELETON_WARRIOR_ATTACK_RADIUS;
 move_speed = BALANCE_SKELETON_WARRIOR_MOVE_SPEED;
 
+// Draw health and status bars directly below the unit's feet.
+bar_offset_y = -2;
+
 // Use the requested sprite when it is imported into the project.
 var _unit_sprite = asset_get_index("s_skeleton_warrior");
 

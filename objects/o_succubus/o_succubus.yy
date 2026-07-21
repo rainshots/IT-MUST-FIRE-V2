@@ -7,8 +7,14 @@
   "managed":true,
   "name":"o_succubus",
   "overriddenProperties":[],
-  "parent":{"name":"Friendly","path":"folders/Objects/Units/Friendly.yy",},
-  "parentObjectId":{"name":"o_friendly_units","path":"objects/o_friendly_units/o_friendly_units.yy",},
+  "parent":{
+    "name":"Friendly",
+    "path":"folders/Objects/Units/Friendly.yy",
+  },
+  "parentObjectId":{
+    "name":"o_friendly_units",
+    "path":"objects/o_friendly_units/o_friendly_units.yy",
+  },
   "persistent":false,
   "physicsAngularDamping":0.1,
   "physicsDensity":0.5,
@@ -26,7 +32,10 @@
   "resourceType":"GMObject",
   "resourceVersion":"2.0",
   "solid":false,
-  "spriteId":{"name":"s_skeleton","path":"sprites/s_skeleton/s_skeleton.yy",},
+  "spriteId":{
+    "name":"s_succubus",
+    "path":"sprites/s_succubus/s_succubus.yy",
+  },
   "spriteMaskId":null,
   "visible":true,
 }

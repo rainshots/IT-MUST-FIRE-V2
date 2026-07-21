@@ -270,6 +270,97 @@ if (_flight_progress >= 1)
 			}
 		}
 	}
+	else if (projectile_type == PROJECTILE_TYPE.ARTILLERY)
+	{
+		// Gather player units by distance so the blast hits the nearest targets first.
+		var _artillery_targets = ds_priority_create();
+		var _friendly_unit_count = instance_number(o_friendly_units);
+
+		for (var _friendly_unit_index = 0; _friendly_unit_index < _friendly_unit_count; ++_friendly_unit_index)
+		{
+			var _friendly_unit = instance_find(o_friendly_units, _friendly_unit_index);
+
+			if (!instance_exists(_friendly_unit)
+				|| _friendly_unit == source_instance
+				|| _friendly_unit.hp <= 0
+				|| point_distance(_friendly_unit.x, _friendly_unit.y, target_x, target_y) > effect_radius)
+			{
+				continue;
+			}
+
+			var _friendly_distance_squared = sqr(_friendly_unit.x - target_x) + sqr(_friendly_unit.y - target_y);
+			ds_priority_add(_artillery_targets, _friendly_unit, _friendly_distance_squared);
+		}
+
+		if (variable_global_exists("archdemons"))
+		{
+			var _archdemon_count = array_length(global.archdemons);
+
+			for (var _archdemon_index = 0; _archdemon_index < _archdemon_count; ++_archdemon_index)
+			{
+				var _archdemon = global.archdemons[_archdemon_index];
+
+				if (!instance_exists(_archdemon)
+					|| !_archdemon.visible
+					|| !variable_instance_exists(_archdemon, "hp")
+					|| _archdemon.hp <= 0
+					|| point_distance(_archdemon.x, _archdemon.y, target_x, target_y) > effect_radius)
+				{
+					continue;
+				}
+
+				var _archdemon_distance_squared = sqr(_archdemon.x - target_x) + sqr(_archdemon.y - target_y);
+				ds_priority_add(_artillery_targets, _archdemon, _archdemon_distance_squared);
+			}
+		}
+
+		// Apply physical damage to no more than the configured number of targets.
+		var _available_target_count = ds_priority_size(_artillery_targets);
+		var _hit_target_count = min(max(1, floor(damage_target_count)), _available_target_count);
+
+		for (var _target_index = 0; _target_index < _hit_target_count; ++_target_index)
+		{
+			var _artillery_target = ds_priority_delete_min(_artillery_targets);
+
+			if (!instance_exists(_artillery_target))
+			{
+				continue;
+			}
+
+			var _target_armor = 100;
+
+			if (variable_instance_exists(_artillery_target, "armor"))
+			{
+				_target_armor = _artillery_target.armor;
+			}
+
+			var _armor_damage_multiplier = max(2 - (min(_target_armor, 190) * 0.01), 0.1);
+			var _physical_damage = damage_amount * _armor_damage_multiplier;
+
+			if (variable_instance_exists(_artillery_target, "unit_damage_receive"))
+			{
+				_artillery_target.unit_damage_receive(
+					_physical_damage,
+					damage_faction,
+					false,
+					true,
+					source_instance
+				);
+			}
+			else
+			{
+				_artillery_target.hp = max(_artillery_target.hp - _physical_damage, 0);
+				damage_popup_create(
+					_artillery_target.x,
+					_artillery_target.y,
+					_physical_damage,
+					UNIT_FACTION.FRIENDLY
+				);
+			}
+		}
+
+		ds_priority_destroy(_artillery_targets);
+	}
 	else if (projectile_type == PROJECTILE_TYPE.BOMB)
 	{
 		with (all)
@@ -375,7 +466,8 @@ if (_flight_progress >= 1)
 		&& projectile_type != PROJECTILE_TYPE.BOMB
 		&& projectile_type != PROJECTILE_TYPE.SKELETONS
 		&& projectile_type != PROJECTILE_TYPE.BUILDING_SHELL
-		&& projectile_type != PROJECTILE_TYPE.CLEANSE)
+		&& projectile_type != PROJECTILE_TYPE.CLEANSE
+		&& projectile_type != PROJECTILE_TYPE.ARTILLERY)
 	{
 		with (all)
 		{

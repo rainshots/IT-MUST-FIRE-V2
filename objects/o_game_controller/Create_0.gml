@@ -1835,6 +1835,8 @@ debug_menu_section_gap = 36;
 debug_menu_x = 18;
 debug_menu_y = 84;
 debug_menu_title_height = 34;
+debug_menu_tab_height = 30;
+debug_menu_tab = "shells";
 
 debug_shell_choices = [
 	{
@@ -1919,13 +1921,87 @@ debug_shell_choices = [
 	}
 ];
 
+debug_unit_choices = [
+	{
+		label: "Skeleton",
+		unit_object: o_skeleton
+	},
+	{
+		label: "Skeleton Bonelet",
+		unit_object: o_skeleton_bonelet
+	},
+	{
+		label: "Skeleton Archer",
+		unit_object: o_skeleton_archer
+	},
+	{
+		label: "Skeleton Mage",
+		unit_object: o_skeleton_mage
+	},
+	{
+		label: "Skeleton Warrior",
+		unit_object: o_skeleton_warrior
+	},
+	{
+		label: "Zombie",
+		unit_object: o_zombie
+	},
+	{
+		label: "Succubus",
+		unit_object: o_succubus
+	},
+	{
+		label: "Mawling",
+		unit_object: o_mawling
+	},
+	{
+		label: "Balgor",
+		unit_object: o_balgor
+	},
+	{
+		label: "Peasant",
+		unit_object: o_enemy_peasant
+	},
+	{
+		label: "Knight",
+		unit_object: o_enemy_knight
+	},
+	{
+		label: "Archer",
+		unit_object: o_enemy_archer
+	},
+	{
+		label: "Mage",
+		unit_object: o_enemy_mage
+	},
+	{
+		label: "Catapult",
+		unit_object: o_enemy_catapult
+	},
+	{
+		label: "Crusader",
+		unit_object: o_crusader
+	},
+	{
+		label: "Griffith",
+		unit_object: o_boss_griffith
+	}
+];
+
+debug_menu_choices_get = function()
+{
+	return debug_menu_tab == "units" ? debug_unit_choices : debug_shell_choices;
+};
+
 debug_menu_height_get = function()
 {
-	var _button_count = array_length(debug_shell_choices);
+	var _button_count = array_length(debug_menu_choices_get());
 	var _column_count = 2;
 	var _row_count = ceil(_button_count / _column_count);
 	return debug_menu_padding
 		+ debug_menu_title_height
+		+ debug_menu_tab_height
+		+ debug_menu_button_gap
 		+ debug_menu_section_gap
 		+ (_row_count * debug_menu_button_height)
 		+ (max(0, _row_count - 1) * debug_menu_button_gap)
@@ -1938,7 +2014,8 @@ debug_shell_choice_rect_get = function(_choice_index)
 	var _column = _choice_index mod _column_count;
 	var _row = _choice_index div _column_count;
 	var _button_x = debug_menu_x + debug_menu_padding + ((debug_menu_button_width + debug_menu_button_gap) * _column);
-	var _button_y = debug_menu_y + debug_menu_padding + debug_menu_title_height + debug_menu_section_gap
+	var _button_y = debug_menu_y + debug_menu_padding + debug_menu_title_height + debug_menu_tab_height
+		+ debug_menu_button_gap + debug_menu_section_gap
 		+ ((debug_menu_button_height + debug_menu_button_gap) * _row);
 
 	return {
@@ -1947,6 +2024,89 @@ debug_shell_choice_rect_get = function(_choice_index)
 		width: debug_menu_button_width,
 		height: debug_menu_button_height
 	};
+};
+
+debug_menu_tab_rect_get = function(_tab_index)
+{
+	var _tab_count = 2;
+	var _available_width = debug_menu_width - (debug_menu_padding * 2) - debug_menu_button_gap;
+	var _tab_width = _available_width / _tab_count;
+
+	return {
+		x: debug_menu_x + debug_menu_padding + ((_tab_width + debug_menu_button_gap) * _tab_index),
+		y: debug_menu_y + debug_menu_padding + debug_menu_title_height,
+		width: _tab_width,
+		height: debug_menu_tab_height
+	};
+};
+
+debug_unit_spawn = function(_unit_object, _spawn_count = 1)
+{
+	if (!object_exists(_unit_object))
+	{
+		return false;
+	}
+
+	var _spawn_x = room_width * 0.5;
+	var _spawn_y = room_height * 0.5;
+
+	if (instance_exists(o_camera_controller))
+	{
+		var _camera_controller = instance_find(o_camera_controller, 0);
+		_spawn_x = camera_get_view_x(_camera_controller.camera_id)
+			+ (camera_get_view_width(_camera_controller.camera_id) * 0.5);
+		_spawn_y = camera_get_view_y(_camera_controller.camera_id)
+			+ (camera_get_view_height(_camera_controller.camera_id) * 0.5);
+	}
+
+	var _safe_spawn_count = max(1, floor(_spawn_count));
+	var _unit_was_spawned = false;
+
+	for (var _spawn_index = 0; _spawn_index < _safe_spawn_count; ++_spawn_index)
+	{
+		var _unit_x = _spawn_x;
+		var _unit_y = _spawn_y;
+
+		if (_safe_spawn_count > 1)
+		{
+			var _spawn_direction = 360 * (_spawn_index / _safe_spawn_count);
+			_unit_x += lengthdir_x(BALANCE_DEBUG_UNIT_GROUP_SPAWN_RADIUS, _spawn_direction);
+			_unit_y += lengthdir_y(BALANCE_DEBUG_UNIT_GROUP_SPAWN_RADIUS, _spawn_direction);
+		}
+
+		var _unit = instance_create_layer(_unit_x, _unit_y, "Instances", _unit_object);
+
+		if (!instance_exists(_unit))
+		{
+			continue;
+		}
+
+		// Match a unit deployed into combat while keeping cheats out of persistent squads.
+		_unit.debug_combat_spawned = true;
+		_unit.target_instance = noone;
+		_unit.alert_target = noone;
+		_unit.forced_attack_target = noone;
+		_unit.forced_attack_target_timer = 0;
+		_unit.regroup_is_active = false;
+		_unit.rally_is_active = false;
+		_unit.rally_is_returning = false;
+		_unit.rally_has_arrived = false;
+		_unit.target_search_update_timer = _unit.target_search_update_interval;
+		_unit.clamp_outside_cannon_wall();
+		_unit_was_spawned = true;
+	}
+
+	return _unit_was_spawned;
+};
+
+debug_menu_choice_activate = function(_choice, _unit_spawn_count = 1)
+{
+	if (debug_menu_tab == "units" && variable_struct_exists(_choice, "unit_object"))
+	{
+		return debug_unit_spawn(_choice.unit_object, _unit_spawn_count);
+	}
+
+	return debug_shell_give(_choice);
 };
 
 debug_shell_give = function(_choice)
@@ -2007,7 +2167,8 @@ debug_menu_draw = function()
 	var _mouse_x = device_mouse_x_to_gui(0);
 	var _mouse_y = device_mouse_y_to_gui(0);
 	var _menu_height = debug_menu_height_get();
-	var _choice_count = array_length(debug_shell_choices);
+	var _choices = debug_menu_choices_get();
+	var _choice_count = array_length(_choices);
 	var _queue_count = 0;
 
 	if (variable_global_exists("cannon_projectile_queue"))
@@ -2039,23 +2200,46 @@ debug_menu_draw = function()
 		draw_set_font(global.ui_font);
 	}
 
-	draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
-	draw_text(
-		debug_menu_x + debug_menu_padding,
-		debug_menu_y + debug_menu_padding + 28,
-		"Queue: " + string(_queue_count) + "/" + string(global.cannon_projectile_queue_max)
-	);
+	var _tab_labels = ["Shells", "Units"];
+	var _tab_ids = ["shells", "units"];
+
+	for (var _tab_index = 0; _tab_index < 2; ++_tab_index)
+	{
+		var _tab_rect = debug_menu_tab_rect_get(_tab_index);
+		var _tab_is_active = debug_menu_tab == _tab_ids[_tab_index];
+		var _tab_is_hovered = _mouse_x >= _tab_rect.x
+			&& _mouse_x <= _tab_rect.x + _tab_rect.width
+			&& _mouse_y >= _tab_rect.y
+			&& _mouse_y <= _tab_rect.y + _tab_rect.height;
+
+		draw_set_alpha(_tab_is_active ? 0.9 : 0.55);
+		draw_set_color(c_black);
+		draw_rectangle(_tab_rect.x, _tab_rect.y, _tab_rect.x + _tab_rect.width, _tab_rect.y + _tab_rect.height, false);
+
+		draw_set_alpha(1);
+		draw_set_color(_tab_is_active || _tab_is_hovered ? COLOR_PROJECTILE_BUILDING_SHELL : COLOR_HUD_PROJECTILE_DESCRIPTION);
+		draw_rectangle(_tab_rect.x, _tab_rect.y, _tab_rect.x + _tab_rect.width, _tab_rect.y + _tab_rect.height, true);
+
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_middle);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text(_tab_rect.x + (_tab_rect.width * 0.5), _tab_rect.y + (_tab_rect.height * 0.5), _tab_labels[_tab_index]);
+	}
 
 	draw_set_color(COLOR_PROJECTILE_BUILDING_SHELL);
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
 	draw_text(
 		debug_menu_x + debug_menu_padding,
-		debug_menu_y + debug_menu_padding + debug_menu_title_height + 10,
-		"Give Shell"
+		debug_menu_y + debug_menu_padding + debug_menu_title_height + debug_menu_tab_height + debug_menu_button_gap + 10,
+		debug_menu_tab == "units"
+			? "Spawn: LMB x1 / RMB x5"
+			: "Give Shell  |  Queue: " + string(_queue_count) + "/" + string(global.cannon_projectile_queue_max)
 	);
 
 	for (var _choice_index = 0; _choice_index < _choice_count; ++_choice_index)
 	{
-		var _choice = debug_shell_choices[_choice_index];
+		var _choice = _choices[_choice_index];
 		var _rect = debug_shell_choice_rect_get(_choice_index);
 		var _is_hovered = _mouse_x >= _rect.x
 			&& _mouse_x <= _rect.x + _rect.width
@@ -7287,6 +7471,10 @@ night_attack_enemy_difficulty_get = function(_enemy_object)
 	else if (_enemy_object == o_enemy_mage)
 	{
 		return BALANCE_ENEMY_MAGE_DIFFICULTY;
+	}
+	else if (_enemy_object == o_enemy_catapult)
+	{
+		return BALANCE_ENEMY_CATAPULT_DIFFICULTY;
 	}
 
 	return 1;

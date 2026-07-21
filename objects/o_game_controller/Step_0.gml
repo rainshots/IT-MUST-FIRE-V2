@@ -85,7 +85,12 @@ if (global.cheats_enabled
 	debug_menu_open = !debug_menu_open;
 }
 
-if (global.cheats_enabled && debug_menu_open && mouse_check_button_pressed(mb_left))
+var _debug_left_mouse_pressed = mouse_check_button_pressed(mb_left);
+var _debug_right_mouse_pressed = mouse_check_button_pressed(mb_right);
+
+if (global.cheats_enabled
+	&& debug_menu_open
+	&& (_debug_left_mouse_pressed || _debug_right_mouse_pressed))
 {
 	var _debug_mouse_x = device_mouse_x_to_gui(0);
 	var _debug_mouse_y = device_mouse_y_to_gui(0);
@@ -97,7 +102,31 @@ if (global.cheats_enabled && debug_menu_open && mouse_check_button_pressed(mb_le
 
 	if (_debug_menu_contains_mouse)
 	{
-		var _debug_choice_count = array_length(debug_shell_choices);
+		var _debug_tab_ids = ["shells", "units"];
+		var _debug_tab_was_clicked = false;
+
+		for (var _debug_tab_index = 0; _debug_left_mouse_pressed && _debug_tab_index < 2; ++_debug_tab_index)
+		{
+			var _debug_tab_rect = debug_menu_tab_rect_get(_debug_tab_index);
+
+			if (_debug_mouse_x >= _debug_tab_rect.x
+				&& _debug_mouse_x <= _debug_tab_rect.x + _debug_tab_rect.width
+				&& _debug_mouse_y >= _debug_tab_rect.y
+				&& _debug_mouse_y <= _debug_tab_rect.y + _debug_tab_rect.height)
+			{
+				debug_menu_tab = _debug_tab_ids[_debug_tab_index];
+				_debug_tab_was_clicked = true;
+				break;
+			}
+		}
+
+		if (_debug_tab_was_clicked)
+		{
+			exit;
+		}
+
+		var _debug_choices = debug_menu_choices_get();
+		var _debug_choice_count = array_length(_debug_choices);
 
 		for (var _debug_choice_index = 0; _debug_choice_index < _debug_choice_count; ++_debug_choice_index)
 		{
@@ -108,7 +137,15 @@ if (global.cheats_enabled && debug_menu_open && mouse_check_button_pressed(mb_le
 				&& _debug_mouse_y >= _debug_rect.y
 				&& _debug_mouse_y <= _debug_rect.y + _debug_rect.height)
 			{
-				debug_shell_give(debug_shell_choices[_debug_choice_index]);
+				if (_debug_right_mouse_pressed && debug_menu_tab != "units")
+				{
+					break;
+				}
+
+				var _debug_spawn_count = _debug_right_mouse_pressed
+					? BALANCE_DEBUG_UNIT_GROUP_SPAWN_COUNT
+					: 1;
+				debug_menu_choice_activate(_debug_choices[_debug_choice_index], _debug_spawn_count);
 				break;
 			}
 		}
