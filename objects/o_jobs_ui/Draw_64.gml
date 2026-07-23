@@ -117,6 +117,46 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			390 * _layout.scale
 		);
 
+		if (variable_struct_exists(_event, "requires_squad_selection")
+			&& _event.requires_squad_selection)
+		{
+			var _selector_rect = jobs_squad_selector_rect_get(_event_index);
+			var _selector_text = "SELECT SQUAD";
+
+			if (variable_struct_exists(_event, "selected_squad") && is_struct(_event.selected_squad))
+			{
+				_selector_text = _event.selected_squad.name;
+			}
+
+			draw_set_alpha(0.9);
+			draw_set_color(COLOR_JOBS_ASSIGN_BACKGROUND);
+			draw_rectangle(
+				_selector_rect.x,
+				_selector_rect.y,
+				_selector_rect.x + _selector_rect.width,
+				_selector_rect.y + _selector_rect.height,
+				false
+			);
+			draw_set_alpha(1);
+			draw_set_color(is_struct(_event.selected_squad) ? COLOR_JOBS_EVENT_ACTIVE : COLOR_JOBS_SLOT_BORDER);
+			draw_rectangle(
+				_selector_rect.x,
+				_selector_rect.y,
+				_selector_rect.x + _selector_rect.width,
+				_selector_rect.y + _selector_rect.height,
+				true
+			);
+			draw_set_halign(fa_center);
+			draw_set_valign(fa_middle);
+			draw_set_font(jobs_hp_font);
+			draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+			draw_text(
+				_selector_rect.x + (_selector_rect.width * 0.5),
+				_selector_rect.y + (_selector_rect.height * 0.5),
+				_selector_text
+			);
+		}
+
 		var _slot_count = _event.cultist_cost * _event.activation_limit;
 
 		for (var _slot_index = 0; _slot_index < _slot_count; ++_slot_index)
@@ -133,6 +173,45 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 				_slot_y + (jobs_icon_height * _layout.scale),
 				true
 			);
+		}
+	}
+
+	// The active selector is drawn last so its squad list overlays the event cards below it.
+	if (is_struct(jobs_squad_selector_event))
+	{
+		var _selector_event_index = -1;
+		var _global_event_count = array_length(global.day_events);
+
+		for (var _event_search_index = 0; _event_search_index < _global_event_count; ++_event_search_index)
+		{
+			if (global.day_events[_event_search_index] == jobs_squad_selector_event)
+			{
+				_selector_event_index = _event_search_index;
+				break;
+			}
+		}
+
+		if (_selector_event_index >= 0)
+		{
+			var _eligible_squad_count = array_length(jobs_squad_selector_event.eligible_squads);
+
+			for (var _option_index = 0; _option_index < _eligible_squad_count; ++_option_index)
+			{
+				var _option_squad = jobs_squad_selector_event.eligible_squads[_option_index];
+				var _option_rect = jobs_squad_selector_option_rect_get(_selector_event_index, _option_index);
+
+				draw_set_alpha(0.97);
+				draw_set_color(COLOR_JOBS_WINDOW_BACKGROUND);
+				draw_rectangle(_option_rect.x, _option_rect.y, _option_rect.x + _option_rect.width, _option_rect.y + _option_rect.height, false);
+				draw_set_alpha(1);
+				draw_set_color(COLOR_JOBS_SLOT_BORDER);
+				draw_rectangle(_option_rect.x, _option_rect.y, _option_rect.x + _option_rect.width, _option_rect.y + _option_rect.height, true);
+				draw_set_halign(fa_center);
+				draw_set_valign(fa_middle);
+				draw_set_font(jobs_hp_font);
+				draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+				draw_text(_option_rect.x + (_option_rect.width * 0.5), _option_rect.y + (_option_rect.height * 0.5), _option_squad.name);
+			}
 		}
 	}
 

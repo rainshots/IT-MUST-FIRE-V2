@@ -1,12 +1,20 @@
 {
   "$GMObject":"",
   "%Name":"o_skeleton_bonelet",
-  "eventList":[],
+  "eventList":[
+    {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":0,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
+  ],
   "managed":true,
   "name":"o_skeleton_bonelet",
   "overriddenProperties":[],
-  "parent":{"name":"Friendly","path":"folders/Objects/Units/Friendly.yy",},
-  "parentObjectId":{"name":"o_skeleton","path":"objects/o_skeleton/o_skeleton.yy",},
+  "parent":{
+    "name":"Friendly",
+    "path":"folders/Objects/Units/Friendly.yy",
+  },
+  "parentObjectId":{
+    "name":"o_skeleton",
+    "path":"objects/o_skeleton/o_skeleton.yy",
+  },
   "persistent":false,
   "physicsAngularDamping":0.1,
   "physicsDensity":0.5,
@@ -24,7 +32,10 @@
   "resourceType":"GMObject",
   "resourceVersion":"2.0",
   "solid":false,
-  "spriteId":{"name":"s_skeleton","path":"sprites/s_skeleton/s_skeleton.yy",},
+  "spriteId":{
+    "name":"s_skeleton",
+    "path":"sprites/s_skeleton/s_skeleton.yy",
+  },
   "spriteMaskId":null,
   "visible":true,
 }

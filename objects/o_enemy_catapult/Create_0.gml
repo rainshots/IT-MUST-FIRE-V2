@@ -116,6 +116,7 @@ catapult_projectile_create = function(_target_x, _target_y)
 	_projectile.damage_faction = UNIT_FACTION.ENEMY;
 	_projectile.damage_target_count = catapult_projectile_target_count;
 	_projectile.source_instance = id;
+	_projectile.balance_test_match_id = balance_test_match_id;
 	_projectile.projectile_speed = BALANCE_ENEMY_CATAPULT_PROJECTILE_SPEED;
 	_projectile.flight_time = _flight_time_seconds * room_speed;
 	_projectile.depth = catapult_projectile_draw_depth;

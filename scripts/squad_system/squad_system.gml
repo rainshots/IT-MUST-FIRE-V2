@@ -41,7 +41,16 @@ function squad_name_create(_primary_unit_object)
 	var _base_name = object_get_name(_primary_unit_object);
 
 	if (_primary_unit_object == o_skeleton) _base_name = "Skeletons";
+	else if (_primary_unit_object == o_skeleton_bonelet) _base_name = "Bonelets";
+	else if (_primary_unit_object == o_skeleton_warrior) _base_name = "Skeleton Warriors";
+	else if (_primary_unit_object == o_skeleton_archer) _base_name = "Skeleton Archers";
+	else if (_primary_unit_object == o_skeleton_mage) _base_name = "Skeleton Mages";
+	else if (_primary_unit_object == o_skeleton_healer) _base_name = "Skeleton Healers";
+	else if (_primary_unit_object == o_mawling) _base_name = "Mawlings";
+	else if (_primary_unit_object == o_demon_wizard) _base_name = "Demon Wizards";
 	else if (_primary_unit_object == o_pitling) _base_name = "Pitlings";
+	else if (_primary_unit_object == o_succubus) _base_name = "Succubi";
+	else if (_primary_unit_object == o_balgor) _base_name = "Balgors";
 	else if (_primary_unit_object == o_archdemon) _base_name = "Archdemon";
 
 	var _matching_name_count = 0;
@@ -59,6 +68,43 @@ function squad_name_create(_primary_unit_object)
 	return _matching_name_count == 0 ? _base_name : _base_name + " " + string(_matching_name_count + 1);
 }
 
+function squad_unit_permanent_bonuses_apply(_squad, _unit)
+{
+	if (!is_struct(_squad) || !instance_exists(_unit))
+	{
+		return false;
+	}
+
+	if (variable_struct_exists(_squad.properties, "health_multiplier")
+		&& variable_instance_exists(_unit, "max_hp"))
+	{
+		var _health_multiplier = _squad.properties.health_multiplier;
+		_unit.max_hp *= _health_multiplier;
+
+		if (variable_instance_exists(_unit, "hp"))
+		{
+			_unit.hp = min(_unit.max_hp, _unit.hp * _health_multiplier);
+		}
+	}
+
+	if (variable_struct_exists(_squad.properties, "damage_multiplier"))
+	{
+		var _damage_multiplier = _squad.properties.damage_multiplier;
+
+		if (variable_instance_exists(_unit, "damage"))
+		{
+			_unit.damage *= _damage_multiplier;
+		}
+
+		if (variable_instance_exists(_unit, "magic_damage"))
+		{
+			_unit.magic_damage *= _damage_multiplier;
+		}
+	}
+
+	return true;
+}
+
 function squad_unit_spawn(_squad, _unit_object, _unit_index)
 {
 	if (!instance_exists(o_cannon)) return noone;
@@ -69,6 +115,7 @@ function squad_unit_spawn(_squad, _unit_object, _unit_index)
 	var _unit = instance_create_layer(_cannon.x + lengthdir_x(_distance, _angle), _cannon.y + lengthdir_y(_distance, _angle), "Instances", _unit_object);
 	_unit.squad = _squad;
 	_unit.squad_unit_index = _unit_index;
+	squad_unit_permanent_bonuses_apply(_squad, _unit);
 
 	if (variable_struct_exists(_squad.properties, "blood_warpaint_active")
 		&& _squad.properties.blood_warpaint_active)

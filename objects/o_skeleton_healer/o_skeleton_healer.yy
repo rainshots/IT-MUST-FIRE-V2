@@ -1,20 +1,15 @@
 {
   "$GMObject":"",
-  "%Name":"o_enemy_catapult",
+  "%Name":"o_skeleton_healer",
   "eventList":[
     {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":0,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
+    {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":3,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
   ],
   "managed":true,
-  "name":"o_enemy_catapult",
+  "name":"o_skeleton_healer",
   "overriddenProperties":[],
-  "parent":{
-    "name":"Enemies",
-    "path":"folders/Objects/Units/Enemies.yy",
-  },
-  "parentObjectId":{
-    "name":"o_enemy_units",
-    "path":"objects/o_enemy_units/o_enemy_units.yy",
-  },
+  "parent":{"name":"Friendly","path":"folders/Objects/Units/Friendly.yy",},
+  "parentObjectId":{"name":"o_friendly_units","path":"objects/o_friendly_units/o_friendly_units.yy",},
   "persistent":false,
   "physicsAngularDamping":0.1,
   "physicsDensity":0.5,
@@ -32,10 +27,7 @@
   "resourceType":"GMObject",
   "resourceVersion":"2.0",
   "solid":false,
-  "spriteId":{
-    "name":"s_enemy_catapult",
-    "path":"sprites/s_enemy_catapult/s_enemy_catapult.yy",
-  },
+  "spriteId":{"name":"s_skeleton_healer","path":"sprites/s_skeleton_healer/s_skeleton_healer.yy",},
   "spriteMaskId":null,
   "visible":true,
 }

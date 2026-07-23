@@ -102,10 +102,11 @@ if (global.cheats_enabled
 
 	if (_debug_menu_contains_mouse)
 	{
-		var _debug_tab_ids = ["shells", "units"];
+		var _debug_tab_ids = ["shells", "units", "squads"];
+		var _debug_tab_count = array_length(_debug_tab_ids);
 		var _debug_tab_was_clicked = false;
 
-		for (var _debug_tab_index = 0; _debug_left_mouse_pressed && _debug_tab_index < 2; ++_debug_tab_index)
+		for (var _debug_tab_index = 0; _debug_left_mouse_pressed && _debug_tab_index < _debug_tab_count; ++_debug_tab_index)
 		{
 			var _debug_tab_rect = debug_menu_tab_rect_get(_debug_tab_index);
 
@@ -356,6 +357,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("archdem
 	}
 
 	if (global.day_phase == DAY_PHASE.DAY
+		&& (!variable_global_exists("squad_info_window_open") || !global.squad_info_window_open)
 		&& !instance_exists(global.dragged_cultist)
 		&& !instance_exists(global.dragged_artifact)
 		&& !is_struct(global.dragged_squad)

@@ -1,3 +1,12 @@
+// The balance controller owns every simulation tick so x1 and accelerated runs stay identical.
+if (variable_global_exists("balance_test_active")
+	&& global.balance_test_active
+	&& (!variable_global_exists("balance_test_manual_tick_active")
+		|| !global.balance_test_manual_tick_active))
+{
+	exit;
+}
+
 // Move the projectile along a simple artillery arc.
 if (global.pause && !ignore_pause)
 {

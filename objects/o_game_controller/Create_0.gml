@@ -1678,9 +1678,9 @@ building_choices = [
 	{
 		building_object: o_pitlings_pit2,
 		building_sprite: s_hell_pit,
-		building_name: "Pitlings Pit",
+		building_name: "Demons Pit",
 		building_group: "Units",
-		building_description: "Spawns Pitlings every morning up to its own limit. Workers can create extra Pitlings.",
+		building_description: "Provides events for summoning and transforming demon squads.",
 		construction_costs: [
 			{
 				resource: RESOURCES.IRON,
@@ -1824,7 +1824,7 @@ foundry_shell_choices = [
 
 building_window_choices = building_choices;
 
-// Debug menu gives projectiles directly for fast gameplay testing.
+// Debug menu gives projectiles, units, and persistent squads for fast gameplay testing.
 debug_menu_open = false;
 debug_menu_width = 330;
 debug_menu_padding = 14;
@@ -1939,6 +1939,10 @@ debug_unit_choices = [
 		unit_object: o_skeleton_mage
 	},
 	{
+		label: "Skeleton Healer",
+		unit_object: o_skeleton_healer
+	},
+	{
 		label: "Skeleton Warrior",
 		unit_object: o_skeleton_warrior
 	},
@@ -1953,6 +1957,10 @@ debug_unit_choices = [
 	{
 		label: "Mawling",
 		unit_object: o_mawling
+	},
+	{
+		label: "Demon Wizard (Buffer)",
+		unit_object: o_demon_wizard
 	},
 	{
 		label: "Balgor",
@@ -1988,9 +1996,32 @@ debug_unit_choices = [
 	}
 ];
 
+debug_squad_choices = [
+	{ label: "SKEL BONELET", unit_object: o_skeleton_bonelet, squad_type: SQUAD_TYPE.UNDEAD, unit_count: BALANCE_SQUAD_SKELETON_COUNT },
+	{ label: "SKEL WARRIOR", unit_object: o_skeleton_warrior, squad_type: SQUAD_TYPE.UNDEAD, unit_count: BALANCE_SQUAD_SKELETON_COUNT },
+	{ label: "SKEL ARCHER", unit_object: o_skeleton_archer, squad_type: SQUAD_TYPE.UNDEAD, unit_count: BALANCE_SQUAD_SKELETON_COUNT },
+	{ label: "SKEL MAGE", unit_object: o_skeleton_mage, squad_type: SQUAD_TYPE.UNDEAD, unit_count: BALANCE_SQUAD_SKELETON_COUNT },
+	{ label: "SKEL HEALER", unit_object: o_skeleton_healer, squad_type: SQUAD_TYPE.UNDEAD, unit_count: BALANCE_SQUAD_SKELETON_COUNT },
+	{ label: "MAWLING", unit_object: o_mawling, squad_type: SQUAD_TYPE.DEMON, unit_count: BALANCE_SQUAD_PITLING_COUNT },
+	{ label: "DEMON WIZARD", unit_object: o_demon_wizard, squad_type: SQUAD_TYPE.DEMON, unit_count: BALANCE_SQUAD_PITLING_COUNT },
+	{ label: "PITLING", unit_object: o_pitling, squad_type: SQUAD_TYPE.DEMON, unit_count: BALANCE_SQUAD_PITLING_COUNT },
+	{ label: "SUCCUBUS", unit_object: o_succubus, squad_type: SQUAD_TYPE.DEMON, unit_count: BALANCE_SQUAD_PITLING_COUNT },
+	{ label: "BALGOR", unit_object: o_balgor, squad_type: SQUAD_TYPE.DEMON, unit_count: BALANCE_SQUAD_PITLING_COUNT }
+];
+
 debug_menu_choices_get = function()
 {
-	return debug_menu_tab == "units" ? debug_unit_choices : debug_shell_choices;
+	if (debug_menu_tab == "units")
+	{
+		return debug_unit_choices;
+	}
+
+	if (debug_menu_tab == "squads")
+	{
+		return debug_squad_choices;
+	}
+
+	return debug_shell_choices;
 };
 
 debug_menu_height_get = function()
@@ -2028,7 +2059,7 @@ debug_shell_choice_rect_get = function(_choice_index)
 
 debug_menu_tab_rect_get = function(_tab_index)
 {
-	var _tab_count = 2;
+	var _tab_count = 3;
 	var _available_width = debug_menu_width - (debug_menu_padding * 2) - debug_menu_button_gap;
 	var _tab_width = _available_width / _tab_count;
 
@@ -2038,6 +2069,27 @@ debug_menu_tab_rect_get = function(_tab_index)
 		width: _tab_width,
 		height: debug_menu_tab_height
 	};
+};
+
+debug_squad_create = function(_choice)
+{
+	if (!variable_struct_exists(_choice, "unit_object")
+		|| !variable_struct_exists(_choice, "squad_type")
+		|| !variable_struct_exists(_choice, "unit_count"))
+	{
+		return false;
+	}
+
+	var _squad_type = _choice.squad_type;
+	var _squad_count = squad_type_count_get(_squad_type);
+
+	// The cheat is allowed to exceed the limit and permanently grows it to fit the new squad.
+	if (_squad_count >= global.squad_limits[_squad_type])
+	{
+		global.squad_limits[_squad_type] = _squad_count + 1;
+	}
+
+	return is_struct(squad_create(_squad_type, _choice.unit_object, _choice.unit_count));
 };
 
 debug_unit_spawn = function(_unit_object, _spawn_count = 1)
@@ -2101,6 +2153,11 @@ debug_unit_spawn = function(_unit_object, _spawn_count = 1)
 
 debug_menu_choice_activate = function(_choice, _unit_spawn_count = 1)
 {
+	if (debug_menu_tab == "squads")
+	{
+		return debug_squad_create(_choice);
+	}
+
 	if (debug_menu_tab == "units" && variable_struct_exists(_choice, "unit_object"))
 	{
 		return debug_unit_spawn(_choice.unit_object, _unit_spawn_count);
@@ -2200,10 +2257,11 @@ debug_menu_draw = function()
 		draw_set_font(global.ui_font);
 	}
 
-	var _tab_labels = ["Shells", "Units"];
-	var _tab_ids = ["shells", "units"];
+	var _tab_labels = ["Shells", "Units", "Squads"];
+	var _tab_ids = ["shells", "units", "squads"];
+	var _tab_count = array_length(_tab_ids);
 
-	for (var _tab_index = 0; _tab_index < 2; ++_tab_index)
+	for (var _tab_index = 0; _tab_index < _tab_count; ++_tab_index)
 	{
 		var _tab_rect = debug_menu_tab_rect_get(_tab_index);
 		var _tab_is_active = debug_menu_tab == _tab_ids[_tab_index];
@@ -2234,7 +2292,9 @@ debug_menu_draw = function()
 		debug_menu_y + debug_menu_padding + debug_menu_title_height + debug_menu_tab_height + debug_menu_button_gap + 10,
 		debug_menu_tab == "units"
 			? "Spawn: LMB x1 / RMB x5"
-			: "Give Shell  |  Queue: " + string(_queue_count) + "/" + string(global.cannon_projectile_queue_max)
+			: (debug_menu_tab == "squads"
+				? "Add one squad (limit grows automatically)"
+				: "Give Shell  |  Queue: " + string(_queue_count) + "/" + string(global.cannon_projectile_queue_max))
 	);
 
 	for (var _choice_index = 0; _choice_index < _choice_count; ++_choice_index)
@@ -7161,8 +7221,41 @@ enemy_object_stats_get = function(_enemy_object)
 enemy_object_stats_card_draw = function(_enemy_object, _hover_x, _hover_y)
 {
 	var _stats = enemy_object_stats_get(_enemy_object);
+	var _strong_against = [];
+	var _weak_against = [];
+
+	// Mirror the same matchup relationships shown when hovering units in the world.
+	if (_enemy_object == o_enemy_peasant)
+	{
+		_strong_against = [o_skeleton_mage, o_succubus];
+		_weak_against = [o_skeleton_warrior, o_balgor];
+	}
+	else if (_enemy_object == o_enemy_archer)
+	{
+		_strong_against = [o_balgor];
+		_weak_against = [o_skeleton_archer, o_pitling, o_succubus];
+	}
+	else if (_enemy_object == o_enemy_knight)
+	{
+		_strong_against = [o_skeleton_archer];
+		_weak_against = [o_skeleton_mage, o_succubus, o_balgor];
+	}
+	else if (_enemy_object == o_enemy_mage)
+	{
+		_strong_against = [o_skeleton_warrior, o_pitling, o_balgor];
+		_weak_against = [o_skeleton_archer, o_skeleton_mage];
+	}
+	else if (_enemy_object == o_enemy_catapult)
+	{
+		_strong_against = [o_skeleton_archer, o_skeleton_mage];
+		_weak_against = [o_skeleton_warrior, o_balgor];
+	}
+
+	var _strong_count = array_length(_strong_against);
+	var _weak_count = array_length(_weak_against);
+	var _matchup_row_count = (_strong_count > 0 ? 1 : 0) + (_weak_count > 0 ? 1 : 0);
 	var _hover_width = 260;
-	var _hover_height = 208;
+	var _hover_height = 208 + (_matchup_row_count * 48) + (_matchup_row_count > 0 ? 12 : 0);
 	var _hover_padding = 14;
 	var _line_y = 42;
 	var _damage_text = "Damage: " + string_format(_stats.damage, 0, 1);
@@ -7204,6 +7297,79 @@ enemy_object_stats_card_draw = function(_enemy_object, _hover_x, _hover_y)
 	draw_text(_hover_x + _hover_padding, _hover_y + _line_y, "Armor: " + string_format(_stats.armor - 100, 0, 1) + "%");
 	_line_y += 20;
 	draw_text(_hover_x + _hover_padding, _hover_y + _line_y, "Magic resistance: " + string_format(_stats.magic_resistance - 100, 0, 1) + "%");
+	_line_y += 30;
+
+	// Draw player-unit portraits on green and red matchup circles.
+	var _matchup_icon_start_x = _hover_x + 126;
+	var _matchup_icon_gap = 42;
+	var _matchup_icon_radius = 18;
+	var _matchup_sprite_size = 28;
+
+	if (_strong_count > 0)
+	{
+		draw_set_color(COLOR_PROJECTILE_SUMMON);
+		draw_text(_hover_x + _hover_padding, _hover_y + _line_y + 8, "Strong vs");
+
+		for (var _strong_index = 0; _strong_index < _strong_count; ++_strong_index)
+		{
+			var _strong_object = _strong_against[_strong_index];
+			var _strong_sprite = object_get_sprite(_strong_object);
+			var _strong_x = _matchup_icon_start_x + (_matchup_icon_gap * _strong_index);
+			var _strong_y = _hover_y + _line_y + _matchup_icon_radius;
+
+			draw_set_alpha(0.9);
+			draw_set_color(COLOR_PROJECTILE_SUMMON);
+			draw_circle(_strong_x, _strong_y, _matchup_icon_radius, false);
+			draw_set_alpha(1);
+			draw_set_color(c_white);
+			draw_circle(_strong_x, _strong_y, _matchup_icon_radius, true);
+
+			if (_strong_sprite != -1)
+			{
+				var _strong_sprite_width = max(1, sprite_get_width(_strong_sprite));
+				var _strong_sprite_height = max(1, sprite_get_height(_strong_sprite));
+				var _strong_sprite_scale = min(_matchup_sprite_size / _strong_sprite_width, _matchup_sprite_size / _strong_sprite_height);
+				var _strong_draw_x = _strong_x + ((sprite_get_xoffset(_strong_sprite) - (_strong_sprite_width * 0.5)) * _strong_sprite_scale);
+				var _strong_draw_y = _strong_y + ((sprite_get_yoffset(_strong_sprite) - (_strong_sprite_height * 0.5)) * _strong_sprite_scale);
+
+				draw_sprite_ext(_strong_sprite, 0, _strong_draw_x, _strong_draw_y, _strong_sprite_scale, _strong_sprite_scale, 0, c_white, 1);
+			}
+		}
+
+		_line_y += 48;
+	}
+
+	if (_weak_count > 0)
+	{
+		draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+		draw_text(_hover_x + _hover_padding, _hover_y + _line_y + 8, "Weak vs");
+
+		for (var _weak_index = 0; _weak_index < _weak_count; ++_weak_index)
+		{
+			var _weak_object = _weak_against[_weak_index];
+			var _weak_sprite = object_get_sprite(_weak_object);
+			var _weak_x = _matchup_icon_start_x + (_matchup_icon_gap * _weak_index);
+			var _weak_y = _hover_y + _line_y + _matchup_icon_radius;
+
+			draw_set_alpha(0.9);
+			draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+			draw_circle(_weak_x, _weak_y, _matchup_icon_radius, false);
+			draw_set_alpha(1);
+			draw_set_color(c_white);
+			draw_circle(_weak_x, _weak_y, _matchup_icon_radius, true);
+
+			if (_weak_sprite != -1)
+			{
+				var _weak_sprite_width = max(1, sprite_get_width(_weak_sprite));
+				var _weak_sprite_height = max(1, sprite_get_height(_weak_sprite));
+				var _weak_sprite_scale = min(_matchup_sprite_size / _weak_sprite_width, _matchup_sprite_size / _weak_sprite_height);
+				var _weak_draw_x = _weak_x + ((sprite_get_xoffset(_weak_sprite) - (_weak_sprite_width * 0.5)) * _weak_sprite_scale);
+				var _weak_draw_y = _weak_y + ((sprite_get_yoffset(_weak_sprite) - (_weak_sprite_height * 0.5)) * _weak_sprite_scale);
+
+				draw_sprite_ext(_weak_sprite, 0, _weak_draw_x, _weak_draw_y, _weak_sprite_scale, _weak_sprite_scale, 0, c_white, 1);
+			}
+		}
+	}
 
 	draw_set_halign(fa_left);
 	draw_set_valign(fa_top);

@@ -1,3 +1,19 @@
+// The balance controller owns every simulation tick so x1 and accelerated runs stay identical.
+if (variable_global_exists("balance_test_active")
+	&& global.balance_test_active
+	&& (!variable_global_exists("balance_test_manual_tick_active")
+		|| !global.balance_test_manual_tick_active))
+{
+	exit;
+}
+
+if (balance_test_simulation_finished)
+{
+	is_walking = false;
+	is_attacking_target = false;
+	exit;
+}
+
 // Pause freezes unit AI and combat.
 if (global.pause)
 {
@@ -157,6 +173,7 @@ else if (is_assigned_to_building)
 
 // Status effects can damage, slow, mark, curse, or stun this unit.
 status_effect_update();
+support_effects_update();
 soul_chain_update();
 
 if (hp <= 0)

@@ -252,7 +252,7 @@ building_display_name_get = function()
 
 	if (object_index == o_pitlings_pit2)
 	{
-		return "Pitlings Pit";
+		return "Demons Pit";
 	}
 
 	if (object_index == o_graveyard2)
@@ -743,9 +743,9 @@ else if (object_index == o_pitlings_pit2)
 	summon_cost_add(RESOURCES.FLESH, BALANCE_PITLING_SUMMON_FLESH_COST);
 	summon_cost_add(RESOURCES.IRON, BALANCE_PITLING_SUMMON_IRON_COST);
 	summon_duration = BALANCE_PITLINGS_PIT2_PITLING_PRODUCTION_TIME;
-	building_tooltip_title = "Garrison";
-	building_tooltip_description = "Spawns Pitlings each morning up to this Pit's limit";
-	building_tooltip_detail = "Each morning spawns: " + string(BALANCE_PITLINGS_PIT2_BASE_PITLING_LIMIT) + " Pitlings. Workers make extra Pitlings with " + summon_cost_text_get() + ".";
+	building_tooltip_title = "Demon Events";
+	building_tooltip_description = "Provides events for demon squads";
+	building_tooltip_detail = "Summon Mawlings, transform them, or reinforce existing demon squads.";
 	building_tooltip_detail_color = production_bonus_stat_color;
 	building_has_upgrades = true;
 	production_speed_upgrade_index = noone;
@@ -1504,7 +1504,7 @@ garrison_owned_units_stats_refresh = function()
 
 garrison_morning_spawn_units = function()
 {
-	// Graveyard and Pitlings Pit now create persistent squads exclusively through day events.
+	// Graveyard and Demons Pit now create persistent squads exclusively through day events.
 	if (object_index == o_graveyard2 || object_index == o_pitlings_pit2)
 	{
 		return;

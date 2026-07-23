@@ -5,7 +5,7 @@ jobs_panel_width = 864;
 jobs_panel_height = 898;
 jobs_pool_width = 700;
 jobs_pool_height = 86;
-jobs_event_height = 108;
+jobs_event_height = 132;
 jobs_event_gap = 6;
 jobs_icon_width = 38;
 jobs_icon_height = 60;
@@ -19,6 +19,10 @@ jobs_scrollbar_gap = 12;
 jobs_dragged_cultist = noone;
 jobs_show_hovered = false;
 jobs_end_hovered = false;
+jobs_squad_selector_event = noone;
+jobs_squad_selector_width = 150;
+jobs_squad_selector_height = 28;
+jobs_squad_selector_option_height = 30;
 
 // Window-specific fonts match the Figma hierarchy.
 jobs_title_font = font_add("Arial", 16, true, false, 32, 1279);
@@ -89,6 +93,41 @@ jobs_event_rect_get = function(_event_index)
 		y: _layout.event_y + (_event_step * _event_index) - (jobs_scroll_offset * _layout.scale),
 		width: _layout.event_width,
 		height: _layout.event_height
+	};
+};
+
+jobs_squad_selector_rect_get = function(_event_index)
+{
+	var _layout = jobs_layout_get();
+	var _event_rect = jobs_event_rect_get(_event_index);
+
+	return {
+		x: _event_rect.x + (270 * _layout.scale),
+		y: _event_rect.y + (96 * _layout.scale),
+		width: jobs_squad_selector_width * _layout.scale,
+		height: jobs_squad_selector_height * _layout.scale
+	};
+};
+
+jobs_squad_selector_option_rect_get = function(_event_index, _option_index)
+{
+	var _layout = jobs_layout_get();
+	var _selector_rect = jobs_squad_selector_rect_get(_event_index);
+	var _viewport = jobs_event_viewport_get();
+	var _option_count = array_length(global.day_events[_event_index].eligible_squads);
+	var _option_height = jobs_squad_selector_option_height * _layout.scale;
+	var _options_y = _selector_rect.y + _selector_rect.height;
+
+	if (_options_y + (_option_count * _option_height) > _viewport.y + _viewport.height)
+	{
+		_options_y = _selector_rect.y - (_option_count * _option_height);
+	}
+
+	return {
+		x: _selector_rect.x,
+		y: _options_y + (_option_index * _option_height),
+		width: _selector_rect.width,
+		height: _option_height
 	};
 };
 
@@ -220,6 +259,7 @@ jobs_window_open = function()
 	}
 
 	jobs_dragged_cultist = noone;
+	jobs_squad_selector_event = noone;
 	jobs_scroll_offset = 0;
 	global.pause = true;
 	global.focus_window = FOCUS_WINDOW.JOBS;
@@ -229,6 +269,7 @@ jobs_window_open = function()
 jobs_window_close = function()
 {
 	jobs_dragged_cultist = noone;
+	jobs_squad_selector_event = noone;
 
 	if (global.focus_window == FOCUS_WINDOW.JOBS)
 	{

@@ -37,6 +37,43 @@ if (sprite_exists(sprite_index))
 	);
 }
 
+// Friendly support effects draw animated motes and a label above the target.
+var _support_label_y = y + visual_attack_offset_y - 44;
+
+if (array_length(support_buff_effects) > 0)
+{
+	for (var _particle_index = 0; _particle_index < 3; ++_particle_index)
+	{
+		var _particle_angle = (current_time * 0.18) + (_particle_index * 120);
+		draw_set_color(COLOR_SUPPORT_BUFF);
+		draw_circle(x + lengthdir_x(13, _particle_angle), y - 16 + lengthdir_y(6, _particle_angle), 2, false);
+	}
+
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_bottom);
+	draw_text(x, _support_label_y, "Buffed");
+	_support_label_y -= 16;
+}
+
+if (array_length(support_heal_effects) > 0)
+{
+	for (var _particle_index = 0; _particle_index < 3; ++_particle_index)
+	{
+		var _particle_angle = (-current_time * 0.15) + (_particle_index * 120);
+		draw_set_color(COLOR_SUPPORT_HEAL);
+		draw_circle(x + lengthdir_x(11, _particle_angle), y - 18 + lengthdir_y(7, _particle_angle), 2, false);
+	}
+
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_bottom);
+	draw_text(x, _support_label_y, "Heal");
+}
+
+draw_set_halign(fa_left);
+draw_set_valign(fa_top);
+draw_set_color(c_white);
+draw_set_alpha(1);
+
 // Corpse Armor is shown as a white defense particle over the protected unit.
 if (corpse_armor_timer > 0 && sprite_exists(s_defense_particle))
 {

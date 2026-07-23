@@ -98,6 +98,91 @@ jobs_scroll_clamp();
 
 if (mouse_check_button_pressed(mb_left))
 {
+	// Resolve an open squad selector before handling the rest of the jobs window.
+	if (is_struct(jobs_squad_selector_event))
+	{
+		var _selector_event_index = -1;
+		var _selector_global_event_count = array_length(global.day_events);
+
+		for (var _event_search_index = 0; _event_search_index < _selector_global_event_count; ++_event_search_index)
+		{
+			if (global.day_events[_event_search_index] == jobs_squad_selector_event)
+			{
+				_selector_event_index = _event_search_index;
+				break;
+			}
+		}
+
+		if (_selector_event_index >= 0)
+		{
+			var _eligible_squad_count = array_length(jobs_squad_selector_event.eligible_squads);
+
+			for (var _option_index = 0; _option_index < _eligible_squad_count; ++_option_index)
+			{
+				var _option_rect = jobs_squad_selector_option_rect_get(_selector_event_index, _option_index);
+
+				if (_mouse_is_over_event_viewport
+					&& point_in_rectangle(
+						_mouse_x,
+						_mouse_y,
+						_option_rect.x,
+						_option_rect.y,
+						_option_rect.x + _option_rect.width,
+						_option_rect.y + _option_rect.height
+					))
+				{
+					jobs_squad_selector_event.selected_squad = jobs_squad_selector_event.eligible_squads[_option_index];
+					jobs_squad_selector_event = noone;
+
+					if (variable_global_exists("ui_confirm_sound_play"))
+					{
+						global.ui_confirm_sound_play();
+					}
+
+					exit;
+				}
+			}
+		}
+	}
+
+	// Clicking a selector button opens all squads allowed for that event.
+	var _selector_button_clicked = false;
+	var _selector_event_count = array_length(global.day_events);
+
+	for (var _event_index = 0; _event_index < _selector_event_count; ++_event_index)
+	{
+		var _event = global.day_events[_event_index];
+
+		if (!variable_struct_exists(_event, "requires_squad_selection") || !_event.requires_squad_selection)
+		{
+			continue;
+		}
+
+		var _selector_rect = jobs_squad_selector_rect_get(_event_index);
+
+		if (_mouse_is_over_event_viewport
+			&& point_in_rectangle(
+				_mouse_x,
+				_mouse_y,
+				_selector_rect.x,
+				_selector_rect.y,
+				_selector_rect.x + _selector_rect.width,
+				_selector_rect.y + _selector_rect.height
+			))
+		{
+			jobs_squad_selector_event = jobs_squad_selector_event == _event ? noone : _event;
+			_selector_button_clicked = true;
+			break;
+		}
+	}
+
+	if (_selector_button_clicked)
+	{
+		exit;
+	}
+
+	jobs_squad_selector_event = noone;
+
 	var _close_clicked = point_in_rectangle(
 		_mouse_x,
 		_mouse_y,

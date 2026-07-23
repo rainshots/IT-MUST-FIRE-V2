@@ -2033,6 +2033,285 @@ if (variable_global_exists("cannon_projectile_queue")
 	}
 }
 
+// Draw squad-card help and the RMB information window above the rest of the HUD.
+if (_regular_hud_is_visible && variable_global_exists("squads"))
+{
+	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+	{
+		draw_set_font(global.ui_font);
+	}
+
+	var _squad_info_mouse_x = device_mouse_x_to_gui(0);
+	var _squad_info_mouse_y = device_mouse_y_to_gui(0);
+	var _hovered_roster_squad = hud_squad_at_gui_position(_squad_info_mouse_x, _squad_info_mouse_y);
+
+	if (is_struct(_hovered_roster_squad))
+	{
+		var _hint_text = "Press RMB for info";
+		var _hint_padding = 7;
+		var _hint_width = string_width(_hint_text) + (_hint_padding * 2);
+		var _hint_height = string_height(_hint_text) + (_hint_padding * 2);
+		var _hint_x = min(_squad_info_mouse_x + 14, display_get_gui_width() - _hint_width - 8);
+		var _hint_y = min(_squad_info_mouse_y + 14, display_get_gui_height() - _hint_height - 8);
+
+		draw_set_alpha(0.94);
+		draw_set_color(COLOR_HUD_BACKGROUND);
+		draw_rectangle(_hint_x, _hint_y, _hint_x + _hint_width, _hint_y + _hint_height, false);
+		draw_set_alpha(1);
+		draw_set_color(COLOR_PROJECTILE_SUMMON);
+		draw_rectangle(_hint_x, _hint_y, _hint_x + _hint_width, _hint_y + _hint_height, true);
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text(_hint_x + _hint_padding, _hint_y + _hint_padding, _hint_text);
+	}
+
+	if (is_struct(squad_info_squad))
+	{
+		var _gui_width = display_get_gui_width();
+		var _gui_height = display_get_gui_height();
+		var _window_width = min(squad_info_window_width, _gui_width - 36);
+		var _window_height = min(squad_info_window_height, _gui_height - 36);
+		var _window_x = (_gui_width - _window_width) * 0.5;
+		var _window_y = max(18, (_gui_height - _window_height) * 0.5);
+		var _unit_objects = hud_squad_unique_unit_objects_get(squad_info_squad);
+		var _unit_type_count = array_length(_unit_objects);
+		var _hovered_unit_object = noone;
+
+		draw_set_alpha(0.97);
+		draw_set_color(COLOR_HUD_BACKGROUND);
+		draw_rectangle(_window_x, _window_y, _window_x + _window_width, _window_y + _window_height, false);
+		draw_set_alpha(1);
+		draw_set_color(COLOR_PROJECTILE_SUMMON);
+		draw_rectangle(_window_x, _window_y, _window_x + _window_width, _window_y + _window_height, true);
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text(_window_x + squad_info_padding, _window_y + 16, squad_info_squad.name);
+		draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+		draw_text(_window_x + _window_width - 110, _window_y + 16, "RMB: close");
+
+		for (var _unit_type_index = 0; _unit_type_index < _unit_type_count; ++_unit_type_index)
+		{
+			var _unit_object = _unit_objects[_unit_type_index];
+			var _icon_rect = hud_squad_info_unit_icon_rect_get(_window_x, _window_y, _unit_type_index);
+			var _icon_is_hovered = point_in_rectangle(
+				_squad_info_mouse_x,
+				_squad_info_mouse_y,
+				_icon_rect.x,
+				_icon_rect.y,
+				_icon_rect.x + _icon_rect.width,
+				_icon_rect.y + _icon_rect.height
+			);
+
+			draw_set_alpha(_icon_is_hovered ? 0.95 : 0.72);
+			draw_set_color(COLOR_SQUAD_CARD_BACKGROUND);
+			draw_rectangle(_icon_rect.x, _icon_rect.y, _icon_rect.x + _icon_rect.width, _icon_rect.y + _icon_rect.height, false);
+			draw_set_alpha(1);
+			draw_set_color(_icon_is_hovered ? COLOR_PROJECTILE_SUMMON : COLOR_SQUAD_CARD_BORDER);
+			draw_rectangle(_icon_rect.x, _icon_rect.y, _icon_rect.x + _icon_rect.width, _icon_rect.y + _icon_rect.height, true);
+
+			var _icon_unit = hud_squad_unit_instance_get(squad_info_squad, _unit_object);
+			var _unit_sprite = instance_exists(_icon_unit)
+				? _icon_unit.sprite_index
+				: object_get_sprite(_unit_object);
+
+			if (_unit_sprite != -1)
+			{
+				var _sprite_width = max(1, sprite_get_width(_unit_sprite));
+				var _sprite_height = max(1, sprite_get_height(_unit_sprite));
+				var _sprite_scale = min((_icon_rect.width - 8) / _sprite_width, (_icon_rect.height - 8) / _sprite_height);
+				var _sprite_center_x = _icon_rect.x + (_icon_rect.width * 0.5);
+				var _sprite_center_y = _icon_rect.y + (_icon_rect.height * 0.5);
+				var _sprite_x = _sprite_center_x + ((sprite_get_xoffset(_unit_sprite) - (_sprite_width * 0.5)) * _sprite_scale);
+				var _sprite_y = _sprite_center_y + ((sprite_get_yoffset(_unit_sprite) - (_sprite_height * 0.5)) * _sprite_scale);
+
+				draw_sprite_ext(_unit_sprite, 0, _sprite_x, _sprite_y, _sprite_scale, _sprite_scale, 0, c_white, 1);
+			}
+
+			if (_icon_is_hovered)
+			{
+				_hovered_unit_object = _unit_object;
+			}
+		}
+
+		if (_hovered_unit_object == noone)
+		{
+			draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+			draw_text(_window_x + squad_info_padding, _window_y + 124, "Hover a unit type to inspect its current stats.");
+		}
+		else
+		{
+			var _unit = hud_squad_unit_instance_get(squad_info_squad, _hovered_unit_object);
+			var _unit_type_count = hud_squad_unit_type_count_get(squad_info_squad, _hovered_unit_object);
+			var _base_stats = hud_unit_base_stats_get(_hovered_unit_object);
+			var _stats_x = _window_x + squad_info_padding;
+			var _stats_y = _window_y + 150;
+			var _line_height = 23;
+
+			draw_set_color(COLOR_HUD_TEXT);
+			draw_text(
+				_stats_x,
+				_window_y + 120,
+				hud_unit_display_name_get(_hovered_unit_object) + " - in squad: " + string(_unit_type_count)
+			);
+
+			if (!instance_exists(_unit))
+			{
+				draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+				draw_text(_stats_x, _stats_y, "No living unit of this type.");
+			}
+			else
+			{
+				if (!is_struct(_base_stats))
+				{
+					_base_stats = {
+						max_hp: variable_instance_exists(_unit, "max_hp") ? _unit.max_hp : 0,
+						armor: variable_instance_exists(_unit, "armor") ? _unit.armor : 100,
+						magic_resistance: variable_instance_exists(_unit, "magic_resistance") ? _unit.magic_resistance : 100,
+						damage: variable_instance_exists(_unit, "damage") ? _unit.damage : 0,
+						magic_damage: variable_instance_exists(_unit, "magic_damage") ? _unit.magic_damage : 0,
+						reload_time: variable_instance_exists(_unit, "reload_time") ? _unit.reload_time : room_speed,
+						attack_radius: variable_instance_exists(_unit, "attack_radius") ? _unit.attack_radius : 0,
+						move_speed: variable_instance_exists(_unit, "move_speed") ? _unit.move_speed : 0
+					};
+				}
+
+				draw_set_color(COLOR_HUD_TEXT);
+
+				if (variable_instance_exists(_unit, "hp") && variable_instance_exists(_unit, "max_hp"))
+				{
+					draw_text(_stats_x, _stats_y, "Current HP: " + string_format(_unit.hp, 0, 1) + " / " + string_format(_unit.max_hp, 0, 1));
+					_stats_y += _line_height;
+					hud_squad_info_stat_draw("Max HP", _unit.max_hp, _base_stats.max_hp, _stats_x, _stats_y, 1);
+					_stats_y += _line_height;
+				}
+
+				if (variable_instance_exists(_unit, "damage"))
+				{
+					hud_squad_info_stat_draw("Damage", _unit.damage, _base_stats.damage, _stats_x, _stats_y, 1);
+					_stats_y += _line_height;
+				}
+
+				if (variable_instance_exists(_unit, "magic_damage")
+					&& (_unit.magic_damage > 0 || _base_stats.magic_damage > 0))
+				{
+					hud_squad_info_stat_draw("Magic damage", _unit.magic_damage, _base_stats.magic_damage, _stats_x, _stats_y, 1);
+					_stats_y += _line_height;
+				}
+
+				if (variable_instance_exists(_unit, "reload_time"))
+				{
+					var _current_attack_speed = room_speed / max(1, _unit.reload_time);
+					var _base_attack_speed = room_speed / max(1, _base_stats.reload_time);
+
+					if (variable_instance_exists(_unit, "effective_attack_speed_get"))
+					{
+						_current_attack_speed = _unit.effective_attack_speed_get();
+					}
+
+					hud_squad_info_stat_draw("Attack speed", _current_attack_speed, _base_attack_speed, _stats_x, _stats_y, 2);
+					_stats_y += _line_height;
+				}
+
+				if (variable_instance_exists(_unit, "attack_radius"))
+				{
+					hud_squad_info_stat_draw("Attack radius", _unit.attack_radius, _base_stats.attack_radius, _stats_x, _stats_y, 0);
+					_stats_y += _line_height;
+				}
+
+				if (variable_instance_exists(_unit, "move_speed"))
+				{
+					hud_squad_info_stat_draw("Move speed", _unit.move_speed, _base_stats.move_speed, _stats_x, _stats_y, 2);
+					_stats_y += _line_height;
+				}
+
+				if (variable_instance_exists(_unit, "armor"))
+				{
+					hud_squad_info_stat_draw("Armor", _unit.armor - 100, _base_stats.armor - 100, _stats_x, _stats_y, 1, "%");
+					_stats_y += _line_height;
+				}
+
+				if (variable_instance_exists(_unit, "magic_resistance"))
+				{
+					hud_squad_info_stat_draw("Magic resistance", _unit.magic_resistance - 100, _base_stats.magic_resistance - 100, _stats_x, _stats_y, 1, "%");
+				}
+			}
+
+			var _matchups = hud_unit_matchups_get(_hovered_unit_object);
+			var _matchup_x = _window_x + 300;
+			var _matchup_y = _window_y + 150;
+			var _matchup_icon_radius = 18;
+			var _matchup_icon_gap = 44;
+			var _matchup_sprite_size = 28;
+			var _strong_count = array_length(_matchups.strong_against);
+			var _weak_count = array_length(_matchups.weak_against);
+
+			if (_strong_count > 0)
+			{
+				draw_set_color(COLOR_PROJECTILE_SUMMON);
+				draw_text(_matchup_x, _matchup_y, "Strong vs");
+				_matchup_y += 28;
+
+				for (var _strong_index = 0; _strong_index < _strong_count; ++_strong_index)
+				{
+					var _strong_object = _matchups.strong_against[_strong_index];
+					var _strong_sprite = object_get_sprite(_strong_object);
+					var _strong_x = _matchup_x + _matchup_icon_radius + (_strong_index * _matchup_icon_gap);
+					var _strong_y = _matchup_y + _matchup_icon_radius;
+
+					draw_set_color(COLOR_PROJECTILE_SUMMON);
+					draw_circle(_strong_x, _strong_y, _matchup_icon_radius, false);
+					draw_set_color(c_white);
+					draw_circle(_strong_x, _strong_y, _matchup_icon_radius, true);
+
+					if (_strong_sprite != -1)
+					{
+						var _strong_width = max(1, sprite_get_width(_strong_sprite));
+						var _strong_height = max(1, sprite_get_height(_strong_sprite));
+						var _strong_scale = min(_matchup_sprite_size / _strong_width, _matchup_sprite_size / _strong_height);
+						var _strong_draw_x = _strong_x + ((sprite_get_xoffset(_strong_sprite) - (_strong_width * 0.5)) * _strong_scale);
+						var _strong_draw_y = _strong_y + ((sprite_get_yoffset(_strong_sprite) - (_strong_height * 0.5)) * _strong_scale);
+						draw_sprite_ext(_strong_sprite, 0, _strong_draw_x, _strong_draw_y, _strong_scale, _strong_scale, 0, c_white, 1);
+					}
+				}
+
+				_matchup_y += 58;
+			}
+
+			if (_weak_count > 0)
+			{
+				draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+				draw_text(_matchup_x, _matchup_y, "Weak vs");
+				_matchup_y += 28;
+
+				for (var _weak_index = 0; _weak_index < _weak_count; ++_weak_index)
+				{
+					var _weak_object = _matchups.weak_against[_weak_index];
+					var _weak_sprite = object_get_sprite(_weak_object);
+					var _weak_x = _matchup_x + _matchup_icon_radius + (_weak_index * _matchup_icon_gap);
+					var _weak_y = _matchup_y + _matchup_icon_radius;
+
+					draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+					draw_circle(_weak_x, _weak_y, _matchup_icon_radius, false);
+					draw_set_color(c_white);
+					draw_circle(_weak_x, _weak_y, _matchup_icon_radius, true);
+
+					if (_weak_sprite != -1)
+					{
+						var _weak_width = max(1, sprite_get_width(_weak_sprite));
+						var _weak_height = max(1, sprite_get_height(_weak_sprite));
+						var _weak_scale = min(_matchup_sprite_size / _weak_width, _matchup_sprite_size / _weak_height);
+						var _weak_draw_x = _weak_x + ((sprite_get_xoffset(_weak_sprite) - (_weak_width * 0.5)) * _weak_scale);
+						var _weak_draw_y = _weak_y + ((sprite_get_yoffset(_weak_sprite) - (_weak_height * 0.5)) * _weak_scale);
+						draw_sprite_ext(_weak_sprite, 0, _weak_draw_x, _weak_draw_y, _weak_scale, _weak_scale, 0, c_white, 1);
+					}
+				}
+			}
+		}
+	}
+}
+
 // Restore default draw state.
 draw_set_halign(fa_left);
 draw_set_valign(fa_top);

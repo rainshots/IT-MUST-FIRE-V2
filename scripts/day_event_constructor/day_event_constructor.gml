@@ -19,6 +19,13 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 
 	activation_ready_count_get = function()
 	{
+		if (variable_struct_exists(self, "requires_squad_selection")
+			&& requires_squad_selection
+			&& (!variable_struct_exists(self, "selected_squad") || !is_struct(selected_squad)))
+		{
+			return 0;
+		}
+
 		var _assigned_count = array_length(assigned_cultists);
 		var _funded_count = floor(_assigned_count / cultist_cost);
 		return min(_funded_count, activation_limit - activation_count);

@@ -15,6 +15,386 @@ resource_sidebar_first_icon_offset_x = 34;
 resource_sidebar_item_gap = 94;
 resource_sidebar_value_offset_x = 36;
 
+// Squad information window opened from the roster cards with RMB.
+squad_info_squad = noone;
+global.squad_info_window_open = false;
+squad_info_window_width = 520;
+squad_info_window_height = 430;
+squad_info_padding = 18;
+squad_info_unit_icon_size = 52;
+squad_info_unit_icon_gap = 8;
+
+hud_squad_at_gui_position = function(_mouse_x, _mouse_y)
+{
+	if (!variable_global_exists("squads") || !variable_global_exists("squad_limits"))
+	{
+		return noone;
+	}
+
+	var _gui_height = display_get_gui_height();
+	var _scale = clamp(_gui_height / 1080, 0.6, 1);
+	var _card_width = 112 * _scale;
+	var _card_height = 145 * _scale;
+	var _card_gap = 19 * _scale;
+	var _card_start_x = 53 * _scale;
+	var _card_y = 42 * _scale;
+	var _card_index = 0;
+	var _squad_count = array_length(global.squads);
+
+	for (var _squad_type = SQUAD_TYPE.ARCHDEMON; _squad_type < SQUAD_TYPE.COUNT; ++_squad_type)
+	{
+		var _type_squad_count = 0;
+
+		for (var _squad_index = 0; _squad_index < _squad_count; ++_squad_index)
+		{
+			var _squad = global.squads[_squad_index];
+
+			if (_squad.squad_type != _squad_type)
+			{
+				continue;
+			}
+
+			var _card_x = _card_start_x + (_card_index * (_card_width + _card_gap));
+
+			if (point_in_rectangle(_mouse_x, _mouse_y, _card_x, _card_y, _card_x + _card_width, _card_y + _card_height))
+			{
+				return _squad;
+			}
+
+			_type_squad_count++;
+			_card_index++;
+		}
+
+		_card_index += max(0, global.squad_limits[_squad_type] - _type_squad_count);
+	}
+
+	return noone;
+};
+
+hud_squad_unique_unit_objects_get = function(_squad)
+{
+	var _unit_objects = [];
+
+	if (!is_struct(_squad))
+	{
+		return _unit_objects;
+	}
+
+	var _squad_unit_count = array_length(_squad.unit_objects);
+	var _live_unit_count = array_length(_squad.units);
+
+	for (var _unit_index = 0; _unit_index < _squad_unit_count; ++_unit_index)
+	{
+		var _unit_object = _squad.unit_objects[_unit_index];
+
+		if (_unit_index < _live_unit_count && instance_exists(_squad.units[_unit_index]))
+		{
+			_unit_object = _squad.units[_unit_index].object_index;
+		}
+
+		var _object_is_added = false;
+		var _unique_count = array_length(_unit_objects);
+
+		for (var _unique_index = 0; _unique_index < _unique_count; ++_unique_index)
+		{
+			if (_unit_objects[_unique_index] == _unit_object)
+			{
+				_object_is_added = true;
+				break;
+			}
+		}
+
+		if (!_object_is_added)
+		{
+			array_push(_unit_objects, _unit_object);
+		}
+	}
+
+	return _unit_objects;
+};
+
+hud_squad_unit_instance_get = function(_squad, _unit_object)
+{
+	if (!is_struct(_squad))
+	{
+		return noone;
+	}
+
+	var _unit_count = array_length(_squad.units);
+
+	for (var _unit_index = 0; _unit_index < _unit_count; ++_unit_index)
+	{
+		var _unit = _squad.units[_unit_index];
+
+		if (instance_exists(_unit) && _unit.object_index == _unit_object)
+		{
+			return _unit;
+		}
+	}
+
+	return noone;
+};
+
+hud_squad_unit_type_count_get = function(_squad, _unit_object)
+{
+	if (!is_struct(_squad))
+	{
+		return 0;
+	}
+
+	var _matching_unit_count = 0;
+	var _squad_unit_count = array_length(_squad.unit_objects);
+	var _live_unit_count = array_length(_squad.units);
+
+	for (var _unit_index = 0; _unit_index < _squad_unit_count; ++_unit_index)
+	{
+		var _squad_unit_object = _squad.unit_objects[_unit_index];
+
+		if (_unit_index < _live_unit_count && instance_exists(_squad.units[_unit_index]))
+		{
+			_squad_unit_object = _squad.units[_unit_index].object_index;
+		}
+
+		if (_squad_unit_object == _unit_object)
+		{
+			_matching_unit_count++;
+		}
+	}
+
+	return _matching_unit_count;
+};
+
+hud_unit_display_name_get = function(_unit_object)
+{
+	if (_unit_object == o_skeleton_bonelet)
+	{
+		return "Skeleton Bonelet";
+	}
+
+	if (_unit_object == o_skeleton_warrior)
+	{
+		return "Skeleton Warrior";
+	}
+
+	if (_unit_object == o_skeleton_archer)
+	{
+		return "Skeleton Archer";
+	}
+
+	if (_unit_object == o_skeleton_mage)
+	{
+		return "Skeleton Mage";
+	}
+
+	if (_unit_object == o_skeleton_healer)
+	{
+		return "Skeleton Healer";
+	}
+
+	if (_unit_object == o_skeleton)
+	{
+		return "Skeleton";
+	}
+
+	if (_unit_object == o_mawling)
+	{
+		return "Mawling";
+	}
+
+	if (_unit_object == o_pitling)
+	{
+		return "Pitling";
+	}
+
+	if (_unit_object == o_succubus)
+	{
+		return "Succubus";
+	}
+
+	if (_unit_object == o_balgor)
+	{
+		return "Balgor";
+	}
+
+	if (_unit_object == o_demon_wizard)
+	{
+		return "Demon Wizard";
+	}
+
+	if (_unit_object == o_imp)
+	{
+		return "Imp";
+	}
+
+	if (_unit_object == o_brute)
+	{
+		return "Brute";
+	}
+
+	if (_unit_object == o_warlock)
+	{
+		return "Warlock";
+	}
+
+	if (_unit_object == o_archdemon)
+	{
+		return "Archdemon";
+	}
+
+	return object_get_name(_unit_object);
+};
+
+hud_unit_base_stats_create = function(
+	_max_hp,
+	_armor,
+	_magic_resistance,
+	_damage,
+	_magic_damage,
+	_reload_time,
+	_attack_radius,
+	_move_speed
+)
+{
+	return {
+		max_hp: _max_hp,
+		armor: _armor,
+		magic_resistance: _magic_resistance,
+		damage: _damage,
+		magic_damage: _magic_damage,
+		reload_time: _reload_time * room_speed,
+		attack_radius: _attack_radius,
+		move_speed: _move_speed
+	};
+};
+
+hud_unit_base_stats_get = function(_unit_object)
+{
+	var _stats = noone;
+
+	if (_unit_object == o_skeleton_bonelet)
+	{
+		_stats = hud_unit_base_stats_create(BALANCE_SKELETON_BONELET_HP, BALANCE_SKELETON_BONELET_ARMOR, BALANCE_SKELETON_BONELET_MAGIC_RESISTANCE, BALANCE_SKELETON_BONELET_DAMAGE, 0, BALANCE_SKELETON_BONELET_RELOAD_TIME, BALANCE_SKELETON_BONELET_ATTACK_RADIUS, BALANCE_SKELETON_BONELET_MOVE_SPEED);
+	}
+	else if (_unit_object == o_skeleton_warrior)
+	{
+		_stats = hud_unit_base_stats_create(BALANCE_SKELETON_WARRIOR_HP, BALANCE_SKELETON_WARRIOR_ARMOR, BALANCE_SKELETON_WARRIOR_MAGIC_RESISTANCE, BALANCE_SKELETON_WARRIOR_DAMAGE, 0, BALANCE_SKELETON_WARRIOR_RELOAD_TIME, BALANCE_SKELETON_WARRIOR_ATTACK_RADIUS, BALANCE_SKELETON_WARRIOR_MOVE_SPEED);
+	}
+	else if (_unit_object == o_skeleton_archer)
+	{
+		_stats = hud_unit_base_stats_create(BALANCE_SKELETON_ARCHER_HP, BALANCE_SKELETON_ARCHER_ARMOR, BALANCE_SKELETON_ARCHER_MAGIC_RESISTANCE, BALANCE_SKELETON_ARCHER_DAMAGE, 0, BALANCE_SKELETON_ARCHER_RELOAD_TIME, BALANCE_SKELETON_ARCHER_ATTACK_RADIUS, BALANCE_SKELETON_ARCHER_MOVE_SPEED);
+	}
+	else if (_unit_object == o_skeleton_mage)
+	{
+		_stats = hud_unit_base_stats_create(BALANCE_SKELETON_MAGE_HP, BALANCE_SKELETON_MAGE_ARMOR, BALANCE_SKELETON_MAGE_MAGIC_RESISTANCE, 0, BALANCE_SKELETON_MAGE_MAGIC_DAMAGE, BALANCE_SKELETON_MAGE_RELOAD_TIME, BALANCE_SKELETON_MAGE_ATTACK_RADIUS, BALANCE_SKELETON_MAGE_MOVE_SPEED);
+	}
+	else if (_unit_object == o_skeleton_healer)
+	{
+		_stats = hud_unit_base_stats_create(BALANCE_SKELETON_HEALER_HP, BALANCE_SKELETON_HEALER_ARMOR, BALANCE_SKELETON_HEALER_MAGIC_RESISTANCE, BALANCE_SKELETON_HEALER_DAMAGE, BALANCE_SKELETON_HEALER_MAGIC_DAMAGE, BALANCE_SKELETON_HEALER_RELOAD_TIME, BALANCE_SKELETON_HEALER_ATTACK_RADIUS, BALANCE_SKELETON_HEALER_MOVE_SPEED);
+	}
+	else if (_unit_object == o_skeleton)
+	{
+		_stats = hud_unit_base_stats_create(BALANCE_SKELETON_HP, BALANCE_SKELETON_ARMOR, BALANCE_SKELETON_MAGIC_RESISTANCE, BALANCE_SKELETON_DAMAGE, 0, BALANCE_SKELETON_RELOAD_TIME, BALANCE_SKELETON_ATTACK_RADIUS, BALANCE_SKELETON_MOVE_SPEED);
+	}
+	else if (_unit_object == o_mawling)
+	{
+		_stats = hud_unit_base_stats_create(BALANCE_MAWLING_HP, BALANCE_MAWLING_ARMOR, BALANCE_MAWLING_MAGIC_RESISTANCE, BALANCE_MAWLING_DAMAGE, 0, BALANCE_MAWLING_RELOAD_TIME, BALANCE_MAWLING_ATTACK_RADIUS, BALANCE_MAWLING_MOVE_SPEED);
+	}
+	else if (_unit_object == o_pitling)
+	{
+		_stats = hud_unit_base_stats_create(BALANCE_PITLING_HP, BALANCE_PITLING_ARMOR, BALANCE_PITLING_MAGIC_RESISTANCE, BALANCE_PITLING_DAMAGE, 0, BALANCE_PITLING_RELOAD_TIME, BALANCE_PITLING_ATTACK_RADIUS, BALANCE_PITLING_MOVE_SPEED);
+	}
+	else if (_unit_object == o_succubus)
+	{
+		_stats = hud_unit_base_stats_create(BALANCE_SUCCUBUS_HP, BALANCE_SUCCUBUS_ARMOR, BALANCE_SUCCUBUS_MAGIC_RESISTANCE, BALANCE_SUCCUBUS_DAMAGE, BALANCE_SUCCUBUS_MAGIC_DAMAGE, BALANCE_SUCCUBUS_RELOAD_TIME, BALANCE_SUCCUBUS_ATTACK_RADIUS, BALANCE_SUCCUBUS_MOVE_SPEED);
+	}
+	else if (_unit_object == o_balgor)
+	{
+		_stats = hud_unit_base_stats_create(BALANCE_BALGOR_HP, BALANCE_BALGOR_ARMOR, BALANCE_BALGOR_MAGIC_RESISTANCE, BALANCE_BALGOR_DAMAGE, 0, BALANCE_BALGOR_RELOAD_TIME, BALANCE_BALGOR_ATTACK_RADIUS, BALANCE_BALGOR_MOVE_SPEED);
+	}
+	else if (_unit_object == o_demon_wizard)
+	{
+		_stats = hud_unit_base_stats_create(BALANCE_DEMON_WIZARD_HP, BALANCE_DEMON_WIZARD_ARMOR, BALANCE_DEMON_WIZARD_MAGIC_RESISTANCE, BALANCE_DEMON_WIZARD_DAMAGE, BALANCE_DEMON_WIZARD_MAGIC_DAMAGE, BALANCE_DEMON_WIZARD_RELOAD_TIME, BALANCE_DEMON_WIZARD_ATTACK_RADIUS, BALANCE_DEMON_WIZARD_MOVE_SPEED);
+	}
+	else if (_unit_object == o_imp)
+	{
+		_stats = hud_unit_base_stats_create(BALANCE_IMP_HP, BALANCE_IMP_ARMOR, BALANCE_IMP_RESISTANCE, BALANCE_IMP_DAMAGE, 0, 1 / BALANCE_IMP_ATTACK_SPEED, BALANCE_IMP_ATTACK_RADIUS, BALANCE_IMP_MOVE_SPEED);
+	}
+	else if (_unit_object == o_brute)
+	{
+		_stats = hud_unit_base_stats_create(BALANCE_BRUTE_HP, BALANCE_BRUTE_ARMOR, BALANCE_BRUTE_RESISTANCE, BALANCE_BRUTE_DAMAGE, 0, 1 / BALANCE_BRUTE_ATTACK_SPEED, BALANCE_BRUTE_ATTACK_RADIUS, BALANCE_BRUTE_MOVE_SPEED);
+	}
+	else if (_unit_object == o_warlock)
+	{
+		_stats = hud_unit_base_stats_create(BALANCE_WARLOCK_HP, BALANCE_WARLOCK_ARMOR, BALANCE_WARLOCK_RESISTANCE, 0, BALANCE_WARLOCK_MAGIC_DAMAGE, 1 / BALANCE_WARLOCK_ATTACK_SPEED, BALANCE_WARLOCK_ATTACK_RADIUS, BALANCE_WARLOCK_MOVE_SPEED);
+	}
+
+	return _stats;
+};
+
+hud_unit_matchups_get = function(_unit_object)
+{
+	var _strong_against = [];
+	var _weak_against = [];
+
+	if (_unit_object == o_skeleton_warrior)
+	{
+		_strong_against = [o_enemy_peasant, o_enemy_catapult];
+		_weak_against = [o_enemy_mage];
+	}
+	else if (_unit_object == o_skeleton_archer)
+	{
+		_strong_against = [o_enemy_archer, o_enemy_mage];
+		_weak_against = [o_enemy_knight, o_enemy_catapult];
+	}
+	else if (_unit_object == o_skeleton_mage)
+	{
+		_strong_against = [o_enemy_knight, o_enemy_mage];
+		_weak_against = [o_enemy_peasant, o_enemy_catapult];
+	}
+	else if (_unit_object == o_pitling)
+	{
+		_strong_against = [o_enemy_archer];
+		_weak_against = [o_enemy_mage];
+	}
+	else if (_unit_object == o_succubus)
+	{
+		_strong_against = [o_enemy_archer, o_enemy_knight];
+		_weak_against = [o_enemy_peasant];
+	}
+	else if (_unit_object == o_balgor)
+	{
+		_strong_against = [o_enemy_peasant, o_enemy_knight, o_enemy_catapult];
+		_weak_against = [o_enemy_archer, o_enemy_mage];
+	}
+
+	return { strong_against: _strong_against, weak_against: _weak_against };
+};
+
+hud_squad_info_unit_icon_rect_get = function(_window_x, _window_y, _unit_index)
+{
+	return {
+		x: _window_x + squad_info_padding + (_unit_index * (squad_info_unit_icon_size + squad_info_unit_icon_gap)),
+		y: _window_y + 54,
+		width: squad_info_unit_icon_size,
+		height: squad_info_unit_icon_size
+	};
+};
+
+hud_squad_info_stat_draw = function(_label, _current_value, _base_value, _x, _y, _decimal_places = 1, _suffix = "")
+{
+	var _text = _label + ": " + string_format(_current_value, 0, _decimal_places) + _suffix;
+	draw_set_color(COLOR_HUD_TEXT);
+	draw_text(_x, _y, _text);
+	var _difference = _current_value - _base_value;
+
+	if (abs(_difference) > 0.001)
+	{
+		var _difference_prefix = _difference > 0 ? "+" : "";
+		draw_set_color(_difference > 0 ? COLOR_PROJECTILE_SUMMON : COLOR_STATUS_NEGATIVE_RED);
+		draw_text(_x + string_width(_text) + 6, _y, "(" + _difference_prefix + string_format(_difference, 0, _decimal_places) + _suffix + ")");
+	}
+};
+
 // Cannon HP follows the wide bottom-bar concept from the HUD design.
 cannon_hp_bar_width_share = 0.31875;
 cannon_hp_fill_height_share = 0.0236;

@@ -69,6 +69,8 @@ guard_radius = 220;
 unit_can_attack_cannon = true;
 // Debug-spawned units use combat deployment rules without joining persistent squads.
 debug_combat_spawned = false;
+balance_test_match_id = -1;
+balance_test_simulation_finished = false;
 is_night_attack_unit = false;
 holy_tower_reinforcement_waits_for_night = false;
 
@@ -210,6 +212,109 @@ status_effect_source_factions = array_create(STATUS_EFFECT.COUNT, UNIT_FACTION.N
 status_effect_curse_extended = array_create(STATUS_EFFECT.COUNT, false);
 status_effect_particle_timers = array_create(STATUS_EFFECT.COUNT, 0);
 
+// Friendly support effects keep separate entries for every caster.
+support_buff_effects = [];
+support_heal_effects = [];
+
+support_buff_has_source = function(_source)
+{
+	for (var _effect_index = 0; _effect_index < array_length(support_buff_effects); ++_effect_index)
+	{
+		if (support_buff_effects[_effect_index].source == _source)
+		{
+			return true;
+		}
+	}
+
+	return false;
+};
+
+support_heal_has_source = function(_source)
+{
+	for (var _effect_index = 0; _effect_index < array_length(support_heal_effects); ++_effect_index)
+	{
+		if (support_heal_effects[_effect_index].source == _source)
+		{
+			return true;
+		}
+	}
+
+	return false;
+};
+
+support_buff_add = function(_source, _duration, _multiplier)
+{
+	if (support_buff_has_source(_source))
+	{
+		return false;
+	}
+
+	array_push(support_buff_effects, {
+		source: _source,
+		timer: max(1, floor(_duration)),
+		multiplier: _multiplier
+	});
+
+	if (variable_instance_exists(id, "move_speed")) move_speed *= _multiplier;
+	if (variable_instance_exists(id, "damage")) damage *= _multiplier;
+	if (variable_instance_exists(id, "magic_damage")) magic_damage *= _multiplier;
+	return true;
+};
+
+support_heal_add = function(_source, _duration, _interval, _heal_amount)
+{
+	if (support_heal_has_source(_source))
+	{
+		return false;
+	}
+
+	array_push(support_heal_effects, {
+		source: _source,
+		timer: max(1, floor(_duration)),
+		tick_timer: max(1, floor(_interval)),
+		tick_interval: max(1, floor(_interval)),
+		heal_amount: _heal_amount
+	});
+	return true;
+};
+
+support_effects_update = function()
+{
+	for (var _effect_index = array_length(support_buff_effects) - 1; _effect_index >= 0; --_effect_index)
+	{
+		var _buff = support_buff_effects[_effect_index];
+		_buff.timer--;
+
+		if (_buff.timer > 0)
+		{
+			continue;
+		}
+
+		if (variable_instance_exists(id, "move_speed")) move_speed /= _buff.multiplier;
+		if (variable_instance_exists(id, "damage")) damage /= _buff.multiplier;
+		if (variable_instance_exists(id, "magic_damage")) magic_damage /= _buff.multiplier;
+		array_delete(support_buff_effects, _effect_index, 1);
+	}
+
+	for (var _effect_index = array_length(support_heal_effects) - 1; _effect_index >= 0; --_effect_index)
+	{
+		var _heal = support_heal_effects[_effect_index];
+		_heal.timer--;
+		_heal.tick_timer--;
+
+		if (_heal.tick_timer <= 0)
+		{
+			hp = min(max_hp, hp + _heal.heal_amount);
+			_heal.tick_timer = _heal.tick_interval;
+		}
+
+		if (_heal.timer <= 0)
+		{
+			array_delete(support_heal_effects, _effect_index, 1);
+		}
+	}
+};
+
 // Health bar visual settings.
 bar_width = 34;
 bar_height = 4;
@@ -271,6 +376,16 @@ target_can_be_attacked = function(_target)
 	if (variable_instance_exists(_target, "is_attackable") && !_target.is_attackable)
 	{
 		return false;
+	}
+
+	// Automated balance matches are isolated even when their arenas share one room.
+	if (balance_test_match_id >= 0)
+	{
+		if (!variable_instance_exists(_target, "balance_test_match_id")
+			|| _target.balance_test_match_id != balance_test_match_id)
+		{
+			return false;
+		}
 	}
 
 	return true;
@@ -1211,6 +1326,13 @@ unit_death_sound_play = function()
 
 unit_death_process = function()
 {
+	// Balance tests only need combat results and skip normal drops and corpse systems.
+	if (balance_test_match_id >= 0)
+	{
+		instance_destroy();
+		return;
+	}
+
 	if (instance_exists(o_game_controller))
 	{
 		var _game_controller = instance_find(o_game_controller, 0);
