@@ -85,7 +85,13 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 
 	// Event cards and their required worker slots.
 	var _event_viewport = jobs_event_viewport_get();
-	var _event_scissor = jobs_scissor_rect_get(_event_viewport);
+	var _event_scissor_viewport = {
+		x: _layout.panel_x,
+		y: _event_viewport.y,
+		width: (_event_viewport.x + _event_viewport.width) - _layout.panel_x,
+		height: _event_viewport.height
+	};
+	var _event_scissor = jobs_scissor_rect_get(_event_scissor_viewport);
 	var _previous_scissor = gpu_get_scissor();
 	gpu_set_scissor(_event_scissor);
 
@@ -102,6 +108,40 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			_event_rect.y + _event_rect.height,
 			false
 		);
+
+		// Show the building or cannon that generated this event beside its card.
+		if (variable_struct_exists(_event, "source_building")
+			&& instance_exists(_event.source_building)
+			&& sprite_exists(_event.source_building.sprite_index))
+		{
+			var _source_sprite = _event.source_building.sprite_index;
+			var _source_frame = _event.source_building.image_index;
+			var _source_available_width = 64 * _layout.scale;
+			var _source_available_height = 96 * _layout.scale;
+			var _source_sprite_width = max(1, sprite_get_width(_source_sprite));
+			var _source_sprite_height = max(1, sprite_get_height(_source_sprite));
+			var _source_scale = min(
+				_source_available_width / _source_sprite_width,
+				_source_available_height / _source_sprite_height
+			);
+			var _source_width = _source_sprite_width * _source_scale;
+			var _source_height = _source_sprite_height * _source_scale;
+			var _source_area_center_x = _layout.panel_x
+				+ ((_event_rect.x - _layout.panel_x) * 0.5);
+			var _source_x = _source_area_center_x - (_source_width * 0.5);
+			var _source_y = _event_rect.y + ((_event_rect.height - _source_height) * 0.5);
+
+			draw_sprite_stretched_ext(
+				_source_sprite,
+				_source_frame,
+				_source_x,
+				_source_y,
+				_source_width,
+				_source_height,
+				c_white,
+				1
+			);
+		}
 
 		draw_set_halign(fa_left);
 		draw_set_valign(fa_top);
@@ -161,18 +201,44 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 
 		for (var _slot_index = 0; _slot_index < _slot_count; ++_slot_index)
 		{
-			var _slot_x = _event_rect.x
-				+ (jobs_event_slot_start_x * _layout.scale)
-				+ (_slot_index * jobs_event_slot_step * _layout.scale);
-			var _slot_y = _event_rect.y + (18 * _layout.scale);
+			var _slot_rect = jobs_event_slot_rect_get(_event_index, _slot_index);
+			var _slot_x = _slot_rect.x;
+			var _slot_y = _slot_rect.y;
 			draw_set_color(COLOR_JOBS_SLOT_BORDER);
 			draw_rectangle(
 				_slot_x,
 				_slot_y,
-				_slot_x + (jobs_icon_width * _layout.scale),
-				_slot_y + (jobs_icon_height * _layout.scale),
+				_slot_x + _slot_rect.width,
+				_slot_y + _slot_rect.height,
 				true
 			);
+
+			// Empty slots show an enlarging plus as direct assignment affordance.
+			if (_slot_index >= array_length(_event.assigned_cultists))
+			{
+				var _slot_key = string(_event_index) + ":" + string(_slot_index);
+				var _plus_scale = jobs_hovered_empty_slot_key == _slot_key ? 1.35 : 1;
+				var _plus_half_size = 7 * _layout.scale * _plus_scale;
+				var _plus_line_width = 2 * _layout.scale * _plus_scale;
+				var _plus_center_x = _slot_x + (_slot_rect.width * 0.5);
+				var _plus_center_y = _slot_y + (_slot_rect.height * 0.5);
+
+				draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+				draw_rectangle(
+					_plus_center_x - _plus_half_size,
+					_plus_center_y - (_plus_line_width * 0.5),
+					_plus_center_x + _plus_half_size,
+					_plus_center_y + (_plus_line_width * 0.5),
+					false
+				);
+				draw_rectangle(
+					_plus_center_x - (_plus_line_width * 0.5),
+					_plus_center_y - _plus_half_size,
+					_plus_center_x + (_plus_line_width * 0.5),
+					_plus_center_y + _plus_half_size,
+					false
+				);
+			}
 		}
 	}
 
@@ -281,6 +347,52 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			string(ceil(_cultist.hp)) + "hp"
 		);
 
+		// Assigned slots preview their HP result and mark lethal outcomes.
+		if (_cultist_is_in_scroll_list)
+		{
+			var _preview_event = _cultist.assigned_event;
+			var _preview_slot_index = -1;
+
+			for (var _assigned_index = 0; _assigned_index < array_length(_preview_event.assigned_cultists); ++_assigned_index)
+			{
+				if (_preview_event.assigned_cultists[_assigned_index] == _cultist)
+				{
+					_preview_slot_index = _assigned_index;
+					break;
+				}
+			}
+
+			if (_preview_slot_index >= 0)
+			{
+				var _hp_preview = jobs_event_cultist_hp_preview_get(_preview_event, _preview_slot_index, _cultist);
+
+				if (_hp_preview.hp_change != 0)
+				{
+					var _change_prefix = _hp_preview.hp_change > 0 ? "+" : "";
+					var _change_y = _cultist_rect.y + _cultist_rect.height + (22 * _layout.scale);
+					draw_set_color(_hp_preview.hp_change > 0 ? COLOR_JOBS_EVENT_ACTIVE : COLOR_STATUS_NEGATIVE_RED);
+					draw_text(_cultist_text_x, _change_y, _change_prefix + string(round(_hp_preview.hp_change)) + " HP");
+				}
+
+				if (_hp_preview.dies && sprite_exists(s_ui_scull_white))
+				{
+					var _skull_size = 24 * _layout.scale;
+					var _skull_scale = _skull_size / max(1, sprite_get_width(s_ui_scull_white));
+					draw_sprite_ext(
+						s_ui_scull_white,
+						0,
+						_cultist_text_x,
+						_cultist_rect.y - (6 * _layout.scale),
+						_skull_scale,
+						_skull_scale,
+						0,
+						COLOR_STATUS_NEGATIVE_RED,
+						1
+					);
+				}
+			}
+		}
+
 		if (_cultist_is_in_scroll_list)
 		{
 			gpu_set_scissor(_previous_scissor);
@@ -338,6 +450,22 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			device_mouse_y_to_gui(0),
 			_drag_scale,
 			_drag_scale,
+			0,
+			c_white,
+			1
+		);
+	}
+	else if (instance_exists(jobs_hovered_cultist) && sprite_exists(s_hand))
+	{
+		// Use the same red hand cursor feedback as cultists in the world.
+		var _hand_scale = 0.33 * _layout.scale;
+		draw_sprite_ext(
+			s_hand,
+			0,
+			device_mouse_x_to_gui(0),
+			device_mouse_y_to_gui(0),
+			_hand_scale,
+			_hand_scale,
 			0,
 			c_white,
 			1

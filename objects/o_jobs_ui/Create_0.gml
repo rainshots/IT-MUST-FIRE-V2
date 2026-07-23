@@ -17,6 +17,10 @@ jobs_scroll_step = 80;
 jobs_scrollbar_width = 8;
 jobs_scrollbar_gap = 12;
 jobs_dragged_cultist = noone;
+jobs_drag_origin_event = noone;
+jobs_drag_origin_slot_index = -1;
+jobs_hovered_cultist = noone;
+jobs_hovered_empty_slot_key = "";
 jobs_show_hovered = false;
 jobs_end_hovered = false;
 jobs_squad_selector_event = noone;
@@ -93,6 +97,148 @@ jobs_event_rect_get = function(_event_index)
 		y: _layout.event_y + (_event_step * _event_index) - (jobs_scroll_offset * _layout.scale),
 		width: _layout.event_width,
 		height: _layout.event_height
+	};
+};
+
+jobs_event_slot_rect_get = function(_event_index, _slot_index)
+{
+	var _layout = jobs_layout_get();
+	var _event_rect = jobs_event_rect_get(_event_index);
+
+	return {
+		x: _event_rect.x
+			+ (jobs_event_slot_start_x * _layout.scale)
+			+ (_slot_index * jobs_event_slot_step * _layout.scale),
+		y: _event_rect.y + (18 * _layout.scale),
+		width: jobs_icon_width * _layout.scale,
+		height: jobs_icon_height * _layout.scale
+	};
+};
+
+jobs_pool_healthiest_cultist_get = function()
+{
+	var _healthiest_cultist = noone;
+	var _highest_hp = -infinity;
+
+	// Auto-assignment only considers currently available cultists in the pool.
+	for (var _cultist_index = 0; _cultist_index < array_length(global.event_cultists); ++_cultist_index)
+	{
+		var _cultist = global.event_cultists[_cultist_index];
+
+		if (!instance_exists(_cultist)
+			|| is_struct(_cultist.assigned_event)
+			|| !variable_instance_exists(_cultist, "is_available")
+			|| !_cultist.is_available())
+		{
+			continue;
+		}
+
+		if (_cultist.hp > _highest_hp)
+		{
+			_healthiest_cultist = _cultist;
+			_highest_hp = _cultist.hp;
+		}
+	}
+
+	return _healthiest_cultist;
+};
+
+jobs_event_cultist_slot_index_get = function(_event, _cultist)
+{
+	if (!is_struct(_event) || !instance_exists(_cultist))
+	{
+		return -1;
+	}
+
+	for (var _slot_index = 0; _slot_index < array_length(_event.assigned_cultists); ++_slot_index)
+	{
+		if (_event.assigned_cultists[_slot_index] == _cultist)
+		{
+			return _slot_index;
+		}
+	}
+
+	return -1;
+};
+
+jobs_event_cultist_hp_preview_get = function(_event, _slot_index, _cultist)
+{
+	var _hp_change = 0;
+	var _is_sacrificed = false;
+
+	if (!is_struct(_event) || !instance_exists(_cultist))
+	{
+		return { hp_change: 0, dies: false };
+	}
+
+	for (var _action_index = 0; _action_index < array_length(_event.actions); ++_action_index)
+	{
+		var _action = _event.actions[_action_index];
+
+		if (!is_struct(_action))
+		{
+			continue;
+		}
+
+		if (variable_struct_exists(_action, "data")
+			&& is_struct(_action.data)
+			&& variable_struct_exists(_action.data, "hp_cost"))
+		{
+			_hp_change -= max(0, _action.data.hp_cost);
+		}
+
+		switch (_action.action_type)
+		{
+			case "produce_regular_shells":
+				_hp_change -= 10;
+				break;
+
+			case "blood_bath":
+				_hp_change += min(BALANCE_BLOOD_BATH_HEAL_AMOUNT, max(0, _cultist.max_hp - _cultist.hp));
+				break;
+
+			case "blood_transfusion":
+				if (array_length(_event.assigned_cultists) >= 2)
+				{
+					var _first_cultist = _event.assigned_cultists[0];
+					var _second_cultist = _event.assigned_cultists[1];
+
+					if (instance_exists(_first_cultist) && instance_exists(_second_cultist))
+					{
+						var _healthiest = _first_cultist.hp >= _second_cultist.hp
+							? _first_cultist
+							: _second_cultist;
+
+						if (_cultist == _healthiest)
+						{
+							_hp_change -= BALANCE_BLOOD_TRANSFUSION_HEALTHY_DAMAGE;
+						}
+						else
+						{
+							var _new_max_hp = _cultist.max_hp + BALANCE_BLOOD_TRANSFUSION_MAX_HP_BONUS;
+							_hp_change += min(
+								BALANCE_BLOOD_TRANSFUSION_WOUNDED_HEAL,
+								max(0, _new_max_hp - _cultist.hp)
+							);
+						}
+					}
+				}
+				break;
+
+			case "harden_the_vessel":
+				_hp_change -= BALANCE_HARDEN_VESSEL_DAMAGE;
+				break;
+
+			case "the_bath_demands_a_name":
+			case "blood_for_blood":
+				_is_sacrificed = true;
+				break;
+		}
+	}
+
+	return {
+		hp_change: _hp_change,
+		dies: _is_sacrificed || _cultist.hp + _hp_change <= 0
 	};
 };
 
@@ -259,6 +405,10 @@ jobs_window_open = function()
 	}
 
 	jobs_dragged_cultist = noone;
+	jobs_drag_origin_event = noone;
+	jobs_drag_origin_slot_index = -1;
+	jobs_hovered_cultist = noone;
+	jobs_hovered_empty_slot_key = "";
 	jobs_squad_selector_event = noone;
 	jobs_scroll_offset = 0;
 	global.pause = true;
@@ -269,6 +419,10 @@ jobs_window_open = function()
 jobs_window_close = function()
 {
 	jobs_dragged_cultist = noone;
+	jobs_drag_origin_event = noone;
+	jobs_drag_origin_slot_index = -1;
+	jobs_hovered_cultist = noone;
+	jobs_hovered_empty_slot_key = "";
 	jobs_squad_selector_event = noone;
 
 	if (global.focus_window == FOCUS_WINDOW.JOBS)
