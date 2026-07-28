@@ -16,7 +16,7 @@ heal_radius = base_heal_radius;
 heal_amount = base_heal_amount;
 heal_tick_time = BALANCE_TOWER_HEAL_TICK_TIME * room_speed;
 heal_tick_timer = irandom(heal_tick_time - 1);
-projectile_spawn_offset_y = -20;
+attack_origin_top_offset = 81;
 projectile_layer_name = "Instances";
 projectile_effect_radius = BALANCE_TOWER_HEAL_PROJECTILE_EFFECT_RADIUS;
 projectile_draw_depth = BALANCE_PARTICLE_SYSTEM_TOP_DEPTH - 50;
@@ -45,7 +45,20 @@ map_building_upgrade_effect_apply = function(_upgrade_index)
 
 tower_heal_target_is_valid = function(_target)
 {
-	return instance_exists(_target)
+	if (!instance_exists(_target))
+	{
+		return false;
+	}
+
+	var _target_is_in_same_test = true;
+
+	if (variable_instance_exists(id, "balance_test_match_id"))
+	{
+		_target_is_in_same_test = variable_instance_exists(_target, "balance_test_match_id")
+			&& _target.balance_test_match_id == balance_test_match_id;
+	}
+
+	return _target_is_in_same_test
 		&& variable_instance_exists(_target, "hp")
 		&& variable_instance_exists(_target, "max_hp")
 		&& _target.hp > 0
@@ -57,7 +70,7 @@ tower_heal_target_is_valid = function(_target)
 tower_heal_projectile_create = function(_target_x, _target_y)
 {
 	var _projectile_x = x;
-	var _projectile_y = y + projectile_spawn_offset_y;
+	var _projectile_y = y - sprite_get_height(sprite_index) + attack_origin_top_offset;
 	var _projectile = instance_create_layer(_projectile_x, _projectile_y, projectile_layer_name, o_projectile);
 	var _projectile_distance = point_distance(_projectile_x, _projectile_y, _target_x, _target_y);
 	var _flight_time_seconds = clamp(
@@ -74,6 +87,12 @@ tower_heal_projectile_create = function(_target_x, _target_y)
 	_projectile.effect_radius = projectile_effect_radius;
 	_projectile.damage_amount = heal_amount;
 	_projectile.source_instance = id;
+
+	if (variable_instance_exists(id, "balance_test_match_id"))
+	{
+		_projectile.balance_test_match_id = balance_test_match_id;
+	}
+
 	_projectile.flight_time = _flight_time_seconds * room_speed;
 	_projectile.depth = projectile_draw_depth;
 

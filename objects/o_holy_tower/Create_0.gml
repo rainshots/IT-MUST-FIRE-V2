@@ -18,7 +18,7 @@ reload_time = BALANCE_HOLY_TOWER_RELOAD_TIME * room_speed;
 reload_timer = 0;
 target_instance = noone;
 assist_call_radius = BALANCE_UNIT_ASSIST_CALL_RADIUS;
-projectile_spawn_offset_y = -20;
+attack_origin_top_offset = 81;
 projectile_layer_name = "Instances";
 projectile_effect_radius = BALANCE_PROJECTILE_EFFECT_RADIUS;
 projectile_draw_depth = BALANCE_PARTICLE_SYSTEM_TOP_DEPTH - 50;
@@ -330,7 +330,7 @@ call_nearby_friendly_units_for_help = function(_attacked_unit)
 holy_tower_projectile_create = function(_target_x, _target_y)
 {
 	var _projectile_x = x;
-	var _projectile_y = y + projectile_spawn_offset_y;
+	var _projectile_y = y - sprite_get_height(sprite_index) + attack_origin_top_offset;
 	var _projectile = instance_create_layer(_projectile_x, _projectile_y, projectile_layer_name, o_projectile);
 	var _projectile_distance = point_distance(_projectile_x, _projectile_y, _target_x, _target_y);
 	var _flight_time_seconds = clamp(
@@ -357,7 +357,7 @@ holy_tower_projectile_create = function(_target_x, _target_y)
 holy_tower_cleanse_projectile_create = function(_target_x, _target_y, _launch_delay_seconds = 0)
 {
 	var _projectile_x = x;
-	var _projectile_y = y + projectile_spawn_offset_y;
+	var _projectile_y = y - sprite_get_height(sprite_index) + attack_origin_top_offset;
 	var _projectile = instance_create_layer(_projectile_x, _projectile_y, projectile_layer_name, o_projectile);
 	var _projectile_distance = point_distance(_projectile_x, _projectile_y, _target_x, _target_y);
 	var _flight_time_seconds = clamp(

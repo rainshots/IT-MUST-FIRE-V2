@@ -88,7 +88,7 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 	var _event_scissor_viewport = {
 		x: _layout.panel_x,
 		y: _event_viewport.y,
-		width: (_event_viewport.x + _event_viewport.width) - _layout.panel_x,
+		width: _layout.panel_width,
 		height: _event_viewport.height
 	};
 	var _event_scissor = jobs_scissor_rect_get(_event_scissor_viewport);
@@ -110,12 +110,24 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 		);
 
 		// Show the building or cannon that generated this event beside its card.
-		if (variable_struct_exists(_event, "source_building")
+		var _source_sprite = noone;
+		var _source_frame = 0;
+
+		if (variable_struct_exists(_event, "source_sprite")
+			&& sprite_exists(_event.source_sprite))
+		{
+			_source_sprite = _event.source_sprite;
+		}
+		else if (variable_struct_exists(_event, "source_building")
 			&& instance_exists(_event.source_building)
 			&& sprite_exists(_event.source_building.sprite_index))
 		{
-			var _source_sprite = _event.source_building.sprite_index;
-			var _source_frame = _event.source_building.image_index;
+			_source_sprite = _event.source_building.sprite_index;
+			_source_frame = _event.source_building.image_index;
+		}
+
+		if (sprite_exists(_source_sprite))
+		{
 			var _source_available_width = 64 * _layout.scale;
 			var _source_available_height = 96 * _layout.scale;
 			var _source_sprite_width = max(1, sprite_get_width(_source_sprite));
@@ -149,13 +161,67 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 		draw_set_font(jobs_title_font);
 		draw_text(_event_rect.x + (34 * _layout.scale), _event_rect.y + (18 * _layout.scale), _event.title);
 		draw_set_font(jobs_description_font);
+		var _description_width = 390 * _layout.scale;
+		var _has_archdemon_target = variable_struct_exists(_event, "target_archdemon_name")
+			&& variable_struct_exists(_event, "target_archdemon_sprite")
+			&& sprite_exists(_event.target_archdemon_sprite);
+
+		if (_has_archdemon_target)
+		{
+			_description_width = 292 * _layout.scale;
+		}
+
 		draw_text_ext(
 			_event_rect.x + (34 * _layout.scale),
 			_event_rect.y + (48 * _layout.scale),
 			_event.description,
 			16 * _layout.scale,
-			390 * _layout.scale
+			_description_width
 		);
+
+		// Targeted Foundry training shows the locked Archdemon portrait and name.
+		if (_has_archdemon_target)
+		{
+			var _target_sprite = _event.target_archdemon_sprite;
+			var _target_frame = variable_struct_exists(_event, "target_archdemon_frame")
+				? _event.target_archdemon_frame
+				: 0;
+			var _target_center_x = _event_rect.x + (386 * _layout.scale);
+			var _target_available_width = 42 * _layout.scale;
+			var _target_available_height = 50 * _layout.scale;
+			var _target_scale = min(
+				_target_available_width / max(1, sprite_get_width(_target_sprite)),
+				_target_available_height / max(1, sprite_get_height(_target_sprite))
+			);
+			var _target_width = sprite_get_width(_target_sprite) * _target_scale;
+			var _target_height = sprite_get_height(_target_sprite) * _target_scale;
+			var _target_x = _target_center_x - (_target_width * 0.5);
+			var _target_y = _event_rect.y + (53 * _layout.scale);
+
+			draw_set_halign(fa_center);
+			draw_set_valign(fa_middle);
+			draw_set_font(jobs_hp_font);
+			draw_set_color(COLOR_JOBS_SLOT_BORDER);
+			draw_text(_target_center_x, _event_rect.y + (46 * _layout.scale), "TARGET");
+			draw_sprite_stretched_ext(
+				_target_sprite,
+				_target_frame,
+				_target_x,
+				_target_y,
+				_target_width,
+				_target_height,
+				c_white,
+				1
+			);
+			draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+			draw_text(
+				_target_center_x,
+				_event_rect.y + (113 * _layout.scale),
+				_event.target_archdemon_name
+			);
+			draw_set_halign(fa_left);
+			draw_set_valign(fa_top);
+		}
 
 		if (variable_struct_exists(_event, "requires_squad_selection")
 			&& _event.requires_squad_selection)
@@ -237,6 +303,77 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 					_plus_center_x + (_plus_line_width * 0.5),
 					_plus_center_y + _plus_half_size,
 					false
+				);
+			}
+		}
+
+		// Building events expose the Figma actions to the right of the card.
+		if (day_event_building_action_is_available(_event))
+		{
+			var _reroll_rect = jobs_event_action_rect_get(_event_index, "reroll");
+			var _reroll_key = jobs_event_action_key_get(_event, "reroll");
+			var _reroll_enabled = !global.day_event_reroll_used_today;
+			var _reroll_hovered = _reroll_enabled
+				&& jobs_hovered_event_action_key == _reroll_key;
+			var _reroll_visual_scale = _reroll_hovered ? 1.08 : 1;
+			var _reroll_color = _reroll_enabled
+				? COLOR_JOBS_EVENT_ACTION
+				: COLOR_JOBS_SLOT_BORDER;
+			var _reroll_sprite_scale = _layout.scale * _reroll_visual_scale;
+
+			draw_set_alpha(_reroll_enabled ? 1 : 0.35);
+			draw_sprite_ext(
+				s_reroll_icon,
+				0,
+				_reroll_rect.x + (_reroll_rect.width * 0.5),
+				_event_rect.y + (jobs_reroll_action_icon_y * _layout.scale),
+				_reroll_sprite_scale,
+				_reroll_sprite_scale,
+				0,
+				c_white,
+				1
+			);
+			draw_set_alpha(1);
+			draw_set_halign(fa_center);
+			draw_set_valign(fa_top);
+			draw_set_font(jobs_action_font);
+			draw_set_color(_reroll_color);
+			draw_text(
+				_reroll_rect.x + (_reroll_rect.width * 0.5),
+				_event_rect.y + (jobs_event_action_label_y * _layout.scale),
+				"Reroll (" + string(_reroll_enabled ? 1 : 0) + ")"
+			);
+
+			var _pin_action = jobs_event_pin_action_get(_event);
+
+			if (_pin_action != "")
+			{
+				var _pin_rect = jobs_event_action_rect_get(_event_index, _pin_action);
+				var _pin_key = jobs_event_action_key_get(_event, _pin_action);
+				var _pin_hovered = jobs_hovered_event_action_key == _pin_key;
+				var _pin_visual_scale = _pin_hovered ? 1.08 : 1;
+				var _pin_sprite_scale = _layout.scale * _pin_visual_scale;
+				var _pin_label = _pin_action == "unpin" ? "Unpin" : "Pin (1)";
+
+				draw_sprite_ext(
+					s_pin_icon,
+					0,
+					_pin_rect.x + (_pin_rect.width * 0.5),
+					_event_rect.y + (jobs_pin_action_icon_y * _layout.scale),
+					_pin_sprite_scale,
+					_pin_sprite_scale,
+					30,
+					c_white,
+					1
+				);
+				draw_set_halign(fa_center);
+				draw_set_valign(fa_top);
+				draw_set_font(jobs_action_font);
+				draw_set_color(COLOR_JOBS_EVENT_ACTION);
+				draw_text(
+					_pin_rect.x + (_pin_rect.width * 0.5),
+					_event_rect.y + (jobs_event_action_label_y * _layout.scale),
+					_pin_label
 				);
 			}
 		}
@@ -404,9 +541,9 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 
 	if (_scroll_max > 0)
 	{
-		var _scrollbar_x = _event_viewport.x
-			+ _event_viewport.width
-			+ (jobs_scrollbar_gap * _layout.scale);
+		var _scrollbar_x = _layout.panel_x
+			+ _layout.panel_width
+			- ((jobs_scrollbar_width + jobs_scrollbar_gap) * _layout.scale);
 		var _scrollbar_width = jobs_scrollbar_width * _layout.scale;
 		var _event_count = array_length(global.day_events);
 		var _content_height = ((_event_count * jobs_event_height)

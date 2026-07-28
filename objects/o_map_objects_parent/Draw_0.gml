@@ -80,28 +80,6 @@ if (_should_draw_corruption_bar)
 	draw_rectangle(_bar_x, _corruption_bar_y, _bar_x + (_bar_width * _corruption_progress), _corruption_bar_y + bar_height, false);
 }
 
-// Show upgrade prompt while the cursor hovers upgradeable map structures.
-if (building_has_upgrades
-	&& is_captured
-	&& global.focus_window == FOCUS_WINDOW.NOONE
-	&& map_object_is_hovered())
-{
-	var _prompt_width = string_width(upgrade_prompt_text) + (upgrade_prompt_padding_x * 2);
-	var _prompt_height = string_height(upgrade_prompt_text) + (upgrade_prompt_padding_y * 2);
-	var _prompt_x = x - (_prompt_width * 0.5);
-	var _prompt_y = bbox_bottom + upgrade_prompt_offset_y;
-
-	draw_set_alpha(upgrade_prompt_background_alpha);
-	draw_set_color(COLOR_HUD_BACKGROUND);
-	draw_rectangle(_prompt_x, _prompt_y, _prompt_x + _prompt_width, _prompt_y + _prompt_height, false);
-
-	draw_set_alpha(1);
-	draw_set_halign(fa_center);
-	draw_set_valign(fa_middle);
-	draw_set_color(COLOR_HUD_IRON);
-	draw_text(x, _prompt_y + (_prompt_height * 0.5), upgrade_prompt_text);
-}
-
 // Draw short building warnings above shell structures.
 if (building_warning_timer > 0 && building_warning_text != "")
 {

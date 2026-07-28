@@ -1,7 +1,9 @@
 // Draw the point without inherited health bars because this is not a combat target.
 draw_self();
 
-if (!is_captured || structure_selection_open)
+if (!is_captured
+	|| structure_selection_open
+	|| (variable_instance_exists(id, "construction_event_pending") && construction_event_pending))
 {
 	draw_set_halign(fa_left);
 	draw_set_valign(fa_top);

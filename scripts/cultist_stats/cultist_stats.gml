@@ -193,7 +193,7 @@ function cultist_demon_scale_apply(_demon)
 	_demon.image_yscale = _y_direction * _demon.demon_base_image_yscale * _level_scale;
 }
 
-function cultist_exp_add(_cultist, _exp_amount)
+function cultist_exp_add(_cultist, _exp_amount, _apply_effectiveness = true)
 {
 	if (!instance_exists(_cultist)
 		|| !variable_instance_exists(_cultist, "current_exp")
@@ -225,11 +225,12 @@ function cultist_exp_add(_cultist, _exp_amount)
 	var _leveled_up = false;
 	var _exp_multiplier = 1;
 
-	if (variable_instance_exists(_cultist, "exp_effectiveness"))
+	if (_apply_effectiveness && variable_instance_exists(_cultist, "exp_effectiveness"))
 	{
 		_exp_multiplier = _cultist.exp_effectiveness;
 	}
-	else if (variable_instance_exists(_cultist, "demon_type")
+	else if (_apply_effectiveness
+		&& variable_instance_exists(_cultist, "demon_type")
 		&& _cultist.demon_type != DEMON_TYPE.NONE
 		&& variable_instance_exists(_cultist, "cultist_points"))
 	{

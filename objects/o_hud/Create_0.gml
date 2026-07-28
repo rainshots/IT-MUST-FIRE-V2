@@ -797,6 +797,7 @@ corruption_minimap_label_scale = 0.8;
 
 // Projectile queue display at the bottom center of the HUD.
 projectile_queue_margin_bottom = 18;
+projectile_day_jobs_button_gap = 14;
 projectile_slot_width = 86;
 projectile_slot_height = 74;
 projectile_slot_gap = 8;
@@ -830,6 +831,7 @@ projectile_names[PROJECTILE_TYPE.BOMB] = "BOMB";
 projectile_names[PROJECTILE_TYPE.SKELETONS] = "SKELETONS";
 projectile_names[PROJECTILE_TYPE.BUILDING_SHELL] = "STRUCTURE";
 projectile_names[PROJECTILE_TYPE.CLEANSE] = "CLEANSE";
+projectile_names[PROJECTILE_TYPE.DOOM_BELL] = "DOOM BELL";
 
 projectile_descriptions = array_create(PROJECTILE_TYPE.COUNT, "");
 projectile_descriptions[PROJECTILE_TYPE.DAMAGE] = "Damages units and buildings inside the impact area.";
@@ -843,3 +845,8 @@ projectile_descriptions[PROJECTILE_TYPE.BOMB] = "Deals " + string(BALANCE_PROJEC
 projectile_descriptions[PROJECTILE_TYPE.SKELETONS] = "Summons " + string(BALANCE_PROJECTILE_SKELETON_COUNT) + " skeleton inside a " + string(BALANCE_PROJECTILE_SKELETON_RADIUS) + " pixel radius. Payload Mastery improves it.";
 projectile_descriptions[PROJECTILE_TYPE.BUILDING_SHELL] = "Builds its stored structure where it lands. Must be fired onto tainted ground.";
 projectile_descriptions[PROJECTILE_TYPE.CLEANSE] = "Enemy projectile that removes Taint where it lands.";
+projectile_descriptions[PROJECTILE_TYPE.DOOM_BELL] = "Deals "
+	+ string(BALANCE_PROJECTILE_DOOM_BELL_DAMAGE_AMOUNT)
+	+ " damage and taints the ground inside a "
+	+ string(BALANCE_PROJECTILE_DOOM_BELL_RADIUS)
+	+ " pixel radius.";

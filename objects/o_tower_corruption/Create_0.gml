@@ -14,7 +14,7 @@ base_effect_radius = BALANCE_TOWER_CORRUPTION_SPREAD_RADIUS;
 effect_radius = base_effect_radius;
 morning_projectile_count = BALANCE_TOWER_CORRUPTION_MORNING_PROJECTILE_COUNT;
 morning_launch_time = BALANCE_TOWER_CORRUPTION_MORNING_LAUNCH_TIME;
-projectile_spawn_offset_y = -20;
+attack_origin_top_offset = 81;
 projectile_layer_name = "Instances";
 projectile_effect_radius = BALANCE_TOWER_CORRUPTION_PROJECTILE_EFFECT_RADIUS;
 projectile_corruption_amount = BALANCE_TOWER_CORRUPTION_PROJECTILE_CORRUPTION_AMOUNT;
@@ -44,7 +44,7 @@ map_building_upgrade_effect_apply = function(_upgrade_index)
 tower_corruption_projectile_create = function(_target_x, _target_y, _corruption_amount, _launch_delay_seconds = 0)
 {
 	var _projectile_x = x;
-	var _projectile_y = y + projectile_spawn_offset_y;
+	var _projectile_y = y - sprite_get_height(sprite_index) + attack_origin_top_offset;
 	var _projectile = instance_create_layer(_projectile_x, _projectile_y, projectile_layer_name, o_projectile);
 	var _projectile_distance = point_distance(_projectile_x, _projectile_y, _target_x, _target_y);
 	var _flight_time_seconds = clamp(

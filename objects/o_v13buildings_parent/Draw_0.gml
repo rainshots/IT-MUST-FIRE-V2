@@ -29,30 +29,15 @@ var _building_is_hovered = global.focus_window == FOCUS_WINDOW.NOONE
 	&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active)
 	&& building_is_mouse_hovered();
 
-// Foundry is directly clickable, so show the build icon on hover.
-if (_building_is_hovered && object_index == o_foundry && sprite_exists(s_build_icon))
+// Every constructed building opens a read-only catalog of its possible events.
+if (_building_is_hovered)
 {
-	var _icon_pulse = 1 + (sin(current_time * 0.008) * foundry_click_icon_pulse_scale);
-	var _icon_scale = (foundry_click_icon_size * _icon_pulse) / max(1, sprite_get_width(s_build_icon));
-	var _icon_alpha = foundry_click_icon_alpha + (sin(current_time * 0.007) * 0.05);
-	var _icon_x = x;
-	var _icon_top_y = bbox_top - foundry_click_icon_offset_y;
-	var _icon_y = lerp(_icon_top_y, y, 0.5);
-
-	draw_set_alpha(clamp(_icon_alpha, 0, 1));
-	draw_sprite_ext(s_build_icon, 0, _icon_x, _icon_y, _icon_scale, _icon_scale, 0, c_white, 1);
-	draw_set_alpha(1);
-}
-
-// Show upgrade prompt while the cursor hovers upgradeable buildings.
-if (_building_is_hovered && building_has_upgrades)
-{
-	var _prompt_width = string_width(upgrade_prompt_text) + (upgrade_prompt_padding_x * 2);
-	var _prompt_height = string_height(upgrade_prompt_text) + (upgrade_prompt_padding_y * 2);
+	var _prompt_width = string_width(events_prompt_text) + (events_prompt_padding_x * 2);
+	var _prompt_height = string_height(events_prompt_text) + (events_prompt_padding_y * 2);
 	var _prompt_x = x - (_prompt_width * 0.5);
-	var _prompt_y = bbox_bottom + upgrade_prompt_offset_y;
+	var _prompt_y = bbox_bottom + events_prompt_offset_y;
 
-	draw_set_alpha(upgrade_prompt_background_alpha);
+	draw_set_alpha(events_prompt_background_alpha);
 	draw_set_color(COLOR_HUD_BACKGROUND);
 	draw_rectangle(_prompt_x, _prompt_y, _prompt_x + _prompt_width, _prompt_y + _prompt_height, false);
 
@@ -60,7 +45,7 @@ if (_building_is_hovered && building_has_upgrades)
 	draw_set_halign(fa_center);
 	draw_set_valign(fa_middle);
 	draw_set_color(COLOR_HUD_IRON);
-	draw_text(x, _prompt_y + (_prompt_height * 0.5), upgrade_prompt_text);
+	draw_text(x, _prompt_y + (_prompt_height * 0.5), events_prompt_text);
 }
 
 // Show demolition prompt under base buildings.

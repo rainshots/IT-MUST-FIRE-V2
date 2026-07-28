@@ -1,3 +1,18 @@
+// The balance controller owns every simulation tick so x1 and accelerated runs stay identical.
+if (variable_global_exists("balance_test_active")
+	&& global.balance_test_active
+	&& (!variable_global_exists("balance_test_manual_tick_active")
+		|| !global.balance_test_manual_tick_active))
+{
+	exit;
+}
+
+if (variable_instance_exists(id, "balance_test_simulation_finished")
+	&& balance_test_simulation_finished)
+{
+	exit;
+}
+
 // Pause freezes tower capture and combat.
 map_building_warning_update();
 map_object_unit_fade_update();
@@ -43,7 +58,11 @@ var _enemy_count = instance_number(o_enemy_units);
 for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
 {
 	var _enemy = instance_find(o_enemy_units, _enemy_index);
-	var _can_attack_enemy = instance_exists(_enemy)
+	var _matches_balance_test = instance_exists(_enemy)
+		&& (!variable_instance_exists(id, "balance_test_match_id")
+			|| !variable_instance_exists(_enemy, "balance_test_match_id")
+			|| _enemy.balance_test_match_id == balance_test_match_id);
+	var _can_attack_enemy = _matches_balance_test
 		&& (!variable_instance_exists(_enemy, "hp") || _enemy.hp > 0)
 		&& (!variable_instance_exists(_enemy, "is_being_dragged") || !_enemy.is_being_dragged);
 

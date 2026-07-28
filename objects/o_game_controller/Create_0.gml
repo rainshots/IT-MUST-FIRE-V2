@@ -23,6 +23,7 @@ global.day_timer = global.day_duration * global.game_speed_normal;
 global.night_attack_unit_count = 0;
 global.full_moon_night_active = false;
 global.full_moon_attack_direction = 0;
+global.blood_moon_reward_popup_active = false;
 global.day_cycle_enabled = true;
 global.legacy_building_logic_enabled = false;
 global.archdemons = array_create(0);
@@ -32,9 +33,31 @@ global.squad_limits = [BALANCE_SQUAD_ARCHDEMON_LIMIT, BALANCE_SQUAD_UNDEAD_LIMIT
 // Archdemons keep the existing combat and cannon lifecycle; regular cultists belong to day events.
 global.event_cultists = array_create(0);
 global.cultist_limit = BALANCE_STARTING_CULTIST_LIMIT;
+// Creating a construction event immediately consumes the current day's building allowance.
+global.building_construction_count_today = 0;
 global.blood_bath_crimson_baptism_uses = 0;
 global.blood_bath_harden_vessel_used = false;
+global.cult_must_grow_last_activation_day = -BALANCE_CULT_MUST_GROW_COOLDOWN_DAYS;
+global.world_job_second_archdemon_completed = false;
+global.world_job_third_archdemon_completed = false;
+global.ritual_black_pilgrimage_active = false;
+global.ritual_grasping_soil_active = false;
+global.ritual_awaken_taint_active = false;
+global.ritual_rust_righteous_active = false;
+global.ritual_silence_choir_active = false;
+global.ritual_blood_night_active = false;
+global.ritual_invite_worthy_active = false;
+global.ritual_invite_worthy_reward_pending = false;
+global.ritual_extra_building_event_active = false;
+global.ritual_trial_cannon_active = false;
+global.ritual_lesser_gate_active = false;
+global.ritual_hell_weakest_active = false;
+global.ritual_hell_weakest_squad = noone;
 global.squad_blood_warpaint_pending = false;
+global.foundry_demon_health_multiplier = 1;
+global.foundry_demon_damage_multiplier = 1;
+global.foundry_undead_health_multiplier = 1;
+global.foundry_undead_attack_speed_multiplier = 1;
 global.event_cultist_names = [
 	"Alden", "Bram", "Corvin", "Dorian", "Edric", "Fenric",
 	"Garrick", "Hadrian", "Ivor", "Jareth", "Kael", "Lucan",
@@ -43,6 +66,10 @@ global.event_cultist_names = [
 	"Yorick", "Zevran", "Alaric", "Cedric", "Leoric", "Mordren"
 ];
 global.day_events = array_create(0);
+// Jobs actions allow one reroll per day and one building event pinned for tomorrow.
+global.day_event_reroll_used_today = false;
+global.day_event_pinned_event_id = "";
+global.day_event_pinned_source_building = noone;
 
 if (!instance_exists(o_jobs_ui))
 {
@@ -88,6 +115,39 @@ tree_corruption_hint_background_alpha = 0.86;
 full_moon_hint_delay_time = BALANCE_FULL_MOON_HINT_DELAY * room_speed;
 full_moon_hint_delay_timer = -1;
 full_moon_hint_delay_pending = false;
+
+// Blood Moon morning reward popup lists the cultists that actually fit under the limit.
+blood_moon_reward_cultists = [];
+blood_moon_reward_popup_width = 620;
+blood_moon_reward_popup_height = 330;
+blood_moon_reward_icon_width = 72;
+blood_moon_reward_icon_height = 112;
+blood_moon_reward_icon_gap = 34;
+blood_moon_reward_button_width = 210;
+blood_moon_reward_button_height = 44;
+blood_moon_reward_button_hovered = false;
+blood_moon_reward_input_blocked = false;
+
+blood_moon_reward_popup_show = function(_cultists)
+{
+	blood_moon_reward_cultists = _cultists;
+	blood_moon_reward_button_hovered = false;
+	blood_moon_reward_input_blocked = true;
+	debug_menu_open = false;
+	global.blood_moon_reward_popup_active = true;
+	global.pause = true;
+	return true;
+};
+
+blood_moon_reward_popup_close = function()
+{
+	blood_moon_reward_cultists = [];
+	blood_moon_reward_button_hovered = false;
+	blood_moon_reward_input_blocked = false;
+	global.blood_moon_reward_popup_active = false;
+	global.pause = variable_global_exists("tutorial_popup_active")
+		&& global.tutorial_popup_active;
+};
 
 // Phase banner briefly announces day and night transitions.
 phase_banner_text = "";
@@ -521,6 +581,8 @@ global.rally_projectile_group_id = 0;
 global.cannon_satiety = 0;
 global.cannon_satiety_max = BALANCE_CANNON_SATIETY_MAX;
 global.cannon_corpses_delivered_today = 0;
+global.shell_factory_hellcow_damage_upgrade_count = 0;
+global.shell_factory_first_aid_heal_upgrade_count = 0;
 
 // Global one-shot sound groups used by gameplay feedback.
 global.night_start_sounds = [
@@ -848,43 +910,17 @@ ui_hover_candidate_get = function(_mouse_x, _mouse_y)
 			}
 		}
 	}
-	else if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE)
+	else if (global.focus_window == FOCUS_WINDOW.BUILDING_EVENTS)
 	{
-		var _upgrade_panel_x = (camera_view_width - building_upgrade_window_width) * 0.5;
-		var _upgrade_panel_y = (camera_view_height - building_upgrade_window_height) * 0.5;
-		var _upgrade_close_size = 34;
-		var _upgrade_close_x = _upgrade_panel_x + building_upgrade_window_width - _upgrade_close_size - 14;
-		var _upgrade_close_y = _upgrade_panel_y + 14;
-		var _upgrade_tile_start_x = _upgrade_panel_x + 38;
-		var _upgrade_tile_y = _upgrade_panel_y + building_upgrade_tile_y;
+		var _events_panel_x = (camera_view_width - building_events_window_width) * 0.5;
+		var _events_panel_y = (camera_view_height - building_events_window_height) * 0.5;
+		var _events_close_size = 34;
+		var _events_close_x = _events_panel_x + building_events_window_width - _events_close_size - 14;
+		var _events_close_y = _events_panel_y + 14;
 
-		if (ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _upgrade_close_x, _upgrade_close_y, _upgrade_close_size, _upgrade_close_size))
+		if (ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _events_close_x, _events_close_y, _events_close_size, _events_close_size))
 		{
-			return "upgrade_close";
-		}
-
-		if (instance_exists(building_upgrade_window_building))
-		{
-			var _upgrade_count = 0;
-
-			if (variable_instance_exists(building_upgrade_window_building, "building_upgrade_levels"))
-			{
-				_upgrade_count = array_length(building_upgrade_window_building.building_upgrade_levels);
-			}
-			else if (variable_instance_exists(building_upgrade_window_building, "building_upgrade_flags"))
-			{
-				_upgrade_count = array_length(building_upgrade_window_building.building_upgrade_flags);
-			}
-
-			for (var _upgrade_index = 0; _upgrade_index < _upgrade_count; ++_upgrade_index)
-			{
-				var _upgrade_tile_x = _upgrade_tile_start_x + ((building_upgrade_tile_width + building_upgrade_tile_gap) * _upgrade_index);
-
-				if (ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _upgrade_tile_x, _upgrade_tile_y, building_upgrade_tile_width, building_upgrade_tile_height))
-				{
-					return "upgrade_choice_" + string(_upgrade_index);
-				}
-			}
+			return "building_events_close";
 		}
 	}
 	else if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
@@ -1623,16 +1659,21 @@ building_group_gap_y = 24;
 building_tooltip_width = 310;
 building_tooltip_height = 120;
 building_tooltip_padding = 12;
-building_upgrade_window_building = noone;
-building_upgrade_previous_pause_state = false;
-building_upgrade_window_width = 1010;
-building_upgrade_window_height = 350;
-building_upgrade_resource_y = 68;
-building_upgrade_description_y = 92;
-building_upgrade_tile_y = 128;
-building_upgrade_tile_width = 220;
-building_upgrade_tile_height = 170;
-building_upgrade_tile_gap = 18;
+// Building event catalog is read-only and supports mouse-wheel scrolling.
+building_events_window_building = noone;
+building_events_window_entries = [];
+building_events_window_name = "";
+building_events_previous_pause_state = false;
+building_events_input_blocked = false;
+building_events_window_width = 930;
+building_events_window_height = 620;
+building_events_card_columns = 2;
+building_events_card_width = 407;
+building_events_card_height = 130;
+building_events_card_gap_x = 18;
+building_events_card_gap_y = 16;
+building_events_card_start_y = 108;
+building_events_scroll_row = 0;
 building_choices = [
 	{
 		building_object: o_souls_well,
@@ -1722,7 +1763,7 @@ building_choices = [
 		building_sprite: s_ritual_circle,
 		building_name: "Ritual Circle",
 		building_group: "Other",
-		building_description: "Lets assigned cultists gain XP and restore stamina over time.",
+		building_description: "Provides next-night ritual events and lets assigned cultists gain XP.",
 		iron_cost: BALANCE_RITUAL_CIRCLE_BUILDING_IRON_COST
 	},
 	{
@@ -1738,7 +1779,7 @@ building_choices = [
 		building_sprite: s_shell_factory,
 		building_name: "Shell Factory",
 		building_group: "Other",
-		building_description: "Produces random special shells by spending Iron. Adds random shells every morning.",
+		building_description: "Produces Hellcow, First Aid Meat, Taint Compost, and Doom Bell shells through day events.",
 		iron_cost: BALANCE_BUILDING_IRON_COST
 	}
 ];
@@ -1837,6 +1878,8 @@ debug_menu_y = 84;
 debug_menu_title_height = 34;
 debug_menu_tab_height = 30;
 debug_menu_tab = "shells";
+debug_menu_tab_ids = ["shells", "units", "squads", "events"];
+debug_menu_tab_labels = ["Shells", "Units", "Squads", "Events"];
 
 debug_shell_choices = [
 	{
@@ -2009,6 +2052,13 @@ debug_squad_choices = [
 	{ label: "BALGOR", unit_object: o_balgor, squad_type: SQUAD_TYPE.DEMON, unit_count: BALANCE_SQUAD_PITLING_COUNT }
 ];
 
+debug_event_choices = [
+	{
+		label: "All Events (F6)",
+		debug_action: "all_events"
+	}
+];
+
 debug_menu_choices_get = function()
 {
 	if (debug_menu_tab == "units")
@@ -2021,7 +2071,38 @@ debug_menu_choices_get = function()
 		return debug_squad_choices;
 	}
 
+	if (debug_menu_tab == "events")
+	{
+		return debug_event_choices;
+	}
+
 	return debug_shell_choices;
+};
+
+debug_menu_hint_get = function()
+{
+	if (debug_menu_tab == "units")
+	{
+		return "Spawn: LMB x1 / RMB x5";
+	}
+
+	if (debug_menu_tab == "squads")
+	{
+		return "Add one squad (limit grows automatically)";
+	}
+
+	if (debug_menu_tab == "events")
+	{
+		return "Replace daily cards with all available events";
+	}
+
+	var _queue_count = variable_global_exists("cannon_projectile_queue")
+		? array_length(global.cannon_projectile_queue)
+		: 0;
+	var _queue_max = variable_global_exists("cannon_projectile_queue_max")
+		? global.cannon_projectile_queue_max
+		: 0;
+	return "Give Shell  |  Queue: " + string(_queue_count) + "/" + string(_queue_max);
 };
 
 debug_menu_height_get = function()
@@ -2059,8 +2140,10 @@ debug_shell_choice_rect_get = function(_choice_index)
 
 debug_menu_tab_rect_get = function(_tab_index)
 {
-	var _tab_count = 3;
-	var _available_width = debug_menu_width - (debug_menu_padding * 2) - debug_menu_button_gap;
+	var _tab_count = array_length(debug_menu_tab_ids);
+	var _available_width = debug_menu_width
+		- (debug_menu_padding * 2)
+		- (debug_menu_button_gap * (_tab_count - 1));
 	var _tab_width = _available_width / _tab_count;
 
 	return {
@@ -2151,6 +2234,39 @@ debug_unit_spawn = function(_unit_object, _spawn_count = 1)
 	return _unit_was_spawned;
 };
 
+debug_all_events_give = function()
+{
+	var _jobs_ui = noone;
+
+	if (instance_exists(o_jobs_ui))
+	{
+		_jobs_ui = instance_find(o_jobs_ui, 0);
+
+		if (global.focus_window == FOCUS_WINDOW.JOBS)
+		{
+			_jobs_ui.jobs_window_close();
+		}
+	}
+
+	var _event_count = day_event_debug_all_events_generate();
+
+	debug_menu_open = false;
+
+	if (instance_exists(_jobs_ui)
+		&& global.day_phase == DAY_PHASE.DAY
+		&& global.focus_window == FOCUS_WINDOW.NOONE)
+	{
+		_jobs_ui.jobs_window_open();
+	}
+
+	if (variable_global_exists("ui_confirm_sound_play"))
+	{
+		global.ui_confirm_sound_play();
+	}
+
+	return _event_count;
+};
+
 debug_menu_choice_activate = function(_choice, _unit_spawn_count = 1)
 {
 	if (debug_menu_tab == "squads")
@@ -2170,7 +2286,12 @@ debug_shell_give = function(_choice)
 {
 	if (variable_struct_exists(_choice, "debug_action"))
 	{
-		if (_choice.debug_action == "crusade")
+		if (_choice.debug_action == "all_events")
+		{
+			debug_all_events_give();
+			return true;
+		}
+		else if (_choice.debug_action == "crusade")
 		{
 			crusade_spawn(random(360));
 			return true;
@@ -2257,14 +2378,12 @@ debug_menu_draw = function()
 		draw_set_font(global.ui_font);
 	}
 
-	var _tab_labels = ["Shells", "Units", "Squads"];
-	var _tab_ids = ["shells", "units", "squads"];
-	var _tab_count = array_length(_tab_ids);
+	var _tab_count = array_length(debug_menu_tab_ids);
 
 	for (var _tab_index = 0; _tab_index < _tab_count; ++_tab_index)
 	{
 		var _tab_rect = debug_menu_tab_rect_get(_tab_index);
-		var _tab_is_active = debug_menu_tab == _tab_ids[_tab_index];
+		var _tab_is_active = debug_menu_tab == debug_menu_tab_ids[_tab_index];
 		var _tab_is_hovered = _mouse_x >= _tab_rect.x
 			&& _mouse_x <= _tab_rect.x + _tab_rect.width
 			&& _mouse_y >= _tab_rect.y
@@ -2281,7 +2400,11 @@ debug_menu_draw = function()
 		draw_set_halign(fa_center);
 		draw_set_valign(fa_middle);
 		draw_set_color(COLOR_HUD_TEXT);
-		draw_text(_tab_rect.x + (_tab_rect.width * 0.5), _tab_rect.y + (_tab_rect.height * 0.5), _tab_labels[_tab_index]);
+		draw_text(
+			_tab_rect.x + (_tab_rect.width * 0.5),
+			_tab_rect.y + (_tab_rect.height * 0.5),
+			debug_menu_tab_labels[_tab_index]
+		);
 	}
 
 	draw_set_color(COLOR_PROJECTILE_BUILDING_SHELL);
@@ -2290,11 +2413,7 @@ debug_menu_draw = function()
 	draw_text(
 		debug_menu_x + debug_menu_padding,
 		debug_menu_y + debug_menu_padding + debug_menu_title_height + debug_menu_tab_height + debug_menu_button_gap + 10,
-		debug_menu_tab == "units"
-			? "Spawn: LMB x1 / RMB x5"
-			: (debug_menu_tab == "squads"
-				? "Add one squad (limit grows automatically)"
-				: "Give Shell  |  Queue: " + string(_queue_count) + "/" + string(global.cannon_projectile_queue_max))
+		debug_menu_hint_get()
 	);
 
 	for (var _choice_index = 0; _choice_index < _choice_count; ++_choice_index)
@@ -2463,6 +2582,11 @@ projectile_target_selection_radius_get = function(_projectile_type)
 	if (_projectile_type == PROJECTILE_TYPE.BOMB)
 	{
 		return BALANCE_PROJECTILE_BOMB_RADIUS;
+	}
+
+	if (_projectile_type == PROJECTILE_TYPE.DOOM_BELL)
+	{
+		return BALANCE_PROJECTILE_DOOM_BELL_RADIUS;
 	}
 
 	if (_projectile_type == PROJECTILE_TYPE.SKELETONS)
@@ -2742,10 +2866,7 @@ settings_edge_toggle_rect_get = function()
 cultist_start_count = BALANCE_STARTING_CULTIST_COUNT;
 starting_goblin_count = BALANCE_STARTING_GOBLIN_COUNT;
 starting_event_cultist_count = BALANCE_STARTING_EVENT_CULTIST_COUNT;
-cultist_reward_days = [
-	BALANCE_SECOND_CULTIST_REWARD_DAY,
-	BALANCE_THIRD_CULTIST_REWARD_DAY
-];
+cultist_reward_days = [];
 next_cultist_reward_index = 0;
 cultists_spawned = false;
 starting_cultist_selection_pending = false;
@@ -3202,6 +3323,8 @@ find_building_slot_at_position = function(_world_x, _world_y)
 		var _slot = instance_find(o_building_slot, _slot_index);
 
 		if (instance_exists(_slot)
+			&& (!variable_instance_exists(_slot, "construction_event_pending")
+				|| !_slot.construction_event_pending)
 			&& _world_x >= _slot.bbox_left
 			&& _world_x <= _slot.bbox_right
 			&& _world_y >= _slot.bbox_top
@@ -3439,38 +3562,17 @@ worker_whip_effects_update = function()
 	}
 };
 
-find_upgrade_building_at_position = function(_world_x, _world_y)
+find_building_events_at_position = function(_world_x, _world_y)
 {
 	var _building_count = instance_number(o_v13buildings_parent);
 	var _target_building = noone;
 	var _target_depth = infinity;
-	var _cannon_count = instance_number(o_cannon);
-
-	for (var _cannon_index = 0; _cannon_index < _cannon_count; ++_cannon_index)
-	{
-		var _cannon = instance_find(o_cannon, _cannon_index);
-
-		if (instance_exists(_cannon)
-			&& variable_instance_exists(_cannon, "building_has_upgrades")
-			&& _cannon.building_has_upgrades
-			&& _world_x >= _cannon.bbox_left
-			&& _world_x <= _cannon.bbox_right
-			&& _world_y >= _cannon.bbox_top
-			&& _world_y <= _cannon.bbox_bottom
-			&& _cannon.depth < _target_depth)
-		{
-			_target_building = _cannon;
-			_target_depth = _cannon.depth;
-		}
-	}
 
 	for (var _building_index = 0; _building_index < _building_count; ++_building_index)
 	{
 		var _building = instance_find(o_v13buildings_parent, _building_index);
 
 		if (instance_exists(_building)
-			&& variable_instance_exists(_building, "building_has_upgrades")
-			&& _building.building_has_upgrades
 			&& _world_x >= _building.bbox_left
 			&& _world_x <= _building.bbox_right
 			&& _world_y >= _building.bbox_top
@@ -3479,28 +3581,6 @@ find_upgrade_building_at_position = function(_world_x, _world_y)
 		{
 			_target_building = _building;
 			_target_depth = _building.depth;
-		}
-	}
-
-	var _map_object_count = instance_number(o_map_objects_parent);
-
-	for (var _map_object_index = 0; _map_object_index < _map_object_count; ++_map_object_index)
-	{
-		var _map_object = instance_find(o_map_objects_parent, _map_object_index);
-
-		if (instance_exists(_map_object)
-			&& variable_instance_exists(_map_object, "building_has_upgrades")
-			&& _map_object.building_has_upgrades
-			&& variable_instance_exists(_map_object, "is_captured")
-			&& _map_object.is_captured
-			&& _world_x >= _map_object.bbox_left
-			&& _world_x <= _map_object.bbox_right
-			&& _world_y >= _map_object.bbox_top
-			&& _world_y <= _map_object.bbox_bottom
-			&& _map_object.depth < _target_depth)
-		{
-			_target_building = _map_object;
-			_target_depth = _map_object.depth;
 		}
 	}
 
@@ -3711,19 +3791,48 @@ open_foundry_window = function(_foundry)
 	return true;
 };
 
-open_building_upgrade_window = function(_building)
+building_display_name_get = function(_building)
 {
-	if (!instance_exists(_building)
-		|| !variable_instance_exists(_building, "building_has_upgrades")
-		|| !_building.building_has_upgrades)
+	if (!instance_exists(_building))
+	{
+		return "";
+	}
+
+	for (var _choice_index = 0; _choice_index < array_length(building_choices); ++_choice_index)
+	{
+		var _choice = building_choices[_choice_index];
+
+		if (_choice.building_object == _building.object_index)
+		{
+			return _choice.building_name;
+		}
+	}
+
+	if (_building.object_index == o_foundry)
+	{
+		return "Foundry";
+	}
+
+	return string_replace_all(object_get_name(_building.object_index), "_", " ");
+};
+
+open_building_events_window = function(_building)
+{
+	if (!instance_exists(_building))
 	{
 		return false;
 	}
 
-	building_upgrade_window_building = _building;
-	building_upgrade_previous_pause_state = global.pause;
+	building_events_window_building = _building;
+	building_events_window_entries = day_event_building_catalog_get(_building.object_index);
+	building_events_window_name = building_display_name_get(_building);
+	building_events_scroll_row = 0;
+	building_events_previous_pause_state = global.pause;
+	building_events_input_blocked = true;
 	global.pause = true;
-	global.focus_window = FOCUS_WINDOW.BUILDING_UPGRADE;
+	global.focus_window = FOCUS_WINDOW.BUILDING_EVENTS;
+	global.ui_confirm_sound_play();
+	ui_click_sound_blocked = true;
 
 	return true;
 };
@@ -3737,11 +3846,15 @@ close_building_window = function()
 	global.focus_window = FOCUS_WINDOW.NOONE;
 };
 
-close_building_upgrade_window = function()
+close_building_events_window = function()
 {
-	building_upgrade_window_building = noone;
-	global.pause = building_upgrade_previous_pause_state;
-	player_pause_active = building_upgrade_previous_pause_state;
+	building_events_window_building = noone;
+	building_events_window_entries = [];
+	building_events_window_name = "";
+	building_events_scroll_row = 0;
+	building_events_input_blocked = false;
+	global.pause = building_events_previous_pause_state;
+	player_pause_active = building_events_previous_pause_state;
 	global.focus_window = FOCUS_WINDOW.NOONE;
 };
 
@@ -3802,7 +3915,32 @@ building_choice_count_get = function(_choice)
 		return 0;
 	}
 
-	return instance_number(_choice.building_object);
+	var _building_count = instance_number(_choice.building_object);
+
+	// Reserved construction sites count toward the same building limit.
+	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
+	{
+		var _event = global.day_events[_event_index];
+
+		if (!is_struct(_event)
+			|| !variable_struct_exists(_event, "actions")
+			|| array_length(_event.actions) <= 0)
+		{
+			continue;
+		}
+
+		var _action = _event.actions[0];
+
+		if (is_struct(_action)
+			&& _action.action_type == "construct_building"
+			&& is_struct(_action.data)
+			&& _action.data.building_object == _choice.building_object)
+		{
+			_building_count++;
+		}
+	}
+
+	return _building_count;
 };
 
 building_choice_can_construct = function(_choice)
@@ -4230,44 +4368,27 @@ construct_building_from_choice = function(_choice)
 		return false;
 	}
 
-	if (!building_choice_can_construct(_choice))
-	{
-		return false;
-	}
-
-	if (!building_choice_can_pay(_choice))
+	if (!day_event_building_construction_can_start()
+		|| !building_choice_can_construct(_choice))
 	{
 		return false;
 	}
 
 	var _slot = building_window_slot;
-	building_choice_costs_pay(_choice, _slot.x, _slot.y - 84);
-	var _built_object = instance_create_layer(_slot.x, _slot.y, "Instances", _choice.building_object);
-
-	if (instance_exists(_built_object))
-	{
-		_built_object.depth = _slot.depth;
-
-		if (variable_instance_exists(_built_object, "garrison_morning_spawn_units"))
-		{
-			_built_object.garrison_morning_spawn_units();
-		}
-
-		if (_built_object.object_index == o_goblins_pit)
-		{
-			starting_goblins_bind_to_first_pit(_built_object);
-		}
-	}
-
-	global.construction_sound_play();
-
-	if (variable_global_exists("tutorial_hint_trigger"))
-	{
-		global.tutorial_hint_trigger("workers");
-	}
-
-	instance_destroy(_slot);
 	close_building_window();
+
+	var _construction_event = day_event_building_construction_create(_slot, _choice, false);
+
+	if (!is_struct(_construction_event))
+	{
+		return false;
+	}
+
+	if (instance_exists(o_jobs_ui))
+	{
+		var _jobs_ui = instance_find(o_jobs_ui, 0);
+		_jobs_ui.jobs_window_open();
+	}
 
 	return true;
 };
@@ -5051,7 +5172,7 @@ spawn_starting_cultists = function()
 		array_push(global.event_cultists, _event_cultist);
 	}
 
-	// Buildings provide their guaranteed event after the starting roster exists.
+	// Buildings provide their random daily event after the starting roster exists.
 	day_event_generate_for_buildings();
 
 	cultists_spawned = true;
@@ -5247,6 +5368,13 @@ award_day_cultists = function()
 		if (night_attack_night_index < _reward_day)
 		{
 			break;
+		}
+
+		// Blood Moon replaces a fixed day reward so its morning arrivals stay grouped.
+		if (full_moon_night_is_scheduled(night_attack_night_index))
+		{
+			next_cultist_reward_index = _reward_index + 1;
+			continue;
 		}
 
 		// New followers are regular event workers, never additional archdemons.
@@ -5763,7 +5891,13 @@ start_cultists_loading_into_cannon = function()
 	for (var _squad_index = 0; _squad_index < array_length(global.squads); ++_squad_index)
 	{
 		var _squad = global.squads[_squad_index];
-		if (_squad.squad_type == SQUAD_TYPE.ARCHDEMON) continue;
+
+		if (_squad.squad_type == SQUAD_TYPE.ARCHDEMON
+			|| (global.ritual_hell_weakest_active
+				&& _squad == global.ritual_hell_weakest_squad))
+		{
+			continue;
+		}
 
 		var _primary_unit = noone;
 
@@ -5791,7 +5925,10 @@ start_cultists_loading_into_cannon = function()
 
 		if (!instance_exists(_cultist)
 			|| _cultist.object_index != o_archdemon
-			|| _cultist.demon_type == DEMON_TYPE.NONE)
+			|| _cultist.demon_type == DEMON_TYPE.NONE
+			|| (global.ritual_hell_weakest_active
+				&& variable_instance_exists(_cultist, "squad")
+				&& _cultist.squad == global.ritual_hell_weakest_squad))
 		{
 			continue;
 		}
@@ -6790,6 +6927,11 @@ night_attack_total_difficulty_get = function()
 		+ (_extra_cultist_count * BALANCE_NIGHT_ATTACK_DIFFICULTY_PER_EXTRA_CULTIST)
 		+ (_captured_shrine_count * BALANCE_SHRINE_CAPTURED_NIGHT_DIFFICULTY_BONUS);
 
+	if (full_moon_night_is_scheduled(_night_index))
+	{
+		_difficulty *= BALANCE_FULL_MOON_DIFFICULTY_MULTIPLIER;
+	}
+
 	return _difficulty;
 };
 
@@ -6815,6 +6957,9 @@ night_attack_difficulty_debug_log = function(_total_difficulty, _direction_count
 		+ _late_night_difficulty
 		+ _extra_cultist_difficulty
 		+ _captured_shrine_difficulty;
+	var _full_moon_difficulty_multiplier = full_moon_night_is_scheduled(_night_index)
+		? BALANCE_FULL_MOON_DIFFICULTY_MULTIPLIER
+		: 1;
 	var _enemy_hp_multiplier = enemy_night_hp_multiplier_get();
 	var _enemy_hp_night_multiplier = 1 + (_night_index - 1) * BALANCE_ENEMY_HP_INCREASE_PER_NIGHT;
 
@@ -6829,12 +6974,13 @@ night_attack_difficulty_debug_log = function(_total_difficulty, _direction_count
 		+ "\n  Captured shrines: +" + string_format(_captured_shrine_difficulty, 0, 2)
 		+ " (" + string(_captured_shrine_count) + " x " + string_format(BALANCE_SHRINE_CAPTURED_NIGHT_DIFFICULTY_BONUS, 0, 2) + ")"
 		+ "\n  Adaptive unit-count modifier: none"
+		+ "\n  Full moon multiplier: x" + string_format(_full_moon_difficulty_multiplier, 0, 2)
 		+ "\n  Raw difficulty: " + string_format(_raw_difficulty, 0, 2);
 
 	_difficulty_text += "\n  Total difficulty: " + string_format(_total_difficulty, 0, 2)
 		+ "\n  Directions: " + string(_direction_count)
 		+ "\n  Difficulty per direction: " + string_format(_direction_difficulty, 0, 2)
-		+ " (cap " + string_format(BALANCE_NIGHT_ATTACK_DIRECTION_DIFFICULTY_MAX, 0, 2) + ")"
+		+ " (cap " + string_format(BALANCE_NIGHT_ATTACK_DIRECTION_DIFFICULTY_MAX * _full_moon_difficulty_multiplier, 0, 2) + ")"
 		+ "\n  Enemy HP night multiplier: x" + string_format(_enemy_hp_night_multiplier, 0, 2);
 
 	if (BALANCE_ADAPTIVE_DIFFICULTY_ENABLED)
@@ -7078,6 +7224,25 @@ enemy_night_hp_scale_apply = function(_enemy)
 		|| !variable_instance_exists(_enemy, "hp"))
 	{
 		return;
+	}
+
+	if (global.ritual_rust_righteous_active
+		&& variable_instance_exists(_enemy, "armor")
+		&& !variable_instance_exists(_enemy, "ritual_armor_reduction_applied"))
+	{
+		_enemy.armor = max(0, _enemy.armor - BALANCE_RITUAL_ENEMY_ARMOR_REDUCTION);
+		_enemy.ritual_armor_reduction_applied = true;
+	}
+
+	if (global.ritual_silence_choir_active
+		&& variable_instance_exists(_enemy, "magic_resistance")
+		&& !variable_instance_exists(_enemy, "ritual_magic_resistance_reduction_applied"))
+	{
+		_enemy.magic_resistance = max(
+			0,
+			_enemy.magic_resistance - BALANCE_RITUAL_ENEMY_MAGIC_RESISTANCE_REDUCTION
+		);
+		_enemy.ritual_magic_resistance_reduction_applied = true;
 	}
 
 	var _scale_index = max(1, night_attack_night_index);
@@ -7949,11 +8114,20 @@ night_attack_plan_create = function()
 		boss_griffith_pending_direction = _directions[0].direction;
 	}
 
+	var _direction_difficulty_cap = BALANCE_NIGHT_ATTACK_DIRECTION_DIFFICULTY_MAX;
+
+	if (full_moon_night_is_scheduled(night_attack_night_index))
+	{
+		_direction_difficulty_cap *= BALANCE_FULL_MOON_DIFFICULTY_MULTIPLIER;
+	}
+
 	var _direction_difficulty = min(
 		_total_difficulty / _active_direction_count,
-		BALANCE_NIGHT_ATTACK_DIRECTION_DIFFICULTY_MAX
+		_direction_difficulty_cap
 	);
 	var _previous_pair = [];
+	var _remaining_enemy_type_slots = BALANCE_NIGHT_ATTACK_MAX_ENEMY_TYPES;
+	var _selected_enemy_types = [];
 
 	night_attack_difficulty_debug_log(_total_difficulty, _active_direction_count, _direction_difficulty);
 
@@ -7962,6 +8136,37 @@ night_attack_plan_create = function()
 		var _direction_source = _directions[_direction_index];
 		var _enemy_pair = night_attack_unit_pair_roll(_previous_pair);
 		var _enemy_objects = night_attack_enemy_type_count_roll(_enemy_pair);
+
+		if (_remaining_enemy_type_slots <= 0)
+		{
+			_enemy_objects = [_selected_enemy_types[irandom(array_length(_selected_enemy_types) - 1)]];
+		}
+		else if (array_length(_enemy_objects) > _remaining_enemy_type_slots)
+		{
+			_enemy_objects = [_enemy_objects[irandom(array_length(_enemy_objects) - 1)]];
+		}
+
+		for (var _enemy_type_index = 0; _enemy_type_index < array_length(_enemy_objects); ++_enemy_type_index)
+		{
+			var _enemy_type = _enemy_objects[_enemy_type_index];
+			var _enemy_type_is_new = true;
+
+			for (var _selected_type_index = 0; _selected_type_index < array_length(_selected_enemy_types); ++_selected_type_index)
+			{
+				if (_selected_enemy_types[_selected_type_index] == _enemy_type)
+				{
+					_enemy_type_is_new = false;
+					break;
+				}
+			}
+
+			if (_enemy_type_is_new)
+			{
+				array_push(_selected_enemy_types, _enemy_type);
+			}
+		}
+
+		_remaining_enemy_type_slots -= array_length(_enemy_objects);
 		var _wave_count = night_attack_wave_count_get(_direction_difficulty, _enemy_objects);
 
 		_previous_pair = _enemy_pair;
@@ -8006,6 +8211,28 @@ night_attack_direction_wave_start = function(_direction_index)
 		_direction_data.remaining_enemy_difficulties,
 		_direction_data.current_wave_units
 	);
+
+	// Bonus guests do not consume the regular night difficulty budget.
+	if (global.ritual_invite_worthy_active && array_length(_direction_data.current_wave_units) > 0)
+	{
+		var _base_unit_count = array_length(_direction_data.current_wave_units);
+		var _extra_unit_count = round(
+			_base_unit_count * (BALANCE_RITUAL_INVITE_WORTHY_ENEMY_MULTIPLIER - 1)
+		);
+
+		for (var _extra_index = 0; _extra_index < _extra_unit_count; ++_extra_index)
+		{
+			array_push(
+				_direction_data.current_wave_units,
+				_direction_data.current_wave_units[irandom(_base_unit_count - 1)]
+			);
+		}
+
+		_direction_data.current_wave_units = night_attack_wave_units_shuffle(
+			_direction_data.current_wave_units
+		);
+	}
+
 	_direction_data.remaining_difficulty = max(
 		0,
 		night_attack_array_sum(_direction_data.remaining_enemy_difficulties)
@@ -8656,21 +8883,77 @@ start_night_phase = function()
 	var _is_full_moon_night = full_moon_night_is_scheduled(night_attack_night_index);
 	global.day_phase = DAY_PHASE.NIGHT;
 	global.full_moon_night_active = _is_full_moon_night;
-	global.day_timer = (_is_full_moon_night ? BALANCE_FULL_MOON_NIGHT_DURATION : global.night_duration) * global.game_speed_normal;
+	global.day_timer = global.night_duration * global.game_speed_normal;
 	global.night_attack_unit_count = 0;
 	night_force_end_timer = BALANCE_NIGHT_FORCE_END_TIME * room_speed;
 	night_force_end_active = false;
 	adaptive_night_cultist_knocked_out = false;
-	phase_banner_show(_is_full_moon_night ? "FULL MOON" : "NIGHT FALLS");
+	phase_banner_show(_is_full_moon_night ? "BLOOD MOON" : "NIGHT FALLS");
 
 	night_effect_transition_start();
 	global.sound_play_random(global.night_start_sounds);
 	update_goblin_evening_life();
 	move_goblins_to_cannon_inner();
 
+	// Apply temporary squad health before any units are loaded into the cannon.
+	if (global.ritual_hell_weakest_active)
+	{
+		for (var _squad_index = 0; _squad_index < array_length(global.squads); ++_squad_index)
+		{
+			var _squad = global.squads[_squad_index];
+
+			if (_squad == global.ritual_hell_weakest_squad)
+			{
+				// Keep the sacrificed squad completely outside combat for this night.
+				for (var _undeployed_index = 0; _undeployed_index < array_length(_squad.units); ++_undeployed_index)
+				{
+					var _undeployed_unit = _squad.units[_undeployed_index];
+
+					if (instance_exists(_undeployed_unit))
+					{
+						_undeployed_unit.ritual_hell_undeployed = true;
+						_undeployed_unit.is_attackable = false;
+						_undeployed_unit.visible = false;
+					}
+				}
+
+				continue;
+			}
+
+			for (var _unit_index = 0; _unit_index < array_length(_squad.units); ++_unit_index)
+			{
+				var _unit = _squad.units[_unit_index];
+
+				if (instance_exists(_unit) && !variable_instance_exists(_unit, "ritual_hell_health_bonus_applied"))
+				{
+					_unit.ritual_hell_health_bonus_applied = true;
+					_unit.max_hp *= BALANCE_RITUAL_HELL_WEAKEST_HEALTH_MULTIPLIER;
+					_unit.hp *= BALANCE_RITUAL_HELL_WEAKEST_HEALTH_MULTIPLIER;
+				}
+			}
+		}
+	}
+
 	if (instance_exists(o_cannon))
 	{
 		var _cannon = instance_find(o_cannon, 0);
+
+		if (global.ritual_trial_cannon_active)
+		{
+			_cannon.hp = max(
+				0,
+				_cannon.hp - (_cannon.max_hp * BALANCE_RITUAL_TRIAL_CANNON_HP_LOSS_SHARE)
+			);
+		}
+
+		if (global.ritual_lesser_gate_active && !instance_exists(o_lesser_gate))
+		{
+			var _gate_direction = irandom(359);
+			var _gate_x = _cannon.x + lengthdir_x(BALANCE_RITUAL_LESSER_GATE_CANNON_DISTANCE, _gate_direction);
+			var _gate_y = _cannon.y + lengthdir_y(BALANCE_RITUAL_LESSER_GATE_CANNON_DISTANCE, _gate_direction);
+			instance_create_layer(_gate_x, _gate_y, "Instances", o_lesser_gate);
+		}
+
 		adaptive_night_cannon_hp_start = _cannon.hp;
 
 		if (variable_instance_exists(_cannon, "cannon_night_damage_tracking_start"))
@@ -8681,14 +8964,14 @@ start_night_phase = function()
 
 	adaptive_difficulty_night_hp_start_store();
 
-	if (!_is_full_moon_night && !night_attack_plan_exists)
-	{
-		night_attack_plan_create();
-	}
-	else if (_is_full_moon_night)
+	if (global.ritual_invite_worthy_active)
 	{
 		night_attack_plan_exists = false;
-		night_attack_directions = [];
+	}
+
+	if (!night_attack_plan_exists)
+	{
+		night_attack_plan_create();
 	}
 
 	start_cultists_loading_into_cannon();
@@ -8730,11 +9013,7 @@ start_night_phase = function()
 		enemy_night_hp_scale_apply(_existing_enemy);
 	}
 
-	if (_is_full_moon_night)
-	{
-		// Full moon nights are player attack nights; enemies do not start an assault.
-	}
-	else if (boss_griffith_pending_next_night)
+	if (boss_griffith_pending_next_night)
 	{
 		boss_griffith_spawn_for_night();
 	}
@@ -8748,8 +9027,35 @@ start_day_phase = function()
 {
 	clear_dragged_unit();
 	squad_blood_warpaint_end_night();
+	var _previous_night_was_full_moon = global.full_moon_night_active;
+	var _blood_moon_reward_cultists = [];
+
+	with (o_lesser_gate)
+	{
+		instance_destroy();
+	}
+
 	// Previous day event cards and their assignments never carry into a new day.
 	day_event_new_day_reset();
+
+	if (_previous_night_was_full_moon)
+	{
+		for (var _reward_index = 0; _reward_index < BALANCE_FULL_MOON_MORNING_CULTIST_REWARD; ++_reward_index)
+		{
+			var _reward_cultist = day_event_cultist_add();
+
+			if (!instance_exists(_reward_cultist))
+			{
+				break;
+			}
+
+			array_push(_blood_moon_reward_cultists, _reward_cultist);
+		}
+	}
+
+	global.ritual_extra_building_event_active = global.ritual_invite_worthy_reward_pending
+		&& instance_exists(o_cannon);
+	global.ritual_invite_worthy_reward_pending = false;
 	day_event_generate_for_buildings();
 	global.day_phase = DAY_PHASE.DAY;
 	global.cannon_corpses_delivered_today = 0;
@@ -8789,6 +9095,39 @@ start_day_phase = function()
 	transform_demons_to_archdemons();
 	restore_dead_cultists_at_morning();
 	squad_units_restore_morning();
+
+	with (o_units_parent)
+	{
+		if (variable_instance_exists(id, "ritual_hell_undeployed")
+			&& ritual_hell_undeployed)
+		{
+			is_attackable = true;
+			ritual_hell_undeployed = false;
+		}
+
+		if (variable_instance_exists(id, "ritual_hell_health_bonus_applied")
+			&& ritual_hell_health_bonus_applied)
+		{
+			max_hp /= BALANCE_RITUAL_HELL_WEAKEST_HEALTH_MULTIPLIER;
+			hp = min(hp, max_hp);
+			ritual_hell_health_bonus_applied = false;
+		}
+
+		visible = true;
+	}
+
+	global.ritual_black_pilgrimage_active = false;
+	global.ritual_grasping_soil_active = false;
+	global.ritual_awaken_taint_active = false;
+	global.ritual_rust_righteous_active = false;
+	global.ritual_silence_choir_active = false;
+	global.ritual_blood_night_active = false;
+	global.ritual_invite_worthy_active = false;
+	global.ritual_trial_cannon_active = false;
+	global.ritual_lesser_gate_active = false;
+	global.ritual_hell_weakest_active = false;
+	global.ritual_hell_weakest_squad = noone;
+
 	move_cultists_to_cannon_inner();
 	settlement_garrison_buildings_spawn_morning_units();
 	move_summoned_units_to_cannon_inner();
@@ -8847,6 +9186,11 @@ start_day_phase = function()
 	award_cultist_night_exp();
 	award_day_cultists();
 	night_attack_plan_create();
+
+	if (_previous_night_was_full_moon)
+	{
+		blood_moon_reward_popup_show(_blood_moon_reward_cultists);
+	}
 };
 
 fade_out_morning_meat = function()

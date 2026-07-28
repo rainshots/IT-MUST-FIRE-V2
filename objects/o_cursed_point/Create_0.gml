@@ -48,20 +48,9 @@ structure_choice_options = [];
 structure_choice_options_rolled = false;
 restore_structure_choice = noone;
 
-// Capture rewards roll from one of these two packs.
+// Captured points offer two different random towers from this roster.
 structure_choice_packs = [
 	[
-		{
-			building_object: o_tower_corruption,
-			building_name: "Taint Tower",
-			building_description: "Spreads Taint around itself after capture.",
-			construction_costs: [
-				{
-					resource: RESOURCES.FLESH,
-					cost: BALANCE_TOWER_CORRUPTION_BUILD_FLESH_COST
-				}
-			]
-		},
 		{
 			building_object: o_tower_damage,
 			building_name: "Damage Tower",
@@ -85,52 +74,6 @@ structure_choice_packs = [
 				{
 					resource: RESOURCES.IRON,
 					cost: BALANCE_TOWER_HEAL_BUILD_IRON_COST
-				}
-			]
-		},
-		{
-			building_object: o_tower_vision,
-			building_name: "Vision Tower",
-			building_description: "Reveals fog of war in a large area after capture.",
-			construction_costs: [
-				{
-					resource: RESOURCES.SOULS,
-					cost: BALANCE_TOWER_VISION_BUILD_SOUL_COST
-				}
-			]
-		}
-	],
-	[
-		{
-			building_object: o_boneyard,
-			building_name: "Boneyard",
-			building_description: "Spawns 2 Skeletons every morning after capture.",
-			construction_costs: [
-				{
-					resource: RESOURCES.SOULS,
-					cost: BALANCE_BONEYARD_BUILD_SOUL_COST
-				}
-			]
-		},
-		{
-			building_object: o_orcs_hut,
-			building_name: "Orcs Hut",
-			building_description: "Adds neutral orcs that haul corpses to the cannon.",
-			construction_costs: [
-				{
-					resource: RESOURCES.FLESH,
-					cost: BALANCE_ORCS_HUT_BUILD_FLESH_COST
-				}
-			]
-		},
-		{
-			building_object: o_pitlings_house,
-			building_name: "Pitlings House",
-			building_description: "Spawns 1 Pitling every morning after capture.",
-			construction_costs: [
-				{
-					resource: RESOURCES.FLESH,
-					cost: BALANCE_PITLINGS_HOUSE_BUILD_FLESH_COST
 				}
 			]
 		}
@@ -214,23 +157,6 @@ cursed_point_resource_name_get = function(_resource)
 
 cursed_point_structure_choice_can_pay = function(_choice)
 {
-	if (!variable_struct_exists(_choice, "construction_costs"))
-	{
-		return true;
-	}
-
-	var _cost_count = array_length(_choice.construction_costs);
-
-	for (var _cost_index = 0; _cost_index < _cost_count; ++_cost_index)
-	{
-		var _cost_data = _choice.construction_costs[_cost_index];
-
-		if (global.resources[_cost_data.resource] < _cost_data.cost)
-		{
-			return false;
-		}
-	}
-
 	return true;
 };
 
@@ -443,7 +369,10 @@ cursed_point_rect_expand = function(_rect, _scale)
 
 cursed_point_summon_button_is_hovered = function()
 {
-	if (!is_captured || structure_selection_open || global.focus_window != FOCUS_WINDOW.NOONE)
+	if (!is_captured
+		|| structure_selection_open
+		|| (variable_instance_exists(id, "construction_event_pending") && construction_event_pending)
+		|| global.focus_window != FOCUS_WINDOW.NOONE)
 	{
 		return false;
 	}
@@ -620,54 +549,26 @@ cursed_point_structure_choice_hover_key_get = function(_mouse_x, _mouse_y)
 
 cursed_point_structure_build = function(_choice)
 {
-	if (!cursed_point_structure_choice_can_pay(_choice))
+	if (!day_event_building_construction_can_start())
+	{
+		cursed_point_structure_selection_close();
+		return false;
+	}
+
+	cursed_point_structure_selection_close();
+	var _construction_event = day_event_building_construction_create(id, _choice, true);
+
+	if (!is_struct(_construction_event))
 	{
 		return false;
 	}
 
-	var _built_object = instance_create_layer(x, y, "Instances", _choice.building_object);
-
-	if (instance_exists(_built_object))
+	if (instance_exists(o_jobs_ui))
 	{
-		_built_object.depth = -floor(_built_object.y);
-
-		if (variable_instance_exists(_built_object, "building_constructed_by_cursed_point"))
-		{
-			_built_object.building_constructed_by_cursed_point = true;
-		}
-
-		_built_object.cursed_point_restore_choice = _choice;
-
-		if (variable_instance_exists(_built_object, "tower_capture_enabled"))
-		{
-			_built_object.tower_capture_enabled = true;
-		}
-
-		if (variable_instance_exists(_built_object, "is_captured"))
-		{
-			_built_object.is_captured = true;
-		}
-
-		if (variable_instance_exists(_built_object, "max_corruption")
-			&& variable_instance_exists(_built_object, "corruption"))
-		{
-			_built_object.corruption = _built_object.max_corruption;
-		}
-
-		if (variable_instance_exists(_built_object, "captured_sprite_index")
-			&& _built_object.captured_sprite_index != noone)
-		{
-			_built_object.sprite_index = _built_object.captured_sprite_index;
-			_built_object.image_index = 0;
-			_built_object.image_speed = 0;
-		}
+		var _jobs_ui = instance_find(o_jobs_ui, 0);
+		_jobs_ui.jobs_window_open();
 	}
 
-	cursed_point_structure_choice_costs_pay(_choice);
-	cursed_point_construction_effect_create();
-
-	cursed_point_structure_selection_close();
-	instance_destroy();
 	return true;
 };
 

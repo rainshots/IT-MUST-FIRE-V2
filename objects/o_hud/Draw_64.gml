@@ -1366,57 +1366,6 @@ if (instance_exists(o_cannon))
 	}
 }
 
-// Draw full moon timer and retreat button at the bottom center.
-if ((_regular_hud_is_visible || _projectile_queue_stays_visible)
-	&& variable_global_exists("full_moon_night_active")
-	&& global.full_moon_night_active)
-{
-	var _full_moon_gui_width = display_get_gui_width();
-	var _full_moon_gui_height = display_get_gui_height();
-	var _full_moon_bar_width = full_moon_timer_width;
-	var _full_moon_bar_height = full_moon_timer_height;
-	var _full_moon_bar_x = (_full_moon_gui_width - _full_moon_bar_width) * 0.5;
-	var _full_moon_duration_frames = max(1, BALANCE_FULL_MOON_NIGHT_DURATION * (variable_global_exists("game_speed_normal") ? global.game_speed_normal : room_speed));
-	var _full_moon_progress = clamp(global.day_timer / _full_moon_duration_frames, 0, 1);
-	var _retreat_button_width = full_moon_retreat_button_width;
-	var _retreat_button_height = full_moon_retreat_button_height;
-	var _retreat_button_x = (_full_moon_gui_width - _retreat_button_width) * 0.5;
-	var _retreat_button_y = _full_moon_gui_height - full_moon_retreat_button_bottom - _retreat_button_height;
-	var _full_moon_bar_y = _retreat_button_y + _retreat_button_height + full_moon_timer_button_gap;
-	var _retreat_mouse_x = device_mouse_x_to_gui(0);
-	var _retreat_mouse_y = device_mouse_y_to_gui(0);
-	var _retreat_is_hovered = _retreat_mouse_x >= _retreat_button_x
-		&& _retreat_mouse_x <= _retreat_button_x + _retreat_button_width
-		&& _retreat_mouse_y >= _retreat_button_y
-		&& _retreat_mouse_y <= _retreat_button_y + _retreat_button_height;
-
-	draw_set_alpha(0.88);
-	draw_set_color(c_black);
-	draw_rectangle(_full_moon_bar_x, _full_moon_bar_y, _full_moon_bar_x + _full_moon_bar_width, _full_moon_bar_y + _full_moon_bar_height, false);
-
-	draw_set_alpha(1);
-	draw_set_color(COLOR_STATUS_NEGATIVE_RED);
-	draw_rectangle(_full_moon_bar_x, _full_moon_bar_y, _full_moon_bar_x + (_full_moon_bar_width * _full_moon_progress), _full_moon_bar_y + _full_moon_bar_height, false);
-	draw_set_color(c_white);
-	draw_rectangle(_full_moon_bar_x, _full_moon_bar_y, _full_moon_bar_x + _full_moon_bar_width, _full_moon_bar_y + _full_moon_bar_height, true);
-
-	draw_set_alpha(_retreat_is_hovered ? 0.95 : 0.78);
-	draw_set_color(COLOR_HUD_BACKGROUND);
-	draw_rectangle(_retreat_button_x, _retreat_button_y, _retreat_button_x + _retreat_button_width, _retreat_button_y + _retreat_button_height, false);
-	draw_set_alpha(1);
-	draw_set_color(COLOR_STATUS_NEGATIVE_RED);
-	draw_rectangle(_retreat_button_x, _retreat_button_y, _retreat_button_x + _retreat_button_width, _retreat_button_y + _retreat_button_height, true);
-
-	draw_set_halign(fa_center);
-	draw_set_valign(fa_middle);
-	draw_set_color(COLOR_HUD_TEXT);
-	draw_text(_retreat_button_x + (_retreat_button_width * 0.5), _retreat_button_y + (_retreat_button_height * 0.5), "RETREAT");
-	draw_set_halign(fa_left);
-	draw_set_valign(fa_top);
-	draw_set_color(c_white);
-	draw_set_alpha(1);
-}
-
 // Draw the first-night cultist projectile prompt until the player fires it.
 if (variable_global_exists("first_night_cultist_projectile_fired")
 	&& variable_global_exists("day_phase")
@@ -1506,6 +1455,20 @@ if (variable_global_exists("cannon_projectile_queue")
 	var _gui_height = display_get_gui_height();
 	var _projectile_base_y = _gui_height - projectile_queue_margin_bottom - projectile_slot_height - projectile_name_offset_y;
 	var _has_building_shell_projectile = false;
+
+	// Keep the daytime projectile row fully above the Assign Duties button.
+	if (global.day_phase == DAY_PHASE.DAY && instance_exists(o_jobs_ui))
+	{
+		var _jobs_ui = instance_find(o_jobs_ui, 0);
+
+		if (variable_instance_exists(_jobs_ui, "jobs_show_button_rect_get"))
+		{
+			var _jobs_button_rect = _jobs_ui.jobs_show_button_rect_get();
+			_projectile_base_y = _jobs_button_rect.y
+				- projectile_slot_height
+				- projectile_day_jobs_button_gap;
+		}
+	}
 
 	for (var _building_shell_check_index = 0; _building_shell_check_index < _projectile_display_count; ++_building_shell_check_index)
 	{
@@ -1654,11 +1617,13 @@ if (variable_global_exists("cannon_projectile_queue")
 				&& _projectile_type != PROJECTILE_TYPE.CULTIST
 				&& _projectile_type != PROJECTILE_TYPE.BUILDING_SHELL);
 		var _projectile_color = COLOR_PROJECTILE_DAMAGE;
+		var _projectile_sprite = noone;
 		var _circle_radius = projectile_circle_radius;
 
 		if (_projectile_type == PROJECTILE_TYPE.CORRUPTION)
 		{
 			_projectile_color = COLOR_PROJECTILE_CORRUPTION;
+			_projectile_sprite = s_taint_shell;
 		}
 		else if (_projectile_type == PROJECTILE_TYPE.SUMMON)
 		{
@@ -1679,10 +1644,17 @@ if (variable_global_exists("cannon_projectile_queue")
 		else if (_projectile_type == PROJECTILE_TYPE.HEAL)
 		{
 			_projectile_color = COLOR_PROJECTILE_HEAL;
+			_projectile_sprite = s_heal_meat;
 		}
 		else if (_projectile_type == PROJECTILE_TYPE.BOMB)
 		{
 			_projectile_color = COLOR_PROJECTILE_BOMB;
+			_projectile_sprite = s_cow;
+		}
+		else if (_projectile_type == PROJECTILE_TYPE.DOOM_BELL)
+		{
+			_projectile_color = COLOR_PROJECTILE_BOMB;
+			_projectile_sprite = s_mega_bell;
 		}
 		else if (_projectile_type == PROJECTILE_TYPE.SKELETONS)
 		{
@@ -1729,8 +1701,32 @@ if (variable_global_exists("cannon_projectile_queue")
 		}
 
 		draw_set_alpha(_projectile_draw_alpha);
-		draw_set_color(_projectile_color);
-		draw_circle(_slot_x + (_slot_width * 0.5), _slot_y + 22, _circle_radius, false);
+
+		if (_projectile_sprite != noone)
+		{
+			var _sprite_width = max(1, sprite_get_width(_projectile_sprite));
+			var _sprite_height = max(1, sprite_get_height(_projectile_sprite));
+			var _sprite_max_size = max(_sprite_width, _sprite_height);
+			var _sprite_scale = (_circle_radius * 2) / _sprite_max_size;
+
+			draw_set_color(c_white);
+			draw_sprite_ext(
+				_projectile_sprite,
+				0,
+				_slot_x + (_slot_width * 0.5),
+				_slot_y + 22,
+				_sprite_scale,
+				_sprite_scale,
+				0,
+				c_white,
+				1
+			);
+		}
+		else
+		{
+			draw_set_color(_projectile_color);
+			draw_circle(_slot_x + (_slot_width * 0.5), _slot_y + 22, _circle_radius, false);
+		}
 
 		if (_projectile_stack_count > 1)
 		{

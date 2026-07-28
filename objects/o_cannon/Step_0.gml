@@ -70,7 +70,8 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 
 		if (target_projectile_type == PROJECTILE_TYPE.RALLY
 			|| target_projectile_type == PROJECTILE_TYPE.CULTIST
-			|| target_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
+			|| target_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL
+			|| target_projectile_type == PROJECTILE_TYPE.DOOM_BELL)
 		{
 			_fired_projectile_count = 1;
 		}
@@ -99,7 +100,8 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 
 			if (target_projectile_type == PROJECTILE_TYPE.RALLY
 				|| target_projectile_type == PROJECTILE_TYPE.CULTIST
-				|| target_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
+				|| target_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL
+				|| target_projectile_type == PROJECTILE_TYPE.DOOM_BELL)
 			{
 				_spread_target_x = target_x;
 				_spread_target_y = target_y;
@@ -162,11 +164,26 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			{
 				_projectile.effect_radius = BALANCE_PROJECTILE_HEAL_RADIUS;
 				_projectile.damage_amount = cannon_projectile_heal_amount_get();
+				_projectile.projectile_sprite = s_heal_meat;
 			}
 			else if (target_projectile_type == PROJECTILE_TYPE.BOMB)
 			{
 				_projectile.effect_radius = BALANCE_PROJECTILE_BOMB_RADIUS;
 				_projectile.damage_amount = cannon_projectile_bomb_damage_get();
+				_projectile.projectile_sprite = s_cow;
+			}
+			else if (target_projectile_type == PROJECTILE_TYPE.CORRUPTION)
+			{
+				_projectile.projectile_sprite = s_taint_shell;
+			}
+			else if (target_projectile_type == PROJECTILE_TYPE.DOOM_BELL)
+			{
+				_projectile.effect_radius = BALANCE_PROJECTILE_DOOM_BELL_RADIUS;
+				_projectile.damage_amount = BALANCE_PROJECTILE_DOOM_BELL_DAMAGE_AMOUNT;
+				_projectile.ground_corruption_amount = BALANCE_PROJECTILE_DOOM_BELL_CORRUPTION_AMOUNT;
+				_projectile.ground_corruption_radius = BALANCE_PROJECTILE_DOOM_BELL_CORRUPTION_RADIUS;
+				_projectile.projectile_sprite = s_mega_bell;
+				_projectile.projectile_sprite_scale *= BALANCE_PROJECTILE_DOOM_BELL_VISUAL_SCALE_MULTIPLIER;
 			}
 			else if (target_projectile_type == PROJECTILE_TYPE.SKELETONS)
 			{

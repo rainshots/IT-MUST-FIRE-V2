@@ -1,3 +1,91 @@
+// Draw the optional support selector before any simulations begin.
+if (!configuration_is_confirmed)
+{
+	var _gui_width = display_get_gui_width();
+	var _gui_height = display_get_gui_height();
+	var _panel_x = (_gui_width - configuration_panel_width) * 0.5;
+	var _panel_y = (_gui_height - configuration_panel_height) * 0.5;
+	var _mouse_x = device_mouse_x_to_gui(0);
+	var _mouse_y = device_mouse_y_to_gui(0);
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_alpha(0.96);
+	draw_set_color(COLOR_BALANCE_TEST_BACKGROUND);
+	draw_rectangle(0, 0, _gui_width, _gui_height, false);
+	draw_set_alpha(1);
+	draw_set_color(COLOR_BALANCE_TEST_HEADER);
+	draw_rectangle(
+		_panel_x,
+		_panel_y,
+		_panel_x + configuration_panel_width,
+		_panel_y + configuration_panel_height,
+		false
+	);
+	draw_set_color(c_white);
+	draw_text(_panel_x + 44, _panel_y + 24, "BALANCE TEST SETUP");
+	draw_set_color(COLOR_BALANCE_TEST_MUTED_TEXT);
+	draw_text(_panel_x + 44, _panel_y + 52, "Optional friendly support for every fight:");
+
+	for (var _option_index = 0; _option_index < array_length(optional_test_configs); ++_option_index)
+	{
+		var _option = optional_test_configs[_option_index];
+		var _option_rect = balance_test_configuration_option_rect_get(_option_index);
+		var _is_hovered = point_in_rectangle(
+			_mouse_x,
+			_mouse_y,
+			_option_rect.x,
+			_option_rect.y,
+			_option_rect.x + _option_rect.width,
+			_option_rect.y + _option_rect.height
+		);
+
+		draw_set_color(_is_hovered ? COLOR_BALANCE_TEST_ROW_ALTERNATE : COLOR_BALANCE_TEST_ROW);
+		draw_rectangle(
+			_option_rect.x,
+			_option_rect.y,
+			_option_rect.x + _option_rect.width,
+			_option_rect.y + _option_rect.height,
+			false
+		);
+		draw_set_color(_option.enabled ? COLOR_BALANCE_TEST_PLAYER_WIN : COLOR_BALANCE_TEST_MUTED_TEXT);
+		draw_text(_option_rect.x + 16, _option_rect.y + 13, _option.enabled ? "[X]" : "[ ]");
+		draw_set_color(c_white);
+		draw_text(_option_rect.x + 58, _option_rect.y + 13, _option.label);
+	}
+
+	var _start_rect = balance_test_configuration_start_rect_get();
+	var _start_is_hovered = point_in_rectangle(
+		_mouse_x,
+		_mouse_y,
+		_start_rect.x,
+		_start_rect.y,
+		_start_rect.x + _start_rect.width,
+		_start_rect.y + _start_rect.height
+	);
+
+	draw_set_color(_start_is_hovered ? COLOR_BALANCE_TEST_PLAYER_WIN : COLOR_BALANCE_TEST_ROW_ALTERNATE);
+	draw_rectangle(
+		_start_rect.x,
+		_start_rect.y,
+		_start_rect.x + _start_rect.width,
+		_start_rect.y + _start_rect.height,
+		false
+	);
+	draw_set_color(c_white);
+	draw_set_halign(fa_center);
+	draw_text(_start_rect.x + (_start_rect.width * 0.5), _start_rect.y + 17, "START TESTS");
+	draw_set_halign(fa_left);
+	draw_set_color(COLOR_BALANCE_TEST_MUTED_TEXT);
+	draw_text(_panel_x + 44, _panel_y + configuration_panel_height - 20, "Enter/Space: start    Esc: return");
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+	exit;
+}
+
 // Draw the complete result matrix in GUI space.
 var _gui_width = display_get_gui_width();
 var _margin = 18;

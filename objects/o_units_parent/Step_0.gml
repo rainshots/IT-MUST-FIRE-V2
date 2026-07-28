@@ -1,3 +1,10 @@
+// Directly spawned friendly units receive persistent Foundry bonuses after child Create events.
+if (foundry_permanent_bonuses_pending)
+{
+	foundry_unit_permanent_bonuses_apply(id);
+	foundry_permanent_bonuses_pending = false;
+}
+
 // The balance controller owns every simulation tick so x1 and accelerated runs stay identical.
 if (variable_global_exists("balance_test_active")
 	&& global.balance_test_active
@@ -11,6 +18,19 @@ if (balance_test_simulation_finished)
 {
 	is_walking = false;
 	is_attacking_target = false;
+	exit;
+}
+
+// The squad selected by Hell Takes the Weakest remains undeployed for this night.
+if (global.day_phase == DAY_PHASE.NIGHT
+	&& global.ritual_hell_weakest_active
+	&& variable_instance_exists(id, "squad")
+	&& is_struct(squad)
+	&& squad == global.ritual_hell_weakest_squad)
+{
+	is_walking = false;
+	is_attacking_target = false;
+	visible = false;
 	exit;
 }
 

@@ -1,0 +1,28 @@
+// Draw inherited map object visuals.
+event_inherited();
+
+// Draw shooting radius only while hovering a captured tower.
+tower_range_draw(shoot_radius, COLOR_STATUS_NEGATIVE_RED);
+
+// Draw the instant magic attack as a fading red line.
+if (attack_feedback_timer > 0)
+{
+	var _feedback_progress = clamp(attack_feedback_timer / attack_feedback_time, 0, 1);
+	var _target_x = attack_feedback_target_x;
+	var _target_y = attack_feedback_target_y;
+
+	if (instance_exists(attack_feedback_target))
+	{
+		_target_x = attack_feedback_target.x;
+		_target_y = attack_feedback_target.y;
+	}
+
+	draw_set_alpha(_feedback_progress);
+	draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+	var _attack_origin_y = y - sprite_get_height(sprite_index) + attack_origin_top_offset;
+	draw_line_width(x, _attack_origin_y, _target_x, _target_y, attack_feedback_line_width);
+}
+
+// Restore default draw state.
+draw_set_color(c_white);
+draw_set_alpha(1);

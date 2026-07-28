@@ -37,12 +37,12 @@ tutorial_items = [
 	{
 		id: "construction_start",
 		title: "Construction",
-		body: "To build, hover over any building pictogram in your settlement and press the left mouse button."
+		body: "To build, hover over any building pictogram in your settlement and press the left mouse button. Choose a building to create a construction event requiring 2 Cultists."
 	},
 	{
 		id: "buildings",
 		title: "Buildings",
-		body: "There are several building types. Some produce the three main resources: iron, flesh, and souls. Others summon unholy creatures, heal cultists, repair walls, and provide other services in exchange for resources.\n\nTo begin, I recommend building a Ritual Circle so your cultists can gain some XP."
+		body: "There are several building types. Some produce the three main resources: iron, flesh, and souls. Others summon unholy creatures, heal cultists, repair walls, and provide other services.\n\nConstruction does not cost resources. Each selected building creates an Assign Duties event that requires 2 Cultists.\n\nTo begin, I recommend building a Ritual Circle so your cultists can gain some XP."
 	},
 	{
 		id: "meat_bath_needed",
@@ -106,8 +106,8 @@ tutorial_items = [
 	},
 	{
 		id: "full_moon_night",
-		title: "Full Moon",
-		body: "No enemies will attack tonight. Instead, this is your chance to strike first.\n\nFire your cultists and combat units from the cannon as usual. Cultist demons will advance away from the cannon when they have no target.\n\nThe night ends when the timer runs out, or you can press RETREAT to end it early."
+		title: "Blood Moon",
+		body: "The Blood Moon rises tonight. Enemies will attack as usual, but the night's difficulty is 20% higher.\n\nYou can still fire Cultists and combat units from the cannon. The Blood Moon ends only after the entire attack is defeated.\n\nSurvive tonight, and tomorrow morning 2 new Cultists will be summoned, up to your current Cultist limit."
 	}
 ];
 
@@ -145,7 +145,15 @@ tutorial_item_find = function(_hint_id)
 
 tutorial_show_next = function()
 {
-	if (popup_active || array_length(tutorial_queue) <= 0)
+	var _mandatory_choice_is_open = global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION
+		|| global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP;
+	var _blood_moon_reward_is_open = variable_global_exists("blood_moon_reward_popup_active")
+		&& global.blood_moon_reward_popup_active;
+
+	if (popup_active
+		|| _mandatory_choice_is_open
+		|| _blood_moon_reward_is_open
+		|| array_length(tutorial_queue) <= 0)
 	{
 		return;
 	}

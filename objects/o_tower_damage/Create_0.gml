@@ -9,6 +9,13 @@ captured_sprite_index = s_damage_tower;
 sprite_index = uncaptured_sprite_index;
 image_speed = 0;
 
+// Durability follows the tower balance table.
+max_hp = BALANCE_TOWER_DAMAGE_MAX_HP;
+hp = max_hp;
+armor = BALANCE_TOWER_DAMAGE_ARMOR;
+magic_resistance = BALANCE_TOWER_DAMAGE_MAGIC_RESISTANCE;
+player_building_cleansed_base_max_hp = max_hp;
+
 // Damage tower shoots the nearest enemy inside its radius.
 base_shoot_radius = BALANCE_TOWER_DAMAGE_RADIUS;
 base_damage = BALANCE_TOWER_DAMAGE_AMOUNT;
@@ -17,7 +24,7 @@ damage = base_damage;
 reload_time = BALANCE_TOWER_DAMAGE_RELOAD_TIME * room_speed;
 reload_timer = 0;
 target_instance = noone;
-projectile_spawn_offset_y = -20;
+attack_origin_top_offset = 81;
 projectile_layer_name = "Instances";
 projectile_effect_radius = BALANCE_TOWER_DAMAGE_PROJECTILE_EFFECT_RADIUS;
 projectile_draw_depth = BALANCE_PARTICLE_SYSTEM_TOP_DEPTH - 50;
@@ -55,7 +62,7 @@ map_building_upgrade_effect_apply = function(_upgrade_index)
 tower_damage_projectile_create = function(_target_x, _target_y)
 {
 	var _projectile_x = x;
-	var _projectile_y = y + projectile_spawn_offset_y;
+	var _projectile_y = y - sprite_get_height(sprite_index) + attack_origin_top_offset;
 	var _projectile = instance_create_layer(_projectile_x, _projectile_y, projectile_layer_name, o_projectile);
 	var _projectile_distance = point_distance(_projectile_x, _projectile_y, _target_x, _target_y);
 	var _flight_time_seconds = clamp(
@@ -71,10 +78,17 @@ tower_damage_projectile_create = function(_target_x, _target_y)
 	_projectile.projectile_type = PROJECTILE_TYPE.DAMAGE;
 	_projectile.effect_radius = projectile_effect_radius;
 	_projectile.damage_amount = damage;
+	_projectile.damage_target_count = BALANCE_TOWER_DAMAGE_TARGET_COUNT;
+	_projectile.damage_uses_physical_armor = true;
 	_projectile.damage_faction = UNIT_FACTION.FRIENDLY;
 	_projectile.source_instance = id;
 	_projectile.flight_time = _flight_time_seconds * room_speed;
 	_projectile.depth = projectile_draw_depth;
+
+	if (variable_instance_exists(id, "balance_test_match_id"))
+	{
+		_projectile.balance_test_match_id = balance_test_match_id;
+	}
 
 	return _projectile;
 };

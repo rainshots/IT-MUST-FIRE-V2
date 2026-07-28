@@ -11,6 +11,58 @@ if (keyboard_check_pressed(ord("R")))
 	exit;
 }
 
+// Wait for the player to choose optional support before starting the tests.
+if (!configuration_is_confirmed)
+{
+	if (mouse_check_button_pressed(mb_left))
+	{
+		var _mouse_x = device_mouse_x_to_gui(0);
+		var _mouse_y = device_mouse_y_to_gui(0);
+
+		for (var _option_index = 0; _option_index < array_length(optional_test_configs); ++_option_index)
+		{
+			var _option_rect = balance_test_configuration_option_rect_get(_option_index);
+
+			if (point_in_rectangle(
+				_mouse_x,
+				_mouse_y,
+				_option_rect.x,
+				_option_rect.y,
+				_option_rect.x + _option_rect.width,
+				_option_rect.y + _option_rect.height
+			))
+			{
+				optional_test_configs[_option_index].enabled = !optional_test_configs[_option_index].enabled;
+			}
+		}
+
+		var _start_rect = balance_test_configuration_start_rect_get();
+
+		if (point_in_rectangle(
+			_mouse_x,
+			_mouse_y,
+			_start_rect.x,
+			_start_rect.y,
+			_start_rect.x + _start_rect.width,
+			_start_rect.y + _start_rect.height
+		))
+		{
+			configuration_is_confirmed = true;
+			status_message = "Preparing balance test...";
+			row_start_timer = 1;
+		}
+	}
+
+	if (keyboard_check_pressed(vk_enter) || keyboard_check_pressed(vk_space))
+	{
+		configuration_is_confirmed = true;
+		status_message = "Preparing balance test...";
+		row_start_timer = 1;
+	}
+
+	exit;
+}
+
 if (keyboard_check_pressed(ord("C")))
 {
 	clipboard_set_text(balance_test_tsv_get());
@@ -86,6 +138,21 @@ for (var _simulation_tick = 0; _simulation_tick < simulation_speed_multiplier; +
 	global.balance_test_manual_tick_active = true;
 
 	with (o_units_parent)
+	{
+		event_perform(ev_step, ev_step_normal);
+	}
+
+	with (o_tower_damage)
+	{
+		event_perform(ev_step, ev_step_normal);
+	}
+
+	with (o_magic_tower)
+	{
+		event_perform(ev_step, ev_step_normal);
+	}
+
+	with (o_tower_heal)
 	{
 		event_perform(ev_step, ev_step_normal);
 	}
@@ -169,6 +236,28 @@ for (var _simulation_tick = 0; _simulation_tick < simulation_speed_multiplier; +
 		_finished_match_count++;
 		balance_test_group_freeze(active_friendly_groups[_column_index]);
 		balance_test_group_freeze(active_enemy_groups[_column_index]);
+		balance_test_group_freeze(active_optional_friendly_groups[_column_index]);
+
+		var _heal_tower = active_heal_towers[_column_index];
+
+		if (instance_exists(_heal_tower))
+		{
+			_heal_tower.balance_test_simulation_finished = true;
+		}
+
+		var _damage_tower = active_damage_towers[_column_index];
+
+		if (instance_exists(_damage_tower))
+		{
+			_damage_tower.balance_test_simulation_finished = true;
+		}
+
+		var _magic_tower = active_magic_towers[_column_index];
+
+		if (instance_exists(_magic_tower))
+		{
+			_magic_tower.balance_test_simulation_finished = true;
+		}
 	}
 
 	if (_finished_match_count >= enemy_test_unit_count)
@@ -187,6 +276,43 @@ for (var _column_index = 0; _column_index < enemy_test_unit_count; ++_column_ind
 {
 	balance_test_group_destroy(active_friendly_groups[_column_index]);
 	balance_test_group_destroy(active_enemy_groups[_column_index]);
+	balance_test_group_destroy(active_optional_friendly_groups[_column_index]);
+
+	var _heal_tower = active_heal_towers[_column_index];
+
+	if (instance_exists(_heal_tower))
+	{
+		with (_heal_tower)
+		{
+			instance_destroy();
+		}
+	}
+
+	active_heal_towers[_column_index] = noone;
+
+	var _damage_tower = active_damage_towers[_column_index];
+
+	if (instance_exists(_damage_tower))
+	{
+		with (_damage_tower)
+		{
+			instance_destroy();
+		}
+	}
+
+	active_damage_towers[_column_index] = noone;
+
+	var _magic_tower = active_magic_towers[_column_index];
+
+	if (instance_exists(_magic_tower))
+	{
+		with (_magic_tower)
+		{
+			instance_destroy();
+		}
+	}
+
+	active_magic_towers[_column_index] = noone;
 }
 
 with (o_projectile)

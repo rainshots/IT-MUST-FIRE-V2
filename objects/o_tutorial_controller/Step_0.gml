@@ -37,6 +37,14 @@ if (popup_active)
 	exit;
 }
 
+// Queued hints wait until mandatory cultist choices have closed.
+tutorial_show_next();
+
+if (popup_active)
+{
+	exit;
+}
+
 // Delay the welcome popup until the first world and fog updates have run.
 if (!global.tutorial_welcome_closed && !tutorial_seen_has("welcome"))
 {
@@ -55,9 +63,8 @@ if (!global.tutorial_welcome_closed)
 	exit;
 }
 
-// Show building construction hint once the player can afford a basic building.
-if (variable_global_exists("resources")
-	&& global.resources[RESOURCES.IRON] > BALANCE_BUILDING_IRON_COST)
+// Construction is available as soon as the settlement has an empty building slot.
+if (instance_exists(o_building_slot))
 {
 	tutorial_trigger("construction_start");
 }

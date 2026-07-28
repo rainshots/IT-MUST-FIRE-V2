@@ -1,3 +1,18 @@
+// Balance tests execute explicit ticks so x1 and accelerated runs use identical logic.
+if (variable_global_exists("balance_test_active")
+	&& global.balance_test_active
+	&& (!variable_global_exists("balance_test_manual_tick_active")
+		|| !global.balance_test_manual_tick_active))
+{
+	exit;
+}
+
+if (variable_instance_exists(id, "balance_test_simulation_finished")
+	&& balance_test_simulation_finished)
+{
+	exit;
+}
+
 // Pause freezes tower capture and healing.
 map_building_warning_update();
 map_object_unit_fade_update();

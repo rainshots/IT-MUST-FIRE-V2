@@ -15,6 +15,66 @@ simulation_random_seeds = [
 simulation_count = array_length(simulation_random_seeds);
 current_simulation_index = 0;
 
+// Optional support is selected before a complete test run starts.
+optional_test_configs = [
+	{ option_id: "skeleton_healer", label: "1 Skeleton Healer", enabled: false, object_index: o_skeleton_healer, option_type: "unit" },
+	{ option_id: "demon_wizard", label: "1 Demon Wizard", enabled: false, object_index: o_demon_wizard, option_type: "unit" },
+	{ option_id: "heal_tower", label: "1 Heal Tower", enabled: false, object_index: o_tower_heal, option_type: "tower" },
+	{ option_id: "damage_tower", label: "1 Damage Tower", enabled: false, object_index: o_tower_damage, option_type: "tower" },
+	{ option_id: "magic_tower", label: "1 Magic Tower", enabled: false, object_index: o_magic_tower, option_type: "tower" }
+];
+configuration_is_confirmed = false;
+configuration_panel_width = 520;
+configuration_panel_height = 500;
+configuration_option_height = 48;
+configuration_option_gap = 8;
+configuration_start_width = 220;
+configuration_start_height = 54;
+
+balance_test_configuration_option_rect_get = function(_option_index)
+{
+	var _gui_width = display_get_gui_width();
+	var _gui_height = display_get_gui_height();
+	var _panel_x = (_gui_width - configuration_panel_width) * 0.5;
+	var _panel_y = (_gui_height - configuration_panel_height) * 0.5;
+
+	return {
+		x: _panel_x + 44,
+		y: _panel_y + 92 + (_option_index * (configuration_option_height + configuration_option_gap)),
+		width: configuration_panel_width - 88,
+		height: configuration_option_height
+	};
+};
+
+balance_test_configuration_start_rect_get = function()
+{
+	var _gui_width = display_get_gui_width();
+	var _gui_height = display_get_gui_height();
+	var _panel_y = (_gui_height - configuration_panel_height) * 0.5;
+
+	return {
+		x: (_gui_width - configuration_start_width) * 0.5,
+		y: _panel_y + configuration_panel_height - configuration_start_height - 30,
+		width: configuration_start_width,
+		height: configuration_start_height
+	};
+};
+
+balance_test_option_enabled_get = function(_option_id)
+{
+	for (var _option_index = 0; _option_index < array_length(optional_test_configs); ++_option_index)
+	{
+		var _option = optional_test_configs[_option_index];
+
+		if (_option.option_id == _option_id)
+		{
+			return _option.enabled;
+		}
+	}
+
+	return false;
+};
+
 // The game controller initializes shared globals and functions, then remains inactive here.
 with (o_jobs_ui)
 {
@@ -71,6 +131,10 @@ total_match_count = friendly_test_unit_count * enemy_test_unit_count * simulatio
 test_is_complete = false;
 active_friendly_groups = array_create(enemy_test_unit_count);
 active_enemy_groups = array_create(enemy_test_unit_count);
+active_optional_friendly_groups = array_create(enemy_test_unit_count);
+active_heal_towers = array_create(enemy_test_unit_count, noone);
+active_damage_towers = array_create(enemy_test_unit_count, noone);
+active_magic_towers = array_create(enemy_test_unit_count, noone);
 active_match_finished = array_create(enemy_test_unit_count, false);
 status_message = "Preparing balance test...";
 copy_feedback_timer = 0;
@@ -234,6 +298,86 @@ balance_test_row_start = function(_row_index)
 			_arena_center_y,
 			_match_id
 		);
+
+		// Spawn selected support units without changing the measured primary army.
+		var _optional_units = [];
+		var _support_unit_y = _arena_center_y - 50;
+
+		for (var _option_index = 0; _option_index < array_length(optional_test_configs); ++_option_index)
+		{
+			var _option = optional_test_configs[_option_index];
+
+			if (!_option.enabled || _option.option_type != "unit")
+			{
+				continue;
+			}
+
+			var _support_unit = instance_create_layer(
+				_arena_center_x - _group_half_distance - 70,
+				_support_unit_y,
+				"Instances",
+				_option.object_index
+			);
+			balance_test_unit_configure(_support_unit, _match_id);
+			array_push(_optional_units, _support_unit);
+			_support_unit_y += 100;
+		}
+
+		active_optional_friendly_groups[_column_index] = _optional_units;
+
+		// Spawn the selected captured towers behind the friendly army.
+		var _tower_x = _arena_center_x - _group_half_distance - BALANCE_TEST_DAMAGE_TOWER_FRIENDLY_OFFSET;
+
+		if (balance_test_option_enabled_get("damage_tower"))
+		{
+			var _damage_tower = instance_create_layer(
+				_tower_x,
+				_arena_center_y - BALANCE_TEST_TOWER_VERTICAL_OFFSET,
+				"Instances",
+				o_tower_damage
+			);
+			_damage_tower.balance_test_match_id = _match_id;
+			_damage_tower.balance_test_simulation_finished = false;
+			_damage_tower.tower_capture_enabled = false;
+			_damage_tower.is_captured = true;
+			_damage_tower.sprite_index = _damage_tower.captured_sprite_index;
+			_damage_tower.image_speed = 0;
+			active_damage_towers[_column_index] = _damage_tower;
+		}
+
+		if (balance_test_option_enabled_get("magic_tower"))
+		{
+			var _magic_tower = instance_create_layer(
+				_tower_x,
+				_arena_center_y + BALANCE_TEST_TOWER_VERTICAL_OFFSET,
+				"Instances",
+				o_magic_tower
+			);
+			_magic_tower.balance_test_match_id = _match_id;
+			_magic_tower.balance_test_simulation_finished = false;
+			_magic_tower.tower_capture_enabled = false;
+			_magic_tower.is_captured = true;
+			_magic_tower.sprite_index = _magic_tower.captured_sprite_index;
+			_magic_tower.image_speed = 0;
+			active_magic_towers[_column_index] = _magic_tower;
+		}
+
+		if (balance_test_option_enabled_get("heal_tower"))
+		{
+			var _heal_tower = instance_create_layer(
+				_tower_x - 90,
+				_arena_center_y,
+				"Instances",
+				o_tower_heal
+			);
+			_heal_tower.balance_test_match_id = _match_id;
+			_heal_tower.balance_test_simulation_finished = false;
+			_heal_tower.tower_capture_enabled = false;
+			_heal_tower.is_captured = true;
+			_heal_tower.sprite_index = _heal_tower.captured_sprite_index;
+			_heal_tower.image_speed = 0;
+			active_heal_towers[_column_index] = _heal_tower;
+		}
 
 		active_enemy_groups[_column_index] = balance_test_group_spawn(
 			_enemy_config.object_index,

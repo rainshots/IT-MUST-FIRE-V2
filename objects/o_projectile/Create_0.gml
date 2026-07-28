@@ -14,6 +14,8 @@ effect_radius = BALANCE_PROJECTILE_EFFECT_RADIUS;
 damage_amount = BALANCE_PROJECTILE_DAMAGE_AMOUNT;
 damage_faction = UNIT_FACTION.NOONE;
 damage_target_count = 0;
+damage_targets_hit = 0;
+damage_uses_physical_armor = false;
 summon_count = BALANCE_PROJECTILE_SKELETON_COUNT;
 corruption_amount = 1;
 ground_corruption_amount = BALANCE_PROJECTILE_GROUND_CORRUPTION_AMOUNT;
@@ -38,6 +40,8 @@ ignore_pause = false;
 // Visual settings.
 projectile_radius = 12;
 projectile_visual_scale = 2.5;
+projectile_sprite = noone;
+projectile_sprite_scale = 0.5;
 explosion_preview_frames = 8;
 draw_explosion_preview = false;
 

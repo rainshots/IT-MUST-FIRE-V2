@@ -73,6 +73,7 @@ balance_test_match_id = -1;
 balance_test_simulation_finished = false;
 is_night_attack_unit = false;
 holy_tower_reinforcement_waits_for_night = false;
+foundry_permanent_bonuses_pending = true;
 
 // Unit separation keeps units from stacking into one point.
 separation_radius = BALANCE_UNIT_SEPARATION_RADIUS;
@@ -669,6 +670,15 @@ unit_attack_reload_multiplier_get = function()
 		_reload_multiplier *= imp_active_reload_multiplier_get();
 	}
 
+	if (global.day_phase == DAY_PHASE.NIGHT
+		&& global.ritual_hell_weakest_active
+		&& variable_instance_exists(id, "squad")
+		&& is_struct(squad)
+		&& squad != global.ritual_hell_weakest_squad)
+	{
+		_reload_multiplier /= BALANCE_RITUAL_HELL_WEAKEST_ATTACK_SPEED_MULTIPLIER;
+	}
+
 	return _reload_multiplier;
 };
 
@@ -694,6 +704,18 @@ unit_move_speed_multiplier_get = function()
 	if (unit_faction == UNIT_FACTION.ENEMY && unit_is_hidden_by_fog())
 	{
 		_move_multiplier *= BALANCE_ENEMY_HIDDEN_MOVE_SPEED_MULTIPLIER;
+	}
+
+	if (global.day_phase == DAY_PHASE.NIGHT && unit_is_on_tainted_ground())
+	{
+		if (unit_faction == UNIT_FACTION.FRIENDLY && global.ritual_black_pilgrimage_active)
+		{
+			_move_multiplier *= 1 + BALANCE_RITUAL_BLACK_PILGRIMAGE_MOVE_SPEED_BONUS;
+		}
+		else if (unit_faction == UNIT_FACTION.ENEMY && global.ritual_grasping_soil_active)
+		{
+			_move_multiplier *= BALANCE_RITUAL_GRASPING_SOIL_ENEMY_SPEED_MULTIPLIER;
+		}
 	}
 
 	return _move_multiplier;
@@ -1014,6 +1036,35 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 	if (_is_critical)
 	{
 		_damage_amount *= brute_rotten_aura_critical_damage_multiplier_get();
+	}
+
+	// Apply next-night damage bonuses at the shared unit damage entry point.
+	var _source_is_unit = instance_exists(_source_instance)
+		&& variable_instance_exists(_source_instance, "unit_faction");
+
+	if (global.day_phase == DAY_PHASE.NIGHT
+		&& _source_is_unit
+		&& global.ritual_blood_night_active)
+	{
+		_damage_amount *= BALANCE_RITUAL_BLOOD_NIGHT_DAMAGE_MULTIPLIER;
+	}
+
+	if (global.day_phase == DAY_PHASE.NIGHT
+		&& _source_is_unit
+		&& global.ritual_hell_weakest_active
+		&& variable_instance_exists(_source_instance, "squad")
+		&& is_struct(_source_instance.squad)
+		&& _source_instance.squad != global.ritual_hell_weakest_squad)
+	{
+		_damage_amount *= BALANCE_RITUAL_HELL_WEAKEST_DAMAGE_MULTIPLIER;
+	}
+
+	if (global.day_phase == DAY_PHASE.NIGHT
+		&& global.ritual_awaken_taint_active
+		&& unit_faction == UNIT_FACTION.ENEMY
+		&& unit_is_on_tainted_ground())
+	{
+		_damage_amount *= BALANCE_RITUAL_AWAKEN_TAINT_DAMAGE_TAKEN_MULTIPLIER;
 	}
 
 	var _applied_damage = min(_damage_amount, hp);
@@ -2318,6 +2369,7 @@ magic_damage_after_resistance = function(_raw_damage, _target)
 	if (instance_exists(_target) && variable_instance_exists(_target, "magic_resistance"))
 	{
 		var _target_magic_resistance = _target.magic_resistance;
+
 		var _resistance_damage_multiplier = max(2 - (min(_target_magic_resistance, 190) * 0.01), 0.1);
 
 		_final_damage *= _resistance_damage_multiplier;

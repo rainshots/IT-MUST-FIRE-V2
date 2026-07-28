@@ -32,7 +32,8 @@ if (attack_feedback_timer > 0)
 
 	draw_set_alpha(_feedback_progress);
 	draw_set_color(COLOR_HOLY_TOWER_RADIUS);
-	draw_line_width(x, y, _target_x, _target_y, attack_feedback_line_width);
+	var _attack_origin_y = y - sprite_get_height(sprite_index) + attack_origin_top_offset;
+	draw_line_width(x, _attack_origin_y, _target_x, _target_y, attack_feedback_line_width);
 }
 
 // Restore default draw state.

@@ -55,6 +55,7 @@ var _panel_y = (_gui_height - structure_choice_window_height) * 0.5;
 var _mouse_x = device_mouse_x_to_gui(0);
 var _mouse_y = device_mouse_y_to_gui(0);
 var _hovered_choice = cursed_point_structure_choice_hover_index_get(_mouse_x, _mouse_y);
+var _daily_limit_reached = !day_event_building_construction_can_start();
 
 draw_set_alpha(0.55);
 draw_set_color(c_black);
@@ -71,8 +72,12 @@ draw_set_valign(fa_middle);
 draw_set_color(COLOR_HUD_TEXT);
 draw_text(_panel_x + (structure_choice_window_width * 0.5), _panel_y + 38, "Summon Structure");
 
-draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
-draw_text(_panel_x + (structure_choice_window_width * 0.5), _panel_y + 68, "Choose one captured structure");
+draw_set_color(_daily_limit_reached ? COLOR_STATUS_NEGATIVE_RED : COLOR_HUD_PROJECTILE_DESCRIPTION);
+draw_text(
+	_panel_x + (structure_choice_window_width * 0.5),
+	_panel_y + 68,
+	_daily_limit_reached ? "MAX 1 BUILDING PER DAY" : "Choose one captured structure"
+);
 
 for (var _choice_index = 0; _choice_index < array_length(structure_choice_options); ++_choice_index)
 {
@@ -89,7 +94,7 @@ for (var _choice_index = 0; _choice_index < array_length(structure_choice_option
 	draw_rectangle(_tile_x, _tile_y, _tile_x + structure_choice_tile_width, _tile_y + structure_choice_tile_height, false);
 
 	draw_set_alpha(1);
-	draw_set_color(_is_hovered ? COLOR_PROJECTILE_SUMMON : c_white);
+	draw_set_color(_daily_limit_reached ? COLOR_PROJECTILE_DAMAGE : (_is_hovered ? COLOR_PROJECTILE_SUMMON : c_white));
 	draw_rectangle(_tile_x, _tile_y, _tile_x + structure_choice_tile_width, _tile_y + structure_choice_tile_height, true);
 
 	if (_sprite != -1 && sprite_exists(_sprite))
@@ -110,14 +115,14 @@ for (var _choice_index = 0; _choice_index < array_length(structure_choice_option
 			_sprite_draw_width,
 			_sprite_draw_height,
 			c_white,
-			1
+			_daily_limit_reached ? 0.35 : 1
 		);
 	}
 
 	draw_set_halign(fa_center);
 	draw_set_valign(fa_middle);
-	draw_set_alpha(_can_pay_choice ? 1 : 0.5);
-	draw_set_color(COLOR_HUD_TEXT);
+	draw_set_alpha(_can_pay_choice && !_daily_limit_reached ? 1 : 0.5);
+	draw_set_color(_daily_limit_reached ? COLOR_PROJECTILE_DAMAGE : COLOR_HUD_TEXT);
 	draw_text(_tile_x + (structure_choice_tile_width * 0.5), _tile_y + 124, _choice.building_name);
 	draw_set_alpha(1);
 
@@ -132,74 +137,14 @@ for (var _choice_index = 0; _choice_index < array_length(structure_choice_option
 		structure_choice_tile_width - 32
 	);
 
-	if (variable_struct_exists(_choice, "construction_costs"))
-	{
-		var _costs = _choice.construction_costs;
-		var _cost_count = array_length(_costs);
-		var _cost_icon_size = 18;
-		var _cost_gap = 8;
-		var _cost_total_width = 0;
-
-		for (var _cost_measure_index = 0; _cost_measure_index < _cost_count; ++_cost_measure_index)
-		{
-			var _measure_cost = _costs[_cost_measure_index];
-			_cost_total_width += _cost_icon_size + 4 + string_width(string(_measure_cost.cost));
-
-			if (_cost_measure_index < _cost_count - 1)
-			{
-				_cost_total_width += _cost_gap;
-			}
-		}
-
-		var _cost_draw_x = _tile_x + ((structure_choice_tile_width - _cost_total_width) * 0.5);
-		var _cost_y = _tile_y + structure_choice_tile_height - 22;
-
-		draw_set_halign(fa_left);
-		draw_set_valign(fa_middle);
-
-		for (var _cost_index = 0; _cost_index < _cost_count; ++_cost_index)
-		{
-			var _cost_data = _costs[_cost_index];
-			var _cost_icon = cursed_point_resource_icon_get(_cost_data.resource);
-			var _cost_color = cursed_point_resource_color_get(_cost_data.resource);
-			var _cost_text = string(_cost_data.cost);
-			var _has_resource = global.resources[_cost_data.resource] >= _cost_data.cost;
-			var _cost_item_width = _cost_icon_size + 4 + string_width(_cost_text);
-
-			if (!_has_resource)
-			{
-				draw_set_alpha(0.6);
-				draw_set_color(COLOR_STATUS_NEGATIVE_RED);
-				draw_rectangle(
-					_cost_draw_x - 4,
-					_cost_y - (_cost_icon_size * 0.5) - 3,
-					_cost_draw_x + _cost_item_width + 4,
-					_cost_y + (_cost_icon_size * 0.5) + 3,
-					false
-				);
-				draw_set_alpha(1);
-			}
-
-			if (sprite_exists(_cost_icon))
-			{
-				draw_sprite_stretched_ext(
-					_cost_icon,
-					0,
-					_cost_draw_x,
-					_cost_y - (_cost_icon_size * 0.5),
-					_cost_icon_size,
-					_cost_icon_size,
-					c_white,
-					_can_pay_choice ? 1 : 0.55
-				);
-			}
-
-			_cost_draw_x += _cost_icon_size + 4;
-			draw_set_color(_has_resource ? _cost_color : COLOR_HUD_TEXT);
-			draw_text(_cost_draw_x, _cost_y, _cost_text);
-			_cost_draw_x += string_width(_cost_text) + _cost_gap;
-		}
-	}
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
+	draw_set_color(COLOR_HUD_TEXT);
+	draw_text(
+		_tile_x + (structure_choice_tile_width * 0.5),
+		_tile_y + structure_choice_tile_height - 22,
+		"2 Cultists"
+	);
 }
 
 // Restore default draw state.

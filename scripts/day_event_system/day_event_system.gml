@@ -11,11 +11,216 @@ function day_event_add(_event)
 	return true;
 }
 
-function day_event_regular_shells_execute(_event, _assigned_cultists, _data)
+function day_event_add_first(_event)
 {
-	var _regular_shell_types = [PROJECTILE_TYPE.DAMAGE, PROJECTILE_TYPE.HEAL];
-	var _shell_type_count = array_length(_regular_shell_types);
-	var _shell_count = 2;
+	if (!is_struct(_event))
+	{
+		return false;
+	}
+
+	array_insert(global.day_events, 0, _event);
+	return true;
+}
+
+function day_event_healthiest_available_cultists_assign(_event, _cultist_count)
+{
+	if (!is_struct(_event))
+	{
+		return 0;
+	}
+
+	var _assigned_count = 0;
+	var _safe_cultist_count = max(0, floor(_cultist_count));
+
+	for (var _assignment_index = 0; _assignment_index < _safe_cultist_count; ++_assignment_index)
+	{
+		var _healthiest_cultist = noone;
+		var _highest_hp = -infinity;
+
+		for (var _cultist_index = 0; _cultist_index < array_length(global.event_cultists); ++_cultist_index)
+		{
+			var _cultist = global.event_cultists[_cultist_index];
+
+			if (!instance_exists(_cultist)
+				|| is_struct(_cultist.assigned_event)
+				|| !variable_instance_exists(_cultist, "is_available")
+				|| !_cultist.is_available())
+			{
+				continue;
+			}
+
+			if (_cultist.hp > _highest_hp)
+			{
+				_healthiest_cultist = _cultist;
+				_highest_hp = _cultist.hp;
+			}
+		}
+
+		if (!instance_exists(_healthiest_cultist) || !_event.cultist_assign(_healthiest_cultist))
+		{
+			break;
+		}
+
+		_assigned_count++;
+	}
+
+	return _assigned_count;
+}
+
+function day_event_building_construction_execute(_event, _assigned_cultists, _data)
+{
+	if (!is_struct(_data)
+		|| !variable_struct_exists(_data, "construction_site")
+		|| !instance_exists(_data.construction_site)
+		|| !variable_struct_exists(_data, "building_object"))
+	{
+		return false;
+	}
+
+	var _construction_site = _data.construction_site;
+	var _built_object = instance_create_layer(
+		_construction_site.x,
+		_construction_site.y,
+		"Instances",
+		_data.building_object
+	);
+
+	if (!instance_exists(_built_object))
+	{
+		return false;
+	}
+
+	_built_object.depth = _data.is_cursed_point
+		? -floor(_built_object.y)
+		: _construction_site.depth;
+
+	if (_data.is_cursed_point)
+	{
+		if (variable_instance_exists(_built_object, "building_constructed_by_cursed_point"))
+		{
+			_built_object.building_constructed_by_cursed_point = true;
+		}
+
+		_built_object.cursed_point_restore_choice = _data.choice;
+
+		if (variable_instance_exists(_built_object, "tower_capture_enabled"))
+		{
+			_built_object.tower_capture_enabled = true;
+		}
+
+		if (variable_instance_exists(_built_object, "is_captured"))
+		{
+			_built_object.is_captured = true;
+		}
+
+		if (variable_instance_exists(_built_object, "max_corruption")
+			&& variable_instance_exists(_built_object, "corruption"))
+		{
+			_built_object.corruption = _built_object.max_corruption;
+		}
+
+		if (variable_instance_exists(_built_object, "captured_sprite_index")
+			&& _built_object.captured_sprite_index != noone)
+		{
+			_built_object.sprite_index = _built_object.captured_sprite_index;
+			_built_object.image_index = 0;
+			_built_object.image_speed = 0;
+		}
+
+		if (variable_instance_exists(_construction_site, "cursed_point_construction_effect_create"))
+		{
+			_construction_site.cursed_point_construction_effect_create();
+		}
+	}
+	else
+	{
+		if (variable_instance_exists(_built_object, "garrison_morning_spawn_units"))
+		{
+			_built_object.garrison_morning_spawn_units();
+		}
+
+		if (_built_object.object_index == o_goblins_pit && instance_exists(o_game_controller))
+		{
+			var _game_controller = instance_find(o_game_controller, 0);
+
+			if (variable_instance_exists(_game_controller, "starting_goblins_bind_to_first_pit"))
+			{
+				_game_controller.starting_goblins_bind_to_first_pit(_built_object);
+			}
+		}
+
+		if (variable_global_exists("construction_sound_play"))
+		{
+			global.construction_sound_play();
+		}
+
+		if (variable_global_exists("tutorial_hint_trigger"))
+		{
+			global.tutorial_hint_trigger("workers");
+		}
+	}
+
+	instance_destroy(_construction_site);
+	return true;
+}
+
+function day_event_building_construction_can_start()
+{
+	if (!variable_global_exists("building_construction_count_today"))
+	{
+		return false;
+	}
+
+	return global.building_construction_count_today < BALANCE_BUILDING_CONSTRUCTION_DAILY_LIMIT;
+}
+
+function day_event_building_construction_create(_construction_site, _choice, _is_cursed_point = false)
+{
+	if (!instance_exists(_construction_site)
+		|| !is_struct(_choice)
+		|| !variable_struct_exists(_choice, "building_object")
+		|| !day_event_building_construction_can_start())
+	{
+		return noone;
+	}
+
+	var _building_name = variable_struct_exists(_choice, "building_name")
+		? _choice.building_name
+		: object_get_name(_choice.building_object);
+	var _event = new day_event_constructor(
+		"construct_building_" + string(_construction_site),
+		"Construct " + _building_name,
+		"Construct " + _building_name + ". Requires 2 Cultists.",
+		BALANCE_BUILDING_CONSTRUCTION_CULTIST_COST,
+		1,
+		[
+			new event_action_constructor(
+				"construct_building",
+				day_event_building_construction_execute,
+				{
+					construction_site: _construction_site,
+					building_object: _choice.building_object,
+					choice: _choice,
+					is_cursed_point: _is_cursed_point
+				}
+			)
+		]
+	);
+
+	_event.source_building = _construction_site;
+	_event.source_sprite = variable_struct_exists(_choice, "building_sprite")
+		? _choice.building_sprite
+		: object_get_sprite(_choice.building_object);
+	_event.construction_site = _construction_site;
+	_construction_site.construction_event_pending = true;
+	day_event_add_first(_event);
+	global.building_construction_count_today++;
+	day_event_healthiest_available_cultists_assign(_event, BALANCE_BUILDING_CONSTRUCTION_CULTIST_COST);
+	return _event;
+}
+
+function day_event_shell_factory_shells_execute(_event, _assigned_cultists, _data)
+{
 	var _game_controller = noone;
 
 	if (instance_exists(o_game_controller))
@@ -23,30 +228,36 @@ function day_event_regular_shells_execute(_event, _assigned_cultists, _data)
 		_game_controller = instance_find(o_game_controller, 0);
 	}
 
-	for (var _shell_index = 0; _shell_index < _shell_count; ++_shell_index)
+	for (var _shell_index = 0; _shell_index < _data.shell_count; ++_shell_index)
 	{
-		var _shell_type = _regular_shell_types[irandom(_shell_type_count - 1)];
-
 		if (instance_exists(_game_controller)
 			&& variable_instance_exists(_game_controller, "cannon_projectile_queue_add"))
 		{
-			_game_controller.cannon_projectile_queue_add(_shell_type);
+			_game_controller.cannon_projectile_queue_add(_data.projectile_type);
 		}
 	}
 
-	var _cultist_hp_cost = 10;
+	day_event_cultist_hp_cost_apply(
+		_assigned_cultists,
+		_data.hp_cost
+	);
+	return true;
+}
 
+function day_event_cultist_hp_share_cost_apply(_assigned_cultists, _hp_share)
+{
 	for (var _cultist_index = 0; _cultist_index < array_length(_assigned_cultists); ++_cultist_index)
 	{
 		var _cultist = _assigned_cultists[_cultist_index];
 
-		if (instance_exists(_cultist) && variable_instance_exists(_cultist, "damage"))
+		if (instance_exists(_cultist)
+			&& variable_instance_exists(_cultist, "hp")
+			&& variable_instance_exists(_cultist, "max_hp"))
 		{
-			_cultist.damage(_cultist_hp_cost);
+			var _hp_cost = _cultist.max_hp * max(0, _hp_share);
+			_cultist.hp = max(0, _cultist.hp - _hp_cost);
 		}
 	}
-
-	return true;
 }
 
 function day_event_cultist_hp_cost_apply(_assigned_cultists, _hp_cost)
@@ -526,6 +737,951 @@ function day_event_blood_for_blood_execute(_event, _assigned_cultists, _data)
 	return true;
 }
 
+function day_event_current_day_get()
+{
+	if (!instance_exists(o_game_controller))
+	{
+		return 1;
+	}
+
+	var _game_controller = instance_find(o_game_controller, 0);
+	var _current_day = max(1, _game_controller.night_attack_night_index);
+
+	// Morning events are generated before the controller advances its day index.
+	if (global.day_phase == DAY_PHASE.NIGHT)
+	{
+		_current_day++;
+	}
+
+	return _current_day;
+}
+
+function day_event_cult_must_grow_is_available()
+{
+	var _current_day = day_event_current_day_get();
+	return _current_day - global.cult_must_grow_last_activation_day
+		>= BALANCE_CULT_MUST_GROW_COOLDOWN_DAYS;
+}
+
+function day_event_cult_must_grow_cost_get()
+{
+	if (irandom(1) == 0)
+	{
+		return {
+			cultist_count: BALANCE_CULT_MUST_GROW_SOLO_CULTIST_COUNT,
+			hp_cost: BALANCE_CULT_MUST_GROW_SOLO_HP_COST,
+			text: "Requires 1 Cultist, who loses 100 HP."
+		};
+	}
+
+	return {
+		cultist_count: BALANCE_CULT_MUST_GROW_GROUP_CULTIST_COUNT,
+		hp_cost: BALANCE_CULT_MUST_GROW_GROUP_HP_COST,
+		text: "Requires 2 Cultists. Each loses 60 HP."
+	};
+}
+
+function day_event_cult_must_grow_execute(_event, _assigned_cultists, _data)
+{
+	if (!day_event_cult_must_grow_is_available())
+	{
+		return false;
+	}
+
+	day_event_cultist_hp_cost_apply(_assigned_cultists, _data.hp_cost);
+	day_event_cultist_limit_add(BALANCE_CULT_MUST_GROW_LIMIT_BONUS);
+	global.cult_must_grow_last_activation_day = day_event_current_day_get();
+	return true;
+}
+
+function day_event_cult_must_grow_create(_blood_bath)
+{
+	var _cost = day_event_cult_must_grow_cost_get();
+	var _event = new day_event_constructor(
+		"the_cult_must_grow_" + string(_blood_bath),
+		"The Cult Must Grow",
+		"Increase the maximum number of Cultists by 2. Can be activated once every 2 days.\n"
+			+ _cost.text,
+		_cost.cultist_count,
+		1,
+		[
+			new event_action_constructor(
+				"increase_cultist_limit",
+				day_event_cult_must_grow_execute,
+				{ hp_cost: _cost.hp_cost }
+			)
+		]
+	);
+	_event.source_building = _blood_bath;
+	return _event;
+}
+
+function day_event_archdemon_count_get()
+{
+	if (!variable_global_exists("archdemons"))
+	{
+		return 0;
+	}
+
+	return array_length(global.archdemons);
+}
+
+function day_event_world_archdemon_job_is_available(_archdemon_number)
+{
+	var _archdemon_limit = global.squad_limits[SQUAD_TYPE.ARCHDEMON];
+
+	if (_archdemon_number > _archdemon_limit
+		|| day_event_archdemon_count_get() >= _archdemon_limit)
+	{
+		return false;
+	}
+
+	var _current_day = day_event_current_day_get();
+
+	if (_archdemon_number == 2)
+	{
+		return !global.world_job_second_archdemon_completed
+			&& _current_day >= BALANCE_WORLD_JOB_SECOND_ARCHDEMON_UNLOCK_DAY;
+	}
+
+	return !global.world_job_third_archdemon_completed
+		&& _current_day >= BALANCE_WORLD_JOB_THIRD_ARCHDEMON_UNLOCK_DAY;
+}
+
+function day_event_world_archdemon_execute(_event, _assigned_cultists, _data)
+{
+	if (!day_event_world_archdemon_job_is_available(_data.archdemon_number)
+		|| !instance_exists(o_game_controller)
+		|| !instance_exists(o_cannon)
+		|| !squad_slot_is_available(SQUAD_TYPE.ARCHDEMON))
+	{
+		return false;
+	}
+
+	var _game_controller = instance_find(o_game_controller, 0);
+	var _cannon = instance_find(o_cannon, 0);
+	var _archdemon_index = array_length(global.archdemons);
+	var _spawn_angle = 180 + (_archdemon_index * 60);
+	var _spawn_distance = BALANCE_EVENT_CULTIST_WANDER_HORIZONTAL_DISTANCE;
+	var _spawn_x = _cannon.x + lengthdir_x(_spawn_distance, _spawn_angle);
+	var _spawn_y = _cannon.y + lengthdir_y(_spawn_distance, _spawn_angle);
+	var _archdemon = instance_create_layer(_spawn_x, _spawn_y, "Instances", o_archdemon);
+
+	if (!instance_exists(_archdemon))
+	{
+		return false;
+	}
+
+	array_push(global.archdemons, _archdemon);
+	squad_register_existing_unit(SQUAD_TYPE.ARCHDEMON, _archdemon);
+	day_event_cultist_hp_cost_apply(_assigned_cultists, _data.hp_cost);
+
+	if (_data.archdemon_number == 2)
+	{
+		global.world_job_second_archdemon_completed = true;
+	}
+	else
+	{
+		global.world_job_third_archdemon_completed = true;
+	}
+
+	// Keep an already-open selection on the earliest unconfigured Archdemon.
+	if (global.focus_window != FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
+	{
+		_game_controller.open_cultist_demon_selection(_archdemon_index);
+	}
+
+	return true;
+}
+
+function day_event_world_archdemon_create(
+	_archdemon_number,
+	_title,
+	_cultist_count,
+	_hp_cost
+)
+{
+	var _cost_text = _cultist_count == 1
+		? "Requires 1 Cultist, who loses " + string(_hp_cost) + " HP."
+		: "Requires " + string(_cultist_count) + " Cultists. Each loses "
+			+ string(_hp_cost) + " HP.";
+	var _event = new day_event_constructor(
+		"world_job_archdemon_" + string(_archdemon_number),
+		_title,
+		"Summon a new Archdemon.\n" + _cost_text,
+		_cultist_count,
+		1,
+		[
+			new event_action_constructor(
+				"summon_archdemon",
+				day_event_world_archdemon_execute,
+				{
+					archdemon_number: _archdemon_number,
+					hp_cost: _hp_cost
+				}
+			)
+		]
+	);
+	_event.is_world_job = true;
+	return _event;
+}
+
+function day_event_world_jobs_generate()
+{
+	if (day_event_world_archdemon_job_is_available(2))
+	{
+		day_event_add(day_event_world_archdemon_create(
+			2,
+			"Summon a Second Archdemon",
+			BALANCE_WORLD_JOB_SECOND_ARCHDEMON_CULTIST_COUNT,
+			BALANCE_WORLD_JOB_SECOND_ARCHDEMON_HP_COST
+		));
+	}
+
+	if (day_event_world_archdemon_job_is_available(3))
+	{
+		day_event_add(day_event_world_archdemon_create(
+			3,
+			"Summon a Third Archdemon",
+			BALANCE_WORLD_JOB_THIRD_ARCHDEMON_CULTIST_COUNT,
+			BALANCE_WORLD_JOB_THIRD_ARCHDEMON_HP_COST
+		));
+	}
+}
+
+function day_event_foundry_stat_name_get(_stat)
+{
+	if (_stat == CULTIST_STAT.BODY)
+	{
+		return "Body";
+	}
+
+	if (_stat == CULTIST_STAT.SPIRIT)
+	{
+		return "Spirit";
+	}
+
+	return "Fervor";
+}
+
+function day_event_foundry_archdemon_target_get(_target_index, _target_name)
+{
+	if (_target_index >= 0 && _target_index < array_length(global.archdemons))
+	{
+		var _indexed_target = global.archdemons[_target_index];
+
+		if (instance_exists(_indexed_target)
+			&& variable_instance_exists(_indexed_target, "cultist_name")
+			&& _indexed_target.cultist_name == _target_name)
+		{
+			return _indexed_target;
+		}
+	}
+
+	for (var _archdemon_index = 0; _archdemon_index < array_length(global.archdemons); ++_archdemon_index)
+	{
+		var _archdemon = global.archdemons[_archdemon_index];
+
+		if (instance_exists(_archdemon)
+			&& variable_instance_exists(_archdemon, "cultist_name")
+			&& _archdemon.cultist_name == _target_name)
+		{
+			return _archdemon;
+		}
+	}
+
+	return noone;
+}
+
+function day_event_foundry_squad_health_totals_refresh(_squad_type)
+{
+	for (var _squad_index = 0; _squad_index < array_length(global.squads); ++_squad_index)
+	{
+		var _squad = global.squads[_squad_index];
+
+		if (!is_struct(_squad) || _squad.squad_type != _squad_type)
+		{
+			continue;
+		}
+
+		var _total_max_hp = 0;
+
+		for (var _unit_index = 0; _unit_index < array_length(_squad.units); ++_unit_index)
+		{
+			var _unit = _squad.units[_unit_index];
+
+			if (instance_exists(_unit) && variable_instance_exists(_unit, "max_hp"))
+			{
+				_total_max_hp += _unit.max_hp;
+			}
+		}
+
+		_squad.total_max_hp = _total_max_hp;
+	}
+}
+
+function day_event_foundry_upgrade_execute(_event, _assigned_cultists, _data)
+{
+	var _upgraded_squad_type = -1;
+	var _health_was_upgraded = false;
+
+	switch (_data.upgrade_id)
+	{
+		case "demon_health":
+			global.foundry_demon_health_multiplier *= BALANCE_FOUNDRY_ARMY_UPGRADE_MULTIPLIER;
+			_upgraded_squad_type = SQUAD_TYPE.DEMON;
+			_health_was_upgraded = true;
+			break;
+
+		case "demon_damage":
+			global.foundry_demon_damage_multiplier *= BALANCE_FOUNDRY_ARMY_UPGRADE_MULTIPLIER;
+			_upgraded_squad_type = SQUAD_TYPE.DEMON;
+			break;
+
+		case "undead_health":
+			global.foundry_undead_health_multiplier *= BALANCE_FOUNDRY_ARMY_UPGRADE_MULTIPLIER;
+			_upgraded_squad_type = SQUAD_TYPE.UNDEAD;
+			_health_was_upgraded = true;
+			break;
+
+		case "undead_attack_speed":
+			global.foundry_undead_attack_speed_multiplier *= BALANCE_FOUNDRY_ARMY_UPGRADE_MULTIPLIER;
+			_upgraded_squad_type = SQUAD_TYPE.UNDEAD;
+			break;
+
+		default:
+			return false;
+	}
+
+	// Update current units now; future units read the same global multipliers after spawning.
+	with (o_friendly_units)
+	{
+		foundry_unit_permanent_bonuses_apply(id);
+		foundry_permanent_bonuses_pending = false;
+	}
+
+	if (_health_was_upgraded)
+	{
+		day_event_foundry_squad_health_totals_refresh(_upgraded_squad_type);
+	}
+
+	day_event_cultist_hp_cost_apply(_assigned_cultists, _data.hp_cost);
+	return true;
+}
+
+function day_event_foundry_training_execute(_event, _assigned_cultists, _data)
+{
+	var _target = day_event_foundry_archdemon_target_get(
+		_data.target_archdemon_index,
+		_data.target_archdemon_name
+	);
+
+	if (!instance_exists(_target))
+	{
+		return false;
+	}
+
+	var _leveled_up = cultist_exp_add(
+		_target,
+		BALANCE_FOUNDRY_ARCHDEMON_TRAINING_EXP,
+		false
+	);
+
+	if (_leveled_up && instance_exists(o_game_controller))
+	{
+		var _game_controller = instance_find(o_game_controller, 0);
+
+		if (variable_instance_exists(_game_controller, "ensure_cultist_levelup_options"))
+		{
+			_game_controller.ensure_cultist_levelup_options(_target);
+		}
+	}
+
+	day_event_cultist_hp_cost_apply(_assigned_cultists, _data.hp_cost);
+	return true;
+}
+
+function day_event_foundry_artifacts_spawn(_foundry, _artifact_stat, _artifact_count)
+{
+	var _origin_x = 0;
+	var _origin_y = 0;
+
+	if (instance_exists(_foundry))
+	{
+		_origin_x = _foundry.x;
+		_origin_y = _foundry.y;
+	}
+	else if (instance_exists(o_cannon))
+	{
+		var _cannon = instance_find(o_cannon, 0);
+		_origin_x = _cannon.x;
+		_origin_y = _cannon.y;
+	}
+	else
+	{
+		return 0;
+	}
+
+	var _spawned_count = 0;
+
+	for (var _artifact_index = 0; _artifact_index < _artifact_count; ++_artifact_index)
+	{
+		var _spawn_direction = 210 + (_artifact_index * 120);
+		var _spawn_distance = 70;
+		var _artifact = instance_create_layer(
+			_origin_x + lengthdir_x(_spawn_distance, _spawn_direction),
+			_origin_y + lengthdir_y(_spawn_distance, _spawn_direction),
+			"Instances",
+			o_artifact
+		);
+
+		if (!instance_exists(_artifact))
+		{
+			continue;
+		}
+
+		_artifact.artifact_stat = _artifact_stat;
+		_artifact.artifact_sprite_apply();
+		_spawned_count++;
+	}
+
+	return _spawned_count;
+}
+
+function day_event_foundry_artifact_execute(_event, _assigned_cultists, _data)
+{
+	var _artifact_stat = _data.artifact_stat;
+
+	if (_artifact_stat < 0)
+	{
+		_artifact_stat = irandom(CULTIST_STAT.COUNT - 1);
+	}
+
+	var _spawned_count = day_event_foundry_artifacts_spawn(
+		_data.foundry,
+		_artifact_stat,
+		_data.artifact_count
+	);
+
+	if (_spawned_count <= 0)
+	{
+		return false;
+	}
+
+	day_event_cultist_hp_cost_apply(_assigned_cultists, _data.hp_cost);
+	return true;
+}
+
+function day_event_foundry_event_create(
+	_foundry,
+	_event_id,
+	_title,
+	_description,
+	_cultist_cost,
+	_action_type,
+	_action_callback,
+	_action_data
+)
+{
+	var _event = new day_event_constructor(
+		_event_id + "_" + string(_foundry),
+		_title,
+		_description,
+		_cultist_cost,
+		1,
+		[new event_action_constructor(_action_type, _action_callback, _action_data)]
+	);
+	_event.source_building = _foundry;
+	return _event;
+}
+
+function day_event_foundry_events_add(_foundry)
+{
+	var _demon_health_cost = day_event_random_cultist_cost_get(
+		BALANCE_FOUNDRY_UPGRADE_GROUP_CULTIST_COUNT,
+		BALANCE_FOUNDRY_UPGRADE_GROUP_HP_COST,
+		BALANCE_FOUNDRY_UPGRADE_SOLO_CULTIST_COUNT,
+		BALANCE_FOUNDRY_UPGRADE_SOLO_HP_COST
+	);
+	day_event_add(day_event_foundry_event_create(
+		_foundry,
+		"foundry_flesh_of_the_pit",
+		"Flesh of the Pit",
+		"Permanently increases the maximum health of all Demons by 10%, excluding Archdemons.\n"
+			+ _demon_health_cost.text,
+		_demon_health_cost.cultist_count,
+		"foundry_army_upgrade",
+		day_event_foundry_upgrade_execute,
+		{ upgrade_id: "demon_health", hp_cost: _demon_health_cost.hp_cost }
+	));
+
+	var _demon_damage_cost = day_event_random_cultist_cost_get(
+		BALANCE_FOUNDRY_UPGRADE_GROUP_CULTIST_COUNT,
+		BALANCE_FOUNDRY_UPGRADE_GROUP_HP_COST,
+		BALANCE_FOUNDRY_UPGRADE_SOLO_CULTIST_COUNT,
+		BALANCE_FOUNDRY_UPGRADE_SOLO_HP_COST
+	);
+	day_event_add(day_event_foundry_event_create(
+		_foundry,
+		"foundry_lessons_in_cruelty",
+		"Lessons in Cruelty",
+		"Permanently increases the damage of all Demons by 10%, excluding Archdemons.\n"
+			+ _demon_damage_cost.text,
+		_demon_damage_cost.cultist_count,
+		"foundry_army_upgrade",
+		day_event_foundry_upgrade_execute,
+		{ upgrade_id: "demon_damage", hp_cost: _demon_damage_cost.hp_cost }
+	));
+
+	var _undead_health_cost = day_event_random_cultist_cost_get(
+		BALANCE_FOUNDRY_UPGRADE_GROUP_CULTIST_COUNT,
+		BALANCE_FOUNDRY_UPGRADE_GROUP_HP_COST,
+		BALANCE_FOUNDRY_UPGRADE_SOLO_CULTIST_COUNT,
+		BALANCE_FOUNDRY_UPGRADE_SOLO_HP_COST
+	);
+	day_event_add(day_event_foundry_event_create(
+		_foundry,
+		"foundry_reinforced_bones",
+		"Reinforced Bones",
+		"Permanently increases the maximum health of all Undead units by 10%.\n"
+			+ _undead_health_cost.text,
+		_undead_health_cost.cultist_count,
+		"foundry_army_upgrade",
+		day_event_foundry_upgrade_execute,
+		{ upgrade_id: "undead_health", hp_cost: _undead_health_cost.hp_cost }
+	));
+
+	var _undead_speed_cost = day_event_random_cultist_cost_get(
+		BALANCE_FOUNDRY_UPGRADE_GROUP_CULTIST_COUNT,
+		BALANCE_FOUNDRY_UPGRADE_GROUP_HP_COST,
+		BALANCE_FOUNDRY_UPGRADE_SOLO_CULTIST_COUNT,
+		BALANCE_FOUNDRY_UPGRADE_SOLO_HP_COST
+	);
+	day_event_add(day_event_foundry_event_create(
+		_foundry,
+		"foundry_no_time_to_rot",
+		"No Time to Rot",
+		"Permanently increases the attack speed of all Undead units by 10%.\n"
+			+ _undead_speed_cost.text,
+		_undead_speed_cost.cultist_count,
+		"foundry_army_upgrade",
+		day_event_foundry_upgrade_execute,
+		{ upgrade_id: "undead_attack_speed", hp_cost: _undead_speed_cost.hp_cost }
+	));
+
+	// Training locks one random Archdemon when the card is generated.
+	var _eligible_archdemon_indices = [];
+
+	for (var _archdemon_index = 0; _archdemon_index < array_length(global.archdemons); ++_archdemon_index)
+	{
+		if (instance_exists(global.archdemons[_archdemon_index]))
+		{
+			array_push(_eligible_archdemon_indices, _archdemon_index);
+		}
+	}
+
+	if (array_length(_eligible_archdemon_indices) > 0)
+	{
+		var _target_index = _eligible_archdemon_indices[irandom(array_length(_eligible_archdemon_indices) - 1)];
+		var _target = global.archdemons[_target_index];
+		var _target_name = variable_instance_exists(_target, "cultist_name")
+			? _target.cultist_name
+			: "Archdemon";
+		var _target_sprite = variable_instance_exists(_target, "cultist_sprite_index")
+				&& sprite_exists(_target.cultist_sprite_index)
+			? _target.cultist_sprite_index
+			: _target.sprite_index;
+		var _training_event = day_event_foundry_event_create(
+			_foundry,
+			"foundry_archdemon_training",
+			"Archdemon Training",
+			"Grant " + _target_name + " +1,000 XP.\nRequires 1 Cultist, who loses 35 HP.",
+			BALANCE_FOUNDRY_ARCHDEMON_TRAINING_CULTIST_COUNT,
+			"foundry_archdemon_training",
+			day_event_foundry_training_execute,
+			{
+				target_archdemon_index: _target_index,
+				target_archdemon_name: _target_name,
+				hp_cost: BALANCE_FOUNDRY_ARCHDEMON_TRAINING_HP_COST
+			}
+		);
+		_training_event.target_archdemon_name = _target_name;
+		_training_event.target_archdemon_sprite = _target_sprite;
+		_training_event.target_archdemon_frame = 0;
+		day_event_add(_training_event);
+	}
+
+	var _relic_stat = irandom(CULTIST_STAT.COUNT - 1);
+	var _relic_stat_name = day_event_foundry_stat_name_get(_relic_stat);
+	day_event_add(day_event_foundry_event_create(
+		_foundry,
+		"foundry_relics_of_great_power",
+		"Relics of Great Power",
+		"Create a " + _relic_stat_name + " artifact for an Archdemon. It grants +1 "
+			+ _relic_stat_name + ".\nRequires 1 Cultist, who loses 25 HP.",
+		BALANCE_FOUNDRY_RELIC_CULTIST_COUNT,
+		"foundry_artifact",
+		day_event_foundry_artifact_execute,
+		{
+			foundry: _foundry,
+			artifact_stat: _relic_stat,
+			artifact_count: 1,
+			hp_cost: BALANCE_FOUNDRY_RELIC_HP_COST
+		}
+	));
+
+	var _spoils_cost = day_event_random_cultist_cost_get(
+		BALANCE_FOUNDRY_UPGRADE_GROUP_CULTIST_COUNT,
+		BALANCE_FOUNDRY_UPGRADE_GROUP_HP_COST,
+		BALANCE_FOUNDRY_UPGRADE_SOLO_CULTIST_COUNT,
+		BALANCE_FOUNDRY_UPGRADE_SOLO_HP_COST
+	);
+	day_event_add(day_event_foundry_event_create(
+		_foundry,
+		"foundry_spoils_of_the_abyss",
+		"Spoils of the Abyss",
+		"Create 2 identical random artifacts for an Archdemon. Their shared attribute is hidden until completion.\n"
+			+ _spoils_cost.text,
+		_spoils_cost.cultist_count,
+		"foundry_artifact",
+		day_event_foundry_artifact_execute,
+		{
+			foundry: _foundry,
+			artifact_stat: -1,
+			artifact_count: BALANCE_FOUNDRY_SPOILS_ARTIFACT_COUNT,
+			hp_cost: _spoils_cost.hp_cost
+		}
+	));
+}
+
+function day_event_ritual_random_cost_get(
+	_group_cultist_count,
+	_group_hp_cost,
+	_solo_cultist_count,
+	_solo_hp_cost
+)
+{
+	if (irandom(1) == 0)
+	{
+		return {
+			cultist_count: _group_cultist_count,
+			hp_cost: _group_hp_cost,
+			text: _group_hp_cost > 0
+				? "Requires " + string(_group_cultist_count) + " Cultists. Each loses "
+					+ string(_group_hp_cost) + " HP."
+				: "Requires " + string(_group_cultist_count) + " Cultists. No HP loss."
+		};
+	}
+
+	return {
+		cultist_count: _solo_cultist_count,
+		hp_cost: _solo_hp_cost,
+		text: "Requires " + string(_solo_cultist_count) + " Cultist, who loses "
+			+ string(_solo_hp_cost) + " HP."
+	};
+}
+
+function day_event_ritual_effect_execute(_event, _assigned_cultists, _data)
+{
+	day_event_cultist_hp_cost_apply(_assigned_cultists, _data.hp_cost);
+
+	switch (_data.effect_id)
+	{
+		case "black_pilgrimage":
+			global.ritual_black_pilgrimage_active = true;
+			break;
+
+		case "grasping_soil":
+			global.ritual_grasping_soil_active = true;
+			break;
+
+		case "awaken_taint":
+			global.ritual_awaken_taint_active = true;
+			break;
+
+		case "rust_righteous":
+			global.ritual_rust_righteous_active = true;
+			break;
+
+		case "silence_choir":
+			global.ritual_silence_choir_active = true;
+			break;
+
+		case "blood_night":
+			global.ritual_blood_night_active = true;
+			break;
+
+		case "invite_worthy":
+			global.ritual_invite_worthy_active = true;
+			global.ritual_invite_worthy_reward_pending = true;
+			break;
+
+		case "trial_cannon":
+			global.ritual_trial_cannon_active = true;
+			break;
+
+		case "lesser_gate":
+			global.ritual_lesser_gate_active = true;
+			break;
+	}
+
+	return true;
+}
+
+function day_event_ritual_hell_weakest_execute(_event, _assigned_cultists, _data)
+{
+	if (!variable_struct_exists(_event, "selected_squad") || !is_struct(_event.selected_squad))
+	{
+		return false;
+	}
+
+	day_event_cultist_hp_cost_apply(_assigned_cultists, _data.hp_cost);
+	global.ritual_hell_weakest_active = true;
+	global.ritual_hell_weakest_squad = _event.selected_squad;
+	return true;
+}
+
+function day_event_ritual_create(
+	_ritual_circle,
+	_event_id,
+	_title,
+	_description,
+	_cultist_count,
+	_hp_cost
+)
+{
+	var _cost_text = "";
+
+	if (_cultist_count > 0)
+	{
+		_cost_text = _hp_cost > 0
+			? "\nRequires " + string(_cultist_count) + " Cultist"
+				+ (_cultist_count == 1 ? "" : "s")
+				+ (_cultist_count == 1 ? ", who loses " : ". Each loses ")
+				+ string(_hp_cost) + " HP."
+			: "\nRequires " + string(_cultist_count) + " Cultist"
+				+ (_cultist_count == 1 ? "" : "s")
+				+ ". No HP loss.";
+	}
+
+	var _event = new day_event_constructor(
+		"ritual_" + _event_id + "_" + string(_ritual_circle),
+		_title,
+		_description + _cost_text,
+		_cultist_count,
+		1,
+		[
+			new event_action_constructor(
+				"ritual_night_effect",
+				day_event_ritual_effect_execute,
+				{ effect_id: _event_id, hp_cost: _hp_cost }
+			)
+		]
+	);
+	_event.source_building = _ritual_circle;
+	return _event;
+}
+
+function day_event_ritual_events_add(_ritual_circle)
+{
+	day_event_add(day_event_ritual_create(
+		_ritual_circle,
+		"black_pilgrimage",
+		"Black Pilgrimage",
+		"All allied squads gain 30% movement speed while standing on tainted ground next night.",
+		1,
+		BALANCE_RITUAL_EVENT_STANDARD_HP_COST
+	));
+	day_event_add(day_event_ritual_create(
+		_ritual_circle,
+		"grasping_soil",
+		"Grasping Soil",
+		"Enemies standing on tainted ground move 35% slower next night.",
+		1,
+		BALANCE_RITUAL_EVENT_STANDARD_HP_COST
+	));
+
+	var _awaken_cost = day_event_ritual_random_cost_get(
+		BALANCE_RITUAL_AWAKEN_TAINT_GROUP_CULTIST_COUNT,
+		BALANCE_RITUAL_AWAKEN_TAINT_GROUP_HP_COST,
+		BALANCE_RITUAL_AWAKEN_TAINT_SOLO_CULTIST_COUNT,
+		BALANCE_RITUAL_AWAKEN_TAINT_SOLO_HP_COST
+	);
+	day_event_add(day_event_ritual_create(
+		_ritual_circle,
+		"awaken_taint",
+		"Awaken the Taint",
+		"All enemies standing on tainted ground take 25% more damage next night.",
+		_awaken_cost.cultist_count,
+		_awaken_cost.hp_cost
+	));
+	day_event_add(day_event_ritual_create(
+		_ritual_circle,
+		"rust_righteous",
+		"Rust the Righteous",
+		"Reduce enemy Physical Armor by 30, but not below 0, next night.",
+		1,
+		BALANCE_RITUAL_EVENT_STANDARD_HP_COST
+	));
+	day_event_add(day_event_ritual_create(
+		_ritual_circle,
+		"silence_choir",
+		"Silence the Choir",
+		"Reduce enemy Magic Resistance by 30, but not below 0, next night.",
+		1,
+		BALANCE_RITUAL_EVENT_STANDARD_HP_COST
+	));
+	day_event_add(day_event_ritual_create(
+		_ritual_circle,
+		"blood_night",
+		"Blood Night",
+		"All allied and enemy units deal 50% more damage next night.",
+		1,
+		BALANCE_RITUAL_EVENT_STANDARD_HP_COST
+	));
+	day_event_add(day_event_ritual_create(
+		_ritual_circle,
+		"invite_worthy",
+		"Invite the Worthy",
+		"Add 20% more enemies next night. If the cannon survives, every constructed building generates one additional event tomorrow.",
+		1,
+		BALANCE_RITUAL_INVITE_WORTHY_HP_COST
+	));
+	day_event_add(day_event_ritual_create(
+		_ritual_circle,
+		"trial_cannon",
+		"Trial of the Cannon",
+		"The cannon loses 25% of its Max Health at the beginning of the next night.",
+		1,
+		0
+	));
+
+	var _gate_cost = day_event_ritual_random_cost_get(
+		BALANCE_RITUAL_LESSER_GATE_GROUP_CULTIST_COUNT,
+		0,
+		BALANCE_RITUAL_LESSER_GATE_SOLO_CULTIST_COUNT,
+		BALANCE_RITUAL_LESSER_GATE_SOLO_HP_COST
+	);
+	day_event_add(day_event_ritual_create(
+		_ritual_circle,
+		"lesser_gate",
+		"Open the Lesser Gate",
+		"A temporary portal appears near the Cannon walls next night. Every 5 seconds it releases a random friendly creature that fights until morning.",
+		_gate_cost.cultist_count,
+		_gate_cost.hp_cost
+	));
+
+	var _eligible_squads = [];
+	array_copy(_eligible_squads, 0, global.squads, 0, array_length(global.squads));
+	var _hell_event = new day_event_constructor(
+		"ritual_hell_weakest_" + string(_ritual_circle),
+		"Hell Takes the Weakest",
+		"Choose one squad that cannot be deployed next night. All other squads gain 25% damage, health and attack speed for that night.\nRequires 1 Cultist, who loses 20 HP.",
+		1,
+		1,
+		[
+			new event_action_constructor(
+				"ritual_hell_weakest",
+				day_event_ritual_hell_weakest_execute,
+				{ hp_cost: BALANCE_RITUAL_EVENT_STANDARD_HP_COST }
+			)
+		]
+	);
+	_hell_event.source_building = _ritual_circle;
+	day_event_add(day_event_squad_selection_add(_hell_event, _eligible_squads));
+}
+
+function day_event_additional_building_events_generate()
+{
+	if (!global.ritual_extra_building_event_active)
+	{
+		return;
+	}
+
+	var _source_buildings = [];
+	var _event_count = array_length(global.day_events);
+
+	for (var _event_index = 0; _event_index < _event_count; ++_event_index)
+	{
+		var _event = global.day_events[_event_index];
+
+		if (!is_struct(_event)
+			|| !variable_struct_exists(_event, "source_building")
+			|| !instance_exists(_event.source_building))
+		{
+			continue;
+		}
+
+		var _source_is_known = false;
+
+		for (var _source_index = 0; _source_index < array_length(_source_buildings); ++_source_index)
+		{
+			if (_source_buildings[_source_index] == _event.source_building)
+			{
+				_source_is_known = true;
+				break;
+			}
+		}
+
+		if (!_source_is_known)
+		{
+			array_push(_source_buildings, _event.source_building);
+		}
+	}
+
+	for (var _source_index = 0; _source_index < array_length(_source_buildings); ++_source_index)
+	{
+		var _source_building = _source_buildings[_source_index];
+		var _candidate_events = [];
+
+		for (var _event_index = 0; _event_index < _event_count; ++_event_index)
+		{
+			var _candidate = global.day_events[_event_index];
+
+			if (is_struct(_candidate)
+				&& variable_struct_exists(_candidate, "source_building")
+				&& _candidate.source_building == _source_building)
+			{
+				array_push(_candidate_events, _candidate);
+			}
+		}
+
+		if (array_length(_candidate_events) <= 0)
+		{
+			continue;
+		}
+
+		var _template = _candidate_events[irandom(array_length(_candidate_events) - 1)];
+		var _bonus_event = new day_event_constructor(
+			_template.event_id + "_invite_bonus",
+			_template.title,
+			_template.description,
+			_template.cultist_cost,
+			_template.activation_limit,
+			_template.actions
+		);
+		_bonus_event.source_building = _source_building;
+		_bonus_event.source_event_id = day_event_source_event_id_get(_template);
+
+		if (variable_struct_exists(_template, "requires_squad_selection")
+			&& _template.requires_squad_selection)
+		{
+			day_event_squad_selection_add(_bonus_event, _template.eligible_squads);
+		}
+
+		if (variable_struct_exists(_template, "target_archdemon_name"))
+		{
+			_bonus_event.target_archdemon_name = _template.target_archdemon_name;
+			_bonus_event.target_archdemon_sprite = _template.target_archdemon_sprite;
+			_bonus_event.target_archdemon_frame = _template.target_archdemon_frame;
+		}
+
+		day_event_add(_bonus_event);
+	}
+
+	global.ritual_extra_building_event_active = false;
+}
+
 function day_event_blood_warpaint_execute(_event, _assigned_cultists, _data)
 {
 	global.squad_blood_warpaint_pending = true;
@@ -546,29 +1702,496 @@ function day_event_blood_bath_create(_building, _event_id, _title, _description,
 	return _event;
 }
 
-function day_event_shell_factory_create(_shell_factory)
+function day_event_shell_factory_production_create(
+	_shell_factory,
+	_event_id,
+	_title,
+	_description,
+	_projectile_type,
+	_shell_count = BALANCE_SHELL_FACTORY_PRODUCTION_SHELL_COUNT,
+	_cultist_count = 1,
+	_hp_cost = BALANCE_SHELL_FACTORY_PRODUCTION_CULTIST_HP_COST
+)
 {
-	var _actions = [
-		new event_action_constructor(
-			"produce_regular_shells",
-			day_event_regular_shells_execute
-		)
-	];
 	var _event = new day_event_constructor(
-		"shell_factory_regular_shells_" + string(_shell_factory),
-		"Produce regular shells",
-		"Produce 2 random regular shells (heal or explosion),\nbut cultists hp -10",
-		2,
+		_event_id + "_" + string(_shell_factory),
+		_title,
+		_description,
+		_cultist_count,
 		1,
-		_actions
+		[
+			new event_action_constructor(
+				"produce_shell_factory_shells",
+				day_event_shell_factory_shells_execute,
+				{ projectile_type: _projectile_type, shell_count: _shell_count, hp_cost: _hp_cost }
+			)
+		]
 	);
 
 	_event.source_building = _shell_factory;
 	return _event;
 }
 
-function day_event_generate_for_buildings()
+function day_event_shell_factory_upgrade_cost_get()
 {
+	if (irandom(1) == 0)
+	{
+		return {
+			cultist_count: BALANCE_SHELL_FACTORY_UPGRADE_GROUP_CULTIST_COUNT,
+			hp_cost: BALANCE_SHELL_FACTORY_UPGRADE_GROUP_HP_COST,
+			text: "Requires 2 Cultists. Each loses 25 HP."
+		};
+	}
+
+	return {
+		cultist_count: BALANCE_SHELL_FACTORY_UPGRADE_SOLO_CULTIST_COUNT,
+		hp_cost: BALANCE_SHELL_FACTORY_UPGRADE_SOLO_HP_COST,
+		text: "Requires 1 Cultist, who loses 60 HP."
+	};
+}
+
+function day_event_shell_factory_upgrade_execute(_event, _assigned_cultists, _data)
+{
+	if (_data.upgrade_type == "hellcow")
+	{
+		if (global.shell_factory_hellcow_damage_upgrade_count >= BALANCE_SHELL_FACTORY_HELLCOW_UPGRADE_LIMIT)
+		{
+			return false;
+		}
+
+		global.shell_factory_hellcow_damage_upgrade_count++;
+	}
+	else
+	{
+		if (global.shell_factory_first_aid_heal_upgrade_count >= BALANCE_SHELL_FACTORY_FIRST_AID_UPGRADE_LIMIT)
+		{
+			return false;
+		}
+
+		global.shell_factory_first_aid_heal_upgrade_count++;
+	}
+
+	day_event_cultist_hp_cost_apply(_assigned_cultists, _data.hp_cost);
+	return true;
+}
+
+function day_event_shell_factory_upgrade_create(_shell_factory, _event_id, _title, _description, _upgrade_type)
+{
+	var _cost = day_event_shell_factory_upgrade_cost_get();
+	var _event = new day_event_constructor(
+		_event_id + "_" + string(_shell_factory),
+		_title,
+		_description + "\n" + _cost.text,
+		_cost.cultist_count,
+		1,
+		[
+			new event_action_constructor(
+				"upgrade_shell_factory_shells",
+				day_event_shell_factory_upgrade_execute,
+				{ upgrade_type: _upgrade_type, hp_cost: _cost.hp_cost }
+			)
+		]
+	);
+	_event.source_building = _shell_factory;
+	return _event;
+}
+
+function day_event_building_catalog_get(_building_object)
+{
+	var _entry = function(_title, _description)
+	{
+		return {
+			title: _title,
+			description: _description
+		};
+	};
+
+	switch (_building_object)
+	{
+		case o_shell_factory:
+			return [
+				_entry("Produce Hellcow shells", "Produce 2 explosive Hellcow shells. Requires 1 Cultist, who loses 10 HP."),
+				_entry("Produce First Aid Meat shells", "Produce 2 shells that heal allied troops. Requires 1 Cultist, who loses 10 HP."),
+				_entry("Produce Taint Compost shells", "Produce 2 shells that taint land. Requires 1 Cultist, who loses 10 HP."),
+				_entry("Produce Doom Bell Shell", "Produce 1 powerful Doom Bell shell that damages enemies and taints ground. Requires 2 Cultists. Each loses 25 HP."),
+				_entry("Hellcow's diet change", "Permanently increase Hellcow shell damage by 25%. Maximum 4 activations."),
+				_entry("Tight tamping of meat", "Permanently increase First Aid Meat healing by 25%. Maximum 4 activations.")
+			];
+
+		case o_foundry:
+			return [
+				_entry("Flesh of the Pit", "Permanently increase maximum health of all Demons by 10%, excluding Archdemons."),
+				_entry("Lessons in Cruelty", "Permanently increase damage of all Demons by 10%, excluding Archdemons."),
+				_entry("Reinforced Bones", "Permanently increase maximum health of all Undead units by 10%."),
+				_entry("No Time to Rot", "Permanently increase attack speed of all Undead units by 10%."),
+				_entry("Archdemon Training", "Grant one randomly selected Archdemon +1,000 XP."),
+				_entry("Relics of Great Power", "Create one artifact granting +1 Body, Fervor, or Spirit."),
+				_entry("Spoils of the Abyss", "Create 2 identical random artifacts for an Archdemon.")
+			];
+
+		case o_ritual_circle:
+			return [
+				_entry("Black Pilgrimage", "All allied squads move 30% faster on tainted ground next night."),
+				_entry("Grasping Soil", "Enemies move 35% slower on tainted ground next night."),
+				_entry("Awaken the Taint", "Enemies on tainted ground take 25% more damage next night."),
+				_entry("Rust the Righteous", "Reduce enemy Physical Armor by 30 next night, but not below 0."),
+				_entry("Silence the Choir", "Reduce enemy Magic Resistance by 30 next night, but not below 0."),
+				_entry("Blood Night", "All allied and enemy units deal 50% more damage next night."),
+				_entry("Invite the Worthy", "Add 20% more enemies next night. Surviving grants one extra event per building tomorrow."),
+				_entry("Trial of the Cannon", "The cannon loses 25% of its Max Health at the beginning of next night."),
+				_entry("Open the Lesser Gate", "A temporary portal summons a random friendly creature every 5 seconds next night."),
+				_entry("Hell Takes the Weakest", "Block one squad next night. All other squads gain 25% damage, health and attack speed.")
+			];
+
+		case o_pitlings_pit2:
+			return [
+				_entry("Hell Makes Room", "Add one more Demon squad slot, up to the event slot limit."),
+				_entry("Fill the Ranks", "Add one unit of the most common type to a selected Demon squad."),
+				_entry("Summon Mawlings", "Summon a new squad of Mawlings."),
+				_entry("Forge Balgors", "Replace all Mawlings in a selected squad with Balgors."),
+				_entry("Lessons in Temptation", "Replace all Mawlings in a selected squad with Succubi."),
+				_entry("Born in Pit", "Replace all Mawlings in a selected squad with Pitlings."),
+				_entry("Summon Demon Wizard", "Add a Demon Wizard to a selected Demon squad."),
+				_entry("Demon Draft", "Add one common unit to a selected Demon squad."),
+				_entry("Infernal Fury", "Permanently increase damage of a selected Demon squad by 15%."),
+				_entry("Infernal Vitality", "Permanently increase health of a selected Demon squad by 15%.")
+			];
+
+		case o_graveyard2:
+			return [
+				_entry("Raise Bonelets Squad", "Summon a new squad of Bonelets."),
+				_entry("Extend the Catacombs", "Add one more Undead squad slot, up to the event slot limit."),
+				_entry("Arm the Dead", "Replace all Bonelets in a selected squad with Skeleton Warriors."),
+				_entry("Bone Scholars", "Replace all Bonelets in a selected squad with Skeleton Mages."),
+				_entry("Bone Archery", "Replace all Bonelets in a selected squad with Skeleton Archers."),
+				_entry("Summon Skeleton Healer", "Add a Skeleton Healer to a selected Undead squad."),
+				_entry("Skeleton Draft", "Add units of the most common type to a selected Undead squad."),
+				_entry("Deadlier Bones", "Permanently increase damage of a selected Undead squad by 15%."),
+				_entry("Reinforced Remains", "Permanently increase health of a selected Undead squad by 15%.")
+			];
+
+		case o_meat_bath:
+			return [
+				_entry("Crimson Baptism", "All current Cultists gain +10 Max HP. Maximum 3 activations per game."),
+				_entry("Blood Bath", "Assigned Cultists restore 30 HP."),
+				_entry("Blood Transfusion", "The healthiest Cultist loses 40 HP. The most wounded restores 60 HP and gains +10 Max HP."),
+				_entry("Harden the Vessel", "One Cultist loses 40 HP and permanently gains +20 Max HP. Once per game."),
+				_entry("The Bath Demands a Name", "Sacrifice one Cultist. All remaining Cultists fully heal and gain +10 Max HP."),
+				_entry("Blood for Blood", "Sacrifice one Cultist and increase the Cultist limit by 2."),
+				_entry("The Cult Must Grow", "Increase the Cultist limit by 2. Available no more than once every 2 days."),
+				_entry("Blood Warpaint", "All squads gain +15% Max HP next night.")
+			];
+	}
+
+	return [];
+}
+
+function day_event_source_event_id_get(_event)
+{
+	if (!is_struct(_event))
+	{
+		return "";
+	}
+
+	if (variable_struct_exists(_event, "source_event_id"))
+	{
+		return _event.source_event_id;
+	}
+
+	return variable_struct_exists(_event, "event_id")
+		? _event.event_id
+		: "";
+}
+
+function day_event_building_action_is_available(_event)
+{
+	return is_struct(_event)
+		&& variable_struct_exists(_event, "source_building")
+		&& instance_exists(_event.source_building)
+		&& variable_struct_exists(_event, "event_id")
+		&& !variable_struct_exists(_event, "construction_site")
+		&& (!variable_struct_exists(_event, "is_resolved") || !_event.is_resolved);
+}
+
+function day_event_assignments_clear(_event)
+{
+	if (!is_struct(_event)
+		|| !variable_struct_exists(_event, "assigned_cultists"))
+	{
+		return 0;
+	}
+
+	var _released_count = 0;
+
+	for (var _cultist_index = 0; _cultist_index < array_length(_event.assigned_cultists); ++_cultist_index)
+	{
+		var _cultist = _event.assigned_cultists[_cultist_index];
+
+		if (instance_exists(_cultist))
+		{
+			_cultist.assigned_event = noone;
+			_released_count++;
+		}
+	}
+
+	_event.assigned_cultists = [];
+	return _released_count;
+}
+
+function day_event_pin_is_active()
+{
+	return global.day_event_pinned_event_id != ""
+		&& instance_exists(global.day_event_pinned_source_building);
+}
+
+function day_event_pin_is_event(_event)
+{
+	if (!day_event_building_action_is_available(_event)
+		|| !day_event_pin_is_active())
+	{
+		return false;
+	}
+
+	return variable_struct_exists(_event, "is_pinned_event")
+		&& _event.is_pinned_event
+		&& _event.source_building == global.day_event_pinned_source_building
+		&& day_event_source_event_id_get(_event) == global.day_event_pinned_event_id;
+}
+
+function day_event_pin_set(_event)
+{
+	if (!day_event_building_action_is_available(_event)
+		|| (day_event_pin_is_active() && !day_event_pin_is_event(_event)))
+	{
+		return false;
+	}
+
+	day_event_pin_clear();
+	global.day_event_pinned_event_id = day_event_source_event_id_get(_event);
+	global.day_event_pinned_source_building = _event.source_building;
+	_event.is_pinned_event = true;
+	return true;
+}
+
+function day_event_pin_clear()
+{
+	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
+	{
+		var _event = global.day_events[_event_index];
+
+		if (is_struct(_event) && variable_struct_exists(_event, "is_pinned_event"))
+		{
+			_event.is_pinned_event = false;
+		}
+	}
+
+	global.day_event_pinned_event_id = "";
+	global.day_event_pinned_source_building = noone;
+	return true;
+}
+
+function day_event_pin_marker_apply()
+{
+	if (!day_event_pin_is_active())
+	{
+		return false;
+	}
+
+	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
+	{
+		var _event = global.day_events[_event_index];
+
+		if (day_event_building_action_is_available(_event)
+			&& _event.source_building == global.day_event_pinned_source_building
+			&& day_event_source_event_id_get(_event) == global.day_event_pinned_event_id)
+		{
+			_event.is_pinned_event = true;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+function day_event_reroll(_event)
+{
+	if (global.day_event_reroll_used_today
+		|| !day_event_building_action_is_available(_event))
+	{
+		return false;
+	}
+
+	var _event_index = -1;
+
+	for (var _search_index = 0; _search_index < array_length(global.day_events); ++_search_index)
+	{
+		if (global.day_events[_search_index] == _event)
+		{
+			_event_index = _search_index;
+			break;
+		}
+	}
+
+	if (_event_index < 0)
+	{
+		return false;
+	}
+
+	// Generate the currently valid catalog, then keep only alternatives from this exact source.
+	var _current_events = global.day_events;
+	global.day_events = [];
+	day_event_generate_for_buildings(false, false);
+	var _generated_events = global.day_events;
+	global.day_events = _current_events;
+	var _current_source_event_id = day_event_source_event_id_get(_event);
+	var _candidate_events = [];
+
+	for (var _candidate_index = 0; _candidate_index < array_length(_generated_events); ++_candidate_index)
+	{
+		var _candidate = _generated_events[_candidate_index];
+
+		if (day_event_building_action_is_available(_candidate)
+			&& _candidate.source_building == _event.source_building
+			&& day_event_source_event_id_get(_candidate) != _current_source_event_id)
+		{
+			array_push(_candidate_events, _candidate);
+		}
+	}
+
+	if (array_length(_candidate_events) <= 0)
+	{
+		return false;
+	}
+
+	if (day_event_pin_is_event(_event))
+	{
+		day_event_pin_clear();
+	}
+
+	day_event_assignments_clear(_event);
+	global.day_events[_event_index] = _candidate_events[irandom(array_length(_candidate_events) - 1)];
+	global.day_event_reroll_used_today = true;
+	return true;
+}
+
+function day_event_building_daily_events_limit_apply()
+{
+	var _events_without_building_source = [];
+	var _source_buildings = [];
+	var _source_event_candidates = [];
+	var _pinned_event_found = false;
+
+	// Separate world jobs from events generated by individual building instances.
+	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
+	{
+		var _event = global.day_events[_event_index];
+
+		if (!is_struct(_event)
+			|| !variable_struct_exists(_event, "source_building")
+			|| !instance_exists(_event.source_building))
+		{
+			array_push(_events_without_building_source, _event);
+			continue;
+		}
+
+		var _source_index = -1;
+
+		for (var _known_source_index = 0; _known_source_index < array_length(_source_buildings); ++_known_source_index)
+		{
+			if (_source_buildings[_known_source_index] == _event.source_building)
+			{
+				_source_index = _known_source_index;
+				break;
+			}
+		}
+
+		if (_source_index < 0)
+		{
+			array_push(_source_buildings, _event.source_building);
+			array_push(_source_event_candidates, [_event]);
+			continue;
+		}
+
+		var _candidates = _source_event_candidates[_source_index];
+		array_push(_candidates, _event);
+		_source_event_candidates[_source_index] = _candidates;
+	}
+
+	// Each building contributes a limited random selection of currently available events.
+	global.day_events = _events_without_building_source;
+
+	for (var _source_index = 0; _source_index < array_length(_source_buildings); ++_source_index)
+	{
+		var _candidates = _source_event_candidates[_source_index];
+		var _candidate_count = array_length(_candidates);
+
+		if (_candidate_count <= 0 || BALANCE_BUILDING_DAY_EVENT_COUNT <= 0)
+		{
+			continue;
+		}
+
+		var _selected_candidates = [];
+		var _random_candidates = [];
+
+		// A pinned event consumes this source's normal daily event slot.
+		for (var _candidate_index = 0; _candidate_index < _candidate_count; ++_candidate_index)
+		{
+			var _candidate = _candidates[_candidate_index];
+
+			if (!_pinned_event_found
+				&& day_event_pin_is_active()
+				&& _candidate.source_building == global.day_event_pinned_source_building
+				&& day_event_source_event_id_get(_candidate) == global.day_event_pinned_event_id)
+			{
+				_candidate.is_pinned_event = true;
+				array_push(_selected_candidates, _candidate);
+				_pinned_event_found = true;
+			}
+			else
+			{
+				array_push(_random_candidates, _candidate);
+			}
+		}
+
+		for (var _shuffle_index = array_length(_random_candidates) - 1; _shuffle_index > 0; --_shuffle_index)
+		{
+			var _swap_index = irandom(_shuffle_index);
+			var _swap_event = _random_candidates[_shuffle_index];
+
+			_random_candidates[_shuffle_index] = _random_candidates[_swap_index];
+			_random_candidates[_swap_index] = _swap_event;
+		}
+
+		var _selected_event_count = min(BALANCE_BUILDING_DAY_EVENT_COUNT, _candidate_count);
+
+		for (var _random_index = 0;
+			array_length(_selected_candidates) < _selected_event_count
+				&& _random_index < array_length(_random_candidates);
+			++_random_index)
+		{
+			array_push(_selected_candidates, _random_candidates[_random_index]);
+		}
+
+		for (var _selection_index = 0; _selection_index < array_length(_selected_candidates); ++_selection_index)
+		{
+			array_push(global.day_events, _selected_candidates[_selection_index]);
+		}
+	}
+
+	// The pin is consumed after forcing tomorrow's event, or discarded if it became invalid.
+	if (global.day_event_pinned_event_id != "")
+	{
+		day_event_pin_clear();
+	}
+
+	return array_length(global.day_events);
+}
+
+function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_additional_bonus = true)
+{
+	// World jobs are available without owning a source building.
+	day_event_world_jobs_generate();
+
 	var _shell_factory_count = instance_number(o_shell_factory);
 
 	for (var _factory_index = 0; _factory_index < _shell_factory_count; ++_factory_index)
@@ -577,7 +2200,83 @@ function day_event_generate_for_buildings()
 
 		if (instance_exists(_shell_factory))
 		{
-			day_event_add(day_event_shell_factory_create(_shell_factory));
+			day_event_add(day_event_shell_factory_production_create(
+				_shell_factory,
+				"shell_factory_hellcow_shells",
+				"Produce Hellcow shells",
+				"Produce 2 Hellcow shells that explode on impact at night.\nRequires 1 Cultist, who loses 10 HP.",
+				PROJECTILE_TYPE.BOMB
+			));
+			day_event_add(day_event_shell_factory_production_create(
+				_shell_factory,
+				"shell_factory_first_aid_shells",
+				"Produce First Aid Meat shells",
+				"Produce 2 First Aid Meat shells that heal your troops on impact.\nRequires 1 Cultist, who loses 10 HP.",
+				PROJECTILE_TYPE.HEAL
+			));
+			day_event_add(day_event_shell_factory_production_create(
+				_shell_factory,
+				"shell_factory_taint_compost_shells",
+				"Produce Taint Compost shells",
+				"Produce 2 Taint Compost shells that can taint land around your cannon.\nRequires 1 Cultist, who loses 10 HP.",
+				PROJECTILE_TYPE.CORRUPTION
+			));
+			day_event_add(day_event_shell_factory_production_create(
+				_shell_factory,
+				"shell_factory_doom_bell_shell",
+				"Produce Doom Bell Shell",
+				"Produce 1 Doom Bell shell that explodes on impact, dealing heavy damage and tainting the ground.\nRequires 2 Cultists. Each loses 25 HP.",
+				PROJECTILE_TYPE.DOOM_BELL,
+				BALANCE_SHELL_FACTORY_DOOM_BELL_SHELL_COUNT,
+				BALANCE_SHELL_FACTORY_DOOM_BELL_CULTIST_COUNT,
+				BALANCE_SHELL_FACTORY_DOOM_BELL_CULTIST_HP_COST
+			));
+
+			if (global.shell_factory_hellcow_damage_upgrade_count < BALANCE_SHELL_FACTORY_HELLCOW_UPGRADE_LIMIT)
+			{
+				day_event_add(day_event_shell_factory_upgrade_create(
+					_shell_factory,
+					"shell_factory_hellcow_diet",
+					"Hellcow's diet change",
+					"Increase Hellcow shell damage by 25%. Maximum 4 upgrades.",
+					"hellcow"
+				));
+			}
+
+			if (global.shell_factory_first_aid_heal_upgrade_count < BALANCE_SHELL_FACTORY_FIRST_AID_UPGRADE_LIMIT)
+			{
+				day_event_add(day_event_shell_factory_upgrade_create(
+					_shell_factory,
+					"shell_factory_tight_tamping",
+					"Tight tamping of meat",
+					"Increase the healing effect of First Aid Meat shells by 25%. Maximum 4 upgrades.",
+					"first_aid"
+				));
+			}
+		}
+	}
+
+	var _foundry_count = instance_number(o_foundry);
+
+	for (var _foundry_index = 0; _foundry_index < _foundry_count; ++_foundry_index)
+	{
+		var _foundry = instance_find(o_foundry, _foundry_index);
+
+		if (instance_exists(_foundry))
+		{
+			day_event_foundry_events_add(_foundry);
+		}
+	}
+
+	var _ritual_circle_count = instance_number(o_ritual_circle);
+
+	for (var _ritual_index = 0; _ritual_index < _ritual_circle_count; ++_ritual_index)
+	{
+		var _ritual_circle = instance_find(o_ritual_circle, _ritual_index);
+
+		if (instance_exists(_ritual_circle))
+		{
+			day_event_ritual_events_add(_ritual_circle);
 		}
 	}
 
@@ -890,9 +2589,66 @@ function day_event_generate_for_buildings()
 
 		day_event_add(day_event_blood_bath_create(_blood_bath, "the_bath_demands_a_name", "The Bath Demands a Name", "Sacrifice the assigned Cultist. All remaining Cultists fully restore HP and gain +10 Max HP.\nRequires 1 Cultist.", 1, 1, day_event_bath_demands_name_execute));
 		day_event_add(day_event_blood_bath_create(_blood_bath, "blood_for_blood", "Blood for Blood", "Sacrifice the assigned Cultist. Increase the maximum number of Cultists by 2.\nRequires 1 Cultist. Does not create a new Cultist.", 1, 1, day_event_blood_for_blood_execute));
+
+		if (day_event_cult_must_grow_is_available())
+		{
+			day_event_add(day_event_cult_must_grow_create(_blood_bath));
+		}
+
 		day_event_add(day_event_blood_bath_create(_blood_bath, "blood_warpaint", "Blood Warpaint", "All squads gain +15% Max HP next night.\nRequires 1 Cultist.", 1, 1, day_event_blood_warpaint_execute));
 	}
 
+	// Normal days resolve every source to its limited daily selection.
+	if (_apply_daily_limit)
+	{
+		day_event_building_daily_events_limit_apply();
+	}
+
+	if (_apply_additional_bonus)
+	{
+		day_event_additional_building_events_generate();
+	}
+
+	return array_length(global.day_events);
+}
+
+function day_event_debug_all_events_generate()
+{
+	var _preserved_events = [];
+
+	// Keep construction cards and their assignments; replace every normally generated card.
+	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
+	{
+		var _event = global.day_events[_event_index];
+		var _is_construction_event = is_struct(_event)
+			&& variable_struct_exists(_event, "construction_site");
+
+		if (_is_construction_event)
+		{
+			array_push(_preserved_events, _event);
+			continue;
+		}
+
+		if (!is_struct(_event)
+			|| !variable_struct_exists(_event, "assigned_cultists"))
+		{
+			continue;
+		}
+
+		for (var _cultist_index = 0; _cultist_index < array_length(_event.assigned_cultists); ++_cultist_index)
+		{
+			var _cultist = _event.assigned_cultists[_cultist_index];
+
+			if (instance_exists(_cultist))
+			{
+				_cultist.assigned_event = noone;
+			}
+		}
+	}
+
+	global.day_events = _preserved_events;
+	day_event_generate_for_buildings(false, false);
+	day_event_pin_marker_apply();
 	return array_length(global.day_events);
 }
 
@@ -994,6 +2750,9 @@ function day_event_finish_day()
 
 function day_event_new_day_reset()
 {
+	global.building_construction_count_today = 0;
+	global.day_event_reroll_used_today = false;
+
 	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
 	{
 		var _event = global.day_events[_event_index];
@@ -1011,6 +2770,14 @@ function day_event_new_day_reset()
 			{
 				_cultist.assigned_event = noone;
 			}
+		}
+
+		// An unfinished construction event releases its reserved site.
+		if (variable_struct_exists(_event, "construction_site")
+			&& instance_exists(_event.construction_site)
+			&& variable_instance_exists(_event.construction_site, "construction_event_pending"))
+		{
+			_event.construction_site.construction_event_pending = false;
 		}
 	}
 

@@ -859,7 +859,7 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 	draw_text_transformed(
 		_panel_x + (56 * _design_scale),
 		_panel_y + (78 * _design_scale),
-		"A NEW CULTIST HAS BEEN SUMMONED!",
+		"A NEW ARCHDEMON HAS BEEN SUMMONED!",
 		1.18 * _design_scale,
 		1.18 * _design_scale,
 		0
@@ -1352,7 +1352,10 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 	draw_set_color(c_white);
 	draw_set_alpha(1);
 
-	exit;
+	if (!global.blood_moon_reward_popup_active)
+	{
+		exit;
+	}
 }
 
 // Draw cultist demon selection window.
@@ -1407,7 +1410,7 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 		draw_set_font(global.ui_heading_font);
 	}
 
-	draw_text(_panel_x + (_panel_width * 0.5), _panel_y + 34, "A NEW CULTIST HAS BEEN SUMMONED!");
+	draw_text(_panel_x + (_panel_width * 0.5), _panel_y + 34, "A NEW ARCHDEMON HAS BEEN SUMMONED!");
 
 	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
 	{
@@ -1831,7 +1834,10 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 		}
 	}
 
-	exit;
+	if (!global.blood_moon_reward_popup_active)
+	{
+		exit;
+	}
 }
 
 // Draw cultist level-up window.
@@ -2512,7 +2518,10 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 		}
 	}
 
-	exit;
+	if (!global.blood_moon_reward_popup_active)
+	{
+		exit;
+	}
 }
 
 // Draw building construction window.
@@ -2527,6 +2536,8 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 	var _close_y = _panel_y + 14;
 	var _grid_x = _panel_x + 44;
 	var _is_foundry_window = instance_exists(building_window_foundry);
+	var _daily_limit_reached = !_is_foundry_window
+		&& !day_event_building_construction_can_start();
 	var _grid_y = _panel_y + building_window_grid_y + (_is_foundry_window ? 112 : 0);
 	var _foundry_current_x = _panel_x + 44;
 	var _foundry_current_y = _panel_y + 118;
@@ -2568,7 +2579,18 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 		draw_set_font(global.ui_font);
 	}
 
-	building_resource_summary_draw(_panel_x + (building_window_width * 0.5), _panel_y + building_window_resource_y);
+	if (_daily_limit_reached)
+	{
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_middle);
+		draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+		draw_text(_panel_x + (building_window_width * 0.5), _panel_y + 76, "MAX 1 BUILDING PER DAY");
+	}
+
+	if (_is_foundry_window)
+	{
+		building_resource_summary_draw(_panel_x + (building_window_width * 0.5), _panel_y + building_window_resource_y);
+	}
 
 	draw_set_halign(fa_left);
 	draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
@@ -2691,8 +2713,9 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 		var _limit_count = building_choice_count_get(_choice);
 		var _limit_max = building_choice_limit_get(_choice);
 		var _limit_reached = _limit_count >= _limit_max;
-		var _can_pay_choice = building_choice_can_pay(_choice);
-		var _can_build_choice = _can_pay_choice && !_limit_reached;
+		var _choice_is_blocked = _limit_reached || _daily_limit_reached;
+		var _can_pay_choice = _is_foundry_window ? building_choice_can_pay(_choice) : true;
+		var _can_build_choice = _can_pay_choice && !_choice_is_blocked;
 		var _requirement_text = building_choice_requirement_text_get(_choice);
 		var _should_pulse_ritual_circle = !_is_foundry_window
 			&& _choice.building_object == o_ritual_circle
@@ -2714,7 +2737,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 		draw_rectangle(_tile_x, _tile_y, _tile_x + building_tile_width, _tile_y + building_tile_height, false);
 
 		draw_set_alpha(1);
-		draw_set_color(_limit_reached ? COLOR_PROJECTILE_DAMAGE : (_is_hovered ? COLOR_HUD_IRON : c_white));
+		draw_set_color(_choice_is_blocked ? COLOR_PROJECTILE_DAMAGE : (_is_hovered ? COLOR_HUD_IRON : c_white));
 		draw_rectangle(_tile_x, _tile_y, _tile_x + building_tile_width, _tile_y + building_tile_height, true);
 
 		if (_should_pulse_ritual_circle)
@@ -2749,18 +2772,18 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 				_sprite_draw_width,
 				_sprite_draw_height,
 				c_white,
-				_limit_reached ? 0.35 : 1
+				_choice_is_blocked ? 0.35 : 1
 			);
 		}
 
 		draw_set_halign(fa_center);
 		draw_set_valign(fa_middle);
 		draw_set_alpha(_can_build_choice ? 1 : 0.5);
-		draw_set_color(_limit_reached ? COLOR_HUD_PROJECTILE_DESCRIPTION : COLOR_HUD_TEXT);
+		draw_set_color(_choice_is_blocked ? COLOR_HUD_PROJECTILE_DESCRIPTION : COLOR_HUD_TEXT);
 		draw_text(_sprite_x, _name_y, _choice.building_name);
 		draw_set_alpha(1);
 
-		var _costs = building_choice_costs_get(_choice);
+		var _costs = _is_foundry_window ? building_choice_costs_get(_choice) : [];
 		var _cost_count = array_length(_costs);
 		var _cost_gap = 8;
 		var _cost_total_width = 0;
@@ -2830,10 +2853,17 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 				draw_set_alpha(1);
 			}
 
-			draw_set_color(_has_cost_resource && !_limit_reached ? _cost_color : COLOR_PROJECTILE_DAMAGE);
+			draw_set_color(_has_cost_resource && !_choice_is_blocked ? _cost_color : COLOR_PROJECTILE_DAMAGE);
 			draw_set_halign(fa_left);
 			draw_text(_cost_draw_x, _cost_y, _cost_text);
 			_cost_draw_x += string_width(_cost_text) + _cost_gap;
+		}
+
+		if (!_is_foundry_window)
+		{
+			draw_set_halign(fa_center);
+			draw_set_color(_choice_is_blocked ? COLOR_PROJECTILE_DAMAGE : COLOR_HUD_TEXT);
+			draw_text(_sprite_x, _cost_y, "2 Cultists");
 		}
 
 		if (_requirement_text != "")
@@ -2857,7 +2887,9 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 		var _limit_count = building_choice_count_get(_choice);
 		var _limit_max = building_choice_limit_get(_choice);
 		var _limit_reached = _limit_count >= _limit_max;
-		var _can_build_choice = building_choice_can_pay(_choice) && !_limit_reached;
+		var _can_build_choice = building_choice_can_pay(_choice)
+			&& !_limit_reached
+			&& !_daily_limit_reached;
 		var _tooltip_x = min(_mouse_x + 18, camera_view_width - building_tooltip_width - 18);
 		var _tooltip_y = min(_mouse_y + 18, camera_view_height - building_tooltip_height - 18);
 
@@ -2882,7 +2914,11 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 		);
 		draw_set_color(_can_build_choice ? COLOR_HUD_IRON : COLOR_PROJECTILE_DAMAGE);
 
-		if (_limit_reached)
+		if (_daily_limit_reached)
+		{
+			draw_text(_tooltip_x + building_tooltip_padding, _tooltip_y + building_tooltip_height - 28, "MAX 1 BUILDING PER DAY");
+		}
+		else if (_limit_reached)
 		{
 			var _limit_text = "Limit reached: " + string(_limit_count) + "/" + string(_limit_max);
 			var _requirement_text = building_choice_requirement_text_get(_choice);
@@ -2900,7 +2936,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 		}
 		else
 		{
-			draw_text(_tooltip_x + building_tooltip_padding, _tooltip_y + building_tooltip_height - 28, "Limit: " + string(_limit_count) + "/" + string(_limit_max) + " | Cost: " + building_choice_cost_text_get(_choice));
+			draw_text(_tooltip_x + building_tooltip_padding, _tooltip_y + building_tooltip_height - 28, "Limit: " + string(_limit_count) + "/" + string(_limit_max) + " | Cost: 2 Cultists");
 		}
 	}
 
@@ -2918,10 +2954,151 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 		}
 	}
 
-	exit;
+	if (!global.blood_moon_reward_popup_active)
+	{
+		exit;
+	}
 }
 
-// Draw building upgrade window.
+// Draw the read-only catalog of every event that can originate from this building.
+if (global.focus_window == FOCUS_WINDOW.BUILDING_EVENTS)
+{
+	var _panel_x = (camera_view_width - building_events_window_width) * 0.5;
+	var _panel_y = (camera_view_height - building_events_window_height) * 0.5;
+	var _close_size = 34;
+	var _close_x = _panel_x + building_events_window_width - _close_size - 14;
+	var _close_y = _panel_y + 14;
+	var _card_start_x = _panel_x + 48;
+	var _entry_count = array_length(building_events_window_entries);
+	var _row_count = ceil(_entry_count / building_events_card_columns);
+	var _visible_row_count = 3;
+	var _max_scroll_row = max(0, _row_count - _visible_row_count);
+
+	building_events_scroll_row = clamp(building_events_scroll_row, 0, _max_scroll_row);
+
+	draw_set_alpha(0.55);
+	draw_set_color(c_black);
+	draw_rectangle(0, 0, camera_view_width, camera_view_height, false);
+
+	draw_set_alpha(1);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_rectangle(_panel_x, _panel_y, _panel_x + building_events_window_width, _panel_y + building_events_window_height, false);
+	draw_set_color(c_white);
+	draw_rectangle(_panel_x, _panel_y, _panel_x + building_events_window_width, _panel_y + building_events_window_height, true);
+
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
+	draw_set_color(COLOR_HUD_TEXT);
+
+	if (variable_global_exists("ui_heading_font") && font_exists(global.ui_heading_font))
+	{
+		draw_set_font(global.ui_heading_font);
+	}
+
+	draw_text(_panel_x + (building_events_window_width * 0.5), _panel_y + 36, building_events_window_name + " Events");
+
+	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+	{
+		draw_set_font(global.ui_font);
+	}
+
+	draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+	draw_text(_panel_x + (building_events_window_width * 0.5), _panel_y + 72, "INFORMATION ONLY - EVENTS CANNOT BE ACTIVATED HERE");
+
+	draw_set_color(c_white);
+	draw_rectangle(_close_x, _close_y, _close_x + _close_size, _close_y + _close_size, true);
+	draw_text(_close_x + (_close_size * 0.5), _close_y + (_close_size * 0.5), "X");
+
+	if (_entry_count <= 0)
+	{
+		draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+		draw_text(
+			_panel_x + (building_events_window_width * 0.5),
+			_panel_y + (building_events_window_height * 0.5),
+			"THIS BUILDING HAS NO DAY EVENTS"
+		);
+	}
+	else
+	{
+		for (var _entry_index = 0; _entry_index < _entry_count; ++_entry_index)
+		{
+			var _entry_row = _entry_index div building_events_card_columns;
+
+			if (_entry_row < building_events_scroll_row
+				|| _entry_row >= building_events_scroll_row + _visible_row_count)
+			{
+				continue;
+			}
+
+			var _entry_column = _entry_index mod building_events_card_columns;
+			var _visible_row = _entry_row - building_events_scroll_row;
+			var _card_x = _card_start_x
+				+ (_entry_column * (building_events_card_width + building_events_card_gap_x));
+			var _card_y = _panel_y + building_events_card_start_y
+				+ (_visible_row * (building_events_card_height + building_events_card_gap_y));
+			var _entry = building_events_window_entries[_entry_index];
+
+			draw_set_alpha(0.82);
+			draw_set_color(c_black);
+			draw_rectangle(
+				_card_x,
+				_card_y,
+				_card_x + building_events_card_width,
+				_card_y + building_events_card_height,
+				false
+			);
+
+			draw_set_alpha(1);
+			draw_set_color(COLOR_HUD_IRON);
+			draw_rectangle(
+				_card_x,
+				_card_y,
+				_card_x + building_events_card_width,
+				_card_y + building_events_card_height,
+				true
+			);
+
+			draw_set_halign(fa_left);
+			draw_set_valign(fa_top);
+			draw_set_color(COLOR_HUD_TEXT);
+			draw_text(_card_x + 14, _card_y + 12, _entry.title);
+
+			draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+			draw_text_ext(
+				_card_x + 14,
+				_card_y + 40,
+				_entry.description,
+				17,
+				building_events_card_width - 28
+			);
+		}
+
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_middle);
+		draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+
+		if (_max_scroll_row > 0)
+		{
+			draw_text(
+				_panel_x + (building_events_window_width * 0.5),
+				_panel_y + building_events_window_height - 24,
+				"MOUSE WHEEL  " + string(building_events_scroll_row + 1) + "/" + string(_max_scroll_row + 1)
+			);
+		}
+	}
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+
+	if (!global.blood_moon_reward_popup_active)
+	{
+		exit;
+	}
+}
+
+// Legacy upgrade window remains unreachable; building clicks now open the event catalog.
 if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE)
 {
 	var _panel_x = (camera_view_width - building_upgrade_window_width) * 0.5;
@@ -3182,7 +3359,10 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE)
 	draw_set_valign(fa_top);
 	draw_set_color(c_white);
 	draw_set_alpha(1);
-	exit;
+	if (!global.blood_moon_reward_popup_active)
+	{
+		exit;
+	}
 }
 
 // Draw cultist stat hover in regular gameplay.
@@ -3765,24 +3945,21 @@ if (instance_exists(o_tutorial_controller))
 	}
 }
 
-// Draw nothing while the pause menu is closed.
-if (!pause_menu_open)
+// Draw pause windows only while the pause menu is open.
+if (pause_menu_open)
 {
-	exit;
-}
+	// Draw dimmed fullscreen overlay.
+	draw_set_alpha(overlay_alpha);
+	draw_set_color(c_black);
+	draw_rectangle(0, 0, camera_view_width, camera_view_height, false);
+	draw_set_alpha(1);
 
-// Draw dimmed fullscreen overlay.
-draw_set_alpha(overlay_alpha);
-draw_set_color(c_black);
-draw_rectangle(0, 0, camera_view_width, camera_view_height, false);
-draw_set_alpha(1);
+	// Prepare centered menu text.
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
 
-// Prepare centered menu text.
-draw_set_halign(fa_center);
-draw_set_valign(fa_middle);
-
-if (!settings_open)
-{
+	if (!settings_open)
+	{
 	// Draw main pause menu buttons.
 	for (var _button_index = 0; _button_index < pause_button_count; ++_button_index)
 	{
@@ -3797,9 +3974,9 @@ if (!settings_open)
 		draw_set_color(c_black);
 		draw_text(_button_x + (_button_width * 0.5), _button_y + (_button_height * 0.5), pause_button_labels[_button_index]);
 	}
-}
-else
-{
+	}
+	else
+	{
 	// Draw settings panel.
 	var _panel_x = (camera_view_width - settings_panel_width) * 0.5;
 	var _panel_y = (camera_view_height - settings_panel_height) * 0.5;
@@ -3905,15 +4082,156 @@ else
 	draw_set_halign(fa_center);
 	draw_rectangle(_close_button_x, _close_button_y, _close_button_x + button_width, _close_button_y + button_height, true);
 	draw_text(_close_button_x + (button_width * 0.5), _close_button_y + (button_height * 0.5), "BACK");
+	}
+
+	// Draw tutorial popup above the pause menu too.
+	if (instance_exists(o_tutorial_controller))
+	{
+		with (o_tutorial_controller)
+		{
+			tutorial_draw();
+		}
+	}
 }
 
-// Draw tutorial popup above the pause menu too.
-if (instance_exists(o_tutorial_controller))
+// Draw the Blood Moon arrivals above every other window.
+if (global.blood_moon_reward_popup_active)
 {
-	with (o_tutorial_controller)
+	var _popup_x = (camera_view_width - blood_moon_reward_popup_width) * 0.5;
+	var _popup_y = (camera_view_height - blood_moon_reward_popup_height) * 0.5;
+	var _cultist_count = array_length(blood_moon_reward_cultists);
+	var _icon_step = blood_moon_reward_icon_width + blood_moon_reward_icon_gap;
+	var _icons_total_width = (_cultist_count * blood_moon_reward_icon_width)
+		+ (max(0, _cultist_count - 1) * blood_moon_reward_icon_gap);
+	var _icons_start_x = _popup_x + ((blood_moon_reward_popup_width - _icons_total_width) * 0.5);
+	var _icons_y = _popup_y + 104;
+	var _button_x = _popup_x + ((blood_moon_reward_popup_width - blood_moon_reward_button_width) * 0.5);
+	var _button_y = _popup_y + blood_moon_reward_popup_height - blood_moon_reward_button_height - 24;
+	var _title = "CULTIST LIMIT REACHED";
+	var _subtitle = "No new Cultists could join after the Blood Moon.";
+
+	if (_cultist_count == 1)
 	{
-		tutorial_draw();
+		_title = "A NEW CULTIST HAS ARRIVED!";
+		_subtitle = "Blood Moon reward";
 	}
+	else if (_cultist_count > 1)
+	{
+		_title = "NEW CULTISTS HAVE ARRIVED!";
+		_subtitle = "Blood Moon reward";
+	}
+
+	draw_set_alpha(0.68);
+	draw_set_color(c_black);
+	draw_rectangle(0, 0, camera_view_width, camera_view_height, false);
+
+	draw_set_alpha(1);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_rectangle(
+		_popup_x,
+		_popup_y,
+		_popup_x + blood_moon_reward_popup_width,
+		_popup_y + blood_moon_reward_popup_height,
+		false
+	);
+	draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+	draw_rectangle(
+		_popup_x,
+		_popup_y,
+		_popup_x + blood_moon_reward_popup_width,
+		_popup_y + blood_moon_reward_popup_height,
+		true
+	);
+
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
+	draw_set_color(COLOR_HUD_TEXT);
+
+	if (variable_global_exists("ui_heading_font") && font_exists(global.ui_heading_font))
+	{
+		draw_set_font(global.ui_heading_font);
+	}
+
+	draw_text(_popup_x + (blood_moon_reward_popup_width * 0.5), _popup_y + 36, _title);
+
+	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+	{
+		draw_set_font(global.ui_font);
+	}
+
+	draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+	draw_text(
+		_popup_x + (blood_moon_reward_popup_width * 0.5),
+		_popup_y + 72,
+		_subtitle
+	);
+
+	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+	{
+		var _cultist = blood_moon_reward_cultists[_cultist_index];
+
+		if (!instance_exists(_cultist) || !sprite_exists(_cultist.sprite_index))
+		{
+			continue;
+		}
+
+		var _icon_x = _icons_start_x + (_cultist_index * _icon_step);
+		var _sprite_width = max(1, sprite_get_width(_cultist.sprite_index));
+		var _sprite_height = max(1, sprite_get_height(_cultist.sprite_index));
+		var _sprite_scale = min(
+			blood_moon_reward_icon_width / _sprite_width,
+			blood_moon_reward_icon_height / _sprite_height
+		);
+		var _sprite_draw_width = _sprite_width * _sprite_scale;
+		var _sprite_draw_height = _sprite_height * _sprite_scale;
+
+		draw_sprite_stretched_ext(
+			_cultist.sprite_index,
+			_cultist.image_index,
+			_icon_x + ((blood_moon_reward_icon_width - _sprite_draw_width) * 0.5),
+			_icons_y + (blood_moon_reward_icon_height - _sprite_draw_height),
+			_sprite_draw_width,
+			_sprite_draw_height,
+			c_white,
+			1
+		);
+
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_top);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text(
+			_icon_x + (blood_moon_reward_icon_width * 0.5),
+			_icons_y + blood_moon_reward_icon_height + 8,
+			_cultist.cultist_name
+		);
+	}
+
+	draw_set_alpha(blood_moon_reward_button_hovered ? 0.95 : 0.78);
+	draw_set_color(COLOR_JOBS_ASSIGN_BACKGROUND);
+	draw_rectangle(
+		_button_x,
+		_button_y,
+		_button_x + blood_moon_reward_button_width,
+		_button_y + blood_moon_reward_button_height,
+		false
+	);
+	draw_set_alpha(1);
+	draw_set_color(blood_moon_reward_button_hovered ? COLOR_STATUS_NEGATIVE_RED : COLOR_HUD_TEXT);
+	draw_rectangle(
+		_button_x,
+		_button_y,
+		_button_x + blood_moon_reward_button_width,
+		_button_y + blood_moon_reward_button_height,
+		true
+	);
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
+	draw_set_color(COLOR_HUD_TEXT);
+	draw_text(
+		_button_x + (blood_moon_reward_button_width * 0.5),
+		_button_y + (blood_moon_reward_button_height * 0.5),
+		"CONTINUE"
+	);
 }
 
 // Restore default draw state.

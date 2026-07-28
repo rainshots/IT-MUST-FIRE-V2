@@ -3,6 +3,7 @@ draw_self();
 
 if (global.focus_window == FOCUS_WINDOW.NOONE
 	&& !global.pause
+	&& (!variable_instance_exists(id, "construction_event_pending") || !construction_event_pending)
 	&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active)
 	&& instance_exists(o_camera_controller))
 {

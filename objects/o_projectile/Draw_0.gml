@@ -45,12 +45,34 @@ else if (projectile_type == PROJECTILE_TYPE.ARTILLERY)
 {
 	_projectile_color = COLOR_PROJECTILE_BOMB;
 }
+else if (projectile_type == PROJECTILE_TYPE.DOOM_BELL)
+{
+	_projectile_color = COLOR_PROJECTILE_BOMB;
+}
 
-// Draw a round projectile.
-var _draw_radius = projectile_radius * projectile_visual_scale;
+// Factory shells use their authored sprites; other projectiles retain the round marker.
+if (projectile_sprite != noone)
+{
+	draw_set_color(c_white);
+	draw_sprite_ext(
+		projectile_sprite,
+		0,
+		x,
+		y,
+		projectile_sprite_scale,
+		projectile_sprite_scale,
+		0,
+		c_white,
+		1
+	);
+}
+else
+{
+	var _draw_radius = projectile_radius * projectile_visual_scale;
 
-draw_set_color(_projectile_color);
-draw_circle(x, y, _draw_radius, false);
+	draw_set_color(_projectile_color);
+	draw_circle(x, y, _draw_radius, false);
+}
 
 // Restore default draw state.
 draw_set_color(c_white);

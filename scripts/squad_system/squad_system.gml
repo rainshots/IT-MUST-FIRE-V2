@@ -68,6 +68,136 @@ function squad_name_create(_primary_unit_object)
 	return _matching_name_count == 0 ? _base_name : _base_name + " " + string(_matching_name_count + 1);
 }
 
+function foundry_unit_squad_type_get(_unit)
+{
+	if (!instance_exists(_unit))
+	{
+		return -1;
+	}
+
+	// Squad membership is the authoritative classification for persistent units.
+	if (variable_instance_exists(_unit, "squad") && is_struct(_unit.squad))
+	{
+		return _unit.squad.squad_type;
+	}
+
+	var _unit_object = _unit.object_index;
+
+	if (_unit_object == o_mawling
+		|| _unit_object == o_demon_wizard
+		|| _unit_object == o_pitling
+		|| _unit_object == o_succubus
+		|| _unit_object == o_balgor)
+	{
+		return SQUAD_TYPE.DEMON;
+	}
+
+	if (_unit_object == o_skeleton
+		|| _unit_object == o_skeleton_bonelet
+		|| _unit_object == o_skeleton_warrior
+		|| _unit_object == o_skeleton_archer
+		|| _unit_object == o_skeleton_mage
+		|| _unit_object == o_skeleton_healer
+		|| _unit_object == o_zombie)
+	{
+		return SQUAD_TYPE.UNDEAD;
+	}
+
+	return -1;
+}
+
+function foundry_unit_permanent_bonuses_apply(_unit)
+{
+	if (!instance_exists(_unit))
+	{
+		return false;
+	}
+
+	var _squad_type = foundry_unit_squad_type_get(_unit);
+	var _health_multiplier = 1;
+	var _damage_multiplier = 1;
+	var _attack_speed_multiplier = 1;
+
+	if (_squad_type == SQUAD_TYPE.DEMON)
+	{
+		_health_multiplier = variable_global_exists("foundry_demon_health_multiplier")
+			? global.foundry_demon_health_multiplier
+			: 1;
+		_damage_multiplier = variable_global_exists("foundry_demon_damage_multiplier")
+			? global.foundry_demon_damage_multiplier
+			: 1;
+	}
+	else if (_squad_type == SQUAD_TYPE.UNDEAD)
+	{
+		_health_multiplier = variable_global_exists("foundry_undead_health_multiplier")
+			? global.foundry_undead_health_multiplier
+			: 1;
+		_attack_speed_multiplier = variable_global_exists("foundry_undead_attack_speed_multiplier")
+			? global.foundry_undead_attack_speed_multiplier
+			: 1;
+	}
+	else
+	{
+		return false;
+	}
+
+	// Apply only the difference from the multiplier already present on this instance.
+	var _applied_health_multiplier = variable_instance_exists(_unit, "foundry_health_multiplier_applied")
+		? _unit.foundry_health_multiplier_applied
+		: 1;
+	var _health_ratio = _health_multiplier / max(0.0001, _applied_health_multiplier);
+
+	if (_health_ratio != 1 && variable_instance_exists(_unit, "max_hp"))
+	{
+		_unit.max_hp *= _health_ratio;
+
+		if (variable_instance_exists(_unit, "hp"))
+		{
+			_unit.hp = min(_unit.max_hp, _unit.hp * _health_ratio);
+		}
+	}
+
+	_unit.foundry_health_multiplier_applied = _health_multiplier;
+
+	var _applied_damage_multiplier = variable_instance_exists(_unit, "foundry_damage_multiplier_applied")
+		? _unit.foundry_damage_multiplier_applied
+		: 1;
+	var _damage_ratio = _damage_multiplier / max(0.0001, _applied_damage_multiplier);
+
+	if (_damage_ratio != 1)
+	{
+		if (variable_instance_exists(_unit, "damage"))
+		{
+			_unit.damage *= _damage_ratio;
+		}
+
+		if (variable_instance_exists(_unit, "magic_damage"))
+		{
+			_unit.magic_damage *= _damage_ratio;
+		}
+	}
+
+	_unit.foundry_damage_multiplier_applied = _damage_multiplier;
+
+	var _applied_attack_speed_multiplier = variable_instance_exists(_unit, "foundry_attack_speed_multiplier_applied")
+		? _unit.foundry_attack_speed_multiplier_applied
+		: 1;
+	var _attack_speed_ratio = _attack_speed_multiplier / max(0.0001, _applied_attack_speed_multiplier);
+
+	if (_attack_speed_ratio != 1 && variable_instance_exists(_unit, "reload_time"))
+	{
+		_unit.reload_time /= _attack_speed_ratio;
+
+		if (variable_instance_exists(_unit, "reload_timer"))
+		{
+			_unit.reload_timer /= _attack_speed_ratio;
+		}
+	}
+
+	_unit.foundry_attack_speed_multiplier_applied = _attack_speed_multiplier;
+	return true;
+}
+
 function squad_unit_permanent_bonuses_apply(_squad, _unit)
 {
 	if (!is_struct(_squad) || !instance_exists(_unit))
@@ -116,6 +246,8 @@ function squad_unit_spawn(_squad, _unit_object, _unit_index)
 	_unit.squad = _squad;
 	_unit.squad_unit_index = _unit_index;
 	squad_unit_permanent_bonuses_apply(_squad, _unit);
+	foundry_unit_permanent_bonuses_apply(_unit);
+	_unit.foundry_permanent_bonuses_pending = false;
 
 	if (variable_struct_exists(_squad.properties, "blood_warpaint_active")
 		&& _squad.properties.blood_warpaint_active)
@@ -156,9 +288,11 @@ function squad_register_existing_unit(_squad_type, _unit)
 	var _squad = new squad_constructor(_squad_type, _unit.object_index, 1);
 	_squad.name = variable_instance_exists(_unit, "cultist_name") ? _unit.cultist_name : squad_name_create(_unit.object_index);
 	_squad.units = [_unit];
-	_squad.total_max_hp = _unit.max_hp;
 	_unit.squad = _squad;
 	_unit.squad_unit_index = 0;
+	foundry_unit_permanent_bonuses_apply(_unit);
+	_unit.foundry_permanent_bonuses_pending = false;
+	_squad.total_max_hp = _unit.max_hp;
 	array_push(global.squads, _squad);
 	return _squad;
 }
@@ -516,6 +650,8 @@ function squad_unit_reference_replace(_old_unit, _new_unit)
 	var _previous_unit_max_hp = _old_unit.max_hp;
 	_new_unit.squad = _squad;
 	_new_unit.squad_unit_index = _unit_index;
+	foundry_unit_permanent_bonuses_apply(_new_unit);
+	_new_unit.foundry_permanent_bonuses_pending = false;
 
 	if (variable_struct_exists(_squad.properties, "blood_warpaint_active")
 		&& _squad.properties.blood_warpaint_active)

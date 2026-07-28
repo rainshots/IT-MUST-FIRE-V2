@@ -59,6 +59,59 @@ if (night_effect_transition_active)
 	}
 }
 
+// Blood Moon rewards block lower input until the player acknowledges the arrivals.
+if (global.blood_moon_reward_popup_active)
+{
+	var _popup_x = (display_get_gui_width() - blood_moon_reward_popup_width) * 0.5;
+	var _popup_y = (display_get_gui_height() - blood_moon_reward_popup_height) * 0.5;
+	var _button_x = _popup_x + ((blood_moon_reward_popup_width - blood_moon_reward_button_width) * 0.5);
+	var _button_y = _popup_y + blood_moon_reward_popup_height - blood_moon_reward_button_height - 24;
+	var _mouse_x = device_mouse_x_to_gui(0);
+	var _mouse_y = device_mouse_y_to_gui(0);
+	var _button_hovered_now = ui_mouse_is_inside_rect(
+		_mouse_x,
+		_mouse_y,
+		_button_x,
+		_button_y,
+		blood_moon_reward_button_width,
+		blood_moon_reward_button_height
+	);
+
+	if (_button_hovered_now
+		&& !blood_moon_reward_button_hovered
+		&& variable_global_exists("sound_play_random")
+		&& variable_global_exists("ui_hover_sounds"))
+	{
+		global.sound_play_random(global.ui_hover_sounds, global.sound_priority_ui);
+	}
+
+	blood_moon_reward_button_hovered = _button_hovered_now;
+
+	// Ignore the input that caused the morning transition until it is released.
+	if (blood_moon_reward_input_blocked)
+	{
+		if (!mouse_check_button(mb_left)
+			&& !keyboard_check(vk_enter)
+			&& !keyboard_check(vk_space))
+		{
+			blood_moon_reward_input_blocked = false;
+		}
+	}
+	else if ((_button_hovered_now && mouse_check_button_pressed(mb_left))
+		|| keyboard_check_pressed(vk_enter)
+		|| keyboard_check_pressed(vk_space))
+	{
+		if (variable_global_exists("ui_confirm_sound_play"))
+		{
+			global.ui_confirm_sound_play();
+		}
+
+		blood_moon_reward_popup_close();
+	}
+
+	exit;
+}
+
 // Tutorial popups block every lower gameplay and UI input.
 if (variable_global_exists("tutorial_popup_active") && global.tutorial_popup_active)
 {
@@ -69,6 +122,12 @@ if (variable_global_exists("tutorial_popup_active") && global.tutorial_popup_act
 if (global.cheats_enabled && keyboard_check_pressed(vk_f3))
 {
 	global.fog_of_war_visible = !global.fog_of_war_visible;
+}
+
+// F6 replaces the current daily cards with every currently available event.
+if (global.cheats_enabled && keyboard_check_pressed(vk_f6))
+{
+	debug_all_events_give();
 }
 
 // F12 restarts the current room for fast prototype iteration.
@@ -102,8 +161,7 @@ if (global.cheats_enabled
 
 	if (_debug_menu_contains_mouse)
 	{
-		var _debug_tab_ids = ["shells", "units", "squads"];
-		var _debug_tab_count = array_length(_debug_tab_ids);
+		var _debug_tab_count = array_length(debug_menu_tab_ids);
 		var _debug_tab_was_clicked = false;
 
 		for (var _debug_tab_index = 0; _debug_left_mouse_pressed && _debug_tab_index < _debug_tab_count; ++_debug_tab_index)
@@ -115,7 +173,7 @@ if (global.cheats_enabled
 				&& _debug_mouse_y >= _debug_tab_rect.y
 				&& _debug_mouse_y <= _debug_tab_rect.y + _debug_tab_rect.height)
 			{
-				debug_menu_tab = _debug_tab_ids[_debug_tab_index];
+				debug_menu_tab = debug_menu_tab_ids[_debug_tab_index];
 				_debug_tab_was_clicked = true;
 				break;
 			}
@@ -540,11 +598,11 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("archdem
 			}
 			else
 			{
-				var _foundry = find_foundry_at_position(_mouse_world_x, _mouse_world_y);
+				var _events_building = find_building_events_at_position(_mouse_world_x, _mouse_world_y);
 
-				if (instance_exists(_foundry))
+				if (instance_exists(_events_building))
 				{
-					open_foundry_window(_foundry);
+					open_building_events_window(_events_building);
 				}
 			}
 		}
@@ -872,9 +930,9 @@ if (keyboard_check_pressed(vk_escape))
 	{
 		close_building_window();
 	}
-	else if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE)
+	else if (global.focus_window == FOCUS_WINDOW.BUILDING_EVENTS)
 	{
-		close_building_upgrade_window();
+		close_building_events_window();
 	}
 	else if (global.focus_window == FOCUS_WINDOW.CURSED_POINT_STRUCTURE_SELECTION)
 	{
@@ -917,59 +975,17 @@ if (keyboard_check_pressed(vk_escape))
 // Play UI feedback for the currently hovered or clicked button.
 ui_audio_update();
 
-// Full moon retreat button lets the player end the attack night manually.
-if (!global.pause
-	&& variable_global_exists("full_moon_night_active")
-	&& global.full_moon_night_active
-	&& global.day_phase == DAY_PHASE.NIGHT
-	&& global.focus_window == FOCUS_WINDOW.NOONE
-	&& mouse_check_button_pressed(mb_left))
-{
-	var _retreat_mouse_x = device_mouse_x_to_gui(0);
-	var _retreat_mouse_y = device_mouse_y_to_gui(0);
-	var _retreat_button_width = 190;
-	var _retreat_button_height = 46;
-	var _retreat_button_bottom = 218;
-
-	if (instance_exists(o_hud))
-	{
-		var _retreat_hud = instance_find(o_hud, 0);
-		_retreat_button_width = _retreat_hud.full_moon_retreat_button_width;
-		_retreat_button_height = _retreat_hud.full_moon_retreat_button_height;
-		_retreat_button_bottom = _retreat_hud.full_moon_retreat_button_bottom;
-	}
-
-	var _retreat_button_x = (display_get_gui_width() - _retreat_button_width) * 0.5;
-	var _retreat_button_y = display_get_gui_height() - _retreat_button_bottom - _retreat_button_height;
-
-	if (ui_mouse_is_inside_rect(
-		_retreat_mouse_x,
-		_retreat_mouse_y,
-		_retreat_button_x,
-		_retreat_button_y,
-		_retreat_button_width,
-		_retreat_button_height
-	))
-	{
-		start_day_phase();
-	}
-}
-
-// Update the day timer and let night end only after the attack is cleared.
+// Track elapsed night time, but never force Blood Moon to end by timer.
 if (!global.pause && global.day_cycle_enabled)
 {
+	var _blood_moon_is_active = variable_global_exists("full_moon_night_active")
+		&& global.full_moon_night_active;
+
 	if (global.day_phase == DAY_PHASE.NIGHT)
 	{
 		global.day_timer = max(global.day_timer - 1, 0);
 
-		if (variable_global_exists("full_moon_night_active") && global.full_moon_night_active)
-		{
-			if (global.day_timer <= 0)
-			{
-				start_day_phase();
-			}
-		}
-		else if (!night_force_end_active)
+		if (!_blood_moon_is_active && !night_force_end_active)
 		{
 			night_force_end_timer = max(night_force_end_timer - 1, 0);
 
@@ -984,26 +1000,6 @@ if (!global.pause && global.day_cycle_enabled)
 }
 
 cannon_corrupted_ground_damage_update();
-
-// Open building upgrade window from a hovered worker building.
-if (keyboard_check_pressed(ord("G"))
-	&& global.focus_window == FOCUS_WINDOW.NOONE
-	&& !instance_exists(global.dragged_cultist)
-	&& instance_exists(o_camera_controller))
-{
-	var _upgrade_camera_controller = instance_find(o_camera_controller, 0);
-	var _upgrade_mouse_gui_x = device_mouse_x_to_gui(0);
-	var _upgrade_mouse_gui_y = device_mouse_y_to_gui(0);
-	var _upgrade_camera_x = camera_get_view_x(_upgrade_camera_controller.camera_id);
-	var _upgrade_camera_y = camera_get_view_y(_upgrade_camera_controller.camera_id);
-	var _upgrade_camera_width = camera_get_view_width(_upgrade_camera_controller.camera_id);
-	var _upgrade_camera_height = camera_get_view_height(_upgrade_camera_controller.camera_id);
-	var _upgrade_mouse_world_x = _upgrade_camera_x + ((_upgrade_mouse_gui_x / camera_view_width) * _upgrade_camera_width);
-	var _upgrade_mouse_world_y = _upgrade_camera_y + ((_upgrade_mouse_gui_y / camera_view_height) * _upgrade_camera_height);
-	var _upgrade_building = find_upgrade_building_at_position(_upgrade_mouse_world_x, _upgrade_mouse_world_y);
-
-	open_building_upgrade_window(_upgrade_building);
-}
 
 // Demolish a hovered base building and return its empty construction slot.
 if (keyboard_check_pressed(ord("T"))
@@ -1073,7 +1069,10 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION && mouse_check_but
 		}
 		else
 		{
-			for (var _choice_index = 0; _choice_index < _choice_count; ++_choice_index)
+			var _daily_limit_reached = !_is_foundry_window
+				&& !day_event_building_construction_can_start();
+
+			for (var _choice_index = 0; !_daily_limit_reached && _choice_index < _choice_count; ++_choice_index)
 			{
 				var _tile_rect = building_choice_tile_rect_get(_choice_index, _is_foundry_window, _grid_x, _grid_y);
 
@@ -1088,52 +1087,44 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION && mouse_check_but
 	}
 }
 
-// Handle building upgrade window clicks.
-if (global.focus_window == FOCUS_WINDOW.BUILDING_UPGRADE && mouse_check_button_pressed(mb_left))
+// The building event catalog is informational; only closing and scrolling are allowed.
+if (global.focus_window == FOCUS_WINDOW.BUILDING_EVENTS)
 {
-	var _mouse_x = device_mouse_x_to_gui(0);
-	var _mouse_y = device_mouse_y_to_gui(0);
-	var _panel_x = (camera_view_width - building_upgrade_window_width) * 0.5;
-	var _panel_y = (camera_view_height - building_upgrade_window_height) * 0.5;
-	var _close_size = 34;
-	var _close_x = _panel_x + building_upgrade_window_width - _close_size - 14;
-	var _close_y = _panel_y + 14;
-	var _tile_start_x = _panel_x + 38;
-	var _tile_y = _panel_y + building_upgrade_tile_y;
+	var _event_row_count = ceil(array_length(building_events_window_entries) / building_events_card_columns);
+	var _visible_row_count = 3;
+	var _max_scroll_row = max(0, _event_row_count - _visible_row_count);
 
-	if (_mouse_x >= _close_x && _mouse_x <= _close_x + _close_size
-		&& _mouse_y >= _close_y && _mouse_y <= _close_y + _close_size)
+	if (mouse_wheel_up())
 	{
-		close_building_upgrade_window();
+		building_events_scroll_row = max(0, building_events_scroll_row - 1);
 	}
-	else if (instance_exists(building_upgrade_window_building))
+
+	if (mouse_wheel_down())
 	{
-		var _upgrade_count = 0;
-
-		if (variable_instance_exists(building_upgrade_window_building, "building_upgrade_levels"))
-		{
-			_upgrade_count = array_length(building_upgrade_window_building.building_upgrade_levels);
-		}
-		else if (variable_instance_exists(building_upgrade_window_building, "building_upgrade_flags"))
-		{
-			_upgrade_count = array_length(building_upgrade_window_building.building_upgrade_flags);
-		}
-
-		for (var _upgrade_index = 0; _upgrade_index < _upgrade_count; ++_upgrade_index)
-		{
-			var _tile_x = _tile_start_x + ((building_upgrade_tile_width + building_upgrade_tile_gap) * _upgrade_index);
-
-			if (_mouse_x >= _tile_x && _mouse_x <= _tile_x + building_upgrade_tile_width
-				&& _mouse_y >= _tile_y && _mouse_y <= _tile_y + building_upgrade_tile_height)
-			{
-				building_upgrade_window_building.building_upgrade_buy(_upgrade_index);
-				break;
-			}
-		}
+		building_events_scroll_row = min(_max_scroll_row, building_events_scroll_row + 1);
 	}
-	else
+
+	if (mouse_check_button_pressed(mb_left))
 	{
-		close_building_upgrade_window();
+		if (building_events_input_blocked)
+		{
+			building_events_input_blocked = false;
+			exit;
+		}
+
+		var _mouse_x = device_mouse_x_to_gui(0);
+		var _mouse_y = device_mouse_y_to_gui(0);
+		var _panel_x = (camera_view_width - building_events_window_width) * 0.5;
+		var _panel_y = (camera_view_height - building_events_window_height) * 0.5;
+		var _close_size = 34;
+		var _close_x = _panel_x + building_events_window_width - _close_size - 14;
+		var _close_y = _panel_y + 14;
+
+		if (_mouse_x >= _close_x && _mouse_x <= _close_x + _close_size
+			&& _mouse_y >= _close_y && _mouse_y <= _close_y + _close_size)
+		{
+			close_building_events_window();
+		}
 	}
 }
 
@@ -1344,16 +1335,12 @@ if (!global.pause
 update_cultists_loading_into_cannon();
 
 // Release planned night attack waves while the night phase is active.
-if (!variable_global_exists("full_moon_night_active") || !global.full_moon_night_active)
-{
-	night_attack_spawning_update();
-}
+night_attack_spawning_update();
 
 // Morning starts once every planned enemy has spawned and no enemies remain alive.
 if (!global.pause
 	&& global.day_cycle_enabled
 	&& global.day_phase == DAY_PHASE.NIGHT
-	&& (!variable_global_exists("full_moon_night_active") || !global.full_moon_night_active)
 	&& night_attack_is_complete())
 {
 	start_day_phase();

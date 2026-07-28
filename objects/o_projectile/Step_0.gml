@@ -74,6 +74,17 @@ if (_flight_progress >= 1)
 		instance_create_layer(_smoke_x, _smoke_y, particle_layer_name, o_particle_smoke);
 	}
 
+	// Doom Bell combines its ground corruption with a later damage effect.
+	if (projectile_type == PROJECTILE_TYPE.DOOM_BELL)
+	{
+		corrupt_circle(
+			target_x,
+			target_y,
+			ground_corruption_radius,
+			ground_corruption_amount
+		);
+	}
+
 	// Corruption projectiles infect ground cells in the explosion radius.
 	if (projectile_type == PROJECTILE_TYPE.CORRUPTION)
 	{
@@ -223,8 +234,17 @@ if (_flight_progress >= 1)
 		for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_index)
 		{
 			var _friendly = _friendly_list[| _friendly_index];
+			var _friendly_is_in_same_test = true;
+
+			if (variable_instance_exists(id, "balance_test_match_id"))
+			{
+				_friendly_is_in_same_test = instance_exists(_friendly)
+					&& variable_instance_exists(_friendly, "balance_test_match_id")
+					&& _friendly.balance_test_match_id == balance_test_match_id;
+			}
 
 			if (!instance_exists(_friendly)
+				|| !_friendly_is_in_same_test
 				|| !variable_instance_exists(_friendly, "hp")
 				|| !variable_instance_exists(_friendly, "max_hp")
 				|| _friendly.max_hp <= 0)
@@ -370,7 +390,8 @@ if (_flight_progress >= 1)
 
 		ds_priority_destroy(_artillery_targets);
 	}
-	else if (projectile_type == PROJECTILE_TYPE.BOMB)
+	else if (projectile_type == PROJECTILE_TYPE.BOMB
+		|| projectile_type == PROJECTILE_TYPE.DOOM_BELL)
 	{
 		with (all)
 		{
@@ -476,7 +497,8 @@ if (_flight_progress >= 1)
 		&& projectile_type != PROJECTILE_TYPE.SKELETONS
 		&& projectile_type != PROJECTILE_TYPE.BUILDING_SHELL
 		&& projectile_type != PROJECTILE_TYPE.CLEANSE
-		&& projectile_type != PROJECTILE_TYPE.ARTILLERY)
+		&& projectile_type != PROJECTILE_TYPE.ARTILLERY
+		&& projectile_type != PROJECTILE_TYPE.DOOM_BELL)
 	{
 		with (all)
 		{
@@ -531,24 +553,41 @@ if (_flight_progress >= 1)
 				}
 				else if (other.projectile_type == PROJECTILE_TYPE.DAMAGE)
 				{
-					if (variable_instance_exists(id, "health"))
-					{
-						health -= other.damage_amount;
-					}
-					else if (variable_instance_exists(id, "hp"))
-					{
-						if (variable_instance_exists(id, "unit_damage_receive"))
-						{
-							unit_damage_receive(other.damage_amount, UNIT_FACTION.NOONE, false, true, other.source_instance);
-						}
-						else
-						{
-							hp -= other.damage_amount;
+					var _target_limit_is_available = other.damage_target_count <= 0
+						|| other.damage_targets_hit < other.damage_target_count;
 
-							if (variable_instance_exists(id, "unit_faction"))
+					if (_target_limit_is_available)
+					{
+						var _damage_amount = other.damage_amount;
+
+						if (other.damage_uses_physical_armor && variable_instance_exists(id, "armor"))
+						{
+							var _armor_multiplier = max(2 - (min(armor, 190) * 0.01), 0.1);
+							_damage_amount *= _armor_multiplier;
+						}
+
+						if (variable_instance_exists(id, "health"))
+						{
+							health -= _damage_amount;
+							other.damage_targets_hit++;
+						}
+						else if (variable_instance_exists(id, "hp"))
+						{
+							if (variable_instance_exists(id, "unit_damage_receive"))
 							{
-								damage_popup_create(x, y, other.damage_amount, unit_faction);
+								unit_damage_receive(_damage_amount, UNIT_FACTION.NOONE, false, true, other.source_instance);
 							}
+							else
+							{
+								hp -= _damage_amount;
+
+								if (variable_instance_exists(id, "unit_faction"))
+								{
+									damage_popup_create(x, y, _damage_amount, unit_faction);
+								}
+							}
+
+							other.damage_targets_hit++;
 						}
 					}
 				}
@@ -637,6 +676,8 @@ if (_flight_progress >= 1)
 		{
 			var _demon = instance_create_layer(target_x, target_y, "Instances", _demon_object);
 			var _cultist_hp = _cultist.hp;
+			var _ritual_health_bonus_active = variable_instance_exists(_cultist, "ritual_hell_health_bonus_applied")
+				&& _cultist.ritual_hell_health_bonus_applied;
 
 			_demon.cultist_name = _cultist.cultist_name;
 			_demon.cultist_points = _cultist.cultist_points;
@@ -690,6 +731,13 @@ if (_flight_progress >= 1)
 			_demon.has_warlock_curseweaver = _cultist.has_warlock_curseweaver;
 			_demon.has_warlock_demonic_infusion = _cultist.has_warlock_demonic_infusion;
 			cultist_stats_apply(_demon);
+
+			if (_ritual_health_bonus_active)
+			{
+				_demon.ritual_hell_health_bonus_applied = true;
+				_demon.max_hp *= BALANCE_RITUAL_HELL_WEAKEST_HEALTH_MULTIPLIER;
+			}
+
 			_demon.hp = clamp(_cultist_hp, 0, _demon.max_hp);
 
 			if (variable_instance_exists(_demon, "ability_cooldown"))

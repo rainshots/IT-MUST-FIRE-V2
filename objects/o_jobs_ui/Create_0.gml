@@ -1,8 +1,9 @@
 // Jobs window follows the 1920x1080 Figma composition and scales to the GUI.
 jobs_design_width = 1920;
 jobs_design_height = 1080;
-jobs_panel_width = 864;
+jobs_panel_width = 1112;
 jobs_panel_height = 898;
+jobs_content_offset_x = 206;
 jobs_pool_width = 700;
 jobs_pool_height = 86;
 jobs_event_height = 132;
@@ -27,6 +28,15 @@ jobs_squad_selector_event = noone;
 jobs_squad_selector_width = 150;
 jobs_squad_selector_height = 28;
 jobs_squad_selector_option_height = 30;
+jobs_event_action_width = 72;
+jobs_event_action_height = 100;
+jobs_event_action_y = 8;
+jobs_reroll_action_x = 722;
+jobs_pin_action_x = 800;
+jobs_reroll_action_icon_y = 45;
+jobs_pin_action_icon_y = 50;
+jobs_event_action_label_y = 80;
+jobs_hovered_event_action_key = "";
 
 // Window-specific fonts match the Figma hierarchy.
 jobs_title_font = font_add("Arial", 16, true, false, 32, 1279);
@@ -34,6 +44,7 @@ jobs_description_font = font_add("Arial", 9, false, false, 32, 1279);
 jobs_button_font = font_add("Arial", 30, true, false, 32, 1279);
 jobs_hp_font = font_add("Arial", 8, true, false, 32, 1279);
 jobs_show_font = font_add("Arial", 30, true, false, 32, 1279);
+jobs_action_font = font_add("Arial", 12, false, false, 32, 1279);
 
 jobs_layout_get = function()
 {
@@ -44,7 +55,7 @@ jobs_layout_get = function()
 	var _panel_height = jobs_panel_height * _scale;
 	var _panel_x = (_gui_width - _panel_width) * 0.5;
 	var _panel_y = 69 * _scale;
-	var _content_x = _panel_x + (82 * _scale);
+	var _content_x = _panel_x + (jobs_content_offset_x * _scale);
 
 	return {
 		scale: _scale,
@@ -60,13 +71,57 @@ jobs_layout_get = function()
 		event_y: _panel_y + (140 * _scale),
 		event_width: jobs_pool_width * _scale,
 		event_height: jobs_event_height * _scale,
-		close_x: _panel_x + _panel_width - (72 * _scale),
+		close_x: _panel_x + _panel_width - (64 * _scale),
 		close_y: _panel_y + (10 * _scale),
 		close_size: 56 * _scale,
 		end_width: 325 * _scale,
 		end_height: 61 * _scale,
 		end_y: _panel_y + _panel_height + (12 * _scale)
 	};
+};
+
+jobs_event_action_rect_get = function(_event_index, _action)
+{
+	var _layout = jobs_layout_get();
+	var _event_rect = jobs_event_rect_get(_event_index);
+	var _action_x = _action == "reroll"
+		? jobs_reroll_action_x
+		: jobs_pin_action_x;
+
+	return {
+		x: _event_rect.x + (_action_x * _layout.scale),
+		y: _event_rect.y + (jobs_event_action_y * _layout.scale),
+		width: jobs_event_action_width * _layout.scale,
+		height: jobs_event_action_height * _layout.scale
+	};
+};
+
+jobs_event_action_key_get = function(_event, _action)
+{
+	if (!is_struct(_event)
+		|| !variable_struct_exists(_event, "event_id"))
+	{
+		return "";
+	}
+
+	return _action + ":" + _event.event_id;
+};
+
+jobs_event_pin_action_get = function(_event)
+{
+	if (!day_event_building_action_is_available(_event))
+	{
+		return "";
+	}
+
+	if (day_event_pin_is_event(_event))
+	{
+		return "unpin";
+	}
+
+	return day_event_pin_is_active()
+		? ""
+		: "pin";
 };
 
 jobs_show_button_rect_get = function()
@@ -187,12 +242,15 @@ jobs_event_cultist_hp_preview_get = function(_event, _slot_index, _cultist)
 			_hp_change -= max(0, _action.data.hp_cost);
 		}
 
+		if (variable_struct_exists(_action, "data")
+			&& is_struct(_action.data)
+			&& variable_struct_exists(_action.data, "hp_share"))
+		{
+			_hp_change -= _cultist.max_hp * max(0, _action.data.hp_share);
+		}
+
 		switch (_action.action_type)
 		{
-			case "produce_regular_shells":
-				_hp_change -= 10;
-				break;
-
 			case "blood_bath":
 				_hp_change += min(BALANCE_BLOOD_BATH_HEAL_AMOUNT, max(0, _cultist.max_hp - _cultist.hp));
 				break;
@@ -409,6 +467,7 @@ jobs_window_open = function()
 	jobs_drag_origin_slot_index = -1;
 	jobs_hovered_cultist = noone;
 	jobs_hovered_empty_slot_key = "";
+	jobs_hovered_event_action_key = "";
 	jobs_squad_selector_event = noone;
 	jobs_scroll_offset = 0;
 	global.pause = true;
@@ -423,6 +482,7 @@ jobs_window_close = function()
 	jobs_drag_origin_slot_index = -1;
 	jobs_hovered_cultist = noone;
 	jobs_hovered_empty_slot_key = "";
+	jobs_hovered_event_action_key = "";
 	jobs_squad_selector_event = noone;
 
 	if (global.focus_window == FOCUS_WINDOW.JOBS)

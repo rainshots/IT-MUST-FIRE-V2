@@ -3,6 +3,7 @@ var _mouse_y = device_mouse_y_to_gui(0);
 var _show_hovered_now = false;
 var _end_hovered_now = false;
 var _hovered_empty_slot_key_now = "";
+var _hovered_event_action_key_now = "";
 jobs_hovered_cultist = noone;
 
 if (global.day_phase == DAY_PHASE.DAY && global.focus_window == FOCUS_WINDOW.NOONE)
@@ -47,6 +48,8 @@ jobs_end_hovered = _end_hovered_now;
 
 if (global.focus_window != FOCUS_WINDOW.JOBS)
 {
+	jobs_hovered_event_action_key = "";
+
 	if (global.day_phase == DAY_PHASE.DAY
 		&& global.focus_window == FOCUS_WINDOW.NOONE
 		&& mouse_check_button_pressed(mb_left))
@@ -82,9 +85,17 @@ var _mouse_is_over_event_viewport = point_in_rectangle(
 	_event_viewport.x + _event_viewport.width,
 	_event_viewport.y + _event_viewport.height
 );
+var _mouse_is_over_event_list = point_in_rectangle(
+	_mouse_x,
+	_mouse_y,
+	_layout.panel_x,
+	_event_viewport.y,
+	_layout.panel_x + _layout.panel_width,
+	_event_viewport.y + _event_viewport.height
+);
 
 // Scroll only the event-card list while the cultist pool and actions remain fixed.
-if (_mouse_is_over_event_viewport)
+if (_mouse_is_over_event_list)
 {
 	if (mouse_wheel_down())
 	{
@@ -97,6 +108,74 @@ if (_mouse_is_over_event_viewport)
 }
 
 jobs_scroll_clamp();
+
+// Track the available Reroll and Pin/Unpin actions beside visible building cards.
+for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
+{
+	var _event = global.day_events[_event_index];
+
+	if (!day_event_building_action_is_available(_event))
+	{
+		continue;
+	}
+
+	var _event_rect = jobs_event_rect_get(_event_index);
+	var _event_is_visible = _event_rect.y + _event_rect.height >= _event_viewport.y
+		&& _event_rect.y <= _event_viewport.y + _event_viewport.height;
+
+	if (!_event_is_visible)
+	{
+		continue;
+	}
+
+	var _reroll_rect = jobs_event_action_rect_get(_event_index, "reroll");
+
+	if (!global.day_event_reroll_used_today
+		&& point_in_rectangle(
+			_mouse_x,
+			_mouse_y,
+			_reroll_rect.x,
+			_reroll_rect.y,
+			_reroll_rect.x + _reroll_rect.width,
+			_reroll_rect.y + _reroll_rect.height
+		))
+	{
+		_hovered_event_action_key_now = jobs_event_action_key_get(_event, "reroll");
+		break;
+	}
+
+	var _pin_action = jobs_event_pin_action_get(_event);
+
+	if (_pin_action == "")
+	{
+		continue;
+	}
+
+	var _pin_rect = jobs_event_action_rect_get(_event_index, _pin_action);
+
+	if (point_in_rectangle(
+		_mouse_x,
+		_mouse_y,
+		_pin_rect.x,
+		_pin_rect.y,
+		_pin_rect.x + _pin_rect.width,
+		_pin_rect.y + _pin_rect.height
+	))
+	{
+		_hovered_event_action_key_now = jobs_event_action_key_get(_event, _pin_action);
+		break;
+	}
+}
+
+if (_hovered_event_action_key_now != ""
+	&& _hovered_event_action_key_now != jobs_hovered_event_action_key
+	&& variable_global_exists("sound_play_random")
+	&& variable_global_exists("ui_hover_sounds"))
+{
+	global.sound_play_random(global.ui_hover_sounds, global.sound_priority_ui);
+}
+
+jobs_hovered_event_action_key = _hovered_event_action_key_now;
 
 // Track empty slots and cultists for hover feedback and the jobs cursor.
 for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
@@ -195,6 +274,80 @@ if (mouse_check_button_pressed(mb_right))
 
 if (mouse_check_button_pressed(mb_left))
 {
+	// Event actions are handled before card slots and selectors.
+	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
+	{
+		var _event = global.day_events[_event_index];
+
+		if (!day_event_building_action_is_available(_event))
+		{
+			continue;
+		}
+
+		var _event_rect = jobs_event_rect_get(_event_index);
+		var _event_is_visible = _event_rect.y + _event_rect.height >= _event_viewport.y
+			&& _event_rect.y <= _event_viewport.y + _event_viewport.height;
+
+		if (!_event_is_visible)
+		{
+			continue;
+		}
+
+		var _reroll_rect = jobs_event_action_rect_get(_event_index, "reroll");
+
+		if (point_in_rectangle(
+			_mouse_x,
+			_mouse_y,
+			_reroll_rect.x,
+			_reroll_rect.y,
+			_reroll_rect.x + _reroll_rect.width,
+			_reroll_rect.y + _reroll_rect.height
+		))
+		{
+			jobs_squad_selector_event = noone;
+
+			if (day_event_reroll(_event)
+				&& variable_global_exists("ui_confirm_sound_play"))
+			{
+				global.ui_confirm_sound_play();
+			}
+
+			exit;
+		}
+
+		var _pin_action = jobs_event_pin_action_get(_event);
+
+		if (_pin_action == "")
+		{
+			continue;
+		}
+
+		var _pin_rect = jobs_event_action_rect_get(_event_index, _pin_action);
+
+		if (point_in_rectangle(
+			_mouse_x,
+			_mouse_y,
+			_pin_rect.x,
+			_pin_rect.y,
+			_pin_rect.x + _pin_rect.width,
+			_pin_rect.y + _pin_rect.height
+		))
+		{
+			var _pin_changed = _pin_action == "unpin"
+				? day_event_pin_clear()
+				: day_event_pin_set(_event);
+
+			jobs_squad_selector_event = noone;
+
+			if (_pin_changed && variable_global_exists("ui_confirm_sound_play"))
+			{
+				global.ui_confirm_sound_play();
+			}
+
+			exit;
+		}
+	}
+
 	// Resolve an open squad selector before handling the rest of the jobs window.
 	if (is_struct(jobs_squad_selector_event))
 	{
