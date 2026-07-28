@@ -31,43 +31,6 @@ var _is_hovered = (
 	&& _mouse_world_y >= bbox_top
 	&& _mouse_world_y <= bbox_bottom
 );
-var _building_tooltip_blocks_speed_label = false;
-var _building_count = instance_number(o_v13buildings_parent);
-
-// Keep the hovered building readable, but hide other speed labels while a tooltip is open.
-for (var _building_index = 0; _building_index < _building_count; ++_building_index)
-{
-	var _building = instance_find(o_v13buildings_parent, _building_index);
-
-	if (instance_exists(_building)
-		&& variable_instance_exists(_building, "building_accepts_workers")
-		&& _building.building_accepts_workers
-		&& _mouse_world_x >= _building.bbox_left
-		&& _mouse_world_x <= _building.bbox_right
-		&& _mouse_world_y >= _building.bbox_top
-		&& _mouse_world_y <= _building.bbox_bottom)
-	{
-		_building_tooltip_blocks_speed_label = true;
-		break;
-	}
-}
-
-var _draw_speed_multiplier = object_index == o_workshop
-	|| object_index == o_shell_factory
-	|| object_index == o_foundry
-	|| (summon_unit_object != noone && summon_has_paid_cost)
-	|| production_resource != noone;
-
-if (_draw_speed_multiplier
-	&& (!_building_tooltip_blocks_speed_label || _is_hovered))
-{
-	var _speed_world_x = x;
-	var _speed_world_y = y - production_bar_offset_y - production_multiplier_bar_gap_y;
-	var _speed_gui_x = ((_speed_world_x - _camera_x) / _camera_width) * _gui_width;
-	var _speed_gui_y = ((_speed_world_y - _camera_y) / _camera_height) * _gui_height;
-
-	production_speed_multiplier_draw(_speed_gui_x, _speed_gui_y);
-}
 
 if (!_is_hovered)
 {

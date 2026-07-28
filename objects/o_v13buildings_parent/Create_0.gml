@@ -262,7 +262,7 @@ building_display_name_get = function()
 
 	if (object_index == o_meat_bath)
 	{
-		return "Meat Bath";
+		return "Blood Bath";
 	}
 
 	if (object_index == o_ritual_circle)
@@ -593,7 +593,7 @@ else if (object_index == o_meat_bath)
 	production_resource_icon = s_flesh_icon;
 	production_resource_color = COLOR_HUD_FLESH;
 	building_tooltip_title = "Healing";
-	building_tooltip_description = "Heals assigned workers";
+	building_tooltip_description = "Allows performing operations with blood.";
 	building_tooltip_detail = "Uses " + string(BALANCE_MEAT_BATH_FLESH_COST) + " Flesh for " + string(BALANCE_MEAT_BATH_FLESH_HEAL_AMOUNT) + " HP";
 	building_tooltip_detail_color = COLOR_HUD_FLESH;
 }
@@ -603,7 +603,7 @@ else if (object_index == o_ritual_circle)
 	production_resource_icon = noone;
 	production_resource_color = COLOR_CULTIST_SPIRIT;
 	building_tooltip_title = "Training";
-	building_tooltip_description = "Gives assigned cultists XP and restores stamina.";
+	building_tooltip_description = "Allows performing rituals that affect the next night.";
 	building_tooltip_detail = "Gives " + string(BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT) + " XP chunks. Also restores stamina while cultists work here.";
 	building_tooltip_detail_color = COLOR_CULTIST_SPIRIT;
 	building_has_upgrades = true;
@@ -636,7 +636,7 @@ else if (object_index == o_shell_factory)
 	production_bonus_stat_name = "BODY";
 	production_bonus_stat_color = COLOR_CULTIST_BODY;
 	building_tooltip_title = "Shell Production";
-	building_tooltip_description = "Produces random special shells";
+	building_tooltip_description = "Allows producing and upgrading shells for the Cannon.";
 	building_tooltip_detail = "Uses " + string(BALANCE_SHELL_FACTORY_SOUL_COST) + " Souls + " + string(BALANCE_SHELL_FACTORY_IRON_COST) + " Iron. Morning shells: " + string(BALANCE_SHELL_FACTORY_MORNING_PROJECTILE_COUNT) + ". Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
 	building_tooltip_detail_color = production_bonus_stat_color;
 	building_has_upgrades = true;
@@ -652,7 +652,7 @@ else if (object_index == o_foundry)
 	production_bonus_stat_name = "BODY";
 	production_bonus_stat_color = COLOR_CULTIST_BODY;
 	building_tooltip_title = "Foundry";
-	building_tooltip_description = "Produces structure shells for the cannon";
+	building_tooltip_description = "Allows upgrading archdemons, demons, and undead.";
 	building_tooltip_detail = "Click Foundry, choose a structure, then assign workers to forge its shell. Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
 	building_tooltip_detail_color = production_bonus_stat_color;
 }
@@ -696,7 +696,7 @@ else if (object_index == o_graveyard2)
 	summon_cost_add(RESOURCES.SOULS, BALANCE_SKELETON_SUMMON_SOUL_COST);
 	summon_duration = BALANCE_GRAVEYARD2_SKELETON_PRODUCTION_TIME;
 	building_tooltip_title = "Garrison";
-	building_tooltip_description = "Raises Skeletons each morning up to this Graveyard's limit";
+	building_tooltip_description = "Allows raising and upgrading undead.";
 	building_tooltip_detail = "Each morning spawns: " + string(BALANCE_GRAVEYARD2_BASE_SKELETON_LIMIT) + " Skeletons. Workers make extra Skeletons with " + summon_cost_text_get() + ".";
 	building_tooltip_detail_color = production_bonus_stat_color;
 	building_has_upgrades = true;
@@ -744,7 +744,7 @@ else if (object_index == o_pitlings_pit2)
 	summon_cost_add(RESOURCES.IRON, BALANCE_PITLING_SUMMON_IRON_COST);
 	summon_duration = BALANCE_PITLINGS_PIT2_PITLING_PRODUCTION_TIME;
 	building_tooltip_title = "Demon Events";
-	building_tooltip_description = "Provides events for demon squads";
+	building_tooltip_description = "Allows summoning and upgrading demons.";
 	building_tooltip_detail = "Summon Mawlings, transform them, or reinforce existing demon squads.";
 	building_tooltip_detail_color = production_bonus_stat_color;
 	building_has_upgrades = true;

@@ -1676,52 +1676,11 @@ building_events_card_start_y = 108;
 building_events_scroll_row = 0;
 building_choices = [
 	{
-		building_object: o_souls_well,
-		building_sprite: s_souls_well,
-		building_name: "Souls Well",
-		building_group: "Resources",
-		building_description: "Produces Souls when assigned cultists work here.",
-		iron_cost: BALANCE_BUILDING_IRON_COST
-	},
-	{
-		building_object: o_slaughter_table,
-		building_sprite: s_slaughter_table,
-		building_name: "Slaughter Table",
-		building_group: "Resources",
-		building_description: "Produces Flesh when assigned cultists work here.",
-		iron_cost: BALANCE_BUILDING_IRON_COST
-	},
-	{
-		building_object: o_quarry,
-		building_sprite: s_quarry,
-		building_name: "Quarry",
-		building_group: "Resources",
-		building_description: "Produces Iron when assigned cultists work here.",
-		iron_cost: BALANCE_BUILDING_IRON_COST
-	},
-	{
-		building_object: o_goblins_pit,
-		building_sprite: s_goblins_pit,
-		building_name: "Goblins Pit",
-		building_group: "Units",
-		building_description: "Summons Goblins(non-combat units who can work) by spending Flesh.",
-		construction_costs: [
-			{
-				resource: RESOURCES.IRON,
-				cost: BALANCE_GOBLINS_PIT_BUILDING_IRON_COST
-			},
-			{
-				resource: RESOURCES.FLESH,
-				cost: BALANCE_GOBLINS_PIT_BUILDING_FLESH_COST
-			}
-		]
-	},
-	{
 		building_object: o_pitlings_pit2,
 		building_sprite: s_hell_pit,
 		building_name: "Demons Pit",
 		building_group: "Units",
-		building_description: "Provides events for summoning and transforming demon squads.",
+		building_description: "Allows summoning and upgrading demons.",
 		construction_costs: [
 			{
 				resource: RESOURCES.IRON,
@@ -1738,7 +1697,7 @@ building_choices = [
 		building_sprite: s_graveyard30,
 		building_name: "Graveyard",
 		building_group: "Units",
-		building_description: "Raises Skeletons every morning up to its own limit. Workers can create extra Skeletons.",
+		building_description: "Allows raising and upgrading undead.",
 		construction_costs: [
 			{
 				resource: RESOURCES.IRON,
@@ -1753,9 +1712,9 @@ building_choices = [
 	{
 		building_object: o_meat_bath,
 		building_sprite: s_meat_bath,
-		building_name: "Meat Bath",
+		building_name: "Blood Bath",
 		building_group: "Other",
-		building_description: "Heals assigned workers by spending Flesh.",
+		building_description: "Allows performing operations with blood.",
 		iron_cost: BALANCE_BUILDING_IRON_COST
 	},
 	{
@@ -1763,23 +1722,23 @@ building_choices = [
 		building_sprite: s_ritual_circle,
 		building_name: "Ritual Circle",
 		building_group: "Other",
-		building_description: "Provides next-night ritual events and lets assigned cultists gain XP.",
+		building_description: "Allows performing rituals that affect the next night.",
 		iron_cost: BALANCE_RITUAL_CIRCLE_BUILDING_IRON_COST
-	},
-	{
-		building_object: o_workshop,
-		building_sprite: s_workshop,
-		building_name: "Workshop",
-		building_group: "Other",
-		building_description: "Repairs the cannon and damaged structures by spending Iron.",
-		iron_cost: BALANCE_BUILDING_IRON_COST
 	},
 	{
 		building_object: o_shell_factory,
 		building_sprite: s_shell_factory,
 		building_name: "Shell Factory",
 		building_group: "Other",
-		building_description: "Produces Hellcow, First Aid Meat, Taint Compost, and Doom Bell shells through day events.",
+		building_description: "Allows producing and upgrading shells for the Cannon.",
+		iron_cost: BALANCE_BUILDING_IRON_COST
+	},
+	{
+		building_object: o_foundry,
+		building_sprite: s_foundry,
+		building_name: "Foundry",
+		building_group: "Other",
+		building_description: "Allows upgrading archdemons, demons, and undead.",
 		iron_cost: BALANCE_BUILDING_IRON_COST
 	}
 ];
@@ -3897,6 +3856,12 @@ building_choice_limit_get = function(_choice)
 		}
 
 		return BALANCE_BUILDING_GOBLINS_PIT_LIMIT_BEFORE_EXPANSION;
+	}
+
+	// One Foundry is placed in the starting settlement; allow another to be constructed.
+	if (_choice.building_object == o_foundry)
+	{
+		return BALANCE_BUILDING_FOUNDRY_LIMIT;
 	}
 
 	if (building_choice_uses_expansion_limit(_choice)
