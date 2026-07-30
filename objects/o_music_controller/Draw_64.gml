@@ -1,3 +1,9 @@
+if (variable_global_exists("blood_moon_reward_popup_active")
+	&& global.blood_moon_reward_popup_active)
+{
+	exit;
+}
+
 // The compact now-playing label is hidden while the HUD is being redesigned.
 if (false)
 {

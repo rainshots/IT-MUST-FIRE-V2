@@ -43,23 +43,14 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 		global.cannon_fire_version++;
 		global.sound_play_random(global.cannon_shot_sounds);
 
-		var _is_taint_projectile = target_projectile_type == PROJECTILE_TYPE.CORRUPTION
-			|| target_projectile_type == PROJECTILE_TYPE.FEAST;
-
-		if (_is_taint_projectile)
+		// Unlock related Shell Factory upgrade jobs after the player fires each shell type.
+		if (target_projectile_type == PROJECTILE_TYPE.BOMB)
 		{
-			if (!variable_global_exists("cannon_taint_projectiles_fired"))
-			{
-				global.cannon_taint_projectiles_fired = 0;
-			}
-
-			global.cannon_taint_projectiles_fired++;
-
-			if (global.cannon_taint_projectiles_fired >= 5
-				&& variable_global_exists("tutorial_hint_trigger"))
-			{
-				global.tutorial_hint_trigger("holy_ground");
-			}
+			global.shell_factory_hellcow_shell_fired = true;
+		}
+		else if (target_projectile_type == PROJECTILE_TYPE.HEAL)
+		{
+			global.shell_factory_first_aid_shell_fired = true;
 		}
 
 		if (instance_exists(o_camera_controller))
@@ -128,6 +119,7 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			_projectile.cultist_payload = _projectile_payload;
 			_projectile.building_payload = _projectile_payload;
 			_projectile.source_instance = id;
+			_projectile.damage_faction = UNIT_FACTION.FRIENDLY;
 			_projectile.ignore_pause = global.pause;
 			_projectile.launch_delay_timer = _launch_delay_seconds * room_speed;
 			_projectile.flight_time = _flight_time_seconds * room_speed;
@@ -162,8 +154,9 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			}
 			else if (target_projectile_type == PROJECTILE_TYPE.HEAL)
 			{
-				_projectile.effect_radius = BALANCE_PROJECTILE_HEAL_RADIUS;
+				_projectile.effect_radius = cannon_projectile_heal_radius_get();
 				_projectile.damage_amount = cannon_projectile_heal_amount_get();
+				_projectile.heal_volley_id = global.cannon_fire_version;
 				_projectile.projectile_sprite = s_heal_meat;
 			}
 			else if (target_projectile_type == PROJECTILE_TYPE.BOMB)

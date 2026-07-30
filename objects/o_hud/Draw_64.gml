@@ -1,3 +1,9 @@
+if (variable_global_exists("blood_moon_reward_popup_active")
+	&& global.blood_moon_reward_popup_active)
+{
+	exit;
+}
+
 // Draw global resources in the right HUD sidebar.
 if (!variable_global_exists("resources"))
 {
@@ -31,7 +37,8 @@ if (_regular_hud_is_visible)
 		var _squad_card_height = 145 * _sidebar_scale;
 		var _squad_card_gap = 19 * _sidebar_scale;
 		var _squad_card_x = 53 * _sidebar_scale;
-		var _squad_card_y = 42 * _sidebar_scale;
+		var _squad_card_y = 58 * _sidebar_scale;
+		var _squad_type_y = 38 * _sidebar_scale;
 		var _squad_card_index = 0;
 
 		for (var _squad_type = SQUAD_TYPE.ARCHDEMON; _squad_type < SQUAD_TYPE.COUNT; ++_squad_type)
@@ -67,7 +74,7 @@ if (_regular_hud_is_visible)
 				draw_set_halign(fa_center);
 				draw_set_valign(fa_top);
 				draw_set_color(COLOR_SQUAD_CARD_TYPE);
-				draw_text_transformed(_card_center_x, 22 * _sidebar_scale, _type_name, 0.55 * _sidebar_scale, 0.55 * _sidebar_scale, 0);
+				draw_text_transformed(_card_center_x, _squad_type_y, _type_name, 0.55 * _sidebar_scale, 0.55 * _sidebar_scale, 0);
 
 				if (instance_exists(_primary_unit))
 				{
@@ -86,7 +93,7 @@ if (_regular_hud_is_visible)
 				}
 
 				draw_set_color(COLOR_SQUAD_CARD_TEXT);
-				draw_text_transformed(_card_center_x, _squad_card_y + (109 * _sidebar_scale), _squad.name, 0.75 * _sidebar_scale, 0.75 * _sidebar_scale, 0);
+				draw_text_transformed(_card_center_x, _squad_card_y + (109 * _sidebar_scale), squad_name_display_get(_squad.name), 0.75 * _sidebar_scale, 0.75 * _sidebar_scale, 0);
 				var _hp_x = _card_x + (8 * _sidebar_scale);
 				var _hp_y = _squad_card_y + (128 * _sidebar_scale);
 				var _hp_width = _squad_card_width - (16 * _sidebar_scale);
@@ -105,7 +112,7 @@ if (_regular_hud_is_visible)
 				draw_set_color(COLOR_SQUAD_CARD_BORDER);
 				draw_rectangle(_empty_x, _squad_card_y, _empty_x + _squad_card_width, _squad_card_y + _squad_card_height, true);
 				draw_set_color(COLOR_SQUAD_CARD_TYPE);
-				draw_text_transformed(_empty_x + (_squad_card_width * 0.5), 22 * _sidebar_scale, _type_name, 0.55 * _sidebar_scale, 0.55 * _sidebar_scale, 0);
+				draw_text_transformed(_empty_x + (_squad_card_width * 0.5), _squad_type_y, _type_name, 0.55 * _sidebar_scale, 0.55 * _sidebar_scale, 0);
 				draw_set_color(COLOR_SQUAD_CARD_TEXT);
 				draw_text_transformed(_empty_x + (_squad_card_width * 0.5), _squad_card_y + (109 * _sidebar_scale), "Empty", 0.75 * _sidebar_scale, 0.75 * _sidebar_scale, 0);
 				_squad_card_index++;
@@ -1318,7 +1325,7 @@ if (instance_exists(o_cannon))
 	}
 }
 
-// Draw the cannon HP as a wide bottom HUD bar.
+// Draw the cannon HP centered against the top edge.
 if (instance_exists(o_cannon))
 {
 	var _cannon = instance_find(o_cannon, 0);
@@ -1328,14 +1335,12 @@ if (instance_exists(o_cannon))
 		var _gui_width = display_get_gui_width();
 		var _gui_height = display_get_gui_height();
 		var _hp_progress = clamp(_cannon.hp / max(1, _cannon.max_hp), 0, 1);
-		var _bar_width = health_bar_width_get(_gui_width * cannon_hp_bar_width_share, _cannon.max_hp);
+		var _bar_width = _gui_width * cannon_hp_bar_width_share;
 		var _fill_height = max(1, _gui_height * cannon_hp_fill_height_share);
 		var _background_height = max(1, _gui_height * cannon_hp_background_height_share);
-		var _sidebar_scale = clamp(_gui_height / 1080, 0.6, 1);
-		var _sidebar_x = _gui_width - (hud_sidebar_width * _sidebar_scale);
-		var _fill_x = max(hud_margin_x, min((_gui_width - _bar_width) * 0.5, _sidebar_x - _bar_width - (cannon_hp_sidebar_gap * _sidebar_scale)));
-		var _fill_y = _gui_height - (_gui_height * cannon_hp_bottom_margin_share) - _fill_height;
-		var _background_y = _fill_y + (_gui_height * cannon_hp_background_offset_share);
+		var _fill_x = (_gui_width - _bar_width) * 0.5;
+		var _fill_y = 0;
+		var _background_y = _gui_height * cannon_hp_background_top_share;
 		var _label_x = _fill_x + (_bar_width * 0.5);
 		var _label_y = _fill_y + (_fill_height * 0.5);
 
@@ -1348,8 +1353,6 @@ if (instance_exists(o_cannon))
 		draw_set_alpha(1);
 		draw_set_color(COLOR_CANNON_HP_BAR);
 		draw_rectangle(_fill_x, _fill_y, _fill_x + (_bar_width * _hp_progress), _fill_y + _fill_height, false);
-		draw_set_color(c_black);
-		health_bar_segments_draw(_fill_x, _fill_y, _bar_width, _fill_height, _cannon.max_hp);
 
 		draw_set_color(c_white);
 		if (variable_global_exists("ui_heading_font") && font_exists(global.ui_heading_font))
@@ -1456,17 +1459,17 @@ if (variable_global_exists("cannon_projectile_queue")
 	var _projectile_base_y = _gui_height - projectile_queue_margin_bottom - projectile_slot_height - projectile_name_offset_y;
 	var _has_building_shell_projectile = false;
 
-	// Keep the daytime projectile row fully above the Assign Duties button.
+	// Keep the daytime projectile row fully above the bottom-center End Day button.
 	if (global.day_phase == DAY_PHASE.DAY && instance_exists(o_jobs_ui))
 	{
 		var _jobs_ui = instance_find(o_jobs_ui, 0);
 
-		if (variable_instance_exists(_jobs_ui, "jobs_show_button_rect_get"))
+		if (variable_instance_exists(_jobs_ui, "jobs_end_day_button_rect_get"))
 		{
-			var _jobs_button_rect = _jobs_ui.jobs_show_button_rect_get();
-			_projectile_base_y = _jobs_button_rect.y
+			var _end_day_button_rect = _jobs_ui.jobs_end_day_button_rect_get();
+			_projectile_base_y = _end_day_button_rect.y
 				- projectile_slot_height
-				- projectile_day_jobs_button_gap;
+				- projectile_day_end_button_gap;
 		}
 	}
 
@@ -1753,7 +1756,8 @@ if (variable_global_exists("cannon_projectile_queue")
 				&& is_struct(_cultist_payload.squad)
 				&& _cultist_payload.squad.name != "")
 			{
-				_projectile_name = string_copy(_cultist_payload.squad.name, 1, 10);
+				var _projectile_squad_name = squad_name_display_get(_cultist_payload.squad.name);
+				_projectile_name = string_copy(_projectile_squad_name, 1, 10);
 			}
 			else if (instance_exists(_cultist_payload)
 				&& variable_instance_exists(_cultist_payload, "cultist_name")
@@ -1992,7 +1996,7 @@ if (variable_global_exists("cannon_projectile_queue")
 					&& is_struct(_description_payload.squad)
 					&& _description_payload.squad.name != "")
 				{
-					_description_name = _description_payload.squad.name;
+					_description_name = squad_name_display_get(_description_payload.squad.name);
 				}
 				else if (instance_exists(_description_payload)
 					&& variable_instance_exists(_description_payload, "cultist_name")
@@ -2027,6 +2031,7 @@ if (variable_global_exists("cannon_projectile_queue")
 			);
 		}
 	}
+
 }
 
 // Draw squad-card help and the RMB information window above the rest of the HUD.
@@ -2083,7 +2088,7 @@ if (_regular_hud_is_visible && variable_global_exists("squads"))
 		draw_set_halign(fa_left);
 		draw_set_valign(fa_top);
 		draw_set_color(COLOR_HUD_TEXT);
-		draw_text(_window_x + squad_info_padding, _window_y + 16, squad_info_squad.name);
+		draw_text(_window_x + squad_info_padding, _window_y + 16, squad_name_display_get(squad_info_squad.name));
 		draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
 		draw_text(_window_x + _window_width - 110, _window_y + 16, "RMB: close");
 

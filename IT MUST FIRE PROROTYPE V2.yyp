@@ -334,6 +334,7 @@
     {"id":{"name":"s_mega_bell","path":"sprites/s_mega_bell/s_mega_bell.yy",},},
     {"id":{"name":"s_mountain_big","path":"sprites/s_mountain_big/s_mountain_big.yy",},},
     {"id":{"name":"s_mountains","path":"sprites/s_mountains/s_mountains.yy",},},
+    {"id":{"name":"s_ok_icon","path":"sprites/s_ok_icon/s_ok_icon.yy",},},
     {"id":{"name":"s_orc","path":"sprites/s_orc/s_orc.yy",},},
     {"id":{"name":"s_orks_hut_b","path":"sprites/s_orks_hut_b/s_orks_hut_b.yy",},},
     {"id":{"name":"s_orks_hut","path":"sprites/s_orks_hut/s_orks_hut.yy",},},

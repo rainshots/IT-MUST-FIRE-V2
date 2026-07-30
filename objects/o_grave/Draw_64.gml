@@ -1,3 +1,9 @@
+if (variable_global_exists("blood_moon_reward_popup_active")
+	&& global.blood_moon_reward_popup_active)
+{
+	exit;
+}
+
 // Draw a small Grave tooltip in GUI space.
 if (!grave_is_hovered())
 {

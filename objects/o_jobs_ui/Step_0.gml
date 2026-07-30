@@ -2,9 +2,23 @@ var _mouse_x = device_mouse_x_to_gui(0);
 var _mouse_y = device_mouse_y_to_gui(0);
 var _show_hovered_now = false;
 var _end_hovered_now = false;
+var _confirmation_cancel_hovered_now = false;
+var _confirmation_end_hovered_now = false;
 var _hovered_empty_slot_key_now = "";
 var _hovered_event_action_key_now = "";
 jobs_hovered_cultist = noone;
+
+// Consume the mouse press that closed an overlapping modal window.
+if (jobs_input_blocked_until_mouse_release)
+{
+	if (mouse_check_button(mb_left))
+	{
+		jobs_hovered_event_action_key = "";
+		exit;
+	}
+
+	jobs_input_blocked_until_mouse_release = false;
+}
 
 if (global.day_phase == DAY_PHASE.DAY && global.focus_window == FOCUS_WINDOW.NOONE)
 {
@@ -17,24 +31,42 @@ if (global.day_phase == DAY_PHASE.DAY && global.focus_window == FOCUS_WINDOW.NOO
 		_hover_show_rect.x + _hover_show_rect.width,
 		_hover_show_rect.y + _hover_show_rect.height
 	);
-}
-else if (global.focus_window == FOCUS_WINDOW.JOBS)
-{
-	var _hover_layout = jobs_layout_get();
-	var _hover_gui_width = display_get_gui_width();
-	var _hover_end_x = (_hover_gui_width - _hover_layout.end_width) * 0.5;
+
+	var _hover_end_rect = jobs_end_day_button_rect_get();
 	_end_hovered_now = point_in_rectangle(
 		_mouse_x,
 		_mouse_y,
-		_hover_end_x,
-		_hover_layout.end_y,
-		_hover_end_x + _hover_layout.end_width,
-		_hover_layout.end_y + _hover_layout.end_height
+		_hover_end_rect.x,
+		_hover_end_rect.y,
+		_hover_end_rect.x + _hover_end_rect.width,
+		_hover_end_rect.y + _hover_end_rect.height
+	);
+}
+else if (global.focus_window == FOCUS_WINDOW.END_DAY_CONFIRMATION)
+{
+	var _confirmation_layout = jobs_end_day_confirmation_layout_get();
+	_confirmation_cancel_hovered_now = point_in_rectangle(
+		_mouse_x,
+		_mouse_y,
+		_confirmation_layout.cancel_x,
+		_confirmation_layout.cancel_y,
+		_confirmation_layout.cancel_x + _confirmation_layout.cancel_width,
+		_confirmation_layout.cancel_y + _confirmation_layout.cancel_height
+	);
+	_confirmation_end_hovered_now = point_in_rectangle(
+		_mouse_x,
+		_mouse_y,
+		_confirmation_layout.end_x,
+		_confirmation_layout.end_y,
+		_confirmation_layout.end_x + _confirmation_layout.end_width,
+		_confirmation_layout.end_y + _confirmation_layout.end_height
 	);
 }
 
 if ((_show_hovered_now && !jobs_show_hovered)
-	|| (_end_hovered_now && !jobs_end_hovered))
+	|| (_end_hovered_now && !jobs_end_hovered)
+	|| (_confirmation_cancel_hovered_now && !jobs_confirmation_cancel_hovered)
+	|| (_confirmation_end_hovered_now && !jobs_confirmation_end_hovered))
 {
 	if (variable_global_exists("sound_play_random")
 		&& variable_global_exists("ui_hover_sounds"))
@@ -45,6 +77,35 @@ if ((_show_hovered_now && !jobs_show_hovered)
 
 jobs_show_hovered = _show_hovered_now;
 jobs_end_hovered = _end_hovered_now;
+jobs_confirmation_cancel_hovered = _confirmation_cancel_hovered_now;
+jobs_confirmation_end_hovered = _confirmation_end_hovered_now;
+
+if (global.focus_window == FOCUS_WINDOW.END_DAY_CONFIRMATION)
+{
+	jobs_hovered_event_action_key = "";
+
+	if (mouse_check_button_pressed(mb_left))
+	{
+		if (_confirmation_cancel_hovered_now)
+		{
+			if (jobs_end_day_confirmation_close()
+				&& variable_global_exists("ui_confirm_sound_play"))
+			{
+				global.ui_confirm_sound_play();
+			}
+		}
+		else if (_confirmation_end_hovered_now)
+		{
+			if (jobs_end_day_execute()
+				&& variable_global_exists("ui_confirm_sound_play"))
+			{
+				global.ui_confirm_sound_play();
+			}
+		}
+	}
+
+	exit;
+}
 
 if (global.focus_window != FOCUS_WINDOW.JOBS)
 {
@@ -55,6 +116,7 @@ if (global.focus_window != FOCUS_WINDOW.JOBS)
 		&& mouse_check_button_pressed(mb_left))
 	{
 		var _show_rect = jobs_show_button_rect_get();
+		var _end_rect = jobs_end_day_button_rect_get();
 
 		if (point_in_rectangle(
 			_mouse_x,
@@ -66,6 +128,20 @@ if (global.focus_window != FOCUS_WINDOW.JOBS)
 		))
 		{
 			if (jobs_window_open() && variable_global_exists("ui_confirm_sound_play"))
+			{
+				global.ui_confirm_sound_play();
+			}
+		}
+		else if (point_in_rectangle(
+			_mouse_x,
+			_mouse_y,
+			_end_rect.x,
+			_end_rect.y,
+			_end_rect.x + _end_rect.width,
+			_end_rect.y + _end_rect.height
+		))
+		{
+			if (jobs_end_day_request() && variable_global_exists("ui_confirm_sound_play"))
 			{
 				global.ui_confirm_sound_play();
 			}
@@ -441,17 +517,6 @@ if (mouse_check_button_pressed(mb_left))
 		_layout.close_x + _layout.close_size,
 		_layout.close_y + _layout.close_size
 	);
-	var _gui_width = display_get_gui_width();
-	var _end_x = (_gui_width - _layout.end_width) * 0.5;
-	var _end_clicked = point_in_rectangle(
-		_mouse_x,
-		_mouse_y,
-		_end_x,
-		_layout.end_y,
-		_end_x + _layout.end_width,
-		_layout.end_y + _layout.end_height
-	);
-
 	if (_close_clicked)
 	{
 		if (variable_global_exists("ui_confirm_sound_play"))
@@ -463,39 +528,26 @@ if (mouse_check_button_pressed(mb_left))
 		exit;
 	}
 
-	if (_end_clicked)
-	{
-		if (variable_global_exists("ui_confirm_sound_play"))
-		{
-			global.ui_confirm_sound_play();
-		}
-
-		day_event_finish_day();
-		jobs_window_close();
-
-		if (instance_exists(o_game_controller))
-		{
-			var _game_controller = instance_find(o_game_controller, 0);
-			_game_controller.start_night_phase();
-		}
-
-		exit;
-	}
-
-	// Clicking any empty slot assigns the healthiest available pool cultist.
+	// Construction uses the most wounded available Cultist; other events use the healthiest.
 	if (jobs_hovered_empty_slot_key != "")
 	{
 		var _separator_position = string_pos(":", jobs_hovered_empty_slot_key);
 		var _event_index_text = string_copy(jobs_hovered_empty_slot_key, 1, _separator_position - 1);
 		var _clicked_event_index = real(_event_index_text);
-		var _healthiest_cultist = jobs_pool_healthiest_cultist_get();
 
 		if (_clicked_event_index >= 0
-			&& _clicked_event_index < array_length(global.day_events)
-			&& instance_exists(_healthiest_cultist)
-			&& global.day_events[_clicked_event_index].cultist_assign(_healthiest_cultist))
+			&& _clicked_event_index < array_length(global.day_events))
 		{
-			if (variable_global_exists("ui_confirm_sound_play"))
+			var _clicked_event = global.day_events[_clicked_event_index];
+			var _is_construction_event = is_struct(_clicked_event)
+				&& variable_struct_exists(_clicked_event, "construction_site");
+			var _auto_assign_cultist = is_struct(_clicked_event)
+				? day_event_available_cultist_find(_is_construction_event)
+				: noone;
+
+			if (instance_exists(_auto_assign_cultist)
+				&& _clicked_event.cultist_assign(_auto_assign_cultist)
+				&& variable_global_exists("ui_confirm_sound_play"))
 			{
 				global.ui_confirm_sound_play();
 			}

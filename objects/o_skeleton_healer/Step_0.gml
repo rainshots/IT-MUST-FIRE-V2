@@ -17,7 +17,7 @@ support_heal_cooldown_timer--;
 
 if (support_heal_cooldown_timer <= 0)
 {
-	var _heal_target = skeleton_healer_target_find();
+	var _heal_target = skeleton_healer_target_find(BALANCE_SKELETON_HEALER_HEAL_RADIUS);
 
 	if (instance_exists(_heal_target)
 		&& _heal_target.support_heal_add(

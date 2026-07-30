@@ -17,6 +17,7 @@ bar_height = 0;
 
 // World button settings.
 summon_button_text = "SUMMON STRUCTURE";
+summon_button_night_text = "Available at daytime";
 summon_button_width = 188;
 summon_button_height = 34;
 summon_button_offset_y = 38;
@@ -130,31 +131,6 @@ cursed_point_resource_color_get = function(_resource)
 	return c_white;
 };
 
-cursed_point_resource_name_get = function(_resource)
-{
-	if (_resource == RESOURCES.FLESH)
-	{
-		return "Flesh";
-	}
-
-	if (_resource == RESOURCES.SOULS)
-	{
-		return "Souls";
-	}
-
-	if (_resource == RESOURCES.IRON)
-	{
-		return "Iron";
-	}
-
-	if (_resource == RESOURCES.IHOR)
-	{
-		return "Ihor";
-	}
-
-	return "Resource";
-};
-
 cursed_point_structure_choice_can_pay = function(_choice)
 {
 	return true;
@@ -254,7 +230,8 @@ cursed_point_mouse_world_position_get = function()
 
 cursed_point_summon_button_rect_get = function()
 {
-	var _button_width = summon_button_width;
+	var _night_text_width = string_width(summon_button_night_text) + 28;
+	var _button_width = max(summon_button_width, _night_text_width);
 	var _button_height = summon_button_height;
 
 	if (is_struct(restore_structure_choice))
@@ -274,89 +251,6 @@ cursed_point_summon_button_rect_get = function()
 	];
 };
 
-cursed_point_restore_costs_get = function()
-{
-	if (!is_struct(restore_structure_choice)
-		|| !variable_struct_exists(restore_structure_choice, "construction_costs"))
-	{
-		return [];
-	}
-
-	var _restore_costs = [];
-	var _cost_count = array_length(restore_structure_choice.construction_costs);
-
-	for (var _cost_index = 0; _cost_index < _cost_count; ++_cost_index)
-	{
-		var _cost_data = restore_structure_choice.construction_costs[_cost_index];
-
-		array_push(
-			_restore_costs,
-			{
-				resource: _cost_data.resource,
-				cost: _cost_data.cost * BALANCE_BUILDING_RESTORE_COST_MULTIPLIER
-			}
-		);
-	}
-
-	return _restore_costs;
-};
-
-cursed_point_restore_cost_text_get = function()
-{
-	var _restore_costs = cursed_point_restore_costs_get();
-	var _cost_count = array_length(_restore_costs);
-	var _cost_text = "";
-
-	for (var _cost_index = 0; _cost_index < _cost_count; ++_cost_index)
-	{
-		var _cost_data = _restore_costs[_cost_index];
-
-		if (_cost_index > 0)
-		{
-			_cost_text += " + ";
-		}
-
-		_cost_text += string(_cost_data.cost) + " " + cursed_point_resource_name_get(_cost_data.resource);
-	}
-
-	return _cost_text;
-};
-
-cursed_point_restore_can_pay = function()
-{
-	var _restore_costs = cursed_point_restore_costs_get();
-	var _cost_count = array_length(_restore_costs);
-
-	for (var _cost_index = 0; _cost_index < _cost_count; ++_cost_index)
-	{
-		var _cost_data = _restore_costs[_cost_index];
-
-		if (global.resources[_cost_data.resource] < _cost_data.cost)
-		{
-			return false;
-		}
-	}
-
-	return _cost_count > 0;
-};
-
-cursed_point_restore_costs_pay = function()
-{
-	var _restore_costs = cursed_point_restore_costs_get();
-	var _cost_count = array_length(_restore_costs);
-	var _popup_gap = 46;
-	var _popup_start_x = x - ((_cost_count - 1) * _popup_gap * 0.5);
-
-	for (var _cost_index = 0; _cost_index < _cost_count; ++_cost_index)
-	{
-		var _cost_data = _restore_costs[_cost_index];
-		var _popup_x = _popup_start_x + (_cost_index * _popup_gap);
-
-		global.resources[_cost_data.resource] -= _cost_data.cost;
-		resource_popup_create(_popup_x, y - 84, _cost_data.resource, -_cost_data.cost);
-	}
-};
-
 cursed_point_rect_expand = function(_rect, _scale)
 {
 	var _expanded_width = _rect[2] * _scale;
@@ -372,6 +266,7 @@ cursed_point_summon_button_is_hovered = function()
 	if (!is_captured
 		|| structure_selection_open
 		|| (variable_instance_exists(id, "construction_event_pending") && construction_event_pending)
+		|| global.day_phase != DAY_PHASE.DAY
 		|| global.focus_window != FOCUS_WINDOW.NOONE)
 	{
 		return false;
@@ -417,7 +312,9 @@ cursed_point_structure_options_roll = function()
 
 cursed_point_structure_selection_open = function()
 {
-	if (!is_captured || structure_selection_open)
+	if (!is_captured
+		|| structure_selection_open
+		|| global.day_phase != DAY_PHASE.DAY)
 	{
 		return;
 	}
@@ -547,15 +444,24 @@ cursed_point_structure_choice_hover_key_get = function(_mouse_x, _mouse_y)
 	return "";
 };
 
-cursed_point_structure_build = function(_choice)
+cursed_point_structure_build = function(_choice, _close_selection = true)
 {
-	if (!day_event_building_construction_can_start())
+	if (global.day_phase != DAY_PHASE.DAY
+		|| !day_event_cursed_point_construction_can_start())
 	{
-		cursed_point_structure_selection_close();
+		if (_close_selection)
+		{
+			cursed_point_structure_selection_close();
+		}
+
 		return false;
 	}
 
-	cursed_point_structure_selection_close();
+	if (_close_selection)
+	{
+		cursed_point_structure_selection_close();
+	}
+
 	var _construction_event = day_event_building_construction_create(id, _choice, true);
 
 	if (!is_struct(_construction_event))
@@ -566,7 +472,12 @@ cursed_point_structure_build = function(_choice)
 	if (instance_exists(o_jobs_ui))
 	{
 		var _jobs_ui = instance_find(o_jobs_ui, 0);
-		_jobs_ui.jobs_window_open();
+
+		if (_jobs_ui.jobs_window_open()
+			&& variable_instance_exists(_jobs_ui, "jobs_input_block_until_mouse_release"))
+		{
+			_jobs_ui.jobs_input_block_until_mouse_release();
+		}
 	}
 
 	return true;
@@ -574,52 +485,12 @@ cursed_point_structure_build = function(_choice)
 
 cursed_point_structure_restore = function()
 {
-	if (!is_struct(restore_structure_choice) || !cursed_point_restore_can_pay())
+	if (global.day_phase != DAY_PHASE.DAY
+		|| !is_struct(restore_structure_choice))
 	{
 		return false;
 	}
 
-	var _choice = restore_structure_choice;
-	var _built_object = instance_create_layer(x, y, "Instances", _choice.building_object);
-
-	if (instance_exists(_built_object))
-	{
-		_built_object.depth = -floor(_built_object.y);
-
-		if (variable_instance_exists(_built_object, "building_constructed_by_cursed_point"))
-		{
-			_built_object.building_constructed_by_cursed_point = true;
-		}
-
-		_built_object.cursed_point_restore_choice = _choice;
-
-		if (variable_instance_exists(_built_object, "tower_capture_enabled"))
-		{
-			_built_object.tower_capture_enabled = true;
-		}
-
-		if (variable_instance_exists(_built_object, "is_captured"))
-		{
-			_built_object.is_captured = true;
-		}
-
-		if (variable_instance_exists(_built_object, "max_corruption")
-			&& variable_instance_exists(_built_object, "corruption"))
-		{
-			_built_object.corruption = _built_object.max_corruption;
-		}
-
-		if (variable_instance_exists(_built_object, "captured_sprite_index")
-			&& _built_object.captured_sprite_index != noone)
-		{
-			_built_object.sprite_index = _built_object.captured_sprite_index;
-			_built_object.image_index = 0;
-			_built_object.image_speed = 0;
-		}
-	}
-
-	cursed_point_restore_costs_pay();
-	cursed_point_construction_effect_create();
-	instance_destroy();
-	return true;
+	// Restoration reuses normal Cursed Point construction without reopening structure choice.
+	return cursed_point_structure_build(restore_structure_choice, false);
 };

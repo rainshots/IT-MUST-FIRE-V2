@@ -17,7 +17,7 @@ support_buff_cooldown_timer--;
 
 if (support_buff_cooldown_timer <= 0)
 {
-	var _buff_target = demon_wizard_buff_target_find();
+	var _buff_target = demon_wizard_buff_target_find(BALANCE_DEMON_WIZARD_BUFF_RADIUS);
 
 	if (instance_exists(_buff_target)
 		&& _buff_target.support_buff_add(id, BALANCE_DEMON_WIZARD_BUFF_DURATION * room_speed, BALANCE_DEMON_WIZARD_BUFF_MULTIPLIER))

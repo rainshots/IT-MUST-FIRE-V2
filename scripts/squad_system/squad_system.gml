@@ -36,15 +36,27 @@ function squad_slot_is_available(_squad_type)
 	return squad_type_count_get(_squad_type) < squad_type_limit_get(_squad_type);
 }
 
+function squad_name_display_get(_squad_name)
+{
+	var _display_name = string(_squad_name);
+
+	// Convert legacy squad names without changing stored gameplay data.
+	_display_name = string_replace_all(_display_name, "Skeleton Warriors", "Bone Warriors");
+	_display_name = string_replace_all(_display_name, "Skeleton Archers", "Bone Archers");
+	_display_name = string_replace_all(_display_name, "Skeleton Mages", "Bone Mages");
+
+	return _display_name;
+}
+
 function squad_name_create(_primary_unit_object)
 {
 	var _base_name = object_get_name(_primary_unit_object);
 
 	if (_primary_unit_object == o_skeleton) _base_name = "Skeletons";
 	else if (_primary_unit_object == o_skeleton_bonelet) _base_name = "Bonelets";
-	else if (_primary_unit_object == o_skeleton_warrior) _base_name = "Skeleton Warriors";
-	else if (_primary_unit_object == o_skeleton_archer) _base_name = "Skeleton Archers";
-	else if (_primary_unit_object == o_skeleton_mage) _base_name = "Skeleton Mages";
+	else if (_primary_unit_object == o_skeleton_warrior) _base_name = "Bone Warriors";
+	else if (_primary_unit_object == o_skeleton_archer) _base_name = "Bone Archers";
+	else if (_primary_unit_object == o_skeleton_mage) _base_name = "Bone Mages";
 	else if (_primary_unit_object == o_skeleton_healer) _base_name = "Skeleton Healers";
 	else if (_primary_unit_object == o_mawling) _base_name = "Mawlings";
 	else if (_primary_unit_object == o_demon_wizard) _base_name = "Demon Wizards";
@@ -57,7 +69,7 @@ function squad_name_create(_primary_unit_object)
 
 	for (var _squad_index = 0; _squad_index < array_length(global.squads); ++_squad_index)
 	{
-		var _existing_name = global.squads[_squad_index].name;
+		var _existing_name = squad_name_display_get(global.squads[_squad_index].name);
 
 		if (_existing_name == _base_name || string_pos(_base_name + " ", _existing_name) == 1)
 		{
@@ -248,12 +260,6 @@ function squad_unit_spawn(_squad, _unit_object, _unit_index)
 	squad_unit_permanent_bonuses_apply(_squad, _unit);
 	foundry_unit_permanent_bonuses_apply(_unit);
 	_unit.foundry_permanent_bonuses_pending = false;
-
-	if (variable_struct_exists(_squad.properties, "blood_warpaint_active")
-		&& _squad.properties.blood_warpaint_active)
-	{
-		_unit.max_hp *= BALANCE_BLOOD_WARPAINT_MAX_HP_MULTIPLIER;
-	}
 
 	_unit.hp = _unit.max_hp;
 	return _unit;
@@ -653,79 +659,8 @@ function squad_unit_reference_replace(_old_unit, _new_unit)
 	foundry_unit_permanent_bonuses_apply(_new_unit);
 	_new_unit.foundry_permanent_bonuses_pending = false;
 
-	if (variable_struct_exists(_squad.properties, "blood_warpaint_active")
-		&& _squad.properties.blood_warpaint_active)
-	{
-		var _new_unit_base_max_hp = _new_unit.max_hp;
-		_new_unit.max_hp *= BALANCE_BLOOD_WARPAINT_MAX_HP_MULTIPLIER;
-		_new_unit.hp = min(_new_unit.max_hp, _new_unit.hp + (_new_unit.max_hp - _new_unit_base_max_hp));
-	}
-
 	_squad.units[_unit_index] = _new_unit;
 	_squad.total_max_hp += _new_unit.max_hp - _previous_unit_max_hp;
-}
-
-function squad_blood_warpaint_start_night()
-{
-	if (!global.squad_blood_warpaint_pending)
-	{
-		return false;
-	}
-
-	global.squad_blood_warpaint_pending = false;
-
-	for (var _squad_index = 0; _squad_index < array_length(global.squads); ++_squad_index)
-	{
-		var _squad = global.squads[_squad_index];
-		_squad.properties.blood_warpaint_active = true;
-		_squad.total_max_hp *= BALANCE_BLOOD_WARPAINT_MAX_HP_MULTIPLIER;
-
-		for (var _unit_index = 0; _unit_index < array_length(_squad.units); ++_unit_index)
-		{
-			var _unit = _squad.units[_unit_index];
-
-			if (!instance_exists(_unit))
-			{
-				continue;
-			}
-
-			var _previous_max_hp = _unit.max_hp;
-			_unit.max_hp *= BALANCE_BLOOD_WARPAINT_MAX_HP_MULTIPLIER;
-			_unit.hp = min(_unit.max_hp, _unit.hp + (_unit.max_hp - _previous_max_hp));
-		}
-	}
-
-	return true;
-}
-
-function squad_blood_warpaint_end_night()
-{
-	for (var _squad_index = 0; _squad_index < array_length(global.squads); ++_squad_index)
-	{
-		var _squad = global.squads[_squad_index];
-
-		if (!variable_struct_exists(_squad.properties, "blood_warpaint_active")
-			|| !_squad.properties.blood_warpaint_active)
-		{
-			continue;
-		}
-
-		_squad.properties.blood_warpaint_active = false;
-		_squad.total_max_hp /= BALANCE_BLOOD_WARPAINT_MAX_HP_MULTIPLIER;
-
-		for (var _unit_index = 0; _unit_index < array_length(_squad.units); ++_unit_index)
-		{
-			var _unit = _squad.units[_unit_index];
-
-			if (!instance_exists(_unit))
-			{
-				continue;
-			}
-
-			_unit.max_hp /= BALANCE_BLOOD_WARPAINT_MAX_HP_MULTIPLIER;
-			_unit.hp = min(_unit.hp, _unit.max_hp);
-		}
-	}
 }
 
 function squad_day_group_update()

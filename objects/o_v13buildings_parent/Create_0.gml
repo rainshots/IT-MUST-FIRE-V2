@@ -111,7 +111,7 @@ ritual_circle_daily_exp_remaining = BALANCE_RITUAL_CIRCLE_DAILY_EXP_LIMIT;
 // Workshop stores paid repair here before applying it to the cannon wall.
 workshop_repair_pool = 0;
 
-// Shell Factory stores paid Iron work here before producing a random shell.
+// Shell Factory stores paid resource work here before producing a random shell.
 shell_factory_progress = 0;
 shell_factory_has_paid_cost = false;
 
@@ -121,6 +121,179 @@ foundry_shell_progress = 0;
 foundry_shell_duration = BALANCE_FOUNDRY_SHELL_PRODUCTION_TIME;
 foundry_prompt_text = "Choose Structure";
 foundry_product_offset_y = 176;
+
+// World event cards keep their hover while the cursor moves between the building and card.
+world_event_hover_active = false;
+world_event_hover_keeps_selector_area = false;
+
+// Daily event generation avoids IDs selected for this building on the previous day.
+previous_day_event_ids = [];
+
+world_event_current_get = function()
+{
+	if (!variable_global_exists("day_events"))
+	{
+		return noone;
+	}
+
+	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
+	{
+		var _event = global.day_events[_event_index];
+		var _resolved_event_is_visible = is_struct(_event)
+			&& global.day_phase == DAY_PHASE.NIGHT
+			&& _event.is_resolved;
+
+		if (is_struct(_event)
+			&& (!_event.is_resolved || _resolved_event_is_visible)
+			&& variable_struct_exists(_event, "source_building")
+			&& _event.source_building == id)
+		{
+			return _event;
+		}
+	}
+
+	return noone;
+};
+
+world_event_layout_get = function(_event, _include_selector_options = false)
+{
+	if (!is_struct(_event) || !instance_exists(o_camera_controller))
+	{
+		return noone;
+	}
+
+	var _camera_controller = instance_find(o_camera_controller, 0);
+	var _camera_x = camera_get_view_x(_camera_controller.camera_id);
+	var _camera_y = camera_get_view_y(_camera_controller.camera_id);
+	var _camera_width = camera_get_view_width(_camera_controller.camera_id);
+	var _camera_height = camera_get_view_height(_camera_controller.camera_id);
+	var _gui_width = _camera_controller.base_view_width;
+	var _gui_height = _camera_controller.base_view_height;
+	var _world_to_gui_x = _gui_width / _camera_width;
+	var _world_to_gui_y = _gui_height / _camera_height;
+	var _building_left = (bbox_left - _camera_x) * _world_to_gui_x;
+	var _building_right = (bbox_right - _camera_x) * _world_to_gui_x;
+	var _building_top = (bbox_top - _camera_y) * _world_to_gui_y;
+	var _building_bottom = (bbox_bottom - _camera_y) * _world_to_gui_y;
+	var _building_center_x = (x - _camera_x) * _world_to_gui_x;
+	var _has_selector = variable_struct_exists(_event, "requires_squad_selection")
+		&& _event.requires_squad_selection
+		&& variable_struct_exists(_event, "eligible_squads")
+		&& array_length(_event.eligible_squads) > 0;
+	var _event_is_ready = _event.activation_ready_count_get() > 0;
+	var _description_width = BALANCE_WORLD_EVENT_CARD_WIDTH
+		- (BALANCE_WORLD_EVENT_CARD_PADDING_X * 2)
+		- (_event_is_ready ? BALANCE_WORLD_EVENT_READY_ICON_WIDTH : 0);
+	var _previous_font = draw_get_font();
+
+	if (instance_exists(o_jobs_ui))
+	{
+		var _jobs_ui = instance_find(o_jobs_ui, 0);
+
+		if (font_exists(_jobs_ui.jobs_description_font))
+		{
+			draw_set_font(_jobs_ui.jobs_description_font);
+		}
+	}
+
+	var _description_height = string_height_ext(
+		_event.description,
+		BALANCE_WORLD_EVENT_DESCRIPTION_LINE_SEPARATION,
+		_description_width
+	);
+	draw_set_font(_previous_font);
+
+	var _card_content_height = BALANCE_WORLD_EVENT_CARD_PADDING_Y
+		+ BALANCE_WORLD_EVENT_DESCRIPTION_OFFSET_Y
+		+ _description_height
+		+ BALANCE_WORLD_EVENT_CARD_PADDING_Y;
+	var _card_body_height = max(BALANCE_WORLD_EVENT_CARD_HEIGHT, _card_content_height);
+	var _card_height = _card_body_height
+		+ (_has_selector ? BALANCE_WORLD_EVENT_SELECTOR_SECTION_HEIGHT : 0);
+	var _card_x = clamp(
+		_building_center_x - (BALANCE_WORLD_EVENT_CARD_WIDTH * 0.5),
+		BALANCE_WORLD_EVENT_CARD_GAP,
+		_gui_width - BALANCE_WORLD_EVENT_CARD_WIDTH - BALANCE_WORLD_EVENT_CARD_GAP
+	);
+	var _card_y = max(
+		BALANCE_WORLD_EVENT_CARD_GAP,
+		_building_top - _card_height - BALANCE_WORLD_EVENT_CARD_GAP
+	);
+	var _selector_x = _card_x + BALANCE_WORLD_EVENT_CARD_PADDING_X;
+	var _selector_y = _card_y
+		+ _card_height
+		- BALANCE_WORLD_EVENT_CARD_PADDING_Y
+		- BALANCE_WORLD_EVENT_SELECTOR_HEIGHT;
+	var _option_count = _has_selector ? array_length(_event.eligible_squads) : 0;
+	var _options_height = _option_count * BALANCE_WORLD_EVENT_SELECTOR_OPTION_HEIGHT;
+	var _options_y = _selector_y + BALANCE_WORLD_EVENT_SELECTOR_HEIGHT;
+
+	if (_options_y + _options_height > _gui_height - BALANCE_WORLD_EVENT_CARD_GAP)
+	{
+		_options_y = _selector_y - _options_height;
+	}
+
+	_options_y = clamp(
+		_options_y,
+		BALANCE_WORLD_EVENT_CARD_GAP,
+		max(
+			BALANCE_WORLD_EVENT_CARD_GAP,
+			_gui_height - BALANCE_WORLD_EVENT_CARD_GAP - _options_height
+		)
+	);
+
+	var _action_extra_height = day_event_building_action_is_available(_event)
+		? BALANCE_WORLD_EVENT_PIN_ICON_GAP + BALANCE_WORLD_EVENT_PIN_ICON_HEIGHT
+		: 0;
+	var _content_left = min(_building_left, _card_x);
+	var _content_top = min(_building_top, _card_y);
+	var _content_right = max(_building_right, _card_x + BALANCE_WORLD_EVENT_CARD_WIDTH);
+	var _content_bottom = max(
+		_building_bottom,
+		_card_y + _card_height + _action_extra_height
+	);
+
+	if (_include_selector_options && _has_selector)
+	{
+		_content_left = min(_content_left, _selector_x);
+		_content_top = min(_content_top, _options_y);
+		_content_right = max(_content_right, _selector_x + BALANCE_WORLD_EVENT_SELECTOR_WIDTH);
+		_content_bottom = max(_content_bottom, _options_y + _options_height);
+	}
+
+	return {
+		camera_x: _camera_x,
+		camera_y: _camera_y,
+		camera_width: _camera_width,
+		camera_height: _camera_height,
+		gui_width: _gui_width,
+		gui_height: _gui_height,
+		world_to_gui_x: _world_to_gui_x,
+		world_to_gui_y: _world_to_gui_y,
+		building_left: _building_left,
+		building_right: _building_right,
+		building_top: _building_top,
+		building_bottom: _building_bottom,
+		building_center_x: _building_center_x,
+		has_selector: _has_selector,
+		card_x: _card_x,
+		card_y: _card_y,
+		card_width: BALANCE_WORLD_EVENT_CARD_WIDTH,
+		card_body_height: _card_body_height,
+		card_height: _card_height,
+		selector_x: _selector_x,
+		selector_y: _selector_y,
+		selector_width: BALANCE_WORLD_EVENT_SELECTOR_WIDTH,
+		selector_height: BALANCE_WORLD_EVENT_SELECTOR_HEIGHT,
+		options_y: _options_y,
+		option_height: BALANCE_WORLD_EVENT_SELECTOR_OPTION_HEIGHT,
+		option_count: _option_count,
+		hover_left: _content_left - BALANCE_WORLD_EVENT_HOVER_MARGIN,
+		hover_top: _content_top - BALANCE_WORLD_EVENT_HOVER_MARGIN,
+		hover_right: _content_right + BALANCE_WORLD_EVENT_HOVER_MARGIN,
+		hover_bottom: _content_bottom + BALANCE_WORLD_EVENT_HOVER_MARGIN
+	};
+};
 
 resource_name_get = function(_resource)
 {
@@ -629,6 +802,11 @@ else if (object_index == o_workshop)
 }
 else if (object_index == o_shell_factory)
 {
+	// Day events permanently increase this factory's contribution to each morning stockpile limit.
+	shell_factory_hellcow_morning_limit_bonus = 0;
+	shell_factory_first_aid_morning_limit_bonus = 0;
+	shell_factory_taint_compost_morning_limit_bonus = 0;
+
 	building_accepts_workers = true;
 	production_resource_icon = s_shell_factory;
 	production_resource_color = COLOR_PROJECTILE_BUILDING_SHELL;
@@ -636,12 +814,17 @@ else if (object_index == o_shell_factory)
 	production_bonus_stat_name = "BODY";
 	production_bonus_stat_color = COLOR_CULTIST_BODY;
 	building_tooltip_title = "Shell Production";
-	building_tooltip_description = "Allows producing and upgrading shells for the Cannon.";
-	building_tooltip_detail = "Uses " + string(BALANCE_SHELL_FACTORY_SOUL_COST) + " Souls + " + string(BALANCE_SHELL_FACTORY_IRON_COST) + " Iron. Morning shells: " + string(BALANCE_SHELL_FACTORY_MORNING_PROJECTILE_COUNT) + ". Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
+	building_tooltip_description = "Produces special shells while staffed and refills shell stockpiles every morning.";
+	building_tooltip_detail = "Uses " + string(BALANCE_SHELL_FACTORY_SOUL_COST) + " Souls + "
+		+ string(BALANCE_SHELL_FACTORY_IRON_COST) + " Iron while staffed. Morning stockpile: "
+		+ string(BALANCE_SHELL_FACTORY_MORNING_HELLCOW_LIMIT) + " Hellcow, "
+		+ string(BALANCE_SHELL_FACTORY_MORNING_FIRST_AID_LIMIT) + " First Aid Meat, "
+		+ string(BALANCE_SHELL_FACTORY_MORNING_TAINT_COMPOST_LIMIT) + " Taint Compost. Bonus: "
+		+ production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
 	building_tooltip_detail_color = production_bonus_stat_color;
 	building_has_upgrades = true;
 	building_upgrade_levels = [0];
-	building_upgrade_names = ["Morning Stockpile"];
+	building_upgrade_names = ["Emergency Shell"];
 }
 else if (object_index == o_foundry)
 {
@@ -1713,7 +1896,7 @@ building_upgrade_description_get = function(_upgrade_index)
 {
 	if (object_index == o_shell_factory)
 	{
-		return "+1 random special shell every morning for this Shell Factory.";
+		return "Immediately produces 1 random special shell.";
 	}
 
 	if (production_daily_limit_upgrade_index != noone)
@@ -1817,43 +2000,32 @@ shell_factory_random_projectile_add = function()
 	return _game_controller.cannon_projectile_queue_add(_projectile_type);
 };
 
-shell_factory_morning_projectile_count_get = function()
-{
-	var _upgrade_level = 0;
-
-	if (variable_instance_exists(id, "building_upgrade_levels")
-		&& array_length(building_upgrade_levels) > 0)
-	{
-		_upgrade_level = building_upgrade_levels[0];
-	}
-
-	return BALANCE_SHELL_FACTORY_MORNING_PROJECTILE_COUNT + _upgrade_level;
-};
-
-shell_factory_morning_projectiles_add = function()
+shell_factory_morning_projectile_limit_get = function(_projectile_type)
 {
 	if (object_index != o_shell_factory)
 	{
-		return;
+		return 0;
 	}
 
-	var _projectile_count = shell_factory_morning_projectile_count_get();
-	var _added_count = 0;
-
-	for (var _projectile_index = 0; _projectile_index < _projectile_count; ++_projectile_index)
+	if (_projectile_type == PROJECTILE_TYPE.BOMB)
 	{
-		if (!shell_factory_random_projectile_add())
-		{
-			break;
-		}
-
-		_added_count++;
+		return BALANCE_SHELL_FACTORY_MORNING_HELLCOW_LIMIT
+			+ shell_factory_hellcow_morning_limit_bonus;
 	}
 
-	if (_added_count > 0)
+	if (_projectile_type == PROJECTILE_TYPE.HEAL)
 	{
-		building_warning_show("+" + string(_added_count) + " shells", COLOR_PROJECTILE_BUILDING_SHELL);
+		return BALANCE_SHELL_FACTORY_MORNING_FIRST_AID_LIMIT
+			+ shell_factory_first_aid_morning_limit_bonus;
 	}
+
+	if (_projectile_type == PROJECTILE_TYPE.CORRUPTION)
+	{
+		return BALANCE_SHELL_FACTORY_MORNING_TAINT_COMPOST_LIMIT
+			+ shell_factory_taint_compost_morning_limit_bonus;
+	}
+
+	return 0;
 };
 
 building_tooltip_detail_get = function()
@@ -1866,9 +2038,15 @@ building_tooltip_detail_get = function()
 
 	if (object_index == o_shell_factory)
 	{
+		var _hellcow_limit = shell_factory_morning_projectile_limit_get(PROJECTILE_TYPE.BOMB);
+		var _first_aid_limit = shell_factory_morning_projectile_limit_get(PROJECTILE_TYPE.HEAL);
+		var _taint_compost_limit = shell_factory_morning_projectile_limit_get(PROJECTILE_TYPE.CORRUPTION);
+
 		return "Uses " + string(BALANCE_SHELL_FACTORY_SOUL_COST) + " Souls + "
-			+ string(BALANCE_SHELL_FACTORY_IRON_COST) + " Iron. Morning shells: "
-			+ string(shell_factory_morning_projectile_count_get()) + ". Bonus: "
+			+ string(BALANCE_SHELL_FACTORY_IRON_COST) + " Iron while staffed. Morning stockpile: "
+			+ string(_hellcow_limit) + " Hellcow, "
+			+ string(_first_aid_limit) + " First Aid Meat, "
+			+ string(_taint_compost_limit) + " Taint Compost. Bonus: "
 			+ production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
 	}
 

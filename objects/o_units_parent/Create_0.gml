@@ -128,6 +128,7 @@ demonic_infusion_timer = 0;
 demonic_infusion_reload_multiplier = 1;
 heal_feedback_pending_amount = 0;
 heal_feedback_next_popup_time = 0;
+last_heal_volley_id = -1;
 corpse_armor_bonus = 0;
 corpse_armor_timer = 0;
 corpse_armor_retaliation_damage = 0;
@@ -165,6 +166,9 @@ warlock_skeleton_explosion_enabled = false;
 warlock_skeleton_explosion_damage = 0;
 warlock_skeleton_respawn_chance = 0;
 warlock_skeleton_dies_at_morning = false;
+
+// Skeleton projectile summons last only until the next morning.
+projectile_skeleton_dies_at_morning = false;
 
 // Building work assignment lets valid friendly units stay at production buildings.
 assigned_building = noone;
@@ -352,6 +356,12 @@ face_world_x = function(_target_x)
 target_can_be_attacked = function(_target)
 {
 	if (!instance_exists(_target))
+	{
+		return false;
+	}
+
+	// Hidden and undeployed units are outside combat targeting.
+	if (variable_instance_exists(_target, "unit_faction") && !_target.visible)
 	{
 		return false;
 	}
@@ -1765,6 +1775,68 @@ target_candidate_should_replace = function(_candidate_distance_squared, _nearest
 	var _required_distance = max(0, _nearest_distance - target_switch_distance_margin);
 
 	return _candidate_distance_squared < _required_distance * _required_distance;
+};
+
+find_nearest_enemy_unit_target = function(_max_distance)
+{
+	var _nearest_target = noone;
+	var _nearest_distance_squared = _max_distance * _max_distance;
+	var _enemy_count = instance_number(o_enemy_units);
+	var _use_switch_margin = false;
+
+	// Keep the current enemy-unit target when it is still nearby.
+	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	{
+		var _enemy = instance_find(o_enemy_units, _enemy_index);
+
+		if (_enemy != target_instance || !target_can_be_attacked(_enemy))
+		{
+			continue;
+		}
+
+		var _current_distance_x = _enemy.x - x;
+		var _current_distance_y = _enemy.y - y;
+		var _current_distance_squared = (_current_distance_x * _current_distance_x)
+			+ (_current_distance_y * _current_distance_y);
+
+		if (_current_distance_squared <= _nearest_distance_squared)
+		{
+			_nearest_target = _enemy;
+			_nearest_distance_squared = _current_distance_squared;
+			_use_switch_margin = true;
+		}
+
+		break;
+	}
+
+	// Switch only when another enemy is clearly closer than the current one.
+	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	{
+		var _enemy = instance_find(o_enemy_units, _enemy_index);
+
+		if (_enemy == _nearest_target || !target_can_be_attacked(_enemy))
+		{
+			continue;
+		}
+
+		var _enemy_distance_x = _enemy.x - x;
+		var _enemy_distance_y = _enemy.y - y;
+		var _enemy_distance_squared = (_enemy_distance_x * _enemy_distance_x)
+			+ (_enemy_distance_y * _enemy_distance_y);
+
+		if (target_candidate_should_replace(
+			_enemy_distance_squared,
+			_nearest_distance_squared,
+			_use_switch_margin
+		))
+		{
+			_nearest_target = _enemy;
+			_nearest_distance_squared = _enemy_distance_squared;
+			_use_switch_margin = false;
+		}
+	}
+
+	return _nearest_target;
 };
 
 target_is_player_unit = function(_target)

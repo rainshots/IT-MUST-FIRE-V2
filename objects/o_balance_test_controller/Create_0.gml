@@ -94,9 +94,9 @@ global.sound_play_random = function(_sounds, _priority = 0)
 
 friendly_test_units = [
 	{ name: "SKELETON BONELET", object_index: o_skeleton_bonelet, count: 10 },
-	{ name: "SKELETON WARRIOR", object_index: o_skeleton_warrior, count: 10 },
-	{ name: "SKELETON ARCHER", object_index: o_skeleton_archer, count: 10 },
-	{ name: "SKELETON MAGE", object_index: o_skeleton_mage, count: 10 },
+	{ name: "BONE WARRIOR", object_index: o_skeleton_warrior, count: 10 },
+	{ name: "BONE ARCHER", object_index: o_skeleton_archer, count: 10 },
+	{ name: "BONE MAGE", object_index: o_skeleton_mage, count: 10 },
 	{ name: "MAWLING", object_index: o_mawling, count: 5 },
 	{ name: "PITLING", object_index: o_pitling, count: 5 },
 	{ name: "SUCCUBUS", object_index: o_succubus, count: 5 },

@@ -1,3 +1,9 @@
+if (variable_global_exists("blood_moon_reward_popup_active")
+	&& global.blood_moon_reward_popup_active)
+{
+	exit;
+}
+
 // Draw inherited tooltip, then show the current morning production count.
 event_inherited();
 

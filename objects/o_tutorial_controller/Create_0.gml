@@ -9,6 +9,17 @@ current_body = "";
 current_hint_id = "";
 tutorial_queue = array_create(0);
 tutorial_seen_ids = array_create(0);
+// These hints are temporarily disabled but remain registered for easy restoration.
+tutorial_disabled_ids = [
+	"meat_bath_needed",
+	"workers",
+	"production_bonus",
+	"building_upgrades",
+	"cannon_workers",
+	"stamina",
+	"day_after_night",
+	"infection"
+];
 
 // Popup layout in GUI coordinates.
 popup_width = 680;
@@ -26,23 +37,21 @@ construction_window_was_open = false;
 previous_day_phase = global.day_phase;
 tutorial_start_delay_timer = 2;
 
-var _shrine_objective_name = BALANCE_SHRINE_OBJECTIVE_REQUIRED == 1 ? " Shrine" : " Shrines";
-
 tutorial_items = [
 	{
 		id: "welcome",
 		title: "Welcome",
-		body: "Greetings, Great Pontiff! This is the prototype of IT MUST FIRE. You lead a cult that worships a possessed cannon with a demon sealed inside.\n\nYour goal: destroy " + string(BALANCE_SHRINE_OBJECTIVE_REQUIRED) + _shrine_objective_name + " while keeping your settlement walls from falling."
+		body: "Greetings, Great Pontiff! This is the prototype of IT MUST FIRE. You lead a cult that worships a possessed cannon with a demon sealed inside.\n\nYour goal: Survive 12 days."
 	},
 	{
 		id: "construction_start",
 		title: "Construction",
-		body: "To build, hover over any building pictogram in your settlement and press the left mouse button. Choose a building to create a construction event requiring 2 Cultists."
+		body: "To build, hover over any building pictogram in your settlement and press the left mouse button. Choose a building to create a construction event requiring 1 Cultist."
 	},
 	{
 		id: "buildings",
 		title: "Buildings",
-		body: "There are several building types. Some produce the three main resources: iron, flesh, and souls. Others summon unholy creatures, heal cultists, repair walls, and provide other services.\n\nConstruction does not cost resources. Each selected building creates an Assign Duties event that requires 2 Cultists.\n\nTo begin, I recommend building a Ritual Circle so your cultists can gain some XP."
+		body: "There are several building types. Some produce the three main resources: iron, flesh, and souls. Others summon unholy creatures, heal cultists, repair walls, and provide other services.\n\nConstruction does not cost resources. Each selected building creates an Assign Duties event that requires 1 Cultist.\n\nTo begin, I recommend building a Blood Bath so your cultists can recover after battle."
 	},
 	{
 		id: "meat_bath_needed",
@@ -100,14 +109,9 @@ tutorial_items = [
 		body: "The map has special pictogram points. Spread Taint until it reaches one of these points, then you can summon a structure there."
 	},
 	{
-		id: "holy_ground",
-		title: "Holy Ground",
-		body: "Holy Ground appears around all enemy structures: Houses, Towers, and Shrines.\n\nHoly Ground cannot be tainted. To remove it, destroy its source building."
-	},
-	{
 		id: "full_moon_night",
 		title: "Blood Moon",
-		body: "The Blood Moon rises tonight. Enemies will attack as usual, but the night's difficulty is 20% higher.\n\nYou can still fire Cultists and combat units from the cannon. The Blood Moon ends only after the entire attack is defeated.\n\nSurvive tonight, and tomorrow morning 2 new Cultists will be summoned, up to your current Cultist limit."
+		body: "The Blood Moon rises tonight. Enemies will attack as usual, but the night's difficulty is 20% higher.\n\nYou can still fire Cultists and combat units from the cannon. The Blood Moon ends only after the entire attack is defeated.\n\nSurvive tonight, and tomorrow morning 2 new Cultists will be summoned, up to your Cultist limit."
 	}
 ];
 
@@ -118,6 +122,21 @@ tutorial_seen_has = function(_hint_id)
 	for (var _seen_index = 0; _seen_index < _seen_count; ++_seen_index)
 	{
 		if (tutorial_seen_ids[_seen_index] == _hint_id)
+		{
+			return true;
+		}
+	}
+
+	return false;
+};
+
+tutorial_is_disabled = function(_hint_id)
+{
+	var _disabled_count = array_length(tutorial_disabled_ids);
+
+	for (var _disabled_index = 0; _disabled_index < _disabled_count; ++_disabled_index)
+	{
+		if (tutorial_disabled_ids[_disabled_index] == _hint_id)
 		{
 			return true;
 		}
@@ -182,7 +201,7 @@ tutorial_show_next = function()
 
 tutorial_trigger = function(_hint_id)
 {
-	if (tutorial_seen_has(_hint_id))
+	if (tutorial_is_disabled(_hint_id) || tutorial_seen_has(_hint_id))
 	{
 		return;
 	}

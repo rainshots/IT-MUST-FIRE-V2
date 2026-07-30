@@ -112,10 +112,31 @@ if (global.blood_moon_reward_popup_active)
 	exit;
 }
 
+// Keep the modal focus until the acknowledgement input is released.
+if (blood_moon_reward_focus_restore_pending)
+{
+	if (mouse_check_button(mb_left)
+		|| keyboard_check(vk_enter)
+		|| keyboard_check(vk_space))
+	{
+		exit;
+	}
+
+	blood_moon_reward_modal_state_restore();
+}
+
 // Tutorial popups block every lower gameplay and UI input.
 if (variable_global_exists("tutorial_popup_active") && global.tutorial_popup_active)
 {
 	exit;
+}
+
+// Q toggles quadruple simulation speed while the night is active.
+if (!global.pause
+	&& global.day_phase == DAY_PHASE.NIGHT
+	&& keyboard_check_pressed(ord("Q")))
+{
+	night_fast_forward_set(!night_fast_forward_active);
 }
 
 // F3 toggles fog visibility for fast map testing.
@@ -268,6 +289,9 @@ full_moon_hint_delay_update();
 // Keep every night squad marker centered between its surviving units.
 squad_night_markers_update();
 
+// World event squad selectors block gameplay input while their dropdown is open.
+world_event_squad_selector_input_update();
+
 // Allow the player to pick up and reposition cultists during gameplay.
 if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("archdemons") && instance_exists(o_camera_controller))
 {
@@ -284,6 +308,53 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("archdem
 	var _minimap_camera_clicked = false;
 	var _artifact_clicked = false;
 	var _squad_marker_input_handled = false;
+
+	// Day HUD buttons have priority over every world interaction beneath their GUI rectangles.
+	if (global.day_phase == DAY_PHASE.DAY
+		&& mouse_check_button_pressed(mb_left)
+		&& instance_exists(o_jobs_ui))
+	{
+		var _jobs_ui = instance_find(o_jobs_ui, 0);
+		var _jobs_show_rect = _jobs_ui.jobs_show_button_rect_get();
+		var _jobs_end_rect = _jobs_ui.jobs_end_day_button_rect_get();
+		var _jobs_show_button_clicked = point_in_rectangle(
+			_mouse_gui_x,
+			_mouse_gui_y,
+			_jobs_show_rect.x,
+			_jobs_show_rect.y,
+			_jobs_show_rect.x + _jobs_show_rect.width,
+			_jobs_show_rect.y + _jobs_show_rect.height
+		);
+		var _jobs_end_button_clicked = point_in_rectangle(
+			_mouse_gui_x,
+			_mouse_gui_y,
+			_jobs_end_rect.x,
+			_jobs_end_rect.y,
+			_jobs_end_rect.x + _jobs_end_rect.width,
+			_jobs_end_rect.y + _jobs_end_rect.height
+		);
+
+		if (_jobs_show_button_clicked)
+		{
+			if (_jobs_ui.jobs_window_open()
+				&& variable_global_exists("ui_confirm_sound_play"))
+			{
+				global.ui_confirm_sound_play();
+			}
+
+			exit;
+		}
+		else if (_jobs_end_button_clicked)
+		{
+			if (_jobs_ui.jobs_end_day_request()
+				&& variable_global_exists("ui_confirm_sound_play"))
+			{
+				global.ui_confirm_sound_play();
+			}
+
+			exit;
+		}
+	}
 
 	// Night squad markers move every surviving member toward one shared cursor target.
 	if (global.day_phase == DAY_PHASE.NIGHT)
@@ -458,16 +529,33 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("archdem
 		_dragged_cultist.drag_drop_x = _drag_world_x;
 		_dragged_cultist.drag_drop_y = _drop_world_y;
 
-		global.cultist_assignment_preview_building = find_worker_building_at_position(_drag_world_x, _assignment_world_y);
+		var _is_event_worker = _dragged_cultist.object_index == o_cultist;
 
-		if (_dragged_cultist.object_index == o_goblin
+		if (_is_event_worker)
+		{
+			global.cultist_assignment_preview_building = day_event_source_find_at_position(
+				_drag_world_x,
+				_assignment_world_y
+			);
+		}
+		else
+		{
+			global.cultist_assignment_preview_building = find_worker_building_at_position(
+				_drag_world_x,
+				_assignment_world_y
+			);
+		}
+
+		if (!_is_event_worker
+			&& _dragged_cultist.object_index == o_goblin
 			&& instance_exists(global.cultist_assignment_preview_building)
 			&& global.cultist_assignment_preview_building.object_index == o_ritual_circle)
 		{
 			global.cultist_assignment_preview_building = noone;
 		}
 
-		if (instance_exists(global.cultist_assignment_preview_building)
+		if (!_is_event_worker
+			&& instance_exists(global.cultist_assignment_preview_building)
 			&& day_worker_is_out_of_stamina(_dragged_cultist)
 			&& global.cultist_assignment_preview_building.object_index != o_ritual_circle
 			&& global.cultist_assignment_preview_building.object_index != o_meat_bath
@@ -480,13 +568,43 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("archdem
 		if (!mouse_check_button(mb_left))
 		{
 			var _drop_building = global.cultist_assignment_preview_building;
-			var _was_assigned_to_building = assign_cultist_to_worker_building(_dragged_cultist, _drop_building);
+			var _was_assigned_to_building = false;
 
-			if (!_was_assigned_to_building)
+			if (_is_event_worker)
+			{
+				if (instance_exists(_drop_building))
+				{
+					_was_assigned_to_building = day_event_worker_assign_to_source(
+						_dragged_cultist,
+						_drop_building
+					);
+				}
+				else
+				{
+					// Dropping away from every event building removes the Jobs assignment.
+					day_event_worker_unassign(_dragged_cultist);
+					_was_assigned_to_building = true;
+				}
+			}
+			else
+			{
+				_was_assigned_to_building = assign_cultist_to_worker_building(
+					_dragged_cultist,
+					_drop_building
+				);
+			}
+
+			if (!_was_assigned_to_building && !_is_event_worker)
 			{
 				_dragged_cultist.x = _dragged_cultist.drag_drop_x;
 				_dragged_cultist.y = _dragged_cultist.drag_drop_y;
 				demon_manual_structure_target_assign_near_drop(_dragged_cultist);
+			}
+			else if (_is_event_worker)
+			{
+				// Remove the cursor lift before the worker starts walking or wandering.
+				_dragged_cultist.x = _dragged_cultist.drag_drop_x;
+				_dragged_cultist.y = _dragged_cultist.drag_drop_y;
 			}
 
 			_dragged_cultist.is_being_dragged = false;
@@ -537,6 +655,38 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("archdem
 				{
 					_closest_distance = _distance_to_archdemon;
 					_closest_cultist = _cultist;
+				}
+			}
+		}
+
+		if (global.day_phase == DAY_PHASE.DAY
+			&& variable_global_exists("event_cultists")
+			&& is_array(global.event_cultists))
+		{
+			var _event_cultist_count = array_length(global.event_cultists);
+
+			for (var _event_cultist_index = 0; _event_cultist_index < _event_cultist_count; ++_event_cultist_index)
+			{
+				var _event_cultist = global.event_cultists[_event_cultist_index];
+
+				if (drag_cultist_can_be_picked(_event_cultist)
+					&& _mouse_world_x >= _event_cultist.bbox_left
+					&& _mouse_world_x <= _event_cultist.bbox_right
+					&& _mouse_world_y >= _event_cultist.bbox_top
+					&& _mouse_world_y <= _event_cultist.bbox_bottom)
+				{
+					var _distance_to_event_cultist = point_distance(
+						_mouse_world_x,
+						_mouse_world_y,
+						_event_cultist.x,
+						_event_cultist.y
+					);
+
+					if (_distance_to_event_cultist < _closest_distance)
+					{
+						_closest_distance = _distance_to_event_cultist;
+						_closest_cultist = _event_cultist;
+					}
 				}
 			}
 		}
@@ -955,6 +1105,18 @@ if (keyboard_check_pressed(vk_escape))
 			_jobs_ui.jobs_window_close();
 		}
 	}
+	else if (global.focus_window == FOCUS_WINDOW.END_DAY_CONFIRMATION)
+	{
+		if (instance_exists(o_jobs_ui))
+		{
+			var _jobs_ui = instance_find(o_jobs_ui, 0);
+			_jobs_ui.jobs_end_day_confirmation_close();
+		}
+	}
+	else if (global.focus_window == FOCUS_WINDOW.WORLD_EVENT_SQUAD_SELECTION)
+	{
+		world_event_squad_selector_close();
+	}
 	else if (global.focus_window == FOCUS_WINDOW.PAUSE_MENU)
 	{
 		pause_menu_open = false;
@@ -975,7 +1137,7 @@ if (keyboard_check_pressed(vk_escape))
 // Play UI feedback for the currently hovered or clicked button.
 ui_audio_update();
 
-// Track elapsed night time, but never force Blood Moon to end by timer.
+// Track elapsed night time, but never force Blood Moon or boss nights to end by timer.
 if (!global.pause && global.day_cycle_enabled)
 {
 	var _blood_moon_is_active = variable_global_exists("full_moon_night_active")
@@ -985,7 +1147,9 @@ if (!global.pause && global.day_cycle_enabled)
 	{
 		global.day_timer = max(global.day_timer - 1, 0);
 
-		if (!_blood_moon_is_active && !night_force_end_active)
+		if (!_blood_moon_is_active
+			&& !boss_griffith_night_active
+			&& !night_force_end_active)
 		{
 			night_force_end_timer = max(night_force_end_timer - 1, 0);
 
@@ -1001,26 +1165,70 @@ if (!global.pause && global.day_cycle_enabled)
 
 cannon_corrupted_ground_damage_update();
 
-// Demolish a hovered base building and return its empty construction slot.
-if (keyboard_check_pressed(ord("T"))
+// Handle hover-card Reroll and Pin hotkeys before the legacy demolition action.
+var _building_reroll_key_pressed = keyboard_check_pressed(ord("R"));
+var _building_pin_key_pressed = keyboard_check_pressed(ord("T"));
+
+if ((_building_reroll_key_pressed || _building_pin_key_pressed)
+	&& global.day_phase == DAY_PHASE.DAY
 	&& global.focus_window == FOCUS_WINDOW.NOONE
+	&& !global.pause
 	&& !instance_exists(global.dragged_cultist)
 	&& instance_exists(o_camera_controller))
 {
-	var _demolish_camera_controller = instance_find(o_camera_controller, 0);
-	var _demolish_mouse_gui_x = device_mouse_x_to_gui(0);
-	var _demolish_mouse_gui_y = device_mouse_y_to_gui(0);
-	var _demolish_camera_x = camera_get_view_x(_demolish_camera_controller.camera_id);
-	var _demolish_camera_y = camera_get_view_y(_demolish_camera_controller.camera_id);
-	var _demolish_camera_width = camera_get_view_width(_demolish_camera_controller.camera_id);
-	var _demolish_camera_height = camera_get_view_height(_demolish_camera_controller.camera_id);
-	var _demolish_mouse_world_x = _demolish_camera_x + ((_demolish_mouse_gui_x / camera_view_width) * _demolish_camera_width);
-	var _demolish_mouse_world_y = _demolish_camera_y + ((_demolish_mouse_gui_y / camera_view_height) * _demolish_camera_height);
-	var _demolish_building = find_demolishable_building_at_position(_demolish_mouse_world_x, _demolish_mouse_world_y);
+	var _action_camera_controller = instance_find(o_camera_controller, 0);
+	var _action_mouse_gui_x = device_mouse_x_to_gui(0);
+	var _action_mouse_gui_y = device_mouse_y_to_gui(0);
+	var _action_camera_x = camera_get_view_x(_action_camera_controller.camera_id);
+	var _action_camera_y = camera_get_view_y(_action_camera_controller.camera_id);
+	var _action_camera_width = camera_get_view_width(_action_camera_controller.camera_id);
+	var _action_camera_height = camera_get_view_height(_action_camera_controller.camera_id);
+	var _action_mouse_world_x = _action_camera_x
+		+ ((_action_mouse_gui_x / camera_view_width) * _action_camera_width);
+	var _action_mouse_world_y = _action_camera_y
+		+ ((_action_mouse_gui_y / camera_view_height) * _action_camera_height);
+	var _action_building = find_building_events_at_position(
+		_action_mouse_world_x,
+		_action_mouse_world_y
+	);
+	var _action_event = day_event_source_event_get(_action_building);
+	var _event_action_changed = false;
 
-	if (instance_exists(_demolish_building))
+	if (day_event_building_action_is_available(_action_event))
 	{
-		_demolish_building.building_demolish();
+		if (_building_reroll_key_pressed && !global.day_event_reroll_used_today)
+		{
+			_event_action_changed = day_event_reroll(_action_event);
+		}
+		else if (_building_pin_key_pressed)
+		{
+			if (day_event_pin_is_event(_action_event))
+			{
+				_event_action_changed = day_event_pin_clear();
+			}
+			else if (!day_event_pin_is_active())
+			{
+				_event_action_changed = day_event_pin_set(_action_event);
+			}
+		}
+	}
+	else if (_building_pin_key_pressed)
+	{
+		// Buildings without an event card retain the existing demolition shortcut.
+		var _demolish_building = find_demolishable_building_at_position(
+			_action_mouse_world_x,
+			_action_mouse_world_y
+		);
+
+		if (instance_exists(_demolish_building))
+		{
+			_demolish_building.building_demolish();
+		}
+	}
+
+	if (_event_action_changed && variable_global_exists("ui_confirm_sound_play"))
+	{
+		global.ui_confirm_sound_play();
 	}
 }
 
@@ -1090,9 +1298,27 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION && mouse_check_but
 // The building event catalog is informational; only closing and scrolling are allowed.
 if (global.focus_window == FOCUS_WINDOW.BUILDING_EVENTS)
 {
-	var _event_row_count = ceil(array_length(building_events_window_entries) / building_events_card_columns);
-	var _visible_row_count = 3;
-	var _max_scroll_row = max(0, _event_row_count - _visible_row_count);
+	var _events_gui_width = display_get_gui_width();
+	var _events_gui_height = display_get_gui_height();
+	var _events_scale = min(_events_gui_width / 1920, _events_gui_height / 1080);
+	var _events_panel_width = 1112 * _events_scale;
+	var _events_panel_height = 898 * _events_scale;
+	var _events_panel_x = (_events_gui_width - _events_panel_width) * 0.5;
+	var _events_panel_y = 69 * _events_scale;
+	var _events_start_y = _events_panel_y + (141 * _events_scale);
+	var _events_step = 114 * _events_scale;
+	var _events_current_gap = is_struct(building_events_window_current_event)
+		? 40 * _events_scale
+		: 0;
+	var _events_viewport_height = _events_panel_y + _events_panel_height
+		- (24 * _events_scale)
+		- _events_start_y;
+	var _events_content_height = (array_length(building_events_window_entries) * _events_step)
+		+ _events_current_gap;
+	var _max_scroll_row = ceil(
+		max(0, _events_content_height - _events_viewport_height)
+		/ max(1, _events_step)
+	);
 
 	if (mouse_wheel_up())
 	{
@@ -1114,11 +1340,9 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_EVENTS)
 
 		var _mouse_x = device_mouse_x_to_gui(0);
 		var _mouse_y = device_mouse_y_to_gui(0);
-		var _panel_x = (camera_view_width - building_events_window_width) * 0.5;
-		var _panel_y = (camera_view_height - building_events_window_height) * 0.5;
-		var _close_size = 34;
-		var _close_x = _panel_x + building_events_window_width - _close_size - 14;
-		var _close_y = _panel_y + 14;
+		var _close_size = 56 * _events_scale;
+		var _close_x = _events_panel_x + _events_panel_width - (64 * _events_scale);
+		var _close_y = _events_panel_y + (10 * _events_scale);
 
 		if (_mouse_x >= _close_x && _mouse_x <= _close_x + _close_size
 			&& _mouse_y >= _close_y && _mouse_y <= _close_y + _close_size)
@@ -1487,15 +1711,6 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && mouse_check_button_p
 
 		if (_target_can_be_confirmed)
 		{
-			if (target_selection_projectile_type == PROJECTILE_TYPE.CULTIST
-				&& variable_global_exists("full_moon_night_active")
-				&& global.full_moon_night_active
-				&& instance_exists(o_cannon))
-			{
-				var _attack_cannon = instance_find(o_cannon, 0);
-				global.full_moon_attack_direction = point_direction(_attack_cannon.x, _attack_cannon.y, _target_world_x, _target_world_y);
-			}
-
 			global.cannon_target_exists = true;
 			global.cannon_target_x = _target_world_x;
 			global.cannon_target_y = _target_world_y;

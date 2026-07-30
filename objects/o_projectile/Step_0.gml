@@ -247,9 +247,18 @@ if (_flight_progress >= 1)
 				|| !_friendly_is_in_same_test
 				|| !variable_instance_exists(_friendly, "hp")
 				|| !variable_instance_exists(_friendly, "max_hp")
-				|| _friendly.max_hp <= 0)
+				|| _friendly.max_hp <= 0
+				|| (heal_volley_id >= 0
+					&& variable_instance_exists(_friendly, "last_heal_volley_id")
+					&& _friendly.last_heal_volley_id == heal_volley_id))
 			{
 				continue;
+			}
+
+			// Each unit can receive healing from only one shell in this volley.
+			if (heal_volley_id >= 0)
+			{
+				_friendly.last_heal_volley_id = heal_volley_id;
 			}
 
 			var _hp_before_heal = _friendly.hp;
@@ -284,9 +293,18 @@ if (_flight_progress >= 1)
 					|| !variable_instance_exists(_cultist, "hp")
 					|| !variable_instance_exists(_cultist, "max_hp")
 					|| _cultist.max_hp <= 0
-					|| point_distance(_cultist.x, _cultist.y, target_x, target_y) > effect_radius)
+					|| point_distance(_cultist.x, _cultist.y, target_x, target_y) > effect_radius
+					|| (heal_volley_id >= 0
+						&& variable_instance_exists(_cultist, "last_heal_volley_id")
+						&& _cultist.last_heal_volley_id == heal_volley_id))
 				{
 					continue;
+				}
+
+				// Each archdemon can receive healing from only one shell in this volley.
+				if (heal_volley_id >= 0)
+				{
+					_cultist.last_heal_volley_id = heal_volley_id;
 				}
 
 				var _cultist_hp_before_heal = _cultist.hp;
@@ -412,7 +430,13 @@ if (_flight_progress >= 1)
 			{
 				if (variable_instance_exists(id, "unit_damage_receive"))
 				{
-					unit_damage_receive(other.damage_amount, UNIT_FACTION.NOONE, false, true, other.source_instance);
+					unit_damage_receive(
+						other.damage_amount,
+						other.damage_faction,
+						false,
+						true,
+						other.source_instance
+					);
 				}
 				else
 				{
@@ -438,6 +462,7 @@ if (_flight_progress >= 1)
 
 			if (instance_exists(_skeleton))
 			{
+				_skeleton.projectile_skeleton_dies_at_morning = true;
 				_skeleton.regroup_is_active = false;
 				_skeleton.rally_is_active = false;
 				_skeleton.target_instance = noone;

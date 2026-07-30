@@ -102,14 +102,6 @@ target_version = -1;
 // Cannon fades when a worker is hidden by the upper part of its sprite.
 hidden_worker_alpha = BALANCE_CANNON_HIDDEN_WORKER_ALPHA;
 hidden_worker_front_offset_y = BALANCE_CANNON_HIDDEN_WORKER_FRONT_OFFSET_Y;
-hauler_prompt_text = "Assign workers to the cannon to carry the corpses. \n(Drag any worker right on cannon)";
-hauler_prompt_offset_y = BALANCE_CANNON_HAULER_PROMPT_OFFSET_Y;
-hauler_prompt_padding_x = BALANCE_CANNON_HAULER_PROMPT_PADDING_X;
-hauler_prompt_padding_y = BALANCE_CANNON_HAULER_PROMPT_PADDING_Y;
-hauler_prompt_background_alpha = BALANCE_CANNON_HAULER_PROMPT_BACKGROUND_ALPHA;
-hauler_prompt_shake_interval = BALANCE_CANNON_HAULER_PROMPT_SHAKE_INTERVAL;
-hauler_prompt_shake_time = BALANCE_CANNON_HAULER_PROMPT_SHAKE_TIME;
-hauler_prompt_shake_strength = BALANCE_CANNON_HAULER_PROMPT_SHAKE_STRENGTH;
 
 // Projectile settings passed to created projectile instances.
 projectile_effect_radius = BALANCE_PROJECTILE_EFFECT_RADIUS;
@@ -167,6 +159,8 @@ cannon_agony_projectile_create = function(_target_x, _target_y, _projectile_type
 	_projectile.target_x = _target_x;
 	_projectile.target_y = _target_y;
 	_projectile.projectile_type = _projectile_type;
+	_projectile.damage_faction = UNIT_FACTION.FRIENDLY;
+	_projectile.source_instance = id;
 	_projectile.ignore_pause = global.pause;
 	_projectile.launch_delay_timer = _launch_delay_seconds * room_speed;
 	_projectile.flight_time = _flight_time_seconds * room_speed;
@@ -763,6 +757,14 @@ cannon_projectile_heal_amount_get = function()
 	return _heal_amount * _shell_factory_multiplier;
 };
 
+cannon_projectile_heal_radius_get = function()
+{
+	var _shell_factory_multiplier = 1
+		+ (global.shell_factory_first_aid_heal_upgrade_count * BALANCE_SHELL_FACTORY_UPGRADE_BONUS);
+
+	return BALANCE_PROJECTILE_HEAL_RADIUS * _shell_factory_multiplier;
+};
+
 building_upgrade_description_get = function(_upgrade_index)
 {
 	var _level = building_upgrade_levels[_upgrade_index];
@@ -968,23 +970,6 @@ cannon_assigned_worker_exists = function()
 	}
 
 	return false;
-};
-
-cannon_should_show_hauler_prompt = function()
-{
-	if (global.day_phase != DAY_PHASE.DAY
-		|| !instance_exists(o_game_controller)
-		|| cannon_assigned_worker_exists())
-	{
-		return false;
-	}
-
-	var _game_controller = instance_find(o_game_controller, 0);
-
-	return variable_instance_exists(_game_controller, "night_attack_night_index")
-		&& _game_controller.night_attack_night_index >= 2
-		&& variable_instance_exists(_game_controller, "corpse_available_for_hauling_exists")
-		&& _game_controller.corpse_available_for_hauling_exists();
 };
 
 settlement_expansion_visual_update();

@@ -25,54 +25,6 @@ if (variable_global_exists("cultist_assignment_preview_building")
 	);
 }
 
-var _building_is_hovered = global.focus_window == FOCUS_WINDOW.NOONE
-	&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active)
-	&& building_is_mouse_hovered();
-
-// Every constructed building opens a read-only catalog of its possible events.
-if (_building_is_hovered)
-{
-	var _prompt_width = string_width(events_prompt_text) + (events_prompt_padding_x * 2);
-	var _prompt_height = string_height(events_prompt_text) + (events_prompt_padding_y * 2);
-	var _prompt_x = x - (_prompt_width * 0.5);
-	var _prompt_y = bbox_bottom + events_prompt_offset_y;
-
-	draw_set_alpha(events_prompt_background_alpha);
-	draw_set_color(COLOR_HUD_BACKGROUND);
-	draw_rectangle(_prompt_x, _prompt_y, _prompt_x + _prompt_width, _prompt_y + _prompt_height, false);
-
-	draw_set_alpha(1);
-	draw_set_halign(fa_center);
-	draw_set_valign(fa_middle);
-	draw_set_color(COLOR_HUD_IRON);
-	draw_text(x, _prompt_y + (_prompt_height * 0.5), events_prompt_text);
-}
-
-// Show demolition prompt under base buildings.
-if (_building_is_hovered)
-{
-	var _demolish_prompt_width = string_width(demolish_prompt_text) + (demolish_prompt_padding_x * 2);
-	var _demolish_prompt_height = string_height(demolish_prompt_text) + (demolish_prompt_padding_y * 2);
-	var _demolish_prompt_x = x - (_demolish_prompt_width * 0.5);
-	var _demolish_prompt_y = bbox_bottom + demolish_prompt_offset_y;
-
-	draw_set_alpha(demolish_prompt_background_alpha);
-	draw_set_color(COLOR_HUD_BACKGROUND);
-	draw_rectangle(
-		_demolish_prompt_x,
-		_demolish_prompt_y,
-		_demolish_prompt_x + _demolish_prompt_width,
-		_demolish_prompt_y + _demolish_prompt_height,
-		false
-	);
-
-	draw_set_alpha(1);
-	draw_set_halign(fa_center);
-	draw_set_valign(fa_middle);
-	draw_set_color(COLOR_STATUS_NEGATIVE_RED);
-	draw_text(x, _demolish_prompt_y + (_demolish_prompt_height * 0.5), demolish_prompt_text);
-}
-
 // Draw building warnings above the production UI.
 if (building_warning_timer > 0 && building_warning_text != "")
 {

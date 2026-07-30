@@ -1,6 +1,32 @@
-// Regular cultists wander near the cannon only during the day.
-if (global.pause || global.day_phase != DAY_PHASE.DAY || hp <= 0 || !instance_exists(o_cannon))
+// Cultists die as soon as any source reduces their HP to zero.
+if (hp <= 0)
 {
+	day_event_cultist_death_remove(id);
+	exit;
+}
+
+// Regular cultists wander near the cannon only during the day.
+if (global.pause || global.day_phase != DAY_PHASE.DAY || !instance_exists(o_cannon))
+{
+	exit;
+}
+
+// The game controller owns the position while the cultist follows the cursor.
+if (is_being_dragged)
+{
+	exit;
+}
+
+// Jobs assignments replace random wandering with movement to the event's world anchor.
+if (is_struct(assigned_event) && instance_exists(o_game_controller))
+{
+	var _game_controller = instance_find(o_game_controller, 0);
+
+	if (variable_instance_exists(_game_controller, "day_event_worker_position_update"))
+	{
+		_game_controller.day_event_worker_position_update(id);
+	}
+
 	exit;
 }
 

@@ -37,7 +37,7 @@ hud_squad_at_gui_position = function(_mouse_x, _mouse_y)
 	var _card_height = 145 * _scale;
 	var _card_gap = 19 * _scale;
 	var _card_start_x = 53 * _scale;
-	var _card_y = 42 * _scale;
+	var _card_y = 58 * _scale;
 	var _card_index = 0;
 	var _squad_count = array_length(global.squads);
 
@@ -173,17 +173,17 @@ hud_unit_display_name_get = function(_unit_object)
 
 	if (_unit_object == o_skeleton_warrior)
 	{
-		return "Skeleton Warrior";
+		return "Bone Warrior";
 	}
 
 	if (_unit_object == o_skeleton_archer)
 	{
-		return "Skeleton Archer";
+		return "Bone Archer";
 	}
 
 	if (_unit_object == o_skeleton_mage)
 	{
-		return "Skeleton Mage";
+		return "Bone Mage";
 	}
 
 	if (_unit_object == o_skeleton_healer)
@@ -395,13 +395,11 @@ hud_squad_info_stat_draw = function(_label, _current_value, _base_value, _x, _y,
 	}
 };
 
-// Cannon HP follows the wide bottom-bar concept from the HUD design.
-cannon_hp_bar_width_share = 0.31875;
-cannon_hp_fill_height_share = 0.0236;
-cannon_hp_background_height_share = 0.01205;
-cannon_hp_bottom_margin_share = 0.0185;
-cannon_hp_background_offset_share = 0.006;
-cannon_hp_sidebar_gap = 16;
+// Cannon HP is centered against the top edge of the HUD.
+cannon_hp_bar_width_share = 0.375;
+cannon_hp_fill_height_share = 0.02778;
+cannon_hp_background_height_share = 0.01389;
+cannon_hp_background_top_share = 0.00741;
 cannon_hp_label = "CANNON HP";
 cannon_hp_label_scale = 0.5;
 
@@ -430,7 +428,7 @@ night_panel_visible_count = 11;
 night_panel_day_label_width = 150;
 night_panel_day_label_height = 48;
 cultist_counter_x = 53;
-cultist_counter_y = 203;
+cultist_counter_y = 219;
 cultist_counter_width = 167;
 cultist_counter_height = 80;
 cultist_counter_icon_x = 48;
@@ -797,7 +795,7 @@ corruption_minimap_label_scale = 0.8;
 
 // Projectile queue display at the bottom center of the HUD.
 projectile_queue_margin_bottom = 18;
-projectile_day_jobs_button_gap = 14;
+projectile_day_end_button_gap = 14;
 projectile_slot_width = 86;
 projectile_slot_height = 74;
 projectile_slot_gap = 8;
@@ -821,13 +819,13 @@ projectile_description_line_separation = 16;
 
 projectile_names = array_create(PROJECTILE_TYPE.COUNT, "");
 projectile_names[PROJECTILE_TYPE.DAMAGE] = "DAMAGE";
-projectile_names[PROJECTILE_TYPE.CORRUPTION] = "CORRUPTION";
+projectile_names[PROJECTILE_TYPE.CORRUPTION] = "TAINT";
 projectile_names[PROJECTILE_TYPE.SUMMON] = "SUMMON";
 projectile_names[PROJECTILE_TYPE.RALLY] = "RALLY";
 projectile_names[PROJECTILE_TYPE.CULTIST] = "CULTIST";
 projectile_names[PROJECTILE_TYPE.FEAST] = "TAINT";
-projectile_names[PROJECTILE_TYPE.HEAL] = "HEAL";
-projectile_names[PROJECTILE_TYPE.BOMB] = "BOMB";
+projectile_names[PROJECTILE_TYPE.HEAL] = "FIRST AID MEAT";
+projectile_names[PROJECTILE_TYPE.BOMB] = "HELLCOW";
 projectile_names[PROJECTILE_TYPE.SKELETONS] = "SKELETONS";
 projectile_names[PROJECTILE_TYPE.BUILDING_SHELL] = "STRUCTURE";
 projectile_names[PROJECTILE_TYPE.CLEANSE] = "CLEANSE";
@@ -835,12 +833,12 @@ projectile_names[PROJECTILE_TYPE.DOOM_BELL] = "DOOM BELL";
 
 projectile_descriptions = array_create(PROJECTILE_TYPE.COUNT, "");
 projectile_descriptions[PROJECTILE_TYPE.DAMAGE] = "Damages units and buildings inside the impact area.";
-projectile_descriptions[PROJECTILE_TYPE.CORRUPTION] = "Technical corruption impact used by map systems.";
+projectile_descriptions[PROJECTILE_TYPE.CORRUPTION] = "Taints the ground, giving the player's troops an advantage while fighting on it.";
 projectile_descriptions[PROJECTILE_TYPE.SUMMON] = "Summons friendly forces through valid target reactions.";
 projectile_descriptions[PROJECTILE_TYPE.RALLY] = "Sends half of nearby friendly units to the impact point.";
 projectile_descriptions[PROJECTILE_TYPE.CULTIST] = "Launches a cultist into battle, dealing impact damage and spawning demon form.";
 projectile_descriptions[PROJECTILE_TYPE.FEAST] = "Fires corpse-fed Taint impacts that spread Taint, damage enemies, and destroy Ihor Veins for Ihor.";
-projectile_descriptions[PROJECTILE_TYPE.HEAL] = "Restores " + string(BALANCE_PROJECTILE_HEAL_AMOUNT) + " health to all friendly units inside a " + string(BALANCE_PROJECTILE_HEAL_RADIUS) + " pixel radius. Payload Mastery improves it.";
+projectile_descriptions[PROJECTILE_TYPE.HEAL] = "Restores " + string(BALANCE_PROJECTILE_HEAL_AMOUNT) + " health to all friendly units inside a " + string(BALANCE_PROJECTILE_HEAL_RADIUS) + " pixel base radius. Each unit can be healed only once per volley. Payload Mastery improves healing; Tight tamping of meat improves healing and radius.";
 projectile_descriptions[PROJECTILE_TYPE.BOMB] = "Deals " + string(BALANCE_PROJECTILE_BOMB_DAMAGE_AMOUNT) + " damage to every unit inside a " + string(BALANCE_PROJECTILE_BOMB_RADIUS) + " pixel radius. Payload Mastery improves it.";
 projectile_descriptions[PROJECTILE_TYPE.SKELETONS] = "Summons " + string(BALANCE_PROJECTILE_SKELETON_COUNT) + " skeleton inside a " + string(BALANCE_PROJECTILE_SKELETON_RADIUS) + " pixel radius. Payload Mastery improves it.";
 projectile_descriptions[PROJECTILE_TYPE.BUILDING_SHELL] = "Builds its stored structure where it lands. Must be fired onto tainted ground.";

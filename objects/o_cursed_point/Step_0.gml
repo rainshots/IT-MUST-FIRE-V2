@@ -4,6 +4,12 @@ cursed_point_ground_state_update();
 // Handle an already opened structure choice even while gameplay is paused.
 if (structure_selection_open)
 {
+	if (global.day_phase != DAY_PHASE.DAY)
+	{
+		cursed_point_structure_selection_close();
+		exit;
+	}
+
 	if (global.focus_window != FOCUS_WINDOW.CURSED_POINT_STRUCTURE_SELECTION
 		|| !variable_global_exists("cursed_point_structure_selection_source")
 		|| global.cursed_point_structure_selection_source != id)
@@ -18,7 +24,7 @@ if (structure_selection_open)
 		var _mouse_y = device_mouse_y_to_gui(0);
 		var _hovered_choice = cursed_point_structure_choice_hover_index_get(_mouse_x, _mouse_y);
 
-		if (day_event_building_construction_can_start()
+		if (day_event_cursed_point_construction_can_start()
 			&& _hovered_choice >= 0
 			&& _hovered_choice < array_length(structure_choice_options))
 		{

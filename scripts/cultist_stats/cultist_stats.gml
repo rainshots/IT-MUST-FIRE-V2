@@ -193,10 +193,9 @@ function cultist_demon_scale_apply(_demon)
 	_demon.image_yscale = _y_direction * _demon.demon_base_image_yscale * _level_scale;
 }
 
-function cultist_exp_add(_cultist, _exp_amount, _apply_effectiveness = true)
+function cultist_level_add(_cultist)
 {
 	if (!instance_exists(_cultist)
-		|| !variable_instance_exists(_cultist, "current_exp")
 		|| !variable_instance_exists(_cultist, "current_lvl"))
 	{
 		return false;
@@ -220,6 +219,37 @@ function cultist_exp_add(_cultist, _exp_amount, _apply_effectiveness = true)
 	if (!variable_instance_exists(_cultist, "pending_ability_upgrade_choices"))
 	{
 		_cultist.pending_ability_upgrade_choices = 0;
+	}
+
+	// Apply every reward associated with gaining exactly one level.
+	_cultist.current_lvl++;
+	cultist_demon_scale_apply(_cultist);
+	_cultist.pending_level_points += BALANCE_CULTIST_ATTRIBUTE_POINTS_PER_LEVEL;
+
+	if (_cultist.current_lvl == BALANCE_CULTIST_PASSIVE_CHOICE_LEVEL_1
+		|| _cultist.current_lvl == BALANCE_CULTIST_PASSIVE_CHOICE_LEVEL_2)
+	{
+		_cultist.pending_passive_choices++;
+	}
+	else if (_cultist.current_lvl == BALANCE_CULTIST_ACTIVE_CHOICE_LEVEL)
+	{
+		_cultist.pending_active_choices++;
+	}
+	else if (_cultist.current_lvl >= 4 && array_length(cultist_ability_upgrade_options_roll(_cultist)) > 0)
+	{
+		_cultist.pending_ability_upgrade_choices++;
+	}
+
+	return true;
+}
+
+function cultist_exp_add(_cultist, _exp_amount, _apply_effectiveness = true)
+{
+	if (!instance_exists(_cultist)
+		|| !variable_instance_exists(_cultist, "current_exp")
+		|| !variable_instance_exists(_cultist, "current_lvl"))
+	{
+		return false;
 	}
 
 	var _leveled_up = false;
@@ -252,22 +282,10 @@ function cultist_exp_add(_cultist, _exp_amount, _apply_effectiveness = true)
 		}
 
 		_cultist.current_exp -= _required_exp;
-		_cultist.current_lvl++;
-		cultist_demon_scale_apply(_cultist);
-		_cultist.pending_level_points += BALANCE_CULTIST_ATTRIBUTE_POINTS_PER_LEVEL;
 
-		if (_cultist.current_lvl == BALANCE_CULTIST_PASSIVE_CHOICE_LEVEL_1
-			|| _cultist.current_lvl == BALANCE_CULTIST_PASSIVE_CHOICE_LEVEL_2)
+		if (!cultist_level_add(_cultist))
 		{
-			_cultist.pending_passive_choices++;
-		}
-		else if (_cultist.current_lvl == BALANCE_CULTIST_ACTIVE_CHOICE_LEVEL)
-		{
-			_cultist.pending_active_choices++;
-		}
-		else if (_cultist.current_lvl >= 4 && array_length(cultist_ability_upgrade_options_roll(_cultist)) > 0)
-		{
-			_cultist.pending_ability_upgrade_choices++;
+			break;
 		}
 
 		_leveled_up = true;

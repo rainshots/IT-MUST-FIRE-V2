@@ -1,3 +1,9 @@
+if (variable_global_exists("blood_moon_reward_popup_active")
+	&& global.blood_moon_reward_popup_active)
+{
+	exit;
+}
+
 // Draw the optional support selector before any simulations begin.
 if (!configuration_is_confirmed)
 {

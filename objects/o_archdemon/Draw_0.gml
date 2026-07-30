@@ -87,20 +87,17 @@ if (variable_global_exists("ui_font") && font_exists(global.ui_font))
 	draw_set_font(global.ui_font);
 }
 
-// Mark available day workers that are not assigned to any work.
+// Warn only when the idle Archdemon has no stamina.
 if (global.day_phase == DAY_PHASE.DAY
 	&& hp > 0
 	&& !is_assigned_to_building
 	&& !is_being_dragged
 	&& !cannon_loading
-	&& !cannon_loaded)
+	&& !cannon_loaded
+	&& variable_instance_exists(id, "stamina_amount")
+	&& stamina_amount <= 0)
 {
-	var _idle_label_text = idle_work_label_text;
-
-	if (variable_instance_exists(id, "stamina_amount") && stamina_amount <= 0)
-	{
-		_idle_label_text = "NO STAMINA";
-	}
+	var _idle_label_text = "NO STAMINA";
 
 	var _idle_label_x = x;
 	var _idle_label_y = bbox_top - idle_work_label_offset_y;

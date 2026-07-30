@@ -103,6 +103,7 @@ has_warlock_demonic_infusion = false;
 // Day-form health is synced with the chosen demon form after selection.
 max_hp = 10;
 hp = max_hp;
+last_heal_volley_id = -1;
 
 // Stamina is spent while working and recovers every morning.
 stamina_max = BALANCE_CULTIST_STAMINA_MAX;
@@ -124,7 +125,6 @@ resource_warning_offset_y = 18;
 resource_warning_padding_x = 6;
 resource_warning_padding_y = 3;
 resource_warning_background_alpha = 0.82;
-idle_work_label_text = "NO WORK";
 idle_work_label_offset_y = 34;
 idle_work_label_padding_x = 6;
 idle_work_label_padding_y = 3;

@@ -356,66 +356,10 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 
 	if (instance_exists(_hovered_unit))
 	{
-		// Matchups are mirrored for enemies so both sides show the same combat relationships.
 		var _unit_object = _hovered_unit.object_index;
-		var _strong_against = [];
-		var _weak_against = [];
-
-		if (_unit_object == o_skeleton_warrior)
-		{
-			_strong_against = [o_enemy_peasant, o_enemy_catapult];
-			_weak_against = [o_enemy_mage];
-		}
-		else if (_unit_object == o_skeleton_archer)
-		{
-			_strong_against = [o_enemy_archer, o_enemy_mage];
-			_weak_against = [o_enemy_knight, o_enemy_catapult];
-		}
-		else if (_unit_object == o_skeleton_mage)
-		{
-			_strong_against = [o_enemy_knight, o_enemy_mage];
-			_weak_against = [o_enemy_peasant, o_enemy_catapult];
-		}
-		else if (_unit_object == o_pitling)
-		{
-			_strong_against = [o_enemy_archer];
-			_weak_against = [o_enemy_mage];
-		}
-		else if (_unit_object == o_succubus)
-		{
-			_strong_against = [o_enemy_archer, o_enemy_knight];
-			_weak_against = [o_enemy_peasant];
-		}
-		else if (_unit_object == o_balgor)
-		{
-			_strong_against = [o_enemy_peasant, o_enemy_knight, o_enemy_catapult];
-			_weak_against = [o_enemy_archer, o_enemy_mage];
-		}
-		else if (_unit_object == o_enemy_peasant)
-		{
-			_strong_against = [o_skeleton_mage, o_succubus];
-			_weak_against = [o_skeleton_warrior, o_balgor];
-		}
-		else if (_unit_object == o_enemy_archer)
-		{
-			_strong_against = [o_balgor];
-			_weak_against = [o_skeleton_archer, o_pitling, o_succubus];
-		}
-		else if (_unit_object == o_enemy_knight)
-		{
-			_strong_against = [o_skeleton_archer];
-			_weak_against = [o_skeleton_mage, o_succubus, o_balgor];
-		}
-		else if (_unit_object == o_enemy_mage)
-		{
-			_strong_against = [o_skeleton_warrior, o_pitling, o_balgor];
-			_weak_against = [o_skeleton_archer, o_skeleton_mage];
-		}
-		else if (_unit_object == o_enemy_catapult)
-		{
-			_strong_against = [o_skeleton_archer, o_skeleton_mage];
-			_weak_against = [o_skeleton_warrior, o_balgor];
-		}
+		var _matchup = combat_unit_matchup_get(_unit_object);
+		var _strong_against = _matchup.strong_against;
+		var _weak_against = _matchup.weak_against;
 
 		var _hover_width = 260;
 		var _hover_height = 248;
@@ -464,23 +408,35 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 		}
 		else if (_hovered_unit.object_index == o_skeleton_warrior)
 		{
-			_unit_name = "Skeleton Warrior";
+			_unit_name = "Bone Warrior";
 		}
 		else if (_hovered_unit.object_index == o_skeleton_archer)
 		{
-			_unit_name = "Skeleton Archer";
+			_unit_name = "Bone Archer";
 		}
 		else if (_hovered_unit.object_index == o_skeleton_mage)
 		{
-			_unit_name = "Skeleton Mage";
+			_unit_name = "Bone Mage";
+		}
+		else if (_hovered_unit.object_index == o_skeleton_healer)
+		{
+			_unit_name = "Skeleton Healer";
 		}
 		else if (_hovered_unit.object_index == o_skeleton)
 		{
 			_unit_name = "Skeleton";
 		}
+		else if (_hovered_unit.object_index == o_zombie)
+		{
+			_unit_name = "Zombie";
+		}
 		else if (_hovered_unit.object_index == o_mawling)
 		{
 			_unit_name = "Mawling";
+		}
+		else if (_hovered_unit.object_index == o_demon_wizard)
+		{
+			_unit_name = "Demon Wizard";
 		}
 		else if (_hovered_unit.object_index == o_pitling)
 		{
@@ -497,6 +453,22 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 		else if (_hovered_unit.object_index == o_goblin)
 		{
 			_unit_name = "Goblin";
+		}
+		else if (_hovered_unit.object_index == o_imp)
+		{
+			_unit_name = "Imp";
+		}
+		else if (_hovered_unit.object_index == o_imp_clone)
+		{
+			_unit_name = "Bloody Clone";
+		}
+		else if (_hovered_unit.object_index == o_warlock)
+		{
+			_unit_name = "Warlock";
+		}
+		else if (_hovered_unit.object_index == o_brute)
+		{
+			_unit_name = "Brute";
 		}
 		else if (_hovered_unit.object_index == o_enemy_peasant)
 		{

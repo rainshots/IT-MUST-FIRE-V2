@@ -309,8 +309,6 @@ is_walking = false;
 var _is_enemy_unit = (unit_faction == UNIT_FACTION.ENEMY);
 var _is_friendly_unit = (unit_faction == UNIT_FACTION.FRIENDLY);
 var _friendly_follow_target = noone;
-var _is_full_moon_night = variable_global_exists("full_moon_night_active")
-	&& global.full_moon_night_active;
 var _is_cultist_demon_unit = variable_instance_exists(id, "demon_type")
 	&& demon_type != DEMON_TYPE.NONE;
 var _had_target = instance_exists(target_instance);
@@ -350,22 +348,33 @@ if (!_special_behavior_handled && _has_forced_target)
 }
 else if (!_special_behavior_handled && _should_search_target && _is_enemy_unit)
 {
-	if (instance_exists(alert_target))
-	{
-		if (target_can_be_attacked(alert_target))
-		{
-			target_instance = alert_target;
-		}
-		else
-		{
-			alert_target = noone;
-			alert_target_timer = 0;
-		}
-	}
+	// Nearby player units take priority over distant units, structures, and the cannon.
+	var _nearest_player_unit = find_nearest_player_unit_target(target_detection_radius);
 
-	if (!instance_exists(target_instance))
+	if (instance_exists(_nearest_player_unit))
 	{
-		target_instance = find_nearest_player_unit_target(target_detection_radius);
+		target_instance = _nearest_player_unit;
+	}
+	else
+	{
+		// Stop chasing a player unit that has left the detection radius.
+		if (target_is_player_unit(target_instance))
+		{
+			target_instance = noone;
+		}
+
+		if (instance_exists(alert_target))
+		{
+			if (target_can_be_attacked(alert_target))
+			{
+				target_instance = alert_target;
+			}
+			else
+			{
+				alert_target = noone;
+				alert_target_timer = 0;
+			}
+		}
 	}
 
 	if (!instance_exists(target_instance) && !unit_can_attack_cannon && instance_exists(guard_target))
@@ -433,9 +442,14 @@ else if (!_special_behavior_handled && _should_search_target && _is_friendly_uni
 		{
 			target_instance = _priority_target;
 		}
-		else if (!instance_exists(target_instance))
+		else
 		{
-			target_instance = find_nearest_target(o_enemy_units, vision_radius);
+			var _nearest_enemy_unit = find_nearest_enemy_unit_target(vision_radius);
+
+			if (instance_exists(_nearest_enemy_unit))
+			{
+				target_instance = _nearest_enemy_unit;
+			}
 		}
 	}
 
@@ -448,8 +462,7 @@ else if (!_special_behavior_handled && _should_search_target && _is_friendly_uni
 		&& global.day_phase == DAY_PHASE.NIGHT
 		&& !regroup_is_active
 		&& !rally_is_active
-		&& ((_is_full_moon_night && !_is_cultist_demon_unit)
-			|| object_index == o_skeleton
+		&& (object_index == o_skeleton
 			|| object_index == o_pitling))
 	{
 		_friendly_follow_target = find_nearest_visible_cultist();
@@ -574,30 +587,6 @@ else if (!_special_behavior_handled && _is_friendly_unit && instance_exists(_fri
 	{
 		face_world_x(_friendly_follow_target.x);
 	}
-}
-else if (!_special_behavior_handled
-	&& _is_friendly_unit
-	&& _is_full_moon_night
-	&& _is_cultist_demon_unit
-	&& instance_exists(o_cannon))
-{
-	var _full_moon_cannon = instance_find(o_cannon, 0);
-	var _attack_direction = variable_global_exists("full_moon_attack_direction")
-		? global.full_moon_attack_direction
-		: point_direction(_full_moon_cannon.x, _full_moon_cannon.y, x, y);
-	var _attack_target_distance = 900;
-	var _attack_target_x = _full_moon_cannon.x + lengthdir_x(_attack_target_distance, _attack_direction);
-	var _attack_target_y = _full_moon_cannon.y + lengthdir_y(_attack_target_distance, _attack_direction);
-	var _distance_from_cannon = point_distance(_full_moon_cannon.x, _full_moon_cannon.y, x, y);
-
-	if (_distance_from_cannon > _attack_target_distance - regroup_arrive_radius)
-	{
-		_attack_target_distance = _distance_from_cannon + 280;
-		_attack_target_x = _full_moon_cannon.x + lengthdir_x(_attack_target_distance, _attack_direction);
-		_attack_target_y = _full_moon_cannon.y + lengthdir_y(_attack_target_distance, _attack_direction);
-	}
-
-	move_towards_world_point(_attack_target_x, _attack_target_y);
 }
 else if (!_special_behavior_handled && _is_friendly_unit && regroup_is_active)
 {

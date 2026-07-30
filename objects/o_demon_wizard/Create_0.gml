@@ -15,20 +15,27 @@ bar_offset_y = -2;
 
 support_buff_cooldown_timer = 0;
 
-demon_wizard_buff_target_find = function()
+demon_wizard_buff_target_find = function(_max_distance = infinity)
 {
 	var _nearest_target = noone;
-	var _nearest_distance = infinity;
+	var _nearest_distance_squared = infinity;
+	var _max_distance_squared = _max_distance * _max_distance;
+	var _has_assigned_squad = is_struct(squad)
+		&& variable_struct_exists(squad, "units");
 
-	// Prefer an unbuffed living member of this wizard's squad.
-	if (is_struct(squad))
+	// Prefer the nearest unbuffed living member of this wizard's squad.
+	if (_has_assigned_squad)
 	{
-		for (var _unit_index = 0; _unit_index < array_length(squad.units); ++_unit_index)
+		var _squad_unit_count = array_length(squad.units);
+
+		for (var _unit_index = 0; _unit_index < _squad_unit_count; ++_unit_index)
 		{
 			var _candidate = squad.units[_unit_index];
 
 			if (!instance_exists(_candidate)
 				|| _candidate == id
+				|| !variable_instance_exists(_candidate, "hp")
+				|| !variable_instance_exists(_candidate, "support_buff_has_source")
 				|| _candidate.hp <= 0
 				|| _candidate.support_buff_has_source(id))
 			{
@@ -43,17 +50,21 @@ demon_wizard_buff_target_find = function()
 				continue;
 			}
 
-			var _distance = point_distance(x, y, _candidate.x, _candidate.y);
+			var _distance_x = _candidate.x - x;
+			var _distance_y = _candidate.y - y;
+			var _distance_squared = (_distance_x * _distance_x) + (_distance_y * _distance_y);
 
-			if (_distance < _nearest_distance)
+			if (_distance_squared <= _max_distance_squared
+				&& _distance_squared < _nearest_distance_squared)
 			{
 				_nearest_target = _candidate;
-				_nearest_distance = _distance;
+				_nearest_distance_squared = _distance_squared;
 			}
 		}
 	}
 
-	if (instance_exists(_nearest_target))
+	// Assigned Wizards never buff units outside their squad.
+	if (_has_assigned_squad)
 	{
 		return _nearest_target;
 	}
@@ -67,6 +78,8 @@ demon_wizard_buff_target_find = function()
 
 		if (!instance_exists(_candidate)
 			|| _candidate == id
+			|| !variable_instance_exists(_candidate, "hp")
+			|| !variable_instance_exists(_candidate, "support_buff_has_source")
 			|| _candidate.hp <= 0
 			|| _candidate.support_buff_has_source(id))
 		{
@@ -81,12 +94,15 @@ demon_wizard_buff_target_find = function()
 			continue;
 		}
 
-		var _distance = point_distance(x, y, _candidate.x, _candidate.y);
+		var _distance_x = _candidate.x - x;
+		var _distance_y = _candidate.y - y;
+		var _distance_squared = (_distance_x * _distance_x) + (_distance_y * _distance_y);
 
-		if (_distance < _nearest_distance)
+		if (_distance_squared <= _max_distance_squared
+			&& _distance_squared < _nearest_distance_squared)
 		{
 			_nearest_target = _candidate;
-			_nearest_distance = _distance;
+			_nearest_distance_squared = _distance_squared;
 		}
 	}
 
@@ -172,7 +188,18 @@ demon_wizard_support_behavior_update = function()
 	target_instance = noone;
 	is_attacking_target = false;
 
-	var _follow_target = demon_wizard_follow_target_find();
+	// Stay with an eligible nearby ally, or approach one when nobody is in range.
+	var _follow_target = demon_wizard_buff_target_find(BALANCE_DEMON_WIZARD_BUFF_RADIUS);
+
+	if (!instance_exists(_follow_target))
+	{
+		_follow_target = demon_wizard_buff_target_find();
+	}
+
+	if (!instance_exists(_follow_target))
+	{
+		_follow_target = demon_wizard_follow_target_find();
+	}
 
 	if (!instance_exists(_follow_target))
 	{

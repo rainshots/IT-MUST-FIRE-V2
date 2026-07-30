@@ -8,6 +8,7 @@ cultist_payload = noone;
 cultist_deploy_units = [];
 building_payload = noone;
 source_instance = noone;
+heal_volley_id = -1; // Prevent overlapping shells from the same healing volley from healing twice.
 
 // Explosion and effect settings.
 effect_radius = BALANCE_PROJECTILE_EFFECT_RADIUS;

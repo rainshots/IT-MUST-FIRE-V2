@@ -30,7 +30,10 @@ enum FOCUS_WINDOW
 	BUILDING_UPGRADE,
 	BUILDING_EVENTS,
 	CURSED_POINT_STRUCTURE_SELECTION,
-	JOBS
+	JOBS,
+	END_DAY_CONFIRMATION,
+	WORLD_EVENT_SQUAD_SELECTION,
+	BLOOD_MOON_REWARD
 }
 
 enum RESOURCES
@@ -129,6 +132,12 @@ enum STATUS_EFFECT
 	STUN,
 	COUNT
 }
+
+// Temporary feature switch for Taint spreading from newly infected trees.
+#macro TREE_CORRUPTION_SPREAD_ENABLED false
+
+// GUI draw order keeps Jobs above gameplay indicators within GameMaker's valid depth range.
+#macro DEPTH_JOBS_UI -15000
 
 #macro COLOR_PROJECTILE_DAMAGE $ff4a42
 #macro COLOR_PROJECTILE_CORRUPTION #693B30

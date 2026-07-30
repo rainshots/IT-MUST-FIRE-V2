@@ -1,3 +1,9 @@
+if (variable_global_exists("blood_moon_reward_popup_active")
+	&& global.blood_moon_reward_popup_active)
+{
+	exit;
+}
+
 if (variable_global_exists("ui_font") && font_exists(global.ui_font))
 {
 	draw_set_font(global.ui_font);
@@ -49,6 +55,156 @@ if (global.day_phase == DAY_PHASE.DAY && global.focus_window == FOCUS_WINDOW.NOO
 		"ASSIGN DUTIES",
 		_show_rect.scale * _show_visual_scale,
 		_show_rect.scale * _show_visual_scale,
+		0
+	);
+
+	var _end_rect = jobs_end_day_button_rect_get();
+	var _end_pulse = 0.5 + (sin(current_time / 260) * 0.5);
+	var _end_pulse_scale = 0.98 + (_end_pulse * 0.04);
+	var _end_hover_scale = jobs_end_hovered ? 1.06 : 1;
+	var _end_visual_scale = _end_pulse_scale * _end_hover_scale;
+	var _end_center_x = _end_rect.x + (_end_rect.width * 0.5);
+	var _end_center_y = _end_rect.y + (_end_rect.height * 0.5);
+	var _end_visual_width = _end_rect.width * _end_visual_scale;
+	var _end_visual_height = _end_rect.height * _end_visual_scale;
+	var _end_visual_x = _end_center_x - (_end_visual_width * 0.5);
+	var _end_visual_y = _end_center_y - (_end_visual_height * 0.5);
+
+	draw_set_color(COLOR_JOBS_ASSIGN_BACKGROUND);
+	draw_rectangle(
+		_end_visual_x,
+		_end_visual_y,
+		_end_visual_x + _end_visual_width,
+		_end_visual_y + _end_visual_height,
+		false
+	);
+
+	draw_set_color(COLOR_JOBS_ASSIGN_BORDER);
+	for (var _end_border_index = 0; _end_border_index < 2; ++_end_border_index)
+	{
+		draw_rectangle(
+			_end_visual_x + _end_border_index,
+			_end_visual_y + _end_border_index,
+			_end_visual_x + _end_visual_width - _end_border_index,
+			_end_visual_y + _end_visual_height - _end_border_index,
+			true
+		);
+	}
+
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
+	draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+	draw_set_font(jobs_button_font);
+	draw_text_transformed(
+		_end_center_x,
+		_end_center_y,
+		"END DAY",
+		_end_rect.scale * _end_visual_scale,
+		_end_rect.scale * _end_visual_scale,
+		0
+	);
+}
+
+if (global.focus_window == FOCUS_WINDOW.END_DAY_CONFIRMATION)
+{
+	var _confirmation_layout = jobs_end_day_confirmation_layout_get();
+	var _confirmation_gui_width = display_get_gui_width();
+	var _confirmation_gui_height = display_get_gui_height();
+	var _confirmation_unassigned_count = jobs_unassigned_cultist_count_get();
+	var _confirmation_text = "Are you sure you want to end the day? You still have unassigned Cultists ("
+		+ string(_confirmation_unassigned_count)
+		+ ")";
+
+	draw_set_alpha(0.65);
+	draw_set_color(c_black);
+	draw_rectangle(0, 0, _confirmation_gui_width, _confirmation_gui_height, false);
+
+	draw_set_alpha(1);
+	draw_set_color(COLOR_JOBS_WINDOW_BACKGROUND);
+	draw_rectangle(
+		_confirmation_layout.panel_x,
+		_confirmation_layout.panel_y,
+		_confirmation_layout.panel_x + _confirmation_layout.panel_width,
+		_confirmation_layout.panel_y + _confirmation_layout.panel_height,
+		false
+	);
+	draw_set_color(COLOR_JOBS_POOL_BORDER);
+	draw_rectangle(
+		_confirmation_layout.panel_x,
+		_confirmation_layout.panel_y,
+		_confirmation_layout.panel_x + _confirmation_layout.panel_width,
+		_confirmation_layout.panel_y + _confirmation_layout.panel_height,
+		true
+	);
+
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_top);
+	draw_set_font(jobs_show_font);
+	draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+	draw_text_ext(
+		_confirmation_layout.panel_x + (_confirmation_layout.panel_width * 0.5),
+		_confirmation_layout.panel_y + (42 * _confirmation_layout.scale),
+		_confirmation_text,
+		34 * _confirmation_layout.scale,
+		_confirmation_layout.panel_width - (84 * _confirmation_layout.scale)
+	);
+
+	var _cancel_scale = jobs_confirmation_cancel_hovered ? 1.06 : 1;
+	var _cancel_center_x = _confirmation_layout.cancel_x
+		+ (_confirmation_layout.cancel_width * 0.5);
+	var _cancel_center_y = _confirmation_layout.cancel_y
+		+ (_confirmation_layout.cancel_height * 0.5);
+
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
+	draw_set_font(jobs_button_font);
+	draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+	draw_text_transformed(
+		_cancel_center_x,
+		_cancel_center_y,
+		"CANCEL",
+		_confirmation_layout.scale * _cancel_scale,
+		_confirmation_layout.scale * _cancel_scale,
+		0
+	);
+
+	var _confirmation_end_scale = jobs_confirmation_end_hovered ? 1.06 : 1;
+	var _confirmation_end_center_x = _confirmation_layout.end_x
+		+ (_confirmation_layout.end_width * 0.5);
+	var _confirmation_end_center_y = _confirmation_layout.end_y
+		+ (_confirmation_layout.end_height * 0.5);
+	var _confirmation_end_width = _confirmation_layout.end_width * _confirmation_end_scale;
+	var _confirmation_end_height = _confirmation_layout.end_height * _confirmation_end_scale;
+	var _confirmation_end_x = _confirmation_end_center_x - (_confirmation_end_width * 0.5);
+	var _confirmation_end_y = _confirmation_end_center_y - (_confirmation_end_height * 0.5);
+
+	draw_set_color(COLOR_JOBS_ASSIGN_BACKGROUND);
+	draw_rectangle(
+		_confirmation_end_x,
+		_confirmation_end_y,
+		_confirmation_end_x + _confirmation_end_width,
+		_confirmation_end_y + _confirmation_end_height,
+		false
+	);
+	draw_set_color(COLOR_JOBS_ASSIGN_BORDER);
+	for (var _confirmation_end_border = 0; _confirmation_end_border < 2; ++_confirmation_end_border)
+	{
+		draw_rectangle(
+			_confirmation_end_x + _confirmation_end_border,
+			_confirmation_end_y + _confirmation_end_border,
+			_confirmation_end_x + _confirmation_end_width - _confirmation_end_border,
+			_confirmation_end_y + _confirmation_end_height - _confirmation_end_border,
+			true
+		);
+	}
+
+	draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+	draw_text_transformed(
+		_confirmation_end_center_x,
+		_confirmation_end_center_y,
+		"END DAY",
+		_confirmation_layout.scale * _confirmation_end_scale,
+		_confirmation_layout.scale * _confirmation_end_scale,
 		0
 	);
 }
@@ -231,7 +387,7 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 
 			if (variable_struct_exists(_event, "selected_squad") && is_struct(_event.selected_squad))
 			{
-				_selector_text = _event.selected_squad.name;
+				_selector_text = squad_name_display_get(_event.selected_squad.name);
 			}
 
 			draw_set_alpha(0.9);
@@ -413,7 +569,7 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 				draw_set_valign(fa_middle);
 				draw_set_font(jobs_hp_font);
 				draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
-				draw_text(_option_rect.x + (_option_rect.width * 0.5), _option_rect.y + (_option_rect.height * 0.5), _option_squad.name);
+				draw_text(_option_rect.x + (_option_rect.width * 0.5), _option_rect.y + (_option_rect.height * 0.5), squad_name_display_get(_option_squad.name));
 			}
 		}
 	}
@@ -502,13 +658,19 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			if (_preview_slot_index >= 0)
 			{
 				var _hp_preview = jobs_event_cultist_hp_preview_get(_preview_event, _preview_slot_index, _cultist);
+				var _change_y = _cultist_rect.y + _cultist_rect.height + (22 * _layout.scale);
 
-				if (_hp_preview.hp_change != 0)
+				if (_hp_preview.hp_loss > 0)
 				{
-					var _change_prefix = _hp_preview.hp_change > 0 ? "+" : "";
-					var _change_y = _cultist_rect.y + _cultist_rect.height + (22 * _layout.scale);
-					draw_set_color(_hp_preview.hp_change > 0 ? COLOR_JOBS_EVENT_ACTIVE : COLOR_STATUS_NEGATIVE_RED);
-					draw_text(_cultist_text_x, _change_y, _change_prefix + string(round(_hp_preview.hp_change)) + " HP");
+					draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+					draw_text(_cultist_text_x, _change_y, "-" + string(round(_hp_preview.hp_loss)) + " HP");
+					_change_y += 12 * _layout.scale;
+				}
+
+				if (_hp_preview.hp_gain > 0)
+				{
+					draw_set_color(COLOR_HEALTH_BAR);
+					draw_text(_cultist_text_x, _change_y, "+" + string(round(_hp_preview.hp_gain)) + " HP");
 				}
 
 				if (_hp_preview.dies && sprite_exists(s_ui_scull_white))
@@ -519,7 +681,7 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 						s_ui_scull_white,
 						0,
 						_cultist_text_x,
-						_cultist_rect.y - (6 * _layout.scale),
+						_cultist_rect.y + (_cultist_rect.height * 0.5),
 						_skull_scale,
 						_skull_scale,
 						0,
@@ -621,52 +783,6 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 	draw_line(_layout.close_x + (10 * _layout.scale), _layout.close_y + (10 * _layout.scale), _layout.close_x + _layout.close_size - (10 * _layout.scale), _layout.close_y + _layout.close_size - (10 * _layout.scale));
 	draw_line(_layout.close_x + _layout.close_size - (10 * _layout.scale), _layout.close_y + (10 * _layout.scale), _layout.close_x + (10 * _layout.scale), _layout.close_y + _layout.close_size - (10 * _layout.scale));
 
-	// End-day action below the panel.
-	var _end_x = (_gui_width - _layout.end_width) * 0.5;
-	var _end_pulse = 0.5 + (sin(current_time / 260) * 0.5);
-	var _end_pulse_scale = 0.98 + (_end_pulse * 0.04);
-	var _end_hover_scale = jobs_end_hovered ? 1.06 : 1;
-	var _end_visual_scale = _end_pulse_scale * _end_hover_scale;
-	var _end_center_x = _end_x + (_layout.end_width * 0.5);
-	var _end_center_y = _layout.end_y + (_layout.end_height * 0.5);
-	var _end_visual_width = _layout.end_width * _end_visual_scale;
-	var _end_visual_height = _layout.end_height * _end_visual_scale;
-	var _end_visual_x = _end_center_x - (_end_visual_width * 0.5);
-	var _end_visual_y = _end_center_y - (_end_visual_height * 0.5);
-
-	draw_set_color(COLOR_JOBS_ASSIGN_BACKGROUND);
-	draw_rectangle(
-		_end_visual_x,
-		_end_visual_y,
-		_end_visual_x + _end_visual_width,
-		_end_visual_y + _end_visual_height,
-		false
-	);
-
-	draw_set_color(COLOR_JOBS_ASSIGN_BORDER);
-	for (var _end_border_index = 0; _end_border_index < 2; ++_end_border_index)
-	{
-		draw_rectangle(
-			_end_visual_x + _end_border_index,
-			_end_visual_y + _end_border_index,
-			_end_visual_x + _end_visual_width - _end_border_index,
-			_end_visual_y + _end_visual_height - _end_border_index,
-			true
-		);
-	}
-
-	draw_set_halign(fa_center);
-	draw_set_valign(fa_middle);
-	draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
-	draw_set_font(jobs_button_font);
-	draw_text_transformed(
-		_end_center_x,
-		_end_center_y,
-		"END DAY",
-		_layout.scale * _end_visual_scale,
-		_layout.scale * _end_visual_scale,
-		0
-	);
 }
 
 // Restore default draw state.

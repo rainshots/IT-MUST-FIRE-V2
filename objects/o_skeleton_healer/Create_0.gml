@@ -15,21 +15,42 @@ bar_offset_y = -2;
 
 support_heal_cooldown_timer = 0;
 
-skeleton_healer_target_find = function()
+skeleton_healer_target_find = function(_max_distance = infinity)
 {
 	var _best_target = noone;
 	var _lowest_health_ratio = 1;
 	var _nearest_distance_squared = infinity;
-	var _friendly_count = instance_number(o_friendly_units);
+	var _max_distance_squared = _max_distance * _max_distance;
+	var _heal_candidates = [];
 
-	// Select the most wounded living ally and use distance only to break equal-HP ties.
-	for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_index)
+	// Assigned healers support only their squad, including Demon and Archdemon squads.
+	if (is_struct(squad) && variable_struct_exists(squad, "units"))
 	{
-		var _candidate = instance_find(o_friendly_units, _friendly_index);
+		array_copy(_heal_candidates, 0, squad.units, 0, array_length(squad.units));
+	}
+	else
+	{
+		// Independently spawned healers keep supporting all friendly units.
+		var _friendly_count = instance_number(o_friendly_units);
+
+		for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_index)
+		{
+			array_push(_heal_candidates, instance_find(o_friendly_units, _friendly_index));
+		}
+	}
+
+	// Select the most wounded living squad member and use distance to break equal-HP ties.
+	var _candidate_count = array_length(_heal_candidates);
+
+	for (var _candidate_index = 0; _candidate_index < _candidate_count; ++_candidate_index)
+	{
+		var _candidate = _heal_candidates[_candidate_index];
 
 		if (!instance_exists(_candidate)
+			|| _candidate == id
 			|| !variable_instance_exists(_candidate, "hp")
 			|| !variable_instance_exists(_candidate, "max_hp")
+			|| !variable_instance_exists(_candidate, "support_heal_has_source")
 			|| _candidate.max_hp <= 0
 			|| _candidate.hp <= 0
 			|| _candidate.hp >= _candidate.max_hp
@@ -53,7 +74,8 @@ skeleton_healer_target_find = function()
 		var _has_lower_health = _health_ratio < _lowest_health_ratio;
 		var _has_equal_health = _health_ratio == _lowest_health_ratio;
 
-		if (_has_lower_health || (_has_equal_health && _distance_squared < _nearest_distance_squared))
+		if (_distance_squared <= _max_distance_squared
+			&& (_has_lower_health || (_has_equal_health && _distance_squared < _nearest_distance_squared)))
 		{
 			_best_target = _candidate;
 			_lowest_health_ratio = _health_ratio;
@@ -143,7 +165,18 @@ skeleton_healer_support_behavior_update = function()
 	target_instance = noone;
 	is_attacking_target = false;
 
-	var _follow_target = skeleton_healer_follow_target_find();
+	// Stay with an eligible nearby ally, or approach one when nobody is in range.
+	var _follow_target = skeleton_healer_target_find(BALANCE_SKELETON_HEALER_HEAL_RADIUS);
+
+	if (!instance_exists(_follow_target))
+	{
+		_follow_target = skeleton_healer_target_find();
+	}
+
+	if (!instance_exists(_follow_target))
+	{
+		_follow_target = skeleton_healer_follow_target_find();
+	}
 
 	if (!instance_exists(_follow_target))
 	{

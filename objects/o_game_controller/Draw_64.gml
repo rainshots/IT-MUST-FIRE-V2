@@ -1,3 +1,10 @@
+// The Blood Moon reward is the only visible GUI layer until it is acknowledged.
+if (global.blood_moon_reward_popup_active)
+{
+	blood_moon_reward_popup_draw();
+	exit;
+}
+
 // Draw phase tint over the world while keeping HUD readable.
 if (variable_global_exists("ui_font") && font_exists(global.ui_font))
 {
@@ -409,7 +416,8 @@ if (!worker_assignment_hint_completed
 }
 
 // Draw a non-blocking tree corruption hint above the nearest uncorrupted tree to the cannon.
-if (!tree_corruption_hint_completed
+if (TREE_CORRUPTION_SPREAD_ENABLED
+	&& !tree_corruption_hint_completed
 	&& global.tutorial_hints_enabled
 	&& global.focus_window == FOCUS_WINDOW.NOONE
 	&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active)
@@ -599,29 +607,6 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 	draw_circle(_mouse_x, _mouse_y, _draw_radius, false);
 	draw_set_alpha(target_selection_outline_alpha);
 	draw_circle(_mouse_x, _mouse_y, _draw_radius, true);
-
-	if (target_selection_projectile_type == PROJECTILE_TYPE.CULTIST
-		&& variable_global_exists("full_moon_night_active")
-		&& global.full_moon_night_active
-		&& instance_exists(o_cannon))
-	{
-		var _arrow_cannon = instance_find(o_cannon, 0);
-		var _arrow_start_x = ((_arrow_cannon.x - _camera_x) / _camera_width) * camera_view_width;
-		var _arrow_start_y = ((_arrow_cannon.y - _camera_y) / _camera_height) * camera_view_height;
-		var _arrow_direction = point_direction(_arrow_start_x, _arrow_start_y, _mouse_x, _mouse_y);
-		var _arrow_end_x = _mouse_x;
-		var _arrow_end_y = _mouse_y;
-		var _arrow_head_x = _arrow_end_x + lengthdir_x(24, _arrow_direction + 180);
-		var _arrow_head_y = _arrow_end_y + lengthdir_y(24, _arrow_direction + 180);
-
-		draw_set_alpha(0.95);
-		draw_set_color(COLOR_STATUS_NEGATIVE_RED);
-		draw_line_width(_arrow_start_x, _arrow_start_y, _arrow_end_x, _arrow_end_y, 5);
-		draw_line_width(_arrow_end_x, _arrow_end_y, _arrow_head_x + lengthdir_x(18, _arrow_direction + 135), _arrow_head_y + lengthdir_y(18, _arrow_direction + 135), 5);
-		draw_line_width(_arrow_end_x, _arrow_end_y, _arrow_head_x + lengthdir_x(18, _arrow_direction - 135), _arrow_head_y + lengthdir_y(18, _arrow_direction - 135), 5);
-		draw_set_alpha(1);
-		draw_set_color(c_white);
-	}
 
 	if (target_selection_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
 	{
@@ -1996,34 +1981,9 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 
 		draw_text(_panel_x + (_panel_width * 0.5), _panel_y + 132, _display_name);
 
-		// Draw the day form and demon form so the player sees who is being upgraded.
+		// Draw only the Archdemon form in the level-up window.
 		var _preview_y = _panel_y + 122;
-		var _cultist_preview_x = _panel_x + 128;
 		var _demon_preview_x = _panel_x + _panel_width - 128;
-		var _cultist_preview_sprite = _cultist.sprite_index;
-
-		if (variable_instance_exists(_cultist, "cultist_sprite_index") && sprite_exists(_cultist.cultist_sprite_index))
-		{
-			_cultist_preview_sprite = _cultist.cultist_sprite_index;
-		}
-
-		if (sprite_exists(_cultist_preview_sprite))
-		{
-			draw_sprite_ext(
-				_cultist_preview_sprite,
-				0,
-				_cultist_preview_x,
-				_preview_y,
-				0.9,
-				0.9,
-				0,
-				c_white,
-				1
-			);
-		}
-
-		draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
-		draw_text(_cultist_preview_x, _panel_y + 164, "Cultist");
 
 		if (variable_instance_exists(_cultist, "demon_type") && _cultist.demon_type != DEMON_TYPE.NONE)
 		{
@@ -2552,6 +2512,11 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 		&& _mouse_y <= _foundry_current_y + _foundry_current_height;
 	var _choice_count = array_length(building_window_choices);
 	var _hovered_choice = -1;
+	var _construction_cultist_label = BALANCE_BUILDING_CONSTRUCTION_CULTIST_COST == 1
+		? " Cultist"
+		: " Cultists";
+	var _construction_cultist_cost_text = string(BALANCE_BUILDING_CONSTRUCTION_CULTIST_COST)
+		+ _construction_cultist_label;
 
 	draw_set_alpha(0.55);
 	draw_set_color(c_black);
@@ -2710,26 +2675,34 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 		var _sprite_y = _tile_y + 30;
 		var _name_y = _tile_y + 68;
 		var _cost_y = _tile_y + 94;
-		var _limit_count = building_choice_count_get(_choice);
-		var _limit_max = building_choice_limit_get(_choice);
-		var _limit_reached = _limit_count >= _limit_max;
+		var _limit_count = 0;
+		var _limit_max = 0;
+		var _limit_reached = false;
+
+		if (BALANCE_BUILDING_DUPLICATE_LIMIT_ENABLED)
+		{
+			_limit_count = building_choice_count_get(_choice);
+			_limit_max = building_choice_limit_get(_choice);
+			_limit_reached = _limit_count >= _limit_max;
+		}
+
 		var _choice_is_blocked = _limit_reached || _daily_limit_reached;
 		var _can_pay_choice = _is_foundry_window ? building_choice_can_pay(_choice) : true;
 		var _can_build_choice = _can_pay_choice && !_choice_is_blocked;
 		var _requirement_text = building_choice_requirement_text_get(_choice);
-		var _should_pulse_ritual_circle = !_is_foundry_window
-			&& _choice.building_object == o_ritual_circle
-			&& instance_number(o_ritual_circle) <= 0;
-		var _ritual_circle_pulse = 1;
+		var _should_pulse_blood_bath = !_is_foundry_window
+			&& _choice.building_object == o_meat_bath
+			&& instance_number(o_meat_bath) <= 0;
+		var _blood_bath_pulse = 1;
 
 		if (_is_hovered)
 		{
 			_hovered_choice = _choice_index;
 		}
 
-		if (_should_pulse_ritual_circle)
+		if (_should_pulse_blood_bath)
 		{
-			_ritual_circle_pulse = 1 + (sin(current_time * 0.008) * 0.08);
+			_blood_bath_pulse = 1 + (sin(current_time * 0.008) * 0.08);
 		}
 
 		draw_set_alpha(0.82);
@@ -2740,11 +2713,11 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 		draw_set_color(_choice_is_blocked ? COLOR_PROJECTILE_DAMAGE : (_is_hovered ? COLOR_HUD_IRON : c_white));
 		draw_rectangle(_tile_x, _tile_y, _tile_x + building_tile_width, _tile_y + building_tile_height, true);
 
-		if (_should_pulse_ritual_circle)
+		if (_should_pulse_blood_bath)
 		{
-			var _pulse_padding = 5 + ((_ritual_circle_pulse - 1) * 32);
+			var _pulse_padding = 5 + ((_blood_bath_pulse - 1) * 32);
 
-			draw_set_alpha(0.35 + ((_ritual_circle_pulse - 1) * 2.2));
+			draw_set_alpha(0.35 + ((_blood_bath_pulse - 1) * 2.2));
 			draw_set_color(COLOR_CULTIST_SPIRIT);
 			draw_rectangle(
 				_tile_x - _pulse_padding,
@@ -2760,7 +2733,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 		{
 			var _sprite_width = sprite_get_width(_sprite);
 			var _sprite_height = sprite_get_height(_sprite);
-			var _sprite_scale = (building_tile_sprite_size / max(_sprite_width, _sprite_height)) * _ritual_circle_pulse;
+			var _sprite_scale = (building_tile_sprite_size / max(_sprite_width, _sprite_height)) * _blood_bath_pulse;
 			var _sprite_draw_width = _sprite_width * _sprite_scale;
 			var _sprite_draw_height = _sprite_height * _sprite_scale;
 
@@ -2863,7 +2836,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 		{
 			draw_set_halign(fa_center);
 			draw_set_color(_choice_is_blocked ? COLOR_PROJECTILE_DAMAGE : COLOR_HUD_TEXT);
-			draw_text(_sprite_x, _cost_y, "2 Cultists");
+			draw_text(_sprite_x, _cost_y, _construction_cultist_cost_text);
 		}
 
 		if (_requirement_text != "")
@@ -2884,9 +2857,17 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 	if (_hovered_choice >= 0)
 	{
 		var _choice = building_window_choices[_hovered_choice];
-		var _limit_count = building_choice_count_get(_choice);
-		var _limit_max = building_choice_limit_get(_choice);
-		var _limit_reached = _limit_count >= _limit_max;
+		var _limit_count = 0;
+		var _limit_max = 0;
+		var _limit_reached = false;
+
+		if (BALANCE_BUILDING_DUPLICATE_LIMIT_ENABLED)
+		{
+			_limit_count = building_choice_count_get(_choice);
+			_limit_max = building_choice_limit_get(_choice);
+			_limit_reached = _limit_count >= _limit_max;
+		}
+
 		var _can_build_choice = building_choice_can_pay(_choice)
 			&& !_limit_reached
 			&& !_daily_limit_reached;
@@ -2934,9 +2915,22 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 		{
 			draw_text(_tooltip_x + building_tooltip_padding, _tooltip_y + building_tooltip_height - 28, "Cost: " + building_choice_cost_text_get(_choice) + " | Click to assign shell");
 		}
+		else if (!BALANCE_BUILDING_DUPLICATE_LIMIT_ENABLED)
+		{
+			draw_text(
+				_tooltip_x + building_tooltip_padding,
+				_tooltip_y + building_tooltip_height - 28,
+				"Cost: " + _construction_cultist_cost_text
+			);
+		}
 		else
 		{
-			draw_text(_tooltip_x + building_tooltip_padding, _tooltip_y + building_tooltip_height - 28, "Limit: " + string(_limit_count) + "/" + string(_limit_max) + " | Cost: 2 Cultists");
+			draw_text(
+				_tooltip_x + building_tooltip_padding,
+				_tooltip_y + building_tooltip_height - 28,
+				"Limit: " + string(_limit_count) + "/" + string(_limit_max)
+					+ " | Cost: " + _construction_cultist_cost_text
+			);
 		}
 	}
 
@@ -2963,134 +2957,262 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 // Draw the read-only catalog of every event that can originate from this building.
 if (global.focus_window == FOCUS_WINDOW.BUILDING_EVENTS)
 {
-	var _panel_x = (camera_view_width - building_events_window_width) * 0.5;
-	var _panel_y = (camera_view_height - building_events_window_height) * 0.5;
-	var _close_size = 34;
-	var _close_x = _panel_x + building_events_window_width - _close_size - 14;
-	var _close_y = _panel_y + 14;
-	var _card_start_x = _panel_x + 48;
+	var _jobs_ui = instance_find(o_jobs_ui, 0);
+	var _gui_width = display_get_gui_width();
+	var _gui_height = display_get_gui_height();
+	var _design_width = 1920;
+	var _design_height = 1080;
+	var _panel_design_width = 1112;
+	var _panel_design_height = 898;
+	var _scale = min(_gui_width / _design_width, _gui_height / _design_height);
+	var _panel_width = _panel_design_width * _scale;
+	var _panel_height = _panel_design_height * _scale;
+	var _panel_x = (_gui_width - _panel_width) * 0.5;
+	var _panel_y = 69 * _scale;
+	var _event_x = _panel_x + (206 * _scale);
+	var _event_start_y = _panel_y + (141 * _scale);
+	var _event_width = 700 * _scale;
+	var _event_height = 108 * _scale;
+	var _event_gap = 6 * _scale;
+	var _current_event_gap = is_struct(building_events_window_current_event)
+		? 40 * _scale
+		: 0;
+	var _event_step = _event_height + _event_gap;
+	var _close_size = 56 * _scale;
+	var _close_x = _panel_x + _panel_width - (64 * _scale);
+	var _close_y = _panel_y + (10 * _scale);
 	var _entry_count = array_length(building_events_window_entries);
-	var _row_count = ceil(_entry_count / building_events_card_columns);
-	var _visible_row_count = 3;
-	var _max_scroll_row = max(0, _row_count - _visible_row_count);
+	var _viewport_bottom = _panel_y + _panel_height - (24 * _scale);
+	var _viewport_height = _viewport_bottom - _event_start_y;
+	var _content_height = (_entry_count * _event_step)
+		+ _current_event_gap;
+	var _max_scroll_row = ceil(max(0, _content_height - _viewport_height) / max(1, _event_step));
 
 	building_events_scroll_row = clamp(building_events_scroll_row, 0, _max_scroll_row);
 
-	draw_set_alpha(0.55);
+	// Match the Jobs window backdrop and panel.
+	draw_set_alpha(0.65);
 	draw_set_color(c_black);
-	draw_rectangle(0, 0, camera_view_width, camera_view_height, false);
+	draw_rectangle(0, 0, _gui_width, _gui_height, false);
 
 	draw_set_alpha(1);
-	draw_set_color(COLOR_HUD_BACKGROUND);
-	draw_rectangle(_panel_x, _panel_y, _panel_x + building_events_window_width, _panel_y + building_events_window_height, false);
-	draw_set_color(c_white);
-	draw_rectangle(_panel_x, _panel_y, _panel_x + building_events_window_width, _panel_y + building_events_window_height, true);
+	draw_set_color(COLOR_JOBS_WINDOW_BACKGROUND);
+	draw_rectangle(_panel_x, _panel_y, _panel_x + _panel_width, _panel_y + _panel_height, false);
 
 	draw_set_halign(fa_center);
-	draw_set_valign(fa_middle);
-	draw_set_color(COLOR_HUD_TEXT);
+	draw_set_valign(fa_top);
+	draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
 
-	if (variable_global_exists("ui_heading_font") && font_exists(global.ui_heading_font))
+	if (instance_exists(_jobs_ui) && font_exists(_jobs_ui.jobs_button_font))
 	{
-		draw_set_font(global.ui_heading_font);
+		draw_set_font(_jobs_ui.jobs_button_font);
 	}
 
-	draw_text(_panel_x + (building_events_window_width * 0.5), _panel_y + 36, building_events_window_name + " Events");
+	draw_text_transformed(
+		_panel_x + (_panel_width * 0.5),
+		_panel_y + (58 * _scale),
+		string_upper(building_events_window_name),
+		_scale,
+		_scale,
+		0
+	);
 
-	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+	if (instance_exists(_jobs_ui) && font_exists(_jobs_ui.jobs_title_font))
 	{
-		draw_set_font(global.ui_font);
+		draw_set_font(_jobs_ui.jobs_title_font);
 	}
 
-	draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
-	draw_text(_panel_x + (building_events_window_width * 0.5), _panel_y + 72, "INFORMATION ONLY - EVENTS CANNOT BE ACTIVATED HERE");
+	draw_text_transformed(
+		_panel_x + (_panel_width * 0.5),
+		_panel_y + (95 * _scale),
+		"ALL POSSIBLE JOBS",
+		_scale,
+		_scale,
+		0
+	);
 
+	// Use the same outlined close button as Jobs.
 	draw_set_color(c_white);
 	draw_rectangle(_close_x, _close_y, _close_x + _close_size, _close_y + _close_size, true);
-	draw_text(_close_x + (_close_size * 0.5), _close_y + (_close_size * 0.5), "X");
+	draw_line(
+		_close_x + (10 * _scale),
+		_close_y + (10 * _scale),
+		_close_x + _close_size - (10 * _scale),
+		_close_y + _close_size - (10 * _scale)
+	);
+	draw_line(
+		_close_x + _close_size - (10 * _scale),
+		_close_y + (10 * _scale),
+		_close_x + (10 * _scale),
+		_close_y + _close_size - (10 * _scale)
+	);
 
 	if (_entry_count <= 0)
 	{
-		draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+		draw_set_valign(fa_middle);
+		draw_set_color(COLOR_JOBS_SLOT_BORDER);
 		draw_text(
-			_panel_x + (building_events_window_width * 0.5),
-			_panel_y + (building_events_window_height * 0.5),
+			_panel_x + (_panel_width * 0.5),
+			_panel_y + (_panel_height * 0.5),
 			"THIS BUILDING HAS NO DAY EVENTS"
 		);
 	}
 	else
 	{
+		var _viewport_gui = {
+			x: _panel_x,
+			y: _event_start_y,
+			width: _panel_width,
+			height: _viewport_height
+		};
+		var _gui_to_window_x = window_get_width() / max(1, _gui_width);
+		var _gui_to_window_y = window_get_height() / max(1, _gui_height);
+		var _event_scissor = {
+			x: floor(_viewport_gui.x * _gui_to_window_x),
+			y: floor(_viewport_gui.y * _gui_to_window_y),
+			w: ceil(_viewport_gui.width * _gui_to_window_x),
+			h: ceil(_viewport_gui.height * _gui_to_window_y)
+		};
+		var _previous_scissor = gpu_get_scissor();
+		gpu_set_scissor(_event_scissor);
+
 		for (var _entry_index = 0; _entry_index < _entry_count; ++_entry_index)
 		{
-			var _entry_row = _entry_index div building_events_card_columns;
-
-			if (_entry_row < building_events_scroll_row
-				|| _entry_row >= building_events_scroll_row + _visible_row_count)
-			{
-				continue;
-			}
-
-			var _entry_column = _entry_index mod building_events_card_columns;
-			var _visible_row = _entry_row - building_events_scroll_row;
-			var _card_x = _card_start_x
-				+ (_entry_column * (building_events_card_width + building_events_card_gap_x));
-			var _card_y = _panel_y + building_events_card_start_y
-				+ (_visible_row * (building_events_card_height + building_events_card_gap_y));
 			var _entry = building_events_window_entries[_entry_index];
+			var _is_current = variable_struct_exists(_entry, "is_current")
+				&& _entry.is_current;
+			var _card_x = _event_x;
+			var _card_y = _event_start_y
+				+ (_entry_index * _event_step)
+				+ (_entry_index > 0 ? _current_event_gap : 0)
+				- (building_events_scroll_row * _event_step);
 
-			draw_set_alpha(0.82);
-			draw_set_color(c_black);
+			draw_set_alpha(1);
+			draw_set_color(_is_current ? COLOR_JOBS_EVENT_ACTIVE : COLOR_JOBS_EVENT_INACTIVE);
 			draw_rectangle(
 				_card_x,
 				_card_y,
-				_card_x + building_events_card_width,
-				_card_y + building_events_card_height,
+				_card_x + _event_width,
+				_card_y + _event_height,
 				false
 			);
 
-			draw_set_alpha(1);
-			draw_set_color(COLOR_HUD_IRON);
-			draw_rectangle(
-				_card_x,
-				_card_y,
-				_card_x + building_events_card_width,
-				_card_y + building_events_card_height,
-				true
-			);
+			// Repeat the source-building sprite in the left gutter like Jobs.
+			if (instance_exists(building_events_window_building)
+				&& sprite_exists(building_events_window_building.sprite_index))
+			{
+				var _source_sprite = building_events_window_building.sprite_index;
+				var _source_frame = building_events_window_building.image_index;
+				var _source_available_width = 108 * _scale;
+				var _source_available_height = 76 * _scale;
+				var _source_scale = min(
+					_source_available_width / max(1, sprite_get_width(_source_sprite)),
+					_source_available_height / max(1, sprite_get_height(_source_sprite))
+				);
+				var _source_width = sprite_get_width(_source_sprite) * _source_scale;
+				var _source_height = sprite_get_height(_source_sprite) * _source_scale;
+				var _source_center_x = _panel_x + (138 * _scale);
+				var _source_x = _source_center_x - (_source_width * 0.5);
+				var _source_y = _card_y + ((_event_height - _source_height) * 0.5);
+
+				draw_sprite_stretched_ext(
+					_source_sprite,
+					_source_frame,
+					_source_x,
+					_source_y,
+					_source_width,
+					_source_height,
+					c_white,
+					1
+				);
+			}
 
 			draw_set_halign(fa_left);
 			draw_set_valign(fa_top);
-			draw_set_color(COLOR_HUD_TEXT);
-			draw_text(_card_x + 14, _card_y + 12, _entry.title);
+			draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
 
-			draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+			if (instance_exists(_jobs_ui) && font_exists(_jobs_ui.jobs_title_font))
+			{
+				draw_set_font(_jobs_ui.jobs_title_font);
+			}
+
+			draw_text_transformed(
+				_card_x + (34 * _scale),
+				_card_y + (18 * _scale),
+				_entry.title,
+				_scale,
+				_scale,
+				0
+			);
+
+			if (instance_exists(_jobs_ui) && font_exists(_jobs_ui.jobs_description_font))
+			{
+				draw_set_font(_jobs_ui.jobs_description_font);
+			}
+
 			draw_text_ext(
-				_card_x + 14,
-				_card_y + 40,
+				_card_x + (34 * _scale),
+				_card_y + (48 * _scale),
 				_entry.description,
-				17,
-				building_events_card_width - 28
+				16 * _scale,
+				380 * _scale
 			);
+
+			// Show requirement slots without cultist portraits or assignment controls.
+			var _slot_count = variable_struct_exists(_entry, "cultist_cost")
+				? _entry.cultist_cost
+				: 1;
+			var _slot_width = 44 * _scale;
+			var _slot_height = 60 * _scale;
+			var _slot_start_x = _card_x + (435 * _scale);
+			var _slot_y = _card_y + (18 * _scale);
+
+			for (var _slot_index = 0; _slot_index < _slot_count; ++_slot_index)
+			{
+				var _slot_x = _slot_start_x + (_slot_index * 65 * _scale);
+				draw_set_color(COLOR_JOBS_SLOT_BORDER);
+				draw_rectangle(
+					_slot_x,
+					_slot_y,
+					_slot_x + _slot_width,
+					_slot_y + _slot_height,
+					true
+				);
+			}
+
+			if (_is_current)
+			{
+				if (instance_exists(_jobs_ui) && font_exists(_jobs_ui.jobs_action_font))
+				{
+					draw_set_font(_jobs_ui.jobs_action_font);
+				}
+
+				draw_set_halign(fa_left);
+				draw_set_valign(fa_middle);
+				draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+				draw_text_transformed(
+					_card_x + _event_width + (16 * _scale),
+					_card_y + (_event_height * 0.5),
+					"Current job",
+					_scale,
+					_scale,
+					0
+				);
+			}
 		}
 
-		draw_set_halign(fa_center);
-		draw_set_valign(fa_middle);
-		draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
-
-		if (_max_scroll_row > 0)
-		{
-			draw_text(
-				_panel_x + (building_events_window_width * 0.5),
-				_panel_y + building_events_window_height - 24,
-				"MOUSE WHEEL  " + string(building_events_scroll_row + 1) + "/" + string(_max_scroll_row + 1)
-			);
-		}
+		gpu_set_scissor(_previous_scissor);
 	}
 
 	draw_set_halign(fa_left);
 	draw_set_valign(fa_top);
 	draw_set_color(c_white);
 	draw_set_alpha(1);
+
+	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+	{
+		draw_set_font(global.ui_font);
+	}
 
 	if (!global.blood_moon_reward_popup_active)
 	{
@@ -3532,6 +3654,30 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 			}
 		}
 
+		// Regular daytime cultists use the same pickup hand as every other draggable worker.
+		if (!_should_draw_pickup_hand
+			&& global.day_phase == DAY_PHASE.DAY
+			&& variable_global_exists("event_cultists")
+			&& is_array(global.event_cultists))
+		{
+			var _event_cultist_count = array_length(global.event_cultists);
+
+			for (var _event_cultist_index = 0; _event_cultist_index < _event_cultist_count; ++_event_cultist_index)
+			{
+				var _event_cultist = global.event_cultists[_event_cultist_index];
+
+				if (drag_cultist_can_be_picked(_event_cultist)
+					&& _mouse_world_x >= _event_cultist.bbox_left
+					&& _mouse_world_x <= _event_cultist.bbox_right
+					&& _mouse_world_y >= _event_cultist.bbox_top
+					&& _mouse_world_y <= _event_cultist.bbox_bottom)
+				{
+					_should_draw_pickup_hand = true;
+					break;
+				}
+			}
+		}
+
 		if (!_should_draw_pickup_hand)
 		{
 			var _worker_unit_objects = [o_goblin];
@@ -3702,6 +3848,88 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 		draw_set_color(c_white);
 		draw_set_alpha(1);
 	}
+}
+
+// Construction events show their two worker slots directly at the selected build site.
+if (global.day_phase == DAY_PHASE.DAY
+	&& global.focus_window == FOCUS_WINDOW.NOONE
+	&& variable_global_exists("day_events")
+	&& instance_exists(o_camera_controller))
+{
+	var _construction_camera = instance_find(o_camera_controller, 0);
+	var _construction_camera_x = camera_get_view_x(_construction_camera.camera_id);
+	var _construction_camera_y = camera_get_view_y(_construction_camera.camera_id);
+	var _construction_camera_width = camera_get_view_width(_construction_camera.camera_id);
+	var _construction_camera_height = camera_get_view_height(_construction_camera.camera_id);
+	var _construction_gui_width = _construction_camera.base_view_width;
+	var _construction_gui_height = _construction_camera.base_view_height;
+	var _construction_world_to_gui_x = _construction_gui_width / _construction_camera_width;
+	var _construction_world_to_gui_y = _construction_gui_height / _construction_camera_height;
+
+	for (var _construction_event_index = 0;
+		_construction_event_index < array_length(global.day_events);
+		++_construction_event_index)
+	{
+		var _construction_event = global.day_events[_construction_event_index];
+
+		if (!is_struct(_construction_event)
+			|| _construction_event.is_resolved
+			|| !variable_struct_exists(_construction_event, "construction_site")
+			|| !instance_exists(_construction_event.construction_site))
+		{
+			continue;
+		}
+
+		var _construction_site = _construction_event.construction_site;
+		var _construction_slot_count = _construction_event.cultist_cost
+			* _construction_event.activation_limit;
+		var _construction_slot_row_width = (_construction_slot_count - 1)
+			* BALANCE_WORLD_EVENT_SLOT_SPACING;
+		var _construction_slot_start_x = _construction_site.x
+			- (_construction_slot_row_width * 0.5);
+		var _construction_slot_bottom_y = _construction_site.bbox_bottom + 12;
+
+		if (variable_instance_exists(_construction_site, "worker_stand_offset_y"))
+		{
+			_construction_slot_bottom_y = _construction_site.bbox_bottom
+				+ _construction_site.worker_stand_offset_y;
+		}
+
+		for (var _construction_slot_index = 0;
+			_construction_slot_index < _construction_slot_count;
+			++_construction_slot_index)
+		{
+			var _construction_slot_center_x = _construction_slot_start_x
+				+ (_construction_slot_index * BALANCE_WORLD_EVENT_SLOT_SPACING);
+			var _construction_slot_left = _construction_slot_center_x
+				- (BALANCE_WORLD_EVENT_SLOT_WIDTH * 0.5);
+			var _construction_slot_top = _construction_slot_bottom_y
+				- BALANCE_WORLD_EVENT_SLOT_HEIGHT;
+			var _construction_slot_gui_x = (_construction_slot_left - _construction_camera_x)
+				* _construction_world_to_gui_x;
+			var _construction_slot_gui_y = (_construction_slot_top - _construction_camera_y)
+				* _construction_world_to_gui_y;
+			var _construction_slot_gui_width = BALANCE_WORLD_EVENT_SLOT_WIDTH
+				* _construction_world_to_gui_x;
+			var _construction_slot_gui_height = BALANCE_WORLD_EVENT_SLOT_HEIGHT
+				* _construction_world_to_gui_y;
+
+			draw_set_alpha(1);
+			draw_set_color(COLOR_JOBS_SLOT_BORDER);
+			draw_rectangle(
+				_construction_slot_gui_x,
+				_construction_slot_gui_y,
+				_construction_slot_gui_x + _construction_slot_gui_width,
+				_construction_slot_gui_y + _construction_slot_gui_height,
+				true
+			);
+		}
+	}
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
 }
 
 // Draw demon health bars above world objects so the player can find them in combat.
@@ -4092,146 +4320,6 @@ if (pause_menu_open)
 			tutorial_draw();
 		}
 	}
-}
-
-// Draw the Blood Moon arrivals above every other window.
-if (global.blood_moon_reward_popup_active)
-{
-	var _popup_x = (camera_view_width - blood_moon_reward_popup_width) * 0.5;
-	var _popup_y = (camera_view_height - blood_moon_reward_popup_height) * 0.5;
-	var _cultist_count = array_length(blood_moon_reward_cultists);
-	var _icon_step = blood_moon_reward_icon_width + blood_moon_reward_icon_gap;
-	var _icons_total_width = (_cultist_count * blood_moon_reward_icon_width)
-		+ (max(0, _cultist_count - 1) * blood_moon_reward_icon_gap);
-	var _icons_start_x = _popup_x + ((blood_moon_reward_popup_width - _icons_total_width) * 0.5);
-	var _icons_y = _popup_y + 104;
-	var _button_x = _popup_x + ((blood_moon_reward_popup_width - blood_moon_reward_button_width) * 0.5);
-	var _button_y = _popup_y + blood_moon_reward_popup_height - blood_moon_reward_button_height - 24;
-	var _title = "CULTIST LIMIT REACHED";
-	var _subtitle = "No new Cultists could join after the Blood Moon.";
-
-	if (_cultist_count == 1)
-	{
-		_title = "A NEW CULTIST HAS ARRIVED!";
-		_subtitle = "Blood Moon reward";
-	}
-	else if (_cultist_count > 1)
-	{
-		_title = "NEW CULTISTS HAVE ARRIVED!";
-		_subtitle = "Blood Moon reward";
-	}
-
-	draw_set_alpha(0.68);
-	draw_set_color(c_black);
-	draw_rectangle(0, 0, camera_view_width, camera_view_height, false);
-
-	draw_set_alpha(1);
-	draw_set_color(COLOR_HUD_BACKGROUND);
-	draw_rectangle(
-		_popup_x,
-		_popup_y,
-		_popup_x + blood_moon_reward_popup_width,
-		_popup_y + blood_moon_reward_popup_height,
-		false
-	);
-	draw_set_color(COLOR_STATUS_NEGATIVE_RED);
-	draw_rectangle(
-		_popup_x,
-		_popup_y,
-		_popup_x + blood_moon_reward_popup_width,
-		_popup_y + blood_moon_reward_popup_height,
-		true
-	);
-
-	draw_set_halign(fa_center);
-	draw_set_valign(fa_middle);
-	draw_set_color(COLOR_HUD_TEXT);
-
-	if (variable_global_exists("ui_heading_font") && font_exists(global.ui_heading_font))
-	{
-		draw_set_font(global.ui_heading_font);
-	}
-
-	draw_text(_popup_x + (blood_moon_reward_popup_width * 0.5), _popup_y + 36, _title);
-
-	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
-	{
-		draw_set_font(global.ui_font);
-	}
-
-	draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
-	draw_text(
-		_popup_x + (blood_moon_reward_popup_width * 0.5),
-		_popup_y + 72,
-		_subtitle
-	);
-
-	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
-	{
-		var _cultist = blood_moon_reward_cultists[_cultist_index];
-
-		if (!instance_exists(_cultist) || !sprite_exists(_cultist.sprite_index))
-		{
-			continue;
-		}
-
-		var _icon_x = _icons_start_x + (_cultist_index * _icon_step);
-		var _sprite_width = max(1, sprite_get_width(_cultist.sprite_index));
-		var _sprite_height = max(1, sprite_get_height(_cultist.sprite_index));
-		var _sprite_scale = min(
-			blood_moon_reward_icon_width / _sprite_width,
-			blood_moon_reward_icon_height / _sprite_height
-		);
-		var _sprite_draw_width = _sprite_width * _sprite_scale;
-		var _sprite_draw_height = _sprite_height * _sprite_scale;
-
-		draw_sprite_stretched_ext(
-			_cultist.sprite_index,
-			_cultist.image_index,
-			_icon_x + ((blood_moon_reward_icon_width - _sprite_draw_width) * 0.5),
-			_icons_y + (blood_moon_reward_icon_height - _sprite_draw_height),
-			_sprite_draw_width,
-			_sprite_draw_height,
-			c_white,
-			1
-		);
-
-		draw_set_halign(fa_center);
-		draw_set_valign(fa_top);
-		draw_set_color(COLOR_HUD_TEXT);
-		draw_text(
-			_icon_x + (blood_moon_reward_icon_width * 0.5),
-			_icons_y + blood_moon_reward_icon_height + 8,
-			_cultist.cultist_name
-		);
-	}
-
-	draw_set_alpha(blood_moon_reward_button_hovered ? 0.95 : 0.78);
-	draw_set_color(COLOR_JOBS_ASSIGN_BACKGROUND);
-	draw_rectangle(
-		_button_x,
-		_button_y,
-		_button_x + blood_moon_reward_button_width,
-		_button_y + blood_moon_reward_button_height,
-		false
-	);
-	draw_set_alpha(1);
-	draw_set_color(blood_moon_reward_button_hovered ? COLOR_STATUS_NEGATIVE_RED : COLOR_HUD_TEXT);
-	draw_rectangle(
-		_button_x,
-		_button_y,
-		_button_x + blood_moon_reward_button_width,
-		_button_y + blood_moon_reward_button_height,
-		true
-	);
-	draw_set_halign(fa_center);
-	draw_set_valign(fa_middle);
-	draw_set_color(COLOR_HUD_TEXT);
-	draw_text(
-		_button_x + (blood_moon_reward_button_width * 0.5),
-		_button_y + (blood_moon_reward_button_height * 0.5),
-		"CONTINUE"
-	);
 }
 
 // Restore default draw state.

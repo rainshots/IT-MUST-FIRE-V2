@@ -1,3 +1,9 @@
+if (variable_global_exists("blood_moon_reward_popup_active")
+	&& global.blood_moon_reward_popup_active)
+{
+	exit;
+}
+
 if (!structure_selection_open
 	|| global.focus_window != FOCUS_WINDOW.CURSED_POINT_STRUCTURE_SELECTION
 	|| !variable_global_exists("cursed_point_structure_selection_source")
@@ -55,7 +61,7 @@ var _panel_y = (_gui_height - structure_choice_window_height) * 0.5;
 var _mouse_x = device_mouse_x_to_gui(0);
 var _mouse_y = device_mouse_y_to_gui(0);
 var _hovered_choice = cursed_point_structure_choice_hover_index_get(_mouse_x, _mouse_y);
-var _daily_limit_reached = !day_event_building_construction_can_start();
+var _daily_limit_reached = !day_event_cursed_point_construction_can_start();
 
 draw_set_alpha(0.55);
 draw_set_color(c_black);
@@ -76,7 +82,7 @@ draw_set_color(_daily_limit_reached ? COLOR_STATUS_NEGATIVE_RED : COLOR_HUD_PROJ
 draw_text(
 	_panel_x + (structure_choice_window_width * 0.5),
 	_panel_y + 68,
-	_daily_limit_reached ? "MAX 1 BUILDING PER DAY" : "Choose one captured structure"
+	_daily_limit_reached ? "MAX 1 CURSED POINT STRUCTURE PER DAY" : "Choose one captured structure"
 );
 
 for (var _choice_index = 0; _choice_index < array_length(structure_choice_options); ++_choice_index)
@@ -140,10 +146,13 @@ for (var _choice_index = 0; _choice_index < array_length(structure_choice_option
 	draw_set_halign(fa_center);
 	draw_set_valign(fa_middle);
 	draw_set_color(COLOR_HUD_TEXT);
+	var _cultist_label = BALANCE_BUILDING_CONSTRUCTION_CULTIST_COST == 1
+		? " Cultist"
+		: " Cultists";
 	draw_text(
 		_tile_x + (structure_choice_tile_width * 0.5),
 		_tile_y + structure_choice_tile_height - 22,
-		"2 Cultists"
+		string(BALANCE_BUILDING_CONSTRUCTION_CULTIST_COST) + _cultist_label
 	);
 }
 

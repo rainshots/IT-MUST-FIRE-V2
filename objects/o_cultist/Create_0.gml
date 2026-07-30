@@ -3,6 +3,12 @@ cultist_name = "Cultist";
 max_hp = BALANCE_EVENT_CULTIST_MAX_HP;
 hp = max_hp;
 assigned_event = noone;
+is_being_dragged = false;
+drag_drop_x = x;
+drag_drop_y = y;
+// Blood Bath effects queued during the day resolve after the following night.
+blood_bath_morning_heal_pending = 0;
+blood_bath_morning_full_heal_pending = false;
 
 // Give every regular cultist a small random day-form appearance.
 var _cultist_sprites = [s_cultist_01, s_cultist_02, s_cultist_03, s_cultist_04];

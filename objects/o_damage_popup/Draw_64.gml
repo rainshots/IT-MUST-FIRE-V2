@@ -1,3 +1,9 @@
+if (variable_global_exists("blood_moon_reward_popup_active")
+	&& global.blood_moon_reward_popup_active)
+{
+	exit;
+}
+
 // Draw damage text in GUI space so it appears above world objects.
 if (!instance_exists(o_camera_controller))
 {

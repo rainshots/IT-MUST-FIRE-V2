@@ -1,3 +1,9 @@
+if (variable_global_exists("blood_moon_reward_popup_active")
+	&& global.blood_moon_reward_popup_active)
+{
+	exit;
+}
+
 // Draw ability text in GUI space so it appears above world objects.
 if (!instance_exists(o_camera_controller))
 {
@@ -25,4 +31,3 @@ draw_set_halign(fa_left);
 draw_set_valign(fa_top);
 draw_set_color(c_white);
 draw_set_alpha(1);
-
