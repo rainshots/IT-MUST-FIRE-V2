@@ -125,7 +125,7 @@ tree_corruption_hint_line_height = 16;
 tree_corruption_hint_offset_y = 58;
 tree_corruption_hint_background_alpha = 0.86;
 
-// Full moon tutorial appears after the player has seen unobstructed daytime gameplay.
+// Blood Moon preparation is queued at daybreak and waits only for unobstructed control.
 full_moon_hint_delay_time = BALANCE_FULL_MOON_HINT_DELAY * room_speed;
 full_moon_hint_delay_timer = -1;
 full_moon_hint_delay_pending = false;
@@ -2100,11 +2100,6 @@ debug_shell_choices = [
 		}
 	},
 	{
-		label: "Crusade",
-		debug_action: "crusade",
-		payload: noone
-	},
-	{
 		label: "Boss Next Night",
 		debug_action: "boss_next_night",
 		payload: noone
@@ -2436,11 +2431,6 @@ debug_shell_give = function(_choice)
 		if (_choice.debug_action == "all_events")
 		{
 			debug_all_events_give();
-			return true;
-		}
-		else if (_choice.debug_action == "crusade")
-		{
-			crusade_spawn(random(360));
 			return true;
 		}
 		else if (_choice.debug_action == "boss_next_night")
@@ -3077,13 +3067,6 @@ boss_griffith_pending_direction = 0;
 boss_griffith_force_next_night = false;
 boss_griffith_night_active = false;
 full_moon_night_interval = BALANCE_FULL_MOON_NIGHT_INTERVAL;
-crusade_taint_trigger_amount = BALANCE_ENEMY_CATAPULT_CRUSADE_TAINT_TRIGGER_AMOUNT;
-crusade_pending_count = 0;
-crusade_pending_directions = [];
-crusade_taint_threshold_index = 0;
-crusade_taint_tracking_initialized = false;
-crusade_corruption_check_interval = BALANCE_PLAYER_BUILDING_CORRUPTION_CHECK_INTERVAL;
-crusade_corruption_check_timer = irandom(crusade_corruption_check_interval - 1);
 night_force_end_timer = 0;
 night_force_end_active = false;
 night_attack_unit_pool = [
@@ -9197,6 +9180,14 @@ boss_griffith_night_is_scheduled = function(_night_index)
 	return _night_index > 0 && (_night_index mod boss_griffith_night_interval) == 0;
 };
 
+boss_crusader_horde_is_scheduled = function(_night_index)
+{
+	var _crusader_horde_night = boss_griffith_night_interval
+		* BALANCE_BOSS_CRUSADER_HORDE_ENCOUNTER_NUMBER;
+
+	return _night_index == _crusader_horde_night;
+};
+
 full_moon_night_is_scheduled = function(_night_index)
 {
 	if (boss_griffith_night_is_scheduled(_night_index))
@@ -9224,7 +9215,7 @@ boss_griffith_prepare_next_night = function()
 	boss_griffith_pending_direction = random(360);
 };
 
-boss_griffith_spawn_enemy = function(_origin_x, _origin_y, _enemy_object, _radius_min, _radius_max)
+boss_enemy_spawn = function(_origin_x, _origin_y, _enemy_object, _radius_min, _radius_max)
 {
 	var _spawn_direction = random(360);
 	var _spawn_distance = random_range(_radius_min, _radius_max);
@@ -9282,7 +9273,7 @@ boss_griffith_spawn_for_night = function()
 
 	for (var _archer_index = 0; _archer_index < _entourage_archer_count; ++_archer_index)
 	{
-		boss_griffith_spawn_enemy(
+		boss_enemy_spawn(
 			_boss.x,
 			_boss.y,
 			o_enemy_archer,
@@ -9293,7 +9284,7 @@ boss_griffith_spawn_for_night = function()
 
 	for (var _knight_index = 0; _knight_index < _entourage_knight_count; ++_knight_index)
 	{
-		boss_griffith_spawn_enemy(
+		boss_enemy_spawn(
 			_boss.x,
 			_boss.y,
 			o_enemy_knight,
@@ -9308,152 +9299,43 @@ boss_griffith_spawn_for_night = function()
 	return _boss;
 };
 
-crusade_spawn = function(_direction)
+boss_crusader_horde_spawn_for_night = function()
 {
-	if (!instance_exists(o_cannon))
+	if (!instance_exists(o_cannon)
+		|| !boss_griffith_pending_next_night
+		|| !boss_crusader_horde_is_scheduled(night_attack_night_index))
 	{
 		return noone;
 	}
 
 	var _cannon = instance_find(o_cannon, 0);
-	var _spawn_x = _cannon.x + lengthdir_x(BALANCE_NIGHT_ATTACK_SPAWN_DISTANCE, _direction);
-	var _spawn_y = _cannon.y + lengthdir_y(BALANCE_NIGHT_ATTACK_SPAWN_DISTANCE, _direction);
-	var _catapult = instance_create_layer(_spawn_x, _spawn_y, "Instances", o_enemy_catapult);
+	var _spawn_x = _cannon.x
+		+ lengthdir_x(BALANCE_NIGHT_ATTACK_SPAWN_DISTANCE, boss_griffith_pending_direction);
+	var _spawn_y = _cannon.y
+		+ lengthdir_y(BALANCE_NIGHT_ATTACK_SPAWN_DISTANCE, boss_griffith_pending_direction);
+	var _first_crusader = noone;
 
-	if (!instance_exists(_catapult))
+	// The second boss encounter replaces Griffith with independent Crusaders.
+	for (var _crusader_index = 0; _crusader_index < BALANCE_BOSS_CRUSADER_HORDE_COUNT; ++_crusader_index)
 	{
-		return noone;
-	}
+		var _crusader = boss_enemy_spawn(
+			_spawn_x,
+			_spawn_y,
+			o_crusader,
+			BALANCE_BOSS_GRIFFITH_ENTOURAGE_SPAWN_RADIUS_MIN,
+			BALANCE_BOSS_GRIFFITH_ENTOURAGE_SPAWN_RADIUS_MAX
+		);
 
-	_catapult.unit_can_attack_cannon = true;
-	_catapult.is_night_attack_unit = true;
-	_catapult.owner_garnizon = noone;
-	_catapult.guard_target = noone;
-	enemy_night_hp_scale_apply(_catapult);
-	global.night_attack_unit_count++;
-
-	for (var _crusader_index = 0; _crusader_index < BALANCE_ENEMY_CATAPULT_CRUSADE_CRUSADER_COUNT; ++_crusader_index)
-	{
-		var _crusader_angle = 360 * (_crusader_index / max(1, BALANCE_ENEMY_CATAPULT_CRUSADE_CRUSADER_COUNT));
-		var _crusader_x = _catapult.x + lengthdir_x(BALANCE_ENEMY_CATAPULT_CRUSADE_SPAWN_RADIUS, _crusader_angle);
-		var _crusader_y = _catapult.y + lengthdir_y(BALANCE_ENEMY_CATAPULT_CRUSADE_SPAWN_RADIUS, _crusader_angle);
-		var _crusader = instance_create_layer(_crusader_x, _crusader_y, "Instances", o_crusader);
-
-		if (instance_exists(_crusader))
+		if (!instance_exists(_first_crusader) && instance_exists(_crusader))
 		{
-			_crusader.catapult_escort_target = _catapult;
-			_crusader.catapult_escort_angle = _crusader_angle;
-			_crusader.unit_can_attack_cannon = false;
-			_crusader.is_night_attack_unit = true;
-			_crusader.owner_garnizon = noone;
-			_crusader.guard_target = noone;
-			enemy_night_hp_scale_apply(_crusader);
-			global.night_attack_unit_count++;
+			_first_crusader = _crusader;
 		}
 	}
 
-	return _catapult;
-};
+	boss_griffith_pending_next_night = false;
+	boss_griffith_force_next_night = false;
 
-crusade_corruption_total_get = function()
-{
-	if (!instance_exists(o_corruption_grid))
-	{
-		return 0;
-	}
-
-	var _corruption_grid = instance_find(o_corruption_grid, 0);
-	var _total_corruption = 0;
-
-	for (var _cell_x = 0; _cell_x < _corruption_grid.grid_width; ++_cell_x)
-	{
-		for (var _cell_y = 0; _cell_y < _corruption_grid.grid_height; ++_cell_y)
-		{
-			var _saint = 0;
-
-			if (variable_instance_exists(_corruption_grid, "saint_grid"))
-			{
-				_saint = ds_grid_get(_corruption_grid.saint_grid, _cell_x, _cell_y);
-			}
-
-			if (_saint <= 0)
-			{
-				_total_corruption += ds_grid_get(_corruption_grid.corruption_grid, _cell_x, _cell_y);
-			}
-		}
-	}
-
-	return _total_corruption;
-};
-
-crusade_taint_tracking_init = function()
-{
-	if (!instance_exists(o_corruption_grid))
-	{
-		return;
-	}
-
-	var _corruption_total = crusade_corruption_total_get();
-	crusade_taint_threshold_index = floor(_corruption_total / max(1, crusade_taint_trigger_amount));
-	crusade_taint_tracking_initialized = true;
-	crusade_corruption_check_timer = 0;
-};
-
-crusade_taint_threshold_update = function()
-{
-	if (global.pause || global.day_phase != DAY_PHASE.DAY)
-	{
-		return;
-	}
-
-	crusade_corruption_check_timer++;
-
-	if (crusade_corruption_check_timer < crusade_corruption_check_interval)
-	{
-		return;
-	}
-
-	crusade_corruption_check_timer = 0;
-
-	if (!instance_exists(o_corruption_grid))
-	{
-		return;
-	}
-
-	var _corruption_total = crusade_corruption_total_get();
-
-	if (!crusade_taint_tracking_initialized)
-	{
-		crusade_taint_tracking_init();
-		return;
-	}
-
-	var _new_threshold_index = floor(_corruption_total / max(1, crusade_taint_trigger_amount));
-	var _new_crusade_count = max(0, _new_threshold_index - crusade_taint_threshold_index);
-
-	if (_new_crusade_count > 0)
-	{
-		for (var _new_crusade_index = 0; _new_crusade_index < _new_crusade_count; ++_new_crusade_index)
-		{
-			array_push(crusade_pending_directions, random(360));
-		}
-
-		crusade_pending_count = array_length(crusade_pending_directions);
-		crusade_taint_threshold_index = _new_threshold_index;
-	}
-};
-
-crusade_spawn_pending_for_night = function()
-{
-	var _pending_direction_count = array_length(crusade_pending_directions);
-
-	for (var _crusade_index = 0; _crusade_index < _pending_direction_count; ++_crusade_index)
-	{
-		crusade_spawn(crusade_pending_directions[_crusade_index]);
-	}
-
-	crusade_pending_count = 0;
-	crusade_pending_directions = [];
+	return _first_crusader;
 };
 
 night_attack_spawning_update = function()
@@ -9907,11 +9789,14 @@ start_night_phase = function()
 
 	if (boss_griffith_pending_next_night)
 	{
-		boss_griffith_spawn_for_night();
-	}
-	else
-	{
-		crusade_spawn_pending_for_night();
+		if (boss_crusader_horde_is_scheduled(night_attack_night_index))
+		{
+			boss_crusader_horde_spawn_for_night();
+		}
+		else
+		{
+			boss_griffith_spawn_for_night();
+		}
 	}
 };
 
@@ -9971,11 +9856,6 @@ start_day_phase = function()
 	{
 		full_moon_hint_delay_pending = false;
 		full_moon_hint_delay_timer = -1;
-	}
-
-	if (!crusade_taint_tracking_initialized)
-	{
-		crusade_taint_tracking_init();
 	}
 
 	fade_out_morning_meat();

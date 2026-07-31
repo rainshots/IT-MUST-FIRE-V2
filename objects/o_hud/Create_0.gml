@@ -402,6 +402,14 @@ cannon_hp_background_height_share = 0.01389;
 cannon_hp_background_top_share = 0.00741;
 cannon_hp_label = "CANNON HP";
 cannon_hp_label_scale = 0.5;
+// Upcoming special-night warning pulses directly below the Cannon HP bar.
+cannon_special_night_boss_text = "AT NIGHT BOSS WILL ARRIVE!";
+cannon_special_night_blood_moon_text = "BLOOD MOON!";
+cannon_special_night_warning_gap = 20;
+cannon_special_night_warning_scale_min = 0.7;
+cannon_special_night_warning_scale_max = 0.9;
+cannon_special_night_warning_pulse_speed = 0.006;
+cannon_special_night_warning_shadow_offset = 2;
 
 // First night prompt nudges the player to select the starting cultist projectile.
 first_night_cultist_prompt_text = "PRESS 1";
@@ -442,13 +450,6 @@ full_moon_timer_button_gap = 10;
 full_moon_retreat_button_width = 190;
 full_moon_retreat_button_height = 46;
 full_moon_retreat_button_bottom = 218;
-
-// Crusade warning appears during the day when Taint has triggered next-night raids.
-crusade_warning_y = 632;
-crusade_warning_scale = 0.82;
-crusade_warning_padding_x = 12;
-crusade_warning_padding_y = 7;
-crusade_warning_background_alpha = 0.78;
 
 // Player unit counter is pinned just left of the right HUD sidebar.
 unit_counter_width = 96;

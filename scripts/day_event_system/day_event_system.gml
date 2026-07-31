@@ -1616,10 +1616,8 @@ function day_event_foundry_events_add(_foundry)
 		var _target_name = variable_instance_exists(_target, "cultist_name")
 			? _target.cultist_name
 			: "Archdemon";
-		var _target_sprite = variable_instance_exists(_target, "cultist_sprite_index")
-				&& sprite_exists(_target.cultist_sprite_index)
-			? _target.cultist_sprite_index
-			: _target.sprite_index;
+		// The portrait uses the Archdemon's current demonic form, never its legacy Cultist sprite.
+		var _target_sprite = _target.sprite_index;
 		var _training_event = day_event_foundry_event_create(
 			_foundry,
 			"foundry_archdemon_training",
@@ -3326,7 +3324,7 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 			_blood_bath,
 			"undying_devotion",
 			"Undying Devotion",
-			"At the end of the day, all dead Cultists will rise the next day with "
+			"All Cultists who die today, will rise the next day with "
 				+ string(BALANCE_BLOOD_BATH_UNDYING_DEVOTION_REVIVE_HP)
 				+ " HP.\nRequires 1 Cultist.",
 			1,

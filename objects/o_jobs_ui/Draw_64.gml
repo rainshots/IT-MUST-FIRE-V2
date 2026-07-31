@@ -58,51 +58,96 @@ if (global.day_phase == DAY_PHASE.DAY && global.focus_window == FOCUS_WINDOW.NOO
 		0
 	);
 
-	var _end_rect = jobs_end_day_button_rect_get();
-	var _end_pulse = 0.5 + (sin(current_time / 260) * 0.5);
-	var _end_pulse_scale = 0.98 + (_end_pulse * 0.04);
-	var _end_hover_scale = jobs_end_hovered ? 1.06 : 1;
-	var _end_visual_scale = _end_pulse_scale * _end_hover_scale;
-	var _end_center_x = _end_rect.x + (_end_rect.width * 0.5);
-	var _end_center_y = _end_rect.y + (_end_rect.height * 0.5);
-	var _end_visual_width = _end_rect.width * _end_visual_scale;
-	var _end_visual_height = _end_rect.height * _end_visual_scale;
-	var _end_visual_x = _end_center_x - (_end_visual_width * 0.5);
-	var _end_visual_y = _end_center_y - (_end_visual_height * 0.5);
-
-	draw_set_color(COLOR_JOBS_ASSIGN_BACKGROUND);
-	draw_rectangle(
-		_end_visual_x,
-		_end_visual_y,
-		_end_visual_x + _end_visual_width,
-		_end_visual_y + _end_visual_height,
-		false
-	);
-
-	draw_set_color(COLOR_JOBS_ASSIGN_BORDER);
-	for (var _end_border_index = 0; _end_border_index < 2; ++_end_border_index)
+	// Guide the player to Cultist Assignment until the window has been opened once.
+	if (!jobs_window_opened_once)
 	{
-		draw_rectangle(
-			_end_visual_x + _end_border_index,
-			_end_visual_y + _end_border_index,
-			_end_visual_x + _end_visual_width - _end_border_index,
-			_end_visual_y + _end_visual_height - _end_border_index,
-			true
+		var _hint_text_x = _show_rect.x + (jobs_assignment_hint_text_offset_x * _show_rect.scale);
+		var _hint_text_y = _show_rect.y + (jobs_assignment_hint_text_offset_y * _show_rect.scale);
+
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_color(c_white);
+		draw_set_font(jobs_button_font);
+		draw_text_transformed(
+			_hint_text_x,
+			_hint_text_y,
+			"Click to open the Cultist Assignment window",
+			_show_rect.scale,
+			_show_rect.scale,
+			0
 		);
+
+		if (sprite_exists(s_attack_arrow))
+		{
+			var _hint_arrow_x = _show_rect.x
+				+ (jobs_assignment_hint_arrow_tip_offset_x * _show_rect.scale);
+			var _hint_arrow_y = _show_rect.y
+				+ (jobs_assignment_hint_arrow_tip_offset_y * _show_rect.scale);
+			var _hint_arrow_scale = jobs_assignment_hint_arrow_scale * _show_rect.scale;
+
+			draw_sprite_ext(
+				s_attack_arrow,
+				0,
+				_hint_arrow_x,
+				_hint_arrow_y,
+				_hint_arrow_scale,
+				_hint_arrow_scale,
+				jobs_assignment_hint_arrow_angle,
+				c_white,
+				1
+			);
+		}
 	}
 
-	draw_set_halign(fa_center);
-	draw_set_valign(fa_middle);
-	draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
-	draw_set_font(jobs_button_font);
-	draw_text_transformed(
-		_end_center_x,
-		_end_center_y,
-		"END DAY",
-		_end_rect.scale * _end_visual_scale,
-		_end_rect.scale * _end_visual_scale,
-		0
-	);
+	// End Day becomes available only after the assignment window has been opened.
+	if (jobs_end_day_is_visible())
+	{
+		var _end_rect = jobs_end_day_button_rect_get();
+		var _end_pulse = 0.5 + (sin(current_time / 260) * 0.5);
+		var _end_pulse_scale = 0.98 + (_end_pulse * 0.04);
+		var _end_hover_scale = jobs_end_hovered ? 1.06 : 1;
+		var _end_visual_scale = _end_pulse_scale * _end_hover_scale;
+		var _end_center_x = _end_rect.x + (_end_rect.width * 0.5);
+		var _end_center_y = _end_rect.y + (_end_rect.height * 0.5);
+		var _end_visual_width = _end_rect.width * _end_visual_scale;
+		var _end_visual_height = _end_rect.height * _end_visual_scale;
+		var _end_visual_x = _end_center_x - (_end_visual_width * 0.5);
+		var _end_visual_y = _end_center_y - (_end_visual_height * 0.5);
+
+		draw_set_color(COLOR_JOBS_ASSIGN_BACKGROUND);
+		draw_rectangle(
+			_end_visual_x,
+			_end_visual_y,
+			_end_visual_x + _end_visual_width,
+			_end_visual_y + _end_visual_height,
+			false
+		);
+
+		draw_set_color(COLOR_JOBS_ASSIGN_BORDER);
+		for (var _end_border_index = 0; _end_border_index < 2; ++_end_border_index)
+		{
+			draw_rectangle(
+				_end_visual_x + _end_border_index,
+				_end_visual_y + _end_border_index,
+				_end_visual_x + _end_visual_width - _end_border_index,
+				_end_visual_y + _end_visual_height - _end_border_index,
+				true
+			);
+		}
+
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_middle);
+		draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+		draw_set_font(jobs_button_font);
+		draw_text_transformed(
+			_end_center_x,
+			_end_center_y,
+			"END DAY",
+			_end_rect.scale * _end_visual_scale,
+			_end_rect.scale * _end_visual_scale,
+			0
+		);
+	}
 }
 
 if (global.focus_window == FOCUS_WINDOW.END_DAY_CONFIRMATION)
@@ -782,6 +827,62 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 	);
 	draw_line(_layout.close_x + (10 * _layout.scale), _layout.close_y + (10 * _layout.scale), _layout.close_x + _layout.close_size - (10 * _layout.scale), _layout.close_y + _layout.close_size - (10 * _layout.scale));
 	draw_line(_layout.close_x + _layout.close_size - (10 * _layout.scale), _layout.close_y + (10 * _layout.scale), _layout.close_x + (10 * _layout.scale), _layout.close_y + _layout.close_size - (10 * _layout.scale));
+
+	// Keep the complete Jobs guide visible through every opening on the first day.
+	if (jobs_first_day_hints_are_visible())
+	{
+		var _hint_design_origin_x = (_gui_width - (jobs_design_width * _layout.scale)) * 0.5;
+		var _hint_text_count = array_length(jobs_first_day_hint_texts);
+
+		draw_set_valign(fa_top);
+		draw_set_font(jobs_show_font);
+		draw_set_color(COLOR_JOBS_EVENT_ACTION);
+
+		for (var _hint_text_index = 0; _hint_text_index < _hint_text_count; ++_hint_text_index)
+		{
+			var _hint_text = jobs_first_day_hint_texts[_hint_text_index];
+			var _hint_text_x = _hint_design_origin_x + (_hint_text.x * _layout.scale);
+			var _hint_text_y = _hint_text.y * _layout.scale;
+
+			draw_set_halign(_hint_text.alignment);
+			draw_text_transformed(
+				_hint_text_x,
+				_hint_text_y,
+				_hint_text.text,
+				_layout.scale,
+				_layout.scale,
+				0
+			);
+		}
+
+		if (sprite_exists(s_attack_arrow))
+		{
+			var _hint_arrow_count = array_length(jobs_first_day_hint_arrows);
+			var _hint_arrow_scale = jobs_first_day_hint_arrow_scale * _layout.scale;
+
+			for (var _hint_arrow_index = 0;
+				_hint_arrow_index < _hint_arrow_count;
+				++_hint_arrow_index)
+			{
+				var _hint_arrow = jobs_first_day_hint_arrows[_hint_arrow_index];
+				var _hint_arrow_x = _hint_design_origin_x
+					+ (_hint_arrow.tip_x * _layout.scale);
+				var _hint_arrow_y = _hint_arrow.tip_y * _layout.scale;
+
+				draw_sprite_ext(
+					s_attack_arrow,
+					0,
+					_hint_arrow_x,
+					_hint_arrow_y,
+					_hint_arrow_scale,
+					_hint_arrow_scale,
+					_hint_arrow.angle,
+					c_white,
+					1
+				);
+			}
+		}
+	}
 
 }
 

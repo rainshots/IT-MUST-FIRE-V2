@@ -27,6 +27,8 @@ jobs_hovered_cultist = noone;
 jobs_hovered_empty_slot_key = "";
 jobs_show_hovered = false;
 jobs_end_hovered = false;
+// Unlocks End Day after the player has opened Cultist Assignment once.
+jobs_window_opened_once = false;
 jobs_confirmation_cancel_hovered = false;
 jobs_confirmation_end_hovered = false;
 jobs_confirmation_previous_pause_state = false;
@@ -49,6 +51,61 @@ jobs_show_button_width = 313;
 jobs_show_button_height = 80;
 jobs_show_button_right_margin = 53;
 jobs_show_button_top = 58;
+// Assignment onboarding hint uses offsets from the Figma HUD composition.
+jobs_assignment_hint_text_offset_x = -502;
+jobs_assignment_hint_text_offset_y = 172;
+jobs_assignment_hint_arrow_tip_offset_x = 19;
+jobs_assignment_hint_arrow_tip_offset_y = 68;
+jobs_assignment_hint_arrow_scale = 0.5;
+jobs_assignment_hint_arrow_angle = 45;
+// First-day Jobs guidance follows the 1920x1080 Figma annotation positions.
+jobs_first_day_hint_texts = [
+	{
+		text: "Unassigned cultists",
+		x: 216.92,
+		y: 112.77,
+		alignment: fa_left
+	},
+	{
+		text: "Each building\ngives one random\njob per day",
+		x: 121.92,
+		y: 230.77,
+		alignment: fa_left
+	},
+	{
+		text: "You can either drag and drop cultists on job' cultist slots or click on the\ncultist slots (LMB to add a cultist, RMB to remove it)",
+		x: 999.42,
+		y: 827.77,
+		alignment: fa_center
+	},
+	{
+		text: "If the required number of\ncultists is assigned to the job, it\nwill be completed tomorrow\nmorning.",
+		x: 1199.92,
+		y: 516.77,
+		alignment: fa_left
+	},
+	{
+		text: "You can reroll 1 job\nper day.",
+		x: 1622.92,
+		y: 225.77,
+		alignment: fa_left
+	},
+	{
+		text: "You can pin 1 job per\nday, so tomorrow it\nwill be the same.",
+		x: 1621.92,
+		y: 337.77,
+		alignment: fa_left
+	}
+];
+// Arrow coordinates are their sprite-tip positions after applying the Figma rotations.
+jobs_first_day_hint_arrow_scale = 0.496;
+jobs_first_day_hint_arrows = [
+	{ tip_x: 626.07, tip_y: 142.23, angle: 0 },
+	{ tip_x: 460.07, tip_y: 272.23, angle: 0 },
+	{ tip_x: 1141.34, tip_y: 405.50, angle: 120 },
+	{ tip_x: 1494.91, tip_y: 259.23, angle: 180 },
+	{ tip_x: 1494.91, tip_y: 385.23, angle: 180 }
+];
 jobs_end_day_button_width = 353;
 jobs_end_day_button_height = 88;
 jobs_end_day_button_bottom_margin = 65;
@@ -177,6 +234,18 @@ jobs_end_day_button_rect_get = function()
 	};
 };
 
+jobs_end_day_is_visible = function()
+{
+	return jobs_window_opened_once;
+};
+
+jobs_first_day_hints_are_visible = function()
+{
+	return jobs_window_opened_once
+		&& global.day_phase == DAY_PHASE.DAY
+		&& day_event_current_day_get() == 1;
+};
+
 jobs_end_day_confirmation_layout_get = function()
 {
 	var _gui_width = display_get_gui_width();
@@ -299,7 +368,9 @@ jobs_end_day_execute = function()
 
 jobs_end_day_request = function()
 {
-	if (global.day_phase != DAY_PHASE.DAY || global.focus_window != FOCUS_WINDOW.NOONE)
+	if (!jobs_end_day_is_visible()
+		|| global.day_phase != DAY_PHASE.DAY
+		|| global.focus_window != FOCUS_WINDOW.NOONE)
 	{
 		return false;
 	}
@@ -672,6 +743,7 @@ jobs_window_open = function()
 	jobs_hovered_event_action_key = "";
 	jobs_squad_selector_event = noone;
 	jobs_scroll_offset = 0;
+	jobs_window_opened_once = true;
 	global.pause = true;
 	global.focus_window = FOCUS_WINDOW.JOBS;
 	return true;

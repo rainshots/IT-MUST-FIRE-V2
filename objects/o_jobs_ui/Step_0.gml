@@ -32,15 +32,18 @@ if (global.day_phase == DAY_PHASE.DAY && global.focus_window == FOCUS_WINDOW.NOO
 		_hover_show_rect.y + _hover_show_rect.height
 	);
 
-	var _hover_end_rect = jobs_end_day_button_rect_get();
-	_end_hovered_now = point_in_rectangle(
-		_mouse_x,
-		_mouse_y,
-		_hover_end_rect.x,
-		_hover_end_rect.y,
-		_hover_end_rect.x + _hover_end_rect.width,
-		_hover_end_rect.y + _hover_end_rect.height
-	);
+	if (jobs_end_day_is_visible())
+	{
+		var _hover_end_rect = jobs_end_day_button_rect_get();
+		_end_hovered_now = point_in_rectangle(
+			_mouse_x,
+			_mouse_y,
+			_hover_end_rect.x,
+			_hover_end_rect.y,
+			_hover_end_rect.x + _hover_end_rect.width,
+			_hover_end_rect.y + _hover_end_rect.height
+		);
+	}
 }
 else if (global.focus_window == FOCUS_WINDOW.END_DAY_CONFIRMATION)
 {
@@ -132,7 +135,8 @@ if (global.focus_window != FOCUS_WINDOW.JOBS)
 				global.ui_confirm_sound_play();
 			}
 		}
-		else if (point_in_rectangle(
+		else if (jobs_end_day_is_visible()
+			&& point_in_rectangle(
 			_mouse_x,
 			_mouse_y,
 			_end_rect.x,

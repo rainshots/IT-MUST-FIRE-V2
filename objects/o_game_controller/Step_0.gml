@@ -270,7 +270,6 @@ shrine_objective_update();
 if (!global.pause)
 {
 	player_building_ground_state_update();
-	crusade_taint_threshold_update();
 }
 
 // Delay the first worker assignment hint until gameplay has been visible for a moment.
@@ -325,14 +324,15 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("archdem
 			_jobs_show_rect.x + _jobs_show_rect.width,
 			_jobs_show_rect.y + _jobs_show_rect.height
 		);
-		var _jobs_end_button_clicked = point_in_rectangle(
-			_mouse_gui_x,
-			_mouse_gui_y,
-			_jobs_end_rect.x,
-			_jobs_end_rect.y,
-			_jobs_end_rect.x + _jobs_end_rect.width,
-			_jobs_end_rect.y + _jobs_end_rect.height
-		);
+		var _jobs_end_button_clicked = _jobs_ui.jobs_end_day_is_visible()
+			&& point_in_rectangle(
+				_mouse_gui_x,
+				_mouse_gui_y,
+				_jobs_end_rect.x,
+				_jobs_end_rect.y,
+				_jobs_end_rect.x + _jobs_end_rect.width,
+				_jobs_end_rect.y + _jobs_end_rect.height
+			);
 
 		if (_jobs_show_button_clicked)
 		{

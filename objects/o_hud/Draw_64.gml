@@ -553,62 +553,6 @@ if (_regular_hud_is_visible)
 	}
 	}
 
-	// Warn the player when accumulated Taint will trigger Crusades next night.
-	if (variable_global_exists("day_phase")
-		&& global.day_phase == DAY_PHASE.DAY
-		&& instance_exists(o_game_controller))
-	{
-		var _crusade_game_controller = instance_find(o_game_controller, 0);
-		var _crusade_pending_count = 0;
-
-		if (variable_instance_exists(_crusade_game_controller, "crusade_pending_count"))
-		{
-			_crusade_pending_count = _crusade_game_controller.crusade_pending_count;
-		}
-
-		if (_crusade_pending_count > 0)
-		{
-			var _crusade_warning_text = "CRUSADE NEXT NIGHT";
-
-			if (_crusade_pending_count > 1)
-			{
-				_crusade_warning_text = string(_crusade_pending_count) + " CRUSADES NEXT NIGHT";
-			}
-
-			var _crusade_warning_text_scale = crusade_warning_scale * _sidebar_scale;
-			var _crusade_warning_x = _sidebar_x + (_sidebar_width * 0.5);
-			var _crusade_warning_y = crusade_warning_y * _sidebar_scale;
-			var _crusade_warning_width = (string_width(_crusade_warning_text) * _crusade_warning_text_scale)
-				+ (crusade_warning_padding_x * 2 * _sidebar_scale);
-			var _crusade_warning_height = (string_height(_crusade_warning_text) * _crusade_warning_text_scale)
-				+ (crusade_warning_padding_y * 2 * _sidebar_scale);
-			var _crusade_warning_left = _crusade_warning_x - (_crusade_warning_width * 0.5);
-			var _crusade_warning_top = _crusade_warning_y - (_crusade_warning_height * 0.5);
-
-			draw_set_alpha(crusade_warning_background_alpha);
-			draw_set_color(c_black);
-			draw_rectangle(
-				_crusade_warning_left,
-				_crusade_warning_top,
-				_crusade_warning_left + _crusade_warning_width,
-				_crusade_warning_top + _crusade_warning_height,
-				false
-			);
-
-			draw_set_alpha(1);
-			draw_set_halign(fa_center);
-			draw_set_valign(fa_middle);
-			draw_set_color(COLOR_HUD_TEXT);
-			draw_text_transformed(
-				_crusade_warning_x,
-				_crusade_warning_y,
-				_crusade_warning_text,
-				_crusade_warning_text_scale,
-				_crusade_warning_text_scale,
-				0
-			);
-		}
-	}
 }
 
 // Draw minimap in the lower part of the right HUD sidebar.
@@ -1361,6 +1305,56 @@ if (instance_exists(o_cannon))
 		}
 
 		draw_text_transformed(_label_x, _label_y, cannon_hp_label, cannon_hp_label_scale, cannon_hp_label_scale, 0);
+
+		// Warn during preparation when the upcoming night is a boss fight or Blood Moon.
+		var _special_night_warning_text = "";
+
+		if (global.day_phase == DAY_PHASE.DAY && instance_exists(o_game_controller))
+		{
+			var _game_controller = instance_find(o_game_controller, 0);
+
+			if (variable_instance_exists(_game_controller, "boss_griffith_night_is_scheduled")
+				&& _game_controller.boss_griffith_night_is_scheduled(_game_controller.night_attack_night_index))
+			{
+				_special_night_warning_text = cannon_special_night_boss_text;
+			}
+			else if (variable_instance_exists(_game_controller, "full_moon_night_is_scheduled")
+				&& _game_controller.full_moon_night_is_scheduled(_game_controller.night_attack_night_index))
+			{
+				_special_night_warning_text = cannon_special_night_blood_moon_text;
+			}
+		}
+
+		if (_special_night_warning_text != "")
+		{
+			var _warning_pulse = 0.5
+				+ (sin(current_time * cannon_special_night_warning_pulse_speed) * 0.5);
+			var _warning_scale = lerp(
+				cannon_special_night_warning_scale_min,
+				cannon_special_night_warning_scale_max,
+				_warning_pulse
+			);
+			var _warning_y = _fill_y + _fill_height + cannon_special_night_warning_gap;
+
+			draw_set_color(c_black);
+			draw_text_transformed(
+				_label_x + cannon_special_night_warning_shadow_offset,
+				_warning_y + cannon_special_night_warning_shadow_offset,
+				_special_night_warning_text,
+				_warning_scale,
+				_warning_scale,
+				0
+			);
+			draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+			draw_text_transformed(
+				_label_x,
+				_warning_y,
+				_special_night_warning_text,
+				_warning_scale,
+				_warning_scale,
+				0
+			);
+		}
 
 		if (variable_global_exists("ui_font") && font_exists(global.ui_font))
 		{
