@@ -2,7 +2,7 @@
 
 function cultist_points_roll()
 {
-	var _total_points = irandom_range(9, 11);
+	var _total_points = BALANCE_CULTIST_STARTING_ATTRIBUTE_POINTS;
 	var _points = array_create(CULTIST_STAT.COUNT, 0);
 	var _weak_stat_index = irandom(CULTIST_STAT.COUNT - 1);
 	var _weak_stat_points = irandom_range(0, 2);

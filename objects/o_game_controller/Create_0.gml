@@ -15,6 +15,25 @@ global.camera_speed = 0.5;
 global.game_speed_normal = BALANCE_GAME_SPEED_NORMAL;
 game_set_speed(global.game_speed_normal, gamespeed_fps);
 
+
+// Fixed enemy budget and HP multiplier for each day; later days reuse the final entry.
+night_attack_balance_by_day = [
+	{ difficulty_budget: 70, enemy_hp_multiplier: 1 }, // Day 1.
+	{ difficulty_budget: 85,  enemy_hp_multiplier: 1.04 }, // Day 2.
+	{ difficulty_budget: 105, enemy_hp_multiplier: 1.08 }, // Day 3.
+	{ difficulty_budget: 169, enemy_hp_multiplier: 1.12 }, // Day 4: Full Moon.
+	{ difficulty_budget: 160, enemy_hp_multiplier: 1.16 }, // Day 5.
+	{ difficulty_budget: 78, enemy_hp_multiplier: 1.2 }, // Day 6: Griffith.
+	{ difficulty_budget: 235, enemy_hp_multiplier: 1.24 }, // Day 7.
+	{ difficulty_budget: 364, enemy_hp_multiplier: 1.28 }, // Day 8: Full Moon.
+	{ difficulty_budget: 330, enemy_hp_multiplier: 1.32 }, // Day 9.
+	{ difficulty_budget: 330, enemy_hp_multiplier: 1.52 }, // Day 10.
+	{ difficulty_budget: 429, enemy_hp_multiplier: 1.72 }, // Day 11: Full Moon.
+	{ difficulty_budget: 330, enemy_hp_multiplier: 1.92 }, // Day 12.
+	{ difficulty_budget: 132, enemy_hp_multiplier: 2.12 }, // Day 13: Crusader horde boss.
+	{ difficulty_budget: 330, enemy_hp_multiplier: 2.12 }  // Day 14 and later.
+];
+
 // Q toggles quadruple simulation speed during the night.
 night_fast_forward_active = false;
 night_fast_forward_multiplier = 4;
@@ -3040,6 +3059,9 @@ global.cultist_available_sprite_indices = global.cultist_all_sprite_indices;
 night_attack_night_index = 1;
 night_attack_plan_exists = false;
 night_attack_directions = [];
+
+
+
 boss_griffith_night_interval = BALANCE_BOSS_GRIFFITH_NIGHT_INTERVAL;
 boss_griffith_pending_next_night = false;
 boss_griffith_pending_direction = 0;
@@ -7708,52 +7730,67 @@ update_goblin_evening_life = function()
 	}
 };
 
-night_attack_difficulty_multiplier_get = function(_night_index)
+night_attack_balance_get = function(_night_index)
 {
-	switch (_night_index)
+	var _balance_day_count = array_length(night_attack_balance_by_day);
+
+	if (_balance_day_count <= 0)
 	{
-		case 5:
-			return BALANCE_NIGHT_ATTACK_NIGHT_5_DIFFICULTY_MULTIPLIER;
-
-		case 7:
-			return BALANCE_NIGHT_ATTACK_NIGHT_7_DIFFICULTY_MULTIPLIER;
-
-		case 8:
-			return BALANCE_NIGHT_ATTACK_NIGHT_8_DIFFICULTY_MULTIPLIER;
-
-		case 9:
-			return BALANCE_NIGHT_ATTACK_NIGHT_9_DIFFICULTY_MULTIPLIER;
-
-		case 11:
-			return BALANCE_NIGHT_ATTACK_NIGHT_11_DIFFICULTY_MULTIPLIER;
+		return {
+			difficulty_budget: 0,
+			enemy_hp_multiplier: 1
+		};
 	}
 
-	return 1;
+	var _balance_day_index = min(max(1, _night_index), _balance_day_count) - 1;
+	return night_attack_balance_by_day[_balance_day_index];
 };
 
 night_attack_total_difficulty_get = function()
 {
-	var _extra_cultist_count = max(0, array_length(global.archdemons) - BALANCE_NIGHT_ATTACK_INCLUDED_ARCHDEMON_COUNT);
-	var _night_index = max(1, night_attack_night_index);
-	var _early_night_count = max(0, min(_night_index - 1, BALANCE_NIGHT_ATTACK_DIFFICULTY_LATE_START_NIGHT - 2));
-	var _late_night_count = max(0, _night_index - BALANCE_NIGHT_ATTACK_DIFFICULTY_LATE_START_NIGHT + 1);
-	var _captured_shrine_count = shrine_corrupted_count_get();
+	var _night_balance = night_attack_balance_get(night_attack_night_index);
+	return _night_balance.difficulty_budget;
+};
 
-	var _difficulty = BALANCE_NIGHT_ATTACK_DIFFICULTY_BASE
-		+ (_early_night_count * BALANCE_NIGHT_ATTACK_DIFFICULTY_INCREASE_PER_NIGHT)
-		+ (_late_night_count * BALANCE_NIGHT_ATTACK_DIFFICULTY_LATE_INCREASE_PER_NIGHT)
-		+ (_extra_cultist_count * BALANCE_NIGHT_ATTACK_DIFFICULTY_PER_EXTRA_CULTIST)
-		+ (_captured_shrine_count * BALANCE_SHRINE_CAPTURED_NIGHT_DIFFICULTY_BONUS);
-
-	if (full_moon_night_is_scheduled(_night_index))
+night_attack_balance_debug_draw = function()
+{
+	if (!global.cheats_enabled)
 	{
-		_difficulty *= BALANCE_FULL_MOON_DIFFICULTY_MULTIPLIER;
+		return;
 	}
 
-	// Authored per-night tuning refines the overall curve without changing its base formula.
-	_difficulty *= night_attack_difficulty_multiplier_get(_night_index);
+	var _night_index = max(1, night_attack_night_index);
+	var _night_balance = night_attack_balance_get(_night_index);
+	var _debug_text = "Night " + string(_night_index)
+		+ " | Difficulty: " + string_format(_night_balance.difficulty_budget, 0, 2)
+		+ " | HP multiplier: x" + string_format(_night_balance.enemy_hp_multiplier, 0, 3);
+	var _debug_x = 18;
+	var _debug_y = 18;
+	var _debug_padding = 8;
 
-	return _difficulty;
+	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+	{
+		draw_set_font(global.ui_font);
+	}
+
+	var _debug_width = string_width(_debug_text) + (_debug_padding * 2);
+	var _debug_height = string_height(_debug_text) + (_debug_padding * 2);
+
+	draw_set_alpha(0.85);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_rectangle(_debug_x, _debug_y, _debug_x + _debug_width, _debug_y + _debug_height, false);
+
+	draw_set_alpha(1);
+	draw_set_color(COLOR_HUD_TEXT);
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_text(_debug_x + _debug_padding, _debug_y + _debug_padding, _debug_text);
+
+	// Restore the project draw defaults.
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
 };
 
 night_attack_difficulty_debug_log = function(_total_difficulty, _direction_count, _direction_difficulty)
@@ -7763,50 +7800,24 @@ night_attack_difficulty_debug_log = function(_total_difficulty, _direction_count
 		return;
 	}
 
-	var _extra_cultist_count = max(0, array_length(global.archdemons) - BALANCE_NIGHT_ATTACK_INCLUDED_ARCHDEMON_COUNT);
 	var _night_index = max(1, night_attack_night_index);
-	var _early_night_count = max(0, min(_night_index - 1, BALANCE_NIGHT_ATTACK_DIFFICULTY_LATE_START_NIGHT - 2));
-	var _late_night_count = max(0, _night_index - BALANCE_NIGHT_ATTACK_DIFFICULTY_LATE_START_NIGHT + 1);
-	var _base_difficulty = BALANCE_NIGHT_ATTACK_DIFFICULTY_BASE;
-	var _early_night_difficulty = _early_night_count * BALANCE_NIGHT_ATTACK_DIFFICULTY_INCREASE_PER_NIGHT;
-	var _late_night_difficulty = _late_night_count * BALANCE_NIGHT_ATTACK_DIFFICULTY_LATE_INCREASE_PER_NIGHT;
-	var _extra_cultist_difficulty = _extra_cultist_count * BALANCE_NIGHT_ATTACK_DIFFICULTY_PER_EXTRA_CULTIST;
-	var _captured_shrine_count = shrine_corrupted_count_get();
-	var _captured_shrine_difficulty = _captured_shrine_count * BALANCE_SHRINE_CAPTURED_NIGHT_DIFFICULTY_BONUS;
-	var _raw_difficulty = _base_difficulty
-		+ _early_night_difficulty
-		+ _late_night_difficulty
-		+ _extra_cultist_difficulty
-		+ _captured_shrine_difficulty;
-	var _full_moon_difficulty_multiplier = full_moon_night_is_scheduled(_night_index)
-		? BALANCE_FULL_MOON_DIFFICULTY_MULTIPLIER
-		: 1;
-	var _night_difficulty_multiplier = night_attack_difficulty_multiplier_get(_night_index);
-	var _boss_regular_unit_multiplier = boss_night_regular_unit_multiplier_get();
+	var _balance_day_count = array_length(night_attack_balance_by_day);
+	var _uses_final_day_balance = _night_index > _balance_day_count;
 	var _enemy_hp_multiplier = enemy_night_hp_multiplier_get();
-	var _enemy_hp_night_multiplier = 1 + (_night_index - 1) * BALANCE_ENEMY_HP_INCREASE_PER_NIGHT;
 
 	var _difficulty_text = "[Night Difficulty] Night " + string(_night_index)
-		+ "\n  Base: +" + string_format(_base_difficulty, 0, 2)
-		+ "\n  Early nights: +" + string_format(_early_night_difficulty, 0, 2)
-		+ " (" + string(_early_night_count) + " x " + string_format(BALANCE_NIGHT_ATTACK_DIFFICULTY_INCREASE_PER_NIGHT, 0, 2) + ")"
-		+ "\n  Late nights: +" + string_format(_late_night_difficulty, 0, 2)
-		+ " (" + string(_late_night_count) + " x " + string_format(BALANCE_NIGHT_ATTACK_DIFFICULTY_LATE_INCREASE_PER_NIGHT, 0, 2) + ")"
-		+ "\n  Extra cultists: +" + string_format(_extra_cultist_difficulty, 0, 2)
-		+ " (" + string(_extra_cultist_count) + " x " + string_format(BALANCE_NIGHT_ATTACK_DIFFICULTY_PER_EXTRA_CULTIST, 0, 2) + ")"
-		+ "\n  Captured shrines: +" + string_format(_captured_shrine_difficulty, 0, 2)
-		+ " (" + string(_captured_shrine_count) + " x " + string_format(BALANCE_SHRINE_CAPTURED_NIGHT_DIFFICULTY_BONUS, 0, 2) + ")"
-		+ "\n  Adaptive unit-count modifier: none"
-		+ "\n  Full moon multiplier: x" + string_format(_full_moon_difficulty_multiplier, 0, 2)
-		+ "\n  Authored night multiplier: x" + string_format(_night_difficulty_multiplier, 0, 3)
-		+ "\n  Boss regular-unit multiplier: x" + string_format(_boss_regular_unit_multiplier, 0, 2)
-		+ "\n  Raw difficulty: " + string_format(_raw_difficulty, 0, 2);
+		+ "\n  Fixed enemy budget: " + string_format(_total_difficulty, 0, 2);
+
+	if (_uses_final_day_balance)
+	{
+		_difficulty_text += "\n  Balance source: final configured day " + string(_balance_day_count);
+	}
 
 	_difficulty_text += "\n  Total difficulty: " + string_format(_total_difficulty, 0, 2)
 		+ "\n  Directions: " + string(_direction_count)
 		+ "\n  Difficulty per direction: " + string_format(_direction_difficulty, 0, 2)
-		+ " (cap " + string_format(BALANCE_NIGHT_ATTACK_DIRECTION_DIFFICULTY_MAX * _full_moon_difficulty_multiplier, 0, 2) + ")"
-		+ "\n  Enemy HP night multiplier: x" + string_format(_enemy_hp_night_multiplier, 0, 2);
+		+ " (cap " + string_format(BALANCE_NIGHT_ATTACK_DIRECTION_DIFFICULTY_MAX, 0, 2) + ")"
+		+ "\n  Fixed enemy HP multiplier: x" + string_format(_enemy_hp_multiplier, 0, 3);
 
 	if (BALANCE_ADAPTIVE_DIFFICULTY_ENABLED)
 	{
@@ -8051,7 +8062,8 @@ adaptive_difficulty_evaluate_night = function()
 
 enemy_night_hp_multiplier_get = function()
 {
-	var _night_hp_multiplier = 1 + (max(1, night_attack_night_index) - 1) * BALANCE_ENEMY_HP_INCREASE_PER_NIGHT;
+	var _night_balance = night_attack_balance_get(night_attack_night_index);
+	var _night_hp_multiplier = _night_balance.enemy_hp_multiplier;
 
 	if (BALANCE_ADAPTIVE_DIFFICULTY_ENABLED)
 	{
@@ -9169,12 +9181,6 @@ night_attack_plan_create = function()
 
 	var _total_difficulty = night_attack_total_difficulty_get();
 
-	// Boss nights keep their special threat while fielding a reduced regular army.
-	if (boss_griffith_pending_next_night)
-	{
-		_total_difficulty *= boss_night_regular_unit_multiplier_get();
-	}
-
 	var _directions = [];
 
 	for (var _roll_index = 0; _roll_index < _direction_count; ++_roll_index)
@@ -9211,11 +9217,6 @@ night_attack_plan_create = function()
 	}
 
 	var _direction_difficulty_cap = BALANCE_NIGHT_ATTACK_DIRECTION_DIFFICULTY_MAX;
-
-	if (full_moon_night_is_scheduled(night_attack_night_index))
-	{
-		_direction_difficulty_cap *= BALANCE_FULL_MOON_DIFFICULTY_MULTIPLIER;
-	}
 
 	var _direction_difficulty = min(
 		_total_difficulty / _active_direction_count,
@@ -9402,32 +9403,32 @@ boss_griffith_night_is_scheduled = function(_night_index)
 		return true;
 	}
 
+	var _original_crusader_horde_night = boss_griffith_night_interval
+		* BALANCE_BOSS_CRUSADER_HORDE_ENCOUNTER_NUMBER;
+	var _crusader_horde_night = _original_crusader_horde_night
+		+ BALANCE_BOSS_CRUSADER_HORDE_NIGHT_OFFSET;
+
+	// Move the second boss encounter from its regular interval to the following night.
+	if (_night_index == _original_crusader_horde_night)
+	{
+		return false;
+	}
+
+	if (_night_index == _crusader_horde_night)
+	{
+		return true;
+	}
+
 	return _night_index > 0 && (_night_index mod boss_griffith_night_interval) == 0;
 };
 
 boss_crusader_horde_is_scheduled = function(_night_index)
 {
 	var _crusader_horde_night = boss_griffith_night_interval
-		* BALANCE_BOSS_CRUSADER_HORDE_ENCOUNTER_NUMBER;
+		* BALANCE_BOSS_CRUSADER_HORDE_ENCOUNTER_NUMBER
+		+ BALANCE_BOSS_CRUSADER_HORDE_NIGHT_OFFSET;
 
 	return _night_index == _crusader_horde_night;
-};
-
-boss_night_regular_unit_multiplier_get = function()
-{
-	if (!boss_griffith_pending_next_night)
-	{
-		return 1;
-	}
-
-	var _regular_unit_multiplier = BALANCE_BOSS_NIGHT_REGULAR_UNIT_MULTIPLIER;
-
-	if (boss_crusader_horde_is_scheduled(night_attack_night_index))
-	{
-		_regular_unit_multiplier *= BALANCE_BOSS_CRUSADER_HORDE_DIFFICULTY_MULTIPLIER;
-	}
-
-	return _regular_unit_multiplier;
 };
 
 full_moon_night_is_scheduled = function(_night_index)
@@ -9435,6 +9436,17 @@ full_moon_night_is_scheduled = function(_night_index)
 	if (boss_griffith_night_is_scheduled(_night_index))
 	{
 		return false;
+	}
+
+	// Move the third Full Moon from day 12 to day 11.
+	if (_night_index == BALANCE_FULL_MOON_SHIFTED_FROM_NIGHT)
+	{
+		return false;
+	}
+
+	if (_night_index == BALANCE_FULL_MOON_SHIFTED_TO_NIGHT)
+	{
+		return true;
 	}
 
 	return _night_index > 0 && (_night_index mod full_moon_night_interval) == 0;

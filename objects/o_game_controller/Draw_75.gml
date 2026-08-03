@@ -642,5 +642,8 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 	}
 }
 
+// Keep the current night balance visible while cheats are enabled.
+night_attack_balance_debug_draw();
+
 // Draw the debug menu after every regular GUI layer.
 debug_menu_draw();
