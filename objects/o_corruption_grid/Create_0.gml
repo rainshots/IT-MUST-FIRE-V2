@@ -4,14 +4,13 @@ cell_size = BALANCE_GRID_CELL_SIZE;
 grid_width = ceil(room_width / cell_size);
 grid_height = ceil(room_height / cell_size);
 
-// Draw Taint and Saint under roads, using current room layer depths.
-var _map_assets_layer = layer_get_id("Assets_1");
+// Draw Taint and Saint immediately above roads, using the current room layer depth.
 var _roads_layer = layer_get_id("Roads");
 
-if (_map_assets_layer != -1 && _roads_layer != -1)
+if (_roads_layer != -1)
 {
 	var _roads_depth = layer_get_depth(_roads_layer);
-	depth = _roads_depth + 1;
+	depth = _roads_depth - 1;
 }
 
 // Corruption values are stored from 0 to 1.

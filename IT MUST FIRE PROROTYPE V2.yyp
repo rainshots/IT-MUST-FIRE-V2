@@ -251,6 +251,7 @@
     {"id":{"name":"s_balgor","path":"sprites/s_balgor/s_balgor.yy",},},
     {"id":{"name":"s_bleed_particle","path":"sprites/s_bleed_particle/s_bleed_particle.yy",},},
     {"id":{"name":"s_blood_knife","path":"sprites/s_blood_knife/s_blood_knife.yy",},},
+    {"id":{"name":"s_blood_line","path":"sprites/s_blood_line/s_blood_line.yy",},},
     {"id":{"name":"s_body_artifact","path":"sprites/s_body_artifact/s_body_artifact.yy",},},
     {"id":{"name":"s_boss_01","path":"sprites/s_boss_01/s_boss_01.yy",},},
     {"id":{"name":"s_boss_icon","path":"sprites/s_boss_icon/s_boss_icon.yy",},},

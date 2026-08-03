@@ -1,4 +1,6 @@
 // Base production building state.
+image_xscale = 1.7;
+image_yscale = image_xscale;
 production_resource = noone;
 production_resource_name = "";
 production_resource_icon = noone;
