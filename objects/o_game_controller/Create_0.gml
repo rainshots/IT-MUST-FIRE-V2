@@ -49,6 +49,7 @@ global.blood_bath_infernal_regeneration_uses = 0;
 global.blood_bath_warpaint_morning_pending = false;
 global.blood_bath_undying_devotion_pending = false;
 global.blood_bath_undying_devotion_dead_cultists = [];
+global.world_job_first_archdemon_completed = false;
 global.world_job_second_archdemon_completed = false;
 global.world_job_third_archdemon_completed = false;
 global.ritual_black_pilgrimage_active = false;
@@ -2050,8 +2051,8 @@ debug_shell_choices = [
 		payload: noone
 	},
 	{
-		label: "Taint",
-		projectile_type: PROJECTILE_TYPE.FEAST,
+		label: "Taint Compost",
+		projectile_type: PROJECTILE_TYPE.CORRUPTION,
 		payload: noone
 	},
 	{
@@ -2455,20 +2456,6 @@ debug_shell_give = function(_choice)
 		_payload = _choice.payload;
 	}
 
-	// Taint is owned by satiety, so cheats fill it just like corpse delivery.
-	if (_choice.projectile_type == PROJECTILE_TYPE.FEAST)
-	{
-		var _satiety_to_next_feast = global.cannon_satiety_max - (global.cannon_satiety mod global.cannon_satiety_max);
-
-		if (_satiety_to_next_feast <= 0)
-		{
-			_satiety_to_next_feast = global.cannon_satiety_max;
-		}
-
-		cannon_satiety_add(_satiety_to_next_feast);
-		return true;
-	}
-
 	return cannon_projectile_queue_add(_choice.projectile_type, _payload);
 };
 
@@ -2691,19 +2678,19 @@ building_shell_preview_color_get = function(_building_payload)
 
 projectile_target_selection_radius_get = function(_projectile_type)
 {
-	if (_projectile_type == PROJECTILE_TYPE.FEAST)
+	if (_projectile_type == PROJECTILE_TYPE.CORRUPTION)
 	{
 		if (instance_exists(o_cannon))
 		{
 			var _cannon = instance_find(o_cannon, 0);
 
-			if (variable_instance_exists(_cannon, "cannon_feast_radius_get"))
+			if (variable_instance_exists(_cannon, "cannon_taint_compost_radius_get"))
 			{
-				return _cannon.cannon_feast_radius_get();
+				return _cannon.cannon_taint_compost_radius_get();
 			}
 		}
 
-		return BALANCE_CANNON_FEAST_RADIUS;
+		return BALANCE_PROJECTILE_TAINT_COMPOST_RADIUS;
 	}
 
 	if (_projectile_type == PROJECTILE_TYPE.CULTIST)
@@ -2764,6 +2751,12 @@ cannon_projectile_display_slots_get = function(_max_display_count)
 		var _projectile_type = global.cannon_projectile_queue[_queue_index];
 		var _display_index = -1;
 
+		// Ignore legacy corpse-fed Taint entries from old runtime state.
+		if (_projectile_type == PROJECTILE_TYPE.FEAST)
+		{
+			continue;
+		}
+
 		if (cannon_projectile_type_can_stack_in_hud(_projectile_type))
 		{
 			var _slot_count = array_length(_slots);
@@ -2794,21 +2787,6 @@ cannon_projectile_display_slots_get = function(_max_display_count)
 				queue_index: _queue_index,
 				consume_queue_index: _queue_index,
 				count: 1
-			});
-		}
-	}
-
-	if (variable_global_exists("cannon_satiety") && variable_global_exists("cannon_satiety_max"))
-	{
-		var _feast_count = floor(max(0, global.cannon_satiety) / max(1, global.cannon_satiety_max));
-
-		if (_feast_count > 0 && array_length(_slots) < _max_display_count)
-		{
-			array_push(_slots, {
-				projectile_type: PROJECTILE_TYPE.FEAST,
-				queue_index: _projectile_queue_count,
-				consume_queue_index: _projectile_queue_count,
-				count: _feast_count
 			});
 		}
 	}
@@ -3003,13 +2981,14 @@ settings_edge_toggle_rect_get = function()
 };
 
 // Cultist prototype state.
-cultist_start_count = BALANCE_STARTING_CULTIST_COUNT;
+starting_archdemon_count = BALANCE_STARTING_ARCHDEMON_COUNT;
 starting_goblin_count = BALANCE_STARTING_GOBLIN_COUNT;
 starting_event_cultist_count = BALANCE_STARTING_EVENT_CULTIST_COUNT;
 cultist_reward_days = [];
 next_cultist_reward_index = 0;
 cultists_spawned = false;
 starting_cultist_selection_pending = false;
+night_phase_start_pending_after_cultist_selection = false;
 starting_goblins_bound_to_first_pit = false;
 cultist_selection_index = 0;
 cultist_selected_demon_type = DEMON_TYPE.IMP;
@@ -3120,8 +3099,8 @@ world_position_is_revealed_by_fog = function(_world_x, _world_y)
 	return _fog_alpha <= _fog_of_war.revealed_alpha;
 };
 
-// Feast shots must expand from existing fully corrupted ground.
-feast_target_touches_corruption = function(_world_x, _world_y)
+// Taint Compost shots must expand from existing fully corrupted ground.
+taint_compost_target_touches_corruption = function(_world_x, _world_y)
 {
 	if (!instance_exists(o_corruption_grid))
 	{
@@ -3135,19 +3114,23 @@ feast_target_touches_corruption = function(_world_x, _world_y)
 		return false;
 	}
 
-	var _feast_radius = BALANCE_CANNON_FEAST_RADIUS;
+	var _taint_compost_radius = BALANCE_PROJECTILE_TAINT_COMPOST_RADIUS;
 
 	if (instance_exists(o_cannon))
 	{
 		var _cannon = instance_find(o_cannon, 0);
 
-		if (variable_instance_exists(_cannon, "cannon_feast_radius_get"))
+		if (variable_instance_exists(_cannon, "cannon_taint_compost_radius_get"))
 		{
-			_feast_radius = _cannon.cannon_feast_radius_get();
+			_taint_compost_radius = _cannon.cannon_taint_compost_radius_get();
 		}
 	}
 
-	return _corruption_grid.circle_has_full_corruption(_world_x, _world_y, _feast_radius);
+	return _corruption_grid.circle_has_full_corruption(
+		_world_x,
+		_world_y,
+		_taint_compost_radius
+	);
 };
 
 cannon_corrupted_ground_damage_update = function()
@@ -4765,7 +4748,6 @@ world_event_squad_selector_close = function()
 	if (instance_exists(_building))
 	{
 		_building.world_event_hover_active = _preserve_hover;
-		_building.world_event_hover_keeps_selector_area = _preserve_hover;
 	}
 
 	global.world_event_hover_building = _preserve_hover ? _building : noone;
@@ -4815,7 +4797,7 @@ world_event_squad_selector_input_update = function()
 			return true;
 		}
 
-		var _layout = _building.world_event_layout_get(_event, true);
+		var _layout = _building.world_event_layout_get(_event);
 
 		if (!is_struct(_layout))
 		{
@@ -4825,13 +4807,13 @@ world_event_squad_selector_input_update = function()
 
 		var _mouse_x = device_mouse_x_to_gui(0);
 		var _mouse_y = device_mouse_y_to_gui(0);
-		var _mouse_inside_hover_area = point_in_rectangle(
-			_mouse_x,
-			_mouse_y,
-			_layout.hover_left,
-			_layout.hover_top,
-			_layout.hover_right,
-			_layout.hover_bottom
+		var _mouse_world_x = _layout.camera_x
+			+ ((_mouse_x / _layout.gui_width) * _layout.camera_width);
+		var _mouse_world_y = _layout.camera_y
+			+ ((_mouse_y / _layout.gui_height) * _layout.camera_height);
+		var _mouse_inside_hover_area = _building.world_event_selector_hover_contains(
+			_mouse_world_x,
+			_mouse_world_y
 		);
 
 		if (!_mouse_inside_hover_area)
@@ -4916,7 +4898,7 @@ world_event_squad_selector_input_update = function()
 		}
 
 		var _event = _building.world_event_current_get();
-		var _layout = _building.world_event_layout_get(_event, false);
+		var _layout = _building.world_event_layout_get(_event);
 
 		if (!is_struct(_layout)
 			|| !_layout.has_selector
@@ -5411,6 +5393,12 @@ cannon_satiety_spend_feast = function()
 
 cannon_projectile_queue_add = function(_projectile_type, _payload = noone)
 {
+	// Taint Compost is the only player-usable Taint projectile.
+	if (_projectile_type == PROJECTILE_TYPE.FEAST)
+	{
+		return false;
+	}
+
 	if (array_length(global.cannon_projectile_queue) >= global.cannon_projectile_queue_max)
 	{
 		return false;
@@ -5898,21 +5886,21 @@ spawn_starting_cultists = function()
 
 	global.archdemons = array_create(0);
 	global.event_cultists = array_create(0);
-	var _starting_unit_count = cultist_start_count + starting_event_cultist_count;
+	var _starting_unit_count = starting_archdemon_count + starting_event_cultist_count;
 
-	// Spawn the single archdemon before placing regular cultists around the cannon.
-	for (var _cultist_index = 0; _cultist_index < cultist_start_count; ++_cultist_index)
+	// Spawn any configured starting Archdemons before placing regular cultists around the cannon.
+	for (var _archdemon_index = 0; _archdemon_index < starting_archdemon_count; ++_archdemon_index)
 	{
-		var _spawn_position = cannon_inner_position_get(_cultist_index, _starting_unit_count);
+		var _spawn_position = cannon_inner_position_get(_archdemon_index, _starting_unit_count);
 		var _spawn_x = _spawn_position[0];
 		var _spawn_y = _spawn_position[1];
-		var _cultist = instance_create_layer(_spawn_x, _spawn_y, "Instances", o_archdemon);
+		var _archdemon = instance_create_layer(_spawn_x, _spawn_y, "Instances", o_archdemon);
 
-		array_push(global.archdemons, _cultist);
-		squad_register_existing_unit(SQUAD_TYPE.ARCHDEMON, _cultist);
+		array_push(global.archdemons, _archdemon);
+		squad_register_existing_unit(SQUAD_TYPE.ARCHDEMON, _archdemon);
 	}
 
-	// Spawn regular cultists separately from the single archdemon.
+	// Spawn regular cultists separately from Archdemons.
 	var _cannon = instance_find(o_cannon, 0);
 	var _cultist_spacing = (BALANCE_EVENT_CULTIST_WANDER_HORIZONTAL_DISTANCE * 2)
 		/ max(1, starting_event_cultist_count - 1);
@@ -5936,7 +5924,7 @@ spawn_starting_cultists = function()
 	day_event_generate_for_buildings();
 
 	cultists_spawned = true;
-	starting_cultist_selection_pending = true;
+	starting_cultist_selection_pending = array_length(global.archdemons) > 0;
 	open_starting_cultist_selection();
 };
 
@@ -6105,15 +6093,29 @@ shrine_objective_update = function()
 };
 
 // Open the demon selection window for a newly received cultist.
-open_cultist_demon_selection = function(_selection_index)
+open_cultist_demon_selection = function(_selection_index, _default_name = "")
 {
 	cultist_selection_index = _selection_index;
 	cultist_selected_demon_type = DEMON_TYPE.IMP;
 	cultist_selected_starting_ability = cultist_starting_ability_default_get(cultist_selected_demon_type);
 	cultist_name_input_active = true;
-	keyboard_string = "";
+	keyboard_string = string_copy(_default_name, 1, 16);
 	global.pause = true;
 	global.focus_window = FOCUS_WINDOW.CULTIST_DEMON_SELECTION;
+};
+
+// Start the night only after every Archdemon created by daytime events has been configured.
+start_night_phase_after_day_events = function()
+{
+	if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
+	{
+		night_phase_start_pending_after_cultist_selection = true;
+		return false;
+	}
+
+	night_phase_start_pending_after_cultist_selection = false;
+	start_night_phase();
+	return true;
 };
 
 // Add extra cultists on fixed early days.
@@ -6303,6 +6305,12 @@ assign_current_cultist_demon = function()
 		global.pause = false;
 		global.focus_window = FOCUS_WINDOW.NOONE;
 		worker_assignment_hint_delay_start();
+
+		if (night_phase_start_pending_after_cultist_selection)
+		{
+			night_phase_start_pending_after_cultist_selection = false;
+			start_night_phase();
+		}
 	}
 };
 
@@ -7700,9 +7708,32 @@ update_goblin_evening_life = function()
 	}
 };
 
+night_attack_difficulty_multiplier_get = function(_night_index)
+{
+	switch (_night_index)
+	{
+		case 5:
+			return BALANCE_NIGHT_ATTACK_NIGHT_5_DIFFICULTY_MULTIPLIER;
+
+		case 7:
+			return BALANCE_NIGHT_ATTACK_NIGHT_7_DIFFICULTY_MULTIPLIER;
+
+		case 8:
+			return BALANCE_NIGHT_ATTACK_NIGHT_8_DIFFICULTY_MULTIPLIER;
+
+		case 9:
+			return BALANCE_NIGHT_ATTACK_NIGHT_9_DIFFICULTY_MULTIPLIER;
+
+		case 11:
+			return BALANCE_NIGHT_ATTACK_NIGHT_11_DIFFICULTY_MULTIPLIER;
+	}
+
+	return 1;
+};
+
 night_attack_total_difficulty_get = function()
 {
-	var _extra_cultist_count = max(0, array_length(global.archdemons) - BALANCE_STARTING_CULTIST_COUNT);
+	var _extra_cultist_count = max(0, array_length(global.archdemons) - BALANCE_NIGHT_ATTACK_INCLUDED_ARCHDEMON_COUNT);
 	var _night_index = max(1, night_attack_night_index);
 	var _early_night_count = max(0, min(_night_index - 1, BALANCE_NIGHT_ATTACK_DIFFICULTY_LATE_START_NIGHT - 2));
 	var _late_night_count = max(0, _night_index - BALANCE_NIGHT_ATTACK_DIFFICULTY_LATE_START_NIGHT + 1);
@@ -7719,6 +7750,9 @@ night_attack_total_difficulty_get = function()
 		_difficulty *= BALANCE_FULL_MOON_DIFFICULTY_MULTIPLIER;
 	}
 
+	// Authored per-night tuning refines the overall curve without changing its base formula.
+	_difficulty *= night_attack_difficulty_multiplier_get(_night_index);
+
 	return _difficulty;
 };
 
@@ -7729,7 +7763,7 @@ night_attack_difficulty_debug_log = function(_total_difficulty, _direction_count
 		return;
 	}
 
-	var _extra_cultist_count = max(0, array_length(global.archdemons) - BALANCE_STARTING_CULTIST_COUNT);
+	var _extra_cultist_count = max(0, array_length(global.archdemons) - BALANCE_NIGHT_ATTACK_INCLUDED_ARCHDEMON_COUNT);
 	var _night_index = max(1, night_attack_night_index);
 	var _early_night_count = max(0, min(_night_index - 1, BALANCE_NIGHT_ATTACK_DIFFICULTY_LATE_START_NIGHT - 2));
 	var _late_night_count = max(0, _night_index - BALANCE_NIGHT_ATTACK_DIFFICULTY_LATE_START_NIGHT + 1);
@@ -7747,6 +7781,8 @@ night_attack_difficulty_debug_log = function(_total_difficulty, _direction_count
 	var _full_moon_difficulty_multiplier = full_moon_night_is_scheduled(_night_index)
 		? BALANCE_FULL_MOON_DIFFICULTY_MULTIPLIER
 		: 1;
+	var _night_difficulty_multiplier = night_attack_difficulty_multiplier_get(_night_index);
+	var _boss_regular_unit_multiplier = boss_night_regular_unit_multiplier_get();
 	var _enemy_hp_multiplier = enemy_night_hp_multiplier_get();
 	var _enemy_hp_night_multiplier = 1 + (_night_index - 1) * BALANCE_ENEMY_HP_INCREASE_PER_NIGHT;
 
@@ -7762,6 +7798,8 @@ night_attack_difficulty_debug_log = function(_total_difficulty, _direction_count
 		+ " (" + string(_captured_shrine_count) + " x " + string_format(BALANCE_SHRINE_CAPTURED_NIGHT_DIFFICULTY_BONUS, 0, 2) + ")"
 		+ "\n  Adaptive unit-count modifier: none"
 		+ "\n  Full moon multiplier: x" + string_format(_full_moon_difficulty_multiplier, 0, 2)
+		+ "\n  Authored night multiplier: x" + string_format(_night_difficulty_multiplier, 0, 3)
+		+ "\n  Boss regular-unit multiplier: x" + string_format(_boss_regular_unit_multiplier, 0, 2)
 		+ "\n  Raw difficulty: " + string_format(_raw_difficulty, 0, 2);
 
 	_difficulty_text += "\n  Total difficulty: " + string_format(_total_difficulty, 0, 2)
@@ -7955,6 +7993,25 @@ adaptive_difficulty_evaluate_night = function()
 		);
 	}
 
+	// Keep adaptive difficulty from overpowering the authored night curve.
+	var _difficulty_delta_before_range_cap = _difficulty_delta;
+	_difficulty_delta = clamp(
+		_difficulty_delta,
+		BALANCE_ADAPTIVE_DIFFICULTY_MIN_DELTA_PER_NIGHT,
+		BALANCE_ADAPTIVE_DIFFICULTY_MAX_DELTA_PER_NIGHT
+	);
+
+	if (_difficulty_delta != _difficulty_delta_before_range_cap)
+	{
+		array_push(
+			_debug_delta_lines,
+			"Per-night delta cap: "
+				+ string_format(_difficulty_delta_before_range_cap, 0, 2)
+				+ " -> "
+				+ string_format(_difficulty_delta, 0, 2)
+		);
+	}
+
 	var _adaptive_difficulty_multiplier_before = adaptive_difficulty_multiplier;
 
 	adaptive_difficulty_multiplier = clamp(
@@ -8058,7 +8115,12 @@ combat_unit_matchup_get = function(_unit_object)
 	var _strong_against = [];
 	var _weak_against = [];
 
-	if (_unit_object == o_skeleton || _unit_object == o_skeleton_bonelet)
+	if (_unit_object == o_skeleton_bonelet)
+	{
+		_strong_against = [o_enemy_mage];
+		_weak_against = [o_enemy_peasant, o_enemy_knight];
+	}
+	else if (_unit_object == o_skeleton)
 	{
 		_strong_against = [o_enemy_peasant];
 		_weak_against = [o_enemy_mage];
@@ -8090,8 +8152,8 @@ combat_unit_matchup_get = function(_unit_object)
 	}
 	else if (_unit_object == o_mawling)
 	{
-		_strong_against = [o_enemy_archer];
-		_weak_against = [o_enemy_mage];
+		_strong_against = [o_enemy_mage];
+		_weak_against = [o_enemy_peasant, o_enemy_knight];
 	}
 	else if (_unit_object == o_pitling)
 	{
@@ -8290,6 +8352,12 @@ enemy_object_stats_card_draw = function(_enemy_object, _hover_x, _hover_y)
 	var _damage_text = "Damage: " + string_format(_stats.damage, 0, 1);
 	var _attack_speed = room_speed / max(_stats.reload_time, 1);
 
+	// Jobs tutorial labels use a large font, so the card must set its own font.
+	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+	{
+		draw_set_font(global.ui_font);
+	}
+
 	if (_stats.magic_damage > 0)
 	{
 		_damage_text = "Magic damage: " + string_format(_stats.magic_damage, 0, 1);
@@ -8388,6 +8456,158 @@ enemy_object_stats_card_draw = function(_enemy_object, _hover_x, _hover_y)
 			draw_circle(_weak_x, _weak_y, _matchup_icon_radius, true);
 
 			if (_weak_sprite != -1)
+			{
+				var _weak_sprite_width = max(1, sprite_get_width(_weak_sprite));
+				var _weak_sprite_height = max(1, sprite_get_height(_weak_sprite));
+				var _weak_sprite_scale = min(_matchup_sprite_size / _weak_sprite_width, _matchup_sprite_size / _weak_sprite_height);
+				var _weak_draw_x = _weak_x + ((sprite_get_xoffset(_weak_sprite) - (_weak_sprite_width * 0.5)) * _weak_sprite_scale);
+				var _weak_draw_y = _weak_y + ((sprite_get_yoffset(_weak_sprite) - (_weak_sprite_height * 0.5)) * _weak_sprite_scale);
+
+				draw_sprite_ext(_weak_sprite, 0, _weak_draw_x, _weak_draw_y, _weak_sprite_scale, _weak_sprite_scale, 0, c_white, 1);
+			}
+		}
+	}
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+};
+
+player_unit_object_stats_card_draw = function(_unit_object, _hover_x, _hover_y, _card_font = -1)
+{
+	if (!instance_exists(o_hud))
+	{
+		return;
+	}
+
+	var _stats = o_hud.hud_unit_base_stats_get(_unit_object);
+
+	if (!is_struct(_stats))
+	{
+		return;
+	}
+
+	var _matchup = combat_unit_matchup_get(_unit_object);
+	var _strong_against = _matchup.strong_against;
+	var _weak_against = _matchup.weak_against;
+	var _strong_count = array_length(_strong_against);
+	var _weak_count = array_length(_weak_against);
+	var _matchup_row_count = (_strong_count > 0 ? 1 : 0) + (_weak_count > 0 ? 1 : 0);
+	var _hover_width = 260;
+	var _hover_height = 248 + (_matchup_row_count > 0 ? 12 + (48 * _matchup_row_count) : 0);
+	var _hover_padding = 14;
+	var _gui_width = display_get_gui_width();
+	var _gui_height = display_get_gui_height();
+	var _hover_margin = 18;
+	var _card_x = clamp(_hover_x, _hover_margin, max(_hover_margin, _gui_width - _hover_width - _hover_margin));
+	var _card_y = clamp(_hover_y, _hover_margin, max(_hover_margin, _gui_height - _hover_height - _hover_margin));
+	var _damage_text = "Damage: " + string_format(_stats.damage, 0, 1);
+	var _attack_speed = room_speed / max(_stats.reload_time, 1);
+
+	// Use the caller's UI font so the card never inherits an unrelated large font.
+	if (font_exists(_card_font))
+	{
+		draw_set_font(_card_font);
+	}
+	else if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+	{
+		draw_set_font(global.ui_font);
+	}
+
+	if (_stats.magic_damage > 0)
+	{
+		_damage_text = "Magic damage: " + string_format(_stats.magic_damage, 0, 1);
+	}
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_alpha(0.96);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_rectangle(_card_x, _card_y, _card_x + _hover_width, _card_y + _hover_height, false);
+	draw_set_alpha(1);
+	draw_set_color(COLOR_PROJECTILE_SUMMON);
+	draw_rectangle(_card_x, _card_y, _card_x + _hover_width, _card_y + _hover_height, true);
+
+	draw_set_color(COLOR_HUD_TEXT);
+	draw_text(_card_x + _hover_padding, _card_y + _hover_padding, o_hud.hud_unit_display_name_get(_unit_object));
+
+	var _line_y = 42;
+	draw_text(_card_x + _hover_padding, _card_y + _line_y, "HP: " + string_format(_stats.max_hp, 0, 1) + " / " + string_format(_stats.max_hp, 0, 1));
+	_line_y += 20;
+	draw_text(_card_x + _hover_padding, _card_y + _line_y, _damage_text);
+	_line_y += 20;
+	draw_text(_card_x + _hover_padding, _card_y + _line_y, "Attack speed: " + string_format(_attack_speed, 0, 2));
+	_line_y += 20;
+	draw_text(_card_x + _hover_padding, _card_y + _line_y, "Attack radius: " + string_format(_stats.attack_radius, 0, 0));
+	_line_y += 20;
+	draw_text(_card_x + _hover_padding, _card_y + _line_y, "Move speed: " + string_format(_stats.move_speed, 0, 2));
+	_line_y += 20;
+	draw_text(_card_x + _hover_padding, _card_y + _line_y, "Armor: " + string_format(_stats.armor - 100, 0, 1) + "%");
+	_line_y += 20;
+	draw_text(_card_x + _hover_padding, _card_y + _line_y, "Magic resistance: " + string_format(_stats.magic_resistance - 100, 0, 1) + "%");
+	_line_y += 30;
+
+	// Keep matchup portraits identical to the world-hover card.
+	var _matchup_icon_start_x = _card_x + 126;
+	var _matchup_icon_gap = 42;
+	var _matchup_icon_radius = 18;
+	var _matchup_sprite_size = 28;
+
+	if (_strong_count > 0)
+	{
+		draw_set_color(COLOR_PROJECTILE_SUMMON);
+		draw_text(_card_x + _hover_padding, _card_y + _line_y + 8, "Strong vs");
+
+		for (var _strong_index = 0; _strong_index < _strong_count; ++_strong_index)
+		{
+			var _strong_object = _strong_against[_strong_index];
+			var _strong_sprite = object_get_sprite(_strong_object);
+			var _strong_x = _matchup_icon_start_x + (_matchup_icon_gap * _strong_index);
+			var _strong_y = _card_y + _line_y + _matchup_icon_radius;
+
+			draw_set_alpha(0.9);
+			draw_set_color(COLOR_PROJECTILE_SUMMON);
+			draw_circle(_strong_x, _strong_y, _matchup_icon_radius, false);
+			draw_set_alpha(1);
+			draw_set_color(c_white);
+			draw_circle(_strong_x, _strong_y, _matchup_icon_radius, true);
+
+			if (sprite_exists(_strong_sprite))
+			{
+				var _strong_sprite_width = max(1, sprite_get_width(_strong_sprite));
+				var _strong_sprite_height = max(1, sprite_get_height(_strong_sprite));
+				var _strong_sprite_scale = min(_matchup_sprite_size / _strong_sprite_width, _matchup_sprite_size / _strong_sprite_height);
+				var _strong_draw_x = _strong_x + ((sprite_get_xoffset(_strong_sprite) - (_strong_sprite_width * 0.5)) * _strong_sprite_scale);
+				var _strong_draw_y = _strong_y + ((sprite_get_yoffset(_strong_sprite) - (_strong_sprite_height * 0.5)) * _strong_sprite_scale);
+
+				draw_sprite_ext(_strong_sprite, 0, _strong_draw_x, _strong_draw_y, _strong_sprite_scale, _strong_sprite_scale, 0, c_white, 1);
+			}
+		}
+
+		_line_y += 48;
+	}
+
+	if (_weak_count > 0)
+	{
+		draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+		draw_text(_card_x + _hover_padding, _card_y + _line_y + 8, "Weak vs");
+
+		for (var _weak_index = 0; _weak_index < _weak_count; ++_weak_index)
+		{
+			var _weak_object = _weak_against[_weak_index];
+			var _weak_sprite = object_get_sprite(_weak_object);
+			var _weak_x = _matchup_icon_start_x + (_matchup_icon_gap * _weak_index);
+			var _weak_y = _card_y + _line_y + _matchup_icon_radius;
+
+			draw_set_alpha(0.9);
+			draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+			draw_circle(_weak_x, _weak_y, _matchup_icon_radius, false);
+			draw_set_alpha(1);
+			draw_set_color(c_white);
+			draw_circle(_weak_x, _weak_y, _matchup_icon_radius, true);
+
+			if (sprite_exists(_weak_sprite))
 			{
 				var _weak_sprite_width = max(1, sprite_get_width(_weak_sprite));
 				var _weak_sprite_height = max(1, sprite_get_height(_weak_sprite));
@@ -8941,13 +9161,18 @@ night_attack_plan_create = function()
 	{
 		_direction_count = max(1, BALANCE_FIRST_NIGHT_ATTACK_DIRECTION_COUNT);
 	}
+	else if (night_attack_night_index == BALANCE_NIGHT_ATTACK_THREE_DIRECTION_NIGHT_1
+		|| night_attack_night_index == BALANCE_NIGHT_ATTACK_THREE_DIRECTION_NIGHT_2)
+	{
+		_direction_count = max(1, BALANCE_NIGHT_ATTACK_THREE_DIRECTION_COUNT);
+	}
 
 	var _total_difficulty = night_attack_total_difficulty_get();
 
-	// Boss nights keep their special threat while fielding half the regular army.
+	// Boss nights keep their special threat while fielding a reduced regular army.
 	if (boss_griffith_pending_next_night)
 	{
-		_total_difficulty *= BALANCE_BOSS_NIGHT_REGULAR_UNIT_MULTIPLIER;
+		_total_difficulty *= boss_night_regular_unit_multiplier_get();
 	}
 
 	var _directions = [];
@@ -9188,6 +9413,23 @@ boss_crusader_horde_is_scheduled = function(_night_index)
 	return _night_index == _crusader_horde_night;
 };
 
+boss_night_regular_unit_multiplier_get = function()
+{
+	if (!boss_griffith_pending_next_night)
+	{
+		return 1;
+	}
+
+	var _regular_unit_multiplier = BALANCE_BOSS_NIGHT_REGULAR_UNIT_MULTIPLIER;
+
+	if (boss_crusader_horde_is_scheduled(night_attack_night_index))
+	{
+		_regular_unit_multiplier *= BALANCE_BOSS_CRUSADER_HORDE_DIFFICULTY_MULTIPLIER;
+	}
+
+	return _regular_unit_multiplier;
+};
+
 full_moon_night_is_scheduled = function(_night_index)
 {
 	if (boss_griffith_night_is_scheduled(_night_index))
@@ -9215,7 +9457,14 @@ boss_griffith_prepare_next_night = function()
 	boss_griffith_pending_direction = random(360);
 };
 
-boss_enemy_spawn = function(_origin_x, _origin_y, _enemy_object, _radius_min, _radius_max)
+boss_enemy_spawn = function(
+	_origin_x,
+	_origin_y,
+	_enemy_object,
+	_radius_min,
+	_radius_max,
+	_health_multiplier = 1
+)
 {
 	var _spawn_direction = random(360);
 	var _spawn_distance = random_range(_radius_min, _radius_max);
@@ -9232,6 +9481,16 @@ boss_enemy_spawn = function(_origin_x, _origin_y, _enemy_object, _radius_min, _r
 	_enemy.is_night_attack_unit = true;
 	_enemy.owner_garnizon = noone;
 	_enemy.guard_target = noone;
+
+	// Encounter-specific health is part of base HP before regular night scaling.
+	if (_health_multiplier != 1)
+	{
+		var _hp_share = _enemy.hp / max(1, _enemy.max_hp);
+
+		_enemy.max_hp *= _health_multiplier;
+		_enemy.hp = _enemy.max_hp * _hp_share;
+	}
+
 	enemy_night_hp_scale_apply(_enemy);
 	global.night_attack_unit_count++;
 
@@ -9323,7 +9582,8 @@ boss_crusader_horde_spawn_for_night = function()
 			_spawn_y,
 			o_crusader,
 			BALANCE_BOSS_GRIFFITH_ENTOURAGE_SPAWN_RADIUS_MIN,
-			BALANCE_BOSS_GRIFFITH_ENTOURAGE_SPAWN_RADIUS_MAX
+			BALANCE_BOSS_GRIFFITH_ENTOURAGE_SPAWN_RADIUS_MAX,
+			BALANCE_BOSS_CRUSADER_HORDE_DIFFICULTY_MULTIPLIER
 		);
 
 		if (!instance_exists(_first_crusader) && instance_exists(_crusader))

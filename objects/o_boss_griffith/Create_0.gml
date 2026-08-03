@@ -172,7 +172,10 @@ griffith_mixed_damage_target = function(_target, _is_critical_hit)
 		}
 	}
 
-	var _target_was_killed = _target_hp_before_hit > 0 && _target.hp <= 0;
+	var _target_exists_after_hit = instance_exists(_target);
+	var _target_was_killed = _target_hp_before_hit > 0
+		&& (!_target_exists_after_hit
+			|| (variable_instance_exists(_target, "hp") && _target.hp <= 0));
 	unit_attack_landed(_target, _is_critical_hit, _target_was_killed);
 	return _target_was_killed;
 };
@@ -202,7 +205,8 @@ griffith_damage_targets_in_radius = function(_origin_x, _origin_y, _radius, _exc
 	{
 		var _friendly_target = instance_find(o_friendly_units, _friendly_index);
 
-		if (_friendly_target != _excluded_target
+		if (target_can_be_attacked(_friendly_target)
+			&& _friendly_target != _excluded_target
 			&& point_distance(_origin_x, _origin_y, _friendly_target.x, _friendly_target.y) <= _radius)
 		{
 			griffith_mixed_damage_target(_friendly_target, false);
@@ -215,7 +219,8 @@ griffith_damage_targets_in_radius = function(_origin_x, _origin_y, _radius, _exc
 	{
 		var _structure_target = instance_find(o_map_objects_parent, _structure_index);
 
-		if (_structure_target != _excluded_target
+		if (instance_exists(_structure_target)
+			&& _structure_target != _excluded_target
 			&& player_map_structure_can_be_targeted(_structure_target)
 			&& point_distance(_origin_x, _origin_y, _structure_target.x, _structure_target.y) <= _radius)
 		{
@@ -243,7 +248,10 @@ attack_target = function(_target)
 		return;
 	}
 
-	face_world_x(_target.x);
+	// Preserve the impact position because lethal damage may destroy the target immediately.
+	var _target_hit_x = _target.x;
+	var _target_hit_y = _target.y;
+	face_world_x(_target_hit_x);
 
 	if (reload_timer > 0)
 	{
@@ -261,12 +269,12 @@ attack_target = function(_target)
 
 	griffith_mixed_damage_target(_target, _is_critical_hit);
 	start_attack_lunge(_target);
-	griffith_yellow_smoke_create(_target.x, _target.y, aoe_radius);
-	griffith_damage_targets_in_radius(_target.x, _target.y, aoe_radius, _target);
+	griffith_yellow_smoke_create(_target_hit_x, _target_hit_y, aoe_radius);
+	griffith_damage_targets_in_radius(_target_hit_x, _target_hit_y, aoe_radius, _target);
 
-	attack_feedback_target = _target;
-	attack_feedback_target_x = _target.x;
-	attack_feedback_target_y = _target.y;
+	attack_feedback_target = instance_exists(_target) ? _target : noone;
+	attack_feedback_target_x = _target_hit_x;
+	attack_feedback_target_y = _target_hit_y;
 	attack_feedback_timer = attack_feedback_time;
 	reload_timer = reload_time * unit_attack_reload_multiplier_get();
 };

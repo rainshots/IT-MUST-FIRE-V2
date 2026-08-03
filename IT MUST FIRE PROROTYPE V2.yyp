@@ -247,6 +247,7 @@
     {"id":{"name":"HungryCouch_logo_black","path":"sprites/HungryCouch_logo_black/HungryCouch_logo_black.yy",},},
     {"id":{"name":"s_archer","path":"sprites/s_archer/s_archer.yy",},},
     {"id":{"name":"s_attack_arrow","path":"sprites/s_attack_arrow/s_attack_arrow.yy",},},
+    {"id":{"name":"s_background","path":"sprites/s_background/s_background.yy",},},
     {"id":{"name":"s_balgor","path":"sprites/s_balgor/s_balgor.yy",},},
     {"id":{"name":"s_bleed_particle","path":"sprites/s_bleed_particle/s_bleed_particle.yy",},},
     {"id":{"name":"s_blood_knife","path":"sprites/s_blood_knife/s_blood_knife.yy",},},

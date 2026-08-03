@@ -13,7 +13,6 @@ if ((global.focus_window != FOCUS_WINDOW.NOONE && !_world_selector_active)
 	|| !variable_global_exists("day_events"))
 {
 	world_event_hover_active = false;
-	world_event_hover_keeps_selector_area = false;
 
 	if (global.world_event_hover_building == id)
 	{
@@ -29,7 +28,6 @@ var _tutorial_popup_blocks_world_hover = variable_global_exists("tutorial_popup_
 if (_tutorial_popup_blocks_world_hover)
 {
 	world_event_hover_active = false;
-	world_event_hover_keeps_selector_area = false;
 
 	if (global.world_event_hover_building == id)
 	{
@@ -44,7 +42,6 @@ var _current_event = world_event_current_get();
 if (!is_struct(_current_event))
 {
 	world_event_hover_active = false;
-	world_event_hover_keeps_selector_area = false;
 
 	if (global.world_event_hover_building == id)
 	{
@@ -54,14 +51,11 @@ if (!is_struct(_current_event))
 	exit;
 }
 
-var _include_selector_area = _world_selector_active
-	|| world_event_hover_keeps_selector_area;
-var _layout = world_event_layout_get(_current_event, _include_selector_area);
+var _layout = world_event_layout_get(_current_event);
 
 if (!is_struct(_layout))
 {
 	world_event_hover_active = false;
-	world_event_hover_keeps_selector_area = false;
 
 	if (global.world_event_hover_building == id)
 	{
@@ -127,19 +121,13 @@ var _building_contains_mouse = _mouse_world_x >= bbox_left
 var _can_start_hover = !instance_exists(global.world_event_hover_building)
 	|| global.world_event_hover_building == id;
 var _building_is_hovered = _building_contains_mouse && _can_start_hover;
-var _expanded_area_is_hovered = world_event_hover_active
+var _selector_area_is_hovered = world_event_hover_active
 	&& global.world_event_hover_building == id
-	&& point_in_rectangle(
-		_mouse_gui_x,
-		_mouse_gui_y,
-		_layout.hover_left,
-		_layout.hover_top,
-		_layout.hover_right,
-		_layout.hover_bottom
-	);
+	&& _layout.has_selector
+	&& world_event_selector_hover_contains(_mouse_world_x, _mouse_world_y);
 var _is_hovered = _world_selector_active
 	|| _building_is_hovered
-	|| _expanded_area_is_hovered;
+	|| _selector_area_is_hovered;
 
 if (_world_selector_active || _building_is_hovered)
 {
@@ -156,8 +144,6 @@ world_event_hover_active = _is_hovered;
 
 if (!_is_hovered)
 {
-	world_event_hover_keeps_selector_area = false;
-
 	if (global.world_event_hover_building == id)
 	{
 		global.world_event_hover_building = noone;

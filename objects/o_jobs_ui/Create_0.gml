@@ -16,6 +16,9 @@ jobs_icon_height = 60;
 jobs_icon_gap = 18;
 jobs_event_slot_start_x = 435;
 jobs_event_slot_step = 58;
+jobs_result_unit_icon_center_x = 401;
+jobs_result_unit_icon_center_y = 58;
+jobs_result_unit_icon_size = 54;
 jobs_scroll_offset = 0;
 jobs_scroll_step = 80;
 jobs_scrollbar_width = 8;
@@ -109,6 +112,10 @@ jobs_first_day_hint_arrows = [
 jobs_end_day_button_width = 353;
 jobs_end_day_button_height = 88;
 jobs_end_day_button_bottom_margin = 65;
+jobs_end_day_button_text_padding_x = 20;
+jobs_end_day_button_text_padding_y = 12;
+jobs_first_archdemon_event_id = day_event_world_archdemon_event_id_get(1);
+jobs_first_archdemon_assignment_prompt = "Summon a Archdemon in\nthe assign duties window";
 jobs_confirmation_width = 860;
 jobs_confirmation_height = 270;
 jobs_confirmation_padding = 42;
@@ -239,6 +246,44 @@ jobs_end_day_is_visible = function()
 	return jobs_window_opened_once;
 };
 
+jobs_first_archdemon_assignment_is_missing = function()
+{
+	if (!jobs_window_opened_once
+		|| global.day_phase != DAY_PHASE.DAY
+		|| day_event_current_day_get() != 1)
+	{
+		return false;
+	}
+
+	// Find the required first-day world Job and keep prompting until its slot is occupied.
+	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
+	{
+		var _event = global.day_events[_event_index];
+
+		if (is_struct(_event)
+			&& variable_struct_exists(_event, "event_id")
+			&& variable_struct_exists(_event, "assigned_cultists")
+			&& _event.event_id == jobs_first_archdemon_event_id)
+		{
+			return array_length(_event.assigned_cultists) <= 0;
+		}
+	}
+
+	return false;
+};
+
+jobs_end_day_button_text_get = function()
+{
+	return jobs_first_archdemon_assignment_is_missing()
+		? jobs_first_archdemon_assignment_prompt
+		: "END DAY";
+};
+
+jobs_end_day_is_actionable = function()
+{
+	return !jobs_first_archdemon_assignment_is_missing();
+};
+
 jobs_first_day_hints_are_visible = function()
 {
 	return jobs_window_opened_once
@@ -346,8 +391,7 @@ jobs_end_day_execute = function()
 		return false;
 	}
 
-	day_event_finish_day();
-
+	// Close the jobs UI before an executed event opens its own mandatory window.
 	if (global.focus_window == FOCUS_WINDOW.JOBS)
 	{
 		jobs_window_close();
@@ -357,10 +401,12 @@ jobs_end_day_execute = function()
 		jobs_end_day_confirmation_close();
 	}
 
+	day_event_finish_day();
+
 	if (instance_exists(o_game_controller))
 	{
 		var _game_controller = instance_find(o_game_controller, 0);
-		_game_controller.start_night_phase();
+		_game_controller.start_night_phase_after_day_events();
 	}
 
 	return true;
@@ -369,6 +415,7 @@ jobs_end_day_execute = function()
 jobs_end_day_request = function()
 {
 	if (!jobs_end_day_is_visible()
+		|| !jobs_end_day_is_actionable()
 		|| global.day_phase != DAY_PHASE.DAY
 		|| global.focus_window != FOCUS_WINDOW.NOONE)
 	{
@@ -415,6 +462,170 @@ jobs_event_slot_rect_get = function(_event_index, _slot_index)
 		width: jobs_icon_width * _layout.scale,
 		height: jobs_icon_height * _layout.scale
 	};
+};
+
+jobs_event_result_unit_object_get = function(_event)
+{
+	if (!is_struct(_event)
+		|| !variable_struct_exists(_event, "actions")
+		|| !is_array(_event.actions))
+	{
+		return noone;
+	}
+
+	// Unit Jobs store the deterministic result in their action data.
+	for (var _action_index = 0; _action_index < array_length(_event.actions); ++_action_index)
+	{
+		var _action = _event.actions[_action_index];
+
+		if (!is_struct(_action))
+		{
+			continue;
+		}
+
+		var _action_type = variable_struct_exists(_action, "action_type")
+			? _action.action_type
+			: "";
+
+		// Draft Jobs obtain the most common unit from the selected squad.
+		if ((_action_type == "fill_demon_ranks"
+				|| _action_type == "draft_demons"
+				|| _action_type == "draft_skeletons")
+			&& variable_struct_exists(_event, "selected_squad")
+			&& is_struct(_event.selected_squad)
+			&& variable_struct_exists(_event.selected_squad, "unit_objects")
+			&& is_array(_event.selected_squad.unit_objects)
+			&& array_length(_event.selected_squad.unit_objects) > 0)
+		{
+			var _unit_objects = _event.selected_squad.unit_objects;
+			var _most_common_object = _unit_objects[0];
+			var _most_common_count = 0;
+
+			for (var _candidate_index = 0; _candidate_index < array_length(_unit_objects); ++_candidate_index)
+			{
+				var _candidate_object = _unit_objects[_candidate_index];
+				var _candidate_count = 0;
+
+				for (var _unit_index = 0; _unit_index < array_length(_unit_objects); ++_unit_index)
+				{
+					if (_unit_objects[_unit_index] == _candidate_object)
+					{
+						_candidate_count++;
+					}
+				}
+
+				if (_candidate_count > _most_common_count)
+				{
+					_most_common_count = _candidate_count;
+					_most_common_object = _candidate_object;
+				}
+			}
+
+			return _most_common_object;
+		}
+
+		if (!variable_struct_exists(_action, "data")
+			|| !is_struct(_action.data))
+		{
+			continue;
+		}
+
+		if (variable_struct_exists(_action.data, "target_unit_object"))
+		{
+			return _action.data.target_unit_object;
+		}
+
+		if (variable_struct_exists(_action.data, "unit_object"))
+		{
+			return _action.data.unit_object;
+		}
+	}
+
+	return noone;
+};
+
+jobs_event_result_unit_icon_rect_get = function(_event_index)
+{
+	var _layout = jobs_layout_get();
+	var _event_rect = jobs_event_rect_get(_event_index);
+	var _icon_size = jobs_result_unit_icon_size * _layout.scale;
+
+	return {
+		x: _event_rect.x + (jobs_result_unit_icon_center_x * _layout.scale) - (_icon_size * 0.5),
+		y: _event_rect.y + (jobs_result_unit_icon_center_y * _layout.scale) - (_icon_size * 0.5),
+		width: _icon_size,
+		height: _icon_size
+	};
+};
+
+jobs_event_empty_slot_hp_cost_text_get = function(_event)
+{
+	var _fixed_hp_cost = 0;
+	var _hp_share_cost = 0;
+
+	if (!is_struct(_event)
+		|| !variable_struct_exists(_event, "actions")
+		|| !is_array(_event.actions))
+	{
+		return "";
+	}
+
+	// Costs stored in action data do not depend on the assigned cultist.
+	for (var _action_index = 0; _action_index < array_length(_event.actions); ++_action_index)
+	{
+		var _action = _event.actions[_action_index];
+
+		if (!is_struct(_action))
+		{
+			continue;
+		}
+
+		if (variable_struct_exists(_action, "data") && is_struct(_action.data))
+		{
+			if (variable_struct_exists(_action.data, "hp_cost"))
+			{
+				_fixed_hp_cost += max(0, _action.data.hp_cost);
+			}
+
+			if (variable_struct_exists(_action.data, "hp_share"))
+			{
+				_hp_share_cost += max(0, _action.data.hp_share);
+			}
+		}
+
+		// These fixed costs are encoded by their specialized action callbacks.
+		switch (_action.action_type)
+		{
+			case "harden_the_vessel":
+				_fixed_hp_cost += BALANCE_HARDEN_VESSEL_DAMAGE;
+				break;
+
+			case "the_bath_demands_a_name":
+				_fixed_hp_cost += BALANCE_BATH_DEMANDS_NAME_DAMAGE;
+				break;
+
+			case "blood_for_blood":
+				_fixed_hp_cost += BALANCE_BLOOD_FOR_BLOOD_DAMAGE;
+				break;
+		}
+	}
+
+	if (_fixed_hp_cost > 0 && _hp_share_cost > 0)
+	{
+		return "-" + string(round(_fixed_hp_cost)) + " HP -" + string(round(_hp_share_cost * 100)) + "% HP";
+	}
+
+	if (_fixed_hp_cost > 0)
+	{
+		return "-" + string(round(_fixed_hp_cost)) + " HP";
+	}
+
+	if (_hp_share_cost > 0)
+	{
+		return "-" + string(round(_hp_share_cost * 100)) + "% HP";
+	}
+
+	return "";
 };
 
 jobs_event_cultist_slot_index_get = function(_event, _cultist)

@@ -26,10 +26,9 @@ for (var _cell_x = _left_cell; _cell_x <= _right_cell; ++_cell_x)
 		{
 			var _draw_x = _cell_x * cell_size;
 			var _draw_y = _cell_y * cell_size;
-			var _cell_color = merge_colour(uncorrupted_color, maximum_corruption_color, _corruption);
 			var _cell_alpha = lerp(minimum_corruption_alpha, maximum_corruption_alpha, _corruption);
 
-			draw_set_color(_cell_color);
+			draw_set_color(maximum_corruption_color);
 			draw_set_alpha(_cell_alpha);
 			draw_rectangle(_draw_x, _draw_y, _draw_x + cell_size, _draw_y + cell_size, false);
 		}
@@ -39,7 +38,7 @@ for (var _cell_x = _left_cell; _cell_x <= _right_cell; ++_cell_x)
 			var _saint_draw_x = _cell_x * cell_size;
 			var _saint_draw_y = _cell_y * cell_size;
 			var _saint_cell_color = merge_colour(uncorrupted_color, maximum_saint_color, _saint);
-			var _saint_cell_alpha = lerp(minimum_corruption_alpha, maximum_corruption_alpha, _saint);
+			var _saint_cell_alpha = lerp(minimum_corruption_alpha, maximum_saint_alpha, _saint);
 
 			draw_set_color(_saint_cell_color);
 			draw_set_alpha(_saint_cell_alpha);

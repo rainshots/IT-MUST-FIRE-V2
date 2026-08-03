@@ -23,6 +23,17 @@ wander_timer = irandom(BALANCE_EVENT_CULTIST_WANDER_DELAY);
 move_speed = BALANCE_EVENT_CULTIST_MOVE_SPEED;
 y_sort_enabled = true;
 
+// Cursed Point construction workers return to their original cannon-side home at night.
+home_offset_x = 0;
+home_offset_y = BALANCE_EVENT_CULTIST_WANDER_VERTICAL_DISTANCE_MIN;
+
+if (instance_exists(o_cannon))
+{
+	var _cannon = instance_find(o_cannon, 0);
+	home_offset_x = x - _cannon.x;
+	home_offset_y = y - _cannon.y;
+}
+
 is_available = function()
 {
 	return hp > 0 && !is_struct(assigned_event);

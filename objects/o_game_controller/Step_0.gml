@@ -131,8 +131,9 @@ if (variable_global_exists("tutorial_popup_active") && global.tutorial_popup_act
 	exit;
 }
 
-// Q toggles quadruple simulation speed while the night is active.
-if (!global.pause
+// Cheat-only Q shortcut toggles quadruple simulation speed during the night.
+if (global.cheats_enabled
+	&& !global.pause
 	&& global.day_phase == DAY_PHASE.NIGHT
 	&& keyboard_check_pressed(ord("Q")))
 {
@@ -819,25 +820,6 @@ if (global.cheats_enabled)
 		transform_cultists_to_demons();
 	}
 
-	// F1 adds satiety for fast Feast projectile testing.
-	if (keyboard_check_pressed(vk_f1) && global.focus_window == FOCUS_WINDOW.NOONE && !instance_exists(global.dragged_cultist))
-	{
-		cannon_satiety_add(BALANCE_CANNON_SATIETY_CHEAT_AMOUNT);
-	}
-
-	// F5 fills the cannon satiety meter for fast corpse-feed testing.
-	if (keyboard_check_pressed(vk_f5) && global.focus_window == FOCUS_WINDOW.NOONE && !instance_exists(global.dragged_cultist))
-	{
-		var _satiety_to_next_feast = global.cannon_satiety_max - (global.cannon_satiety mod global.cannon_satiety_max);
-
-		if (_satiety_to_next_feast <= 0)
-		{
-			_satiety_to_next_feast = global.cannon_satiety_max;
-		}
-
-		cannon_satiety_add(_satiety_to_next_feast);
-	}
-
 	// Shift + right mouse button spawns meat at the cursor for Brute Corpse Eater testing.
 	if (keyboard_check(vk_shift)
 		&& mouse_check_button_pressed(mb_right)
@@ -1049,7 +1031,7 @@ if (global.cheats_enabled)
 		if (global.day_phase == DAY_PHASE.DAY)
 		{
 			day_event_finish_day();
-			start_night_phase();
+			start_night_phase_after_day_events();
 		}
 		else
 		{
@@ -1172,7 +1154,6 @@ var _building_pin_key_pressed = keyboard_check_pressed(ord("T"));
 if ((_building_reroll_key_pressed || _building_pin_key_pressed)
 	&& global.day_phase == DAY_PHASE.DAY
 	&& global.focus_window == FOCUS_WINDOW.NOONE
-	&& !global.pause
 	&& !instance_exists(global.dragged_cultist)
 	&& instance_exists(o_camera_controller))
 {
@@ -1212,9 +1193,9 @@ if ((_building_reroll_key_pressed || _building_pin_key_pressed)
 			}
 		}
 	}
-	else if (_building_pin_key_pressed)
+	else if (_building_pin_key_pressed && !global.pause)
 	{
-		// Buildings without an event card retain the existing demolition shortcut.
+		// Buildings without an event card retain the demolition shortcut outside pause.
 		var _demolish_building = find_demolishable_building_at_position(
 			_action_mouse_world_x,
 			_action_mouse_world_y
@@ -1619,7 +1600,7 @@ if (_can_select_cannon_projectile)
 
 	if (_selected_projectile_index >= 0)
 	{
-		var _selected_projectile_type = PROJECTILE_TYPE.FEAST;
+		var _selected_projectile_type = PROJECTILE_TYPE.DAMAGE;
 
 		if (_selected_projectile_index < _projectile_queue_count)
 		{
@@ -1641,8 +1622,7 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && mouse_check_button_p
 	{
 		global.focus_window = FOCUS_WINDOW.NOONE;
 	}
-	else if (array_length(global.cannon_projectile_queue) <= 0
-		&& target_selection_projectile_type != PROJECTILE_TYPE.FEAST)
+	else if (array_length(global.cannon_projectile_queue) <= 0)
 	{
 		global.focus_window = FOCUS_WINDOW.NOONE;
 	}
@@ -1660,7 +1640,7 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && mouse_check_button_p
 		var _projectile_queue_count = array_length(global.cannon_projectile_queue);
 		var _selected_projectile_index = clamp(global.cannon_selected_projectile_index, 0, 8);
 
-		if (target_selection_projectile_type != PROJECTILE_TYPE.FEAST && _projectile_queue_count > 0)
+		if (_projectile_queue_count > 0)
 		{
 			_selected_projectile_index = clamp(_selected_projectile_index, 0, _projectile_queue_count - 1);
 			target_selection_projectile_type = global.cannon_projectile_queue[_selected_projectile_index];
@@ -1680,15 +1660,15 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && mouse_check_button_p
 
 		target_selection_radius = projectile_target_selection_radius_get(target_selection_projectile_type);
 		var _target_can_be_confirmed = true;
-		var _target_consumes_projectile_queue = target_selection_projectile_type != PROJECTILE_TYPE.FEAST;
+		var _target_consumes_projectile_queue = true;
 
 		if (target_selection_projectile_type == PROJECTILE_TYPE.CULTIST
 			&& !world_position_is_revealed_by_fog(_target_world_x, _target_world_y))
 		{
 			_target_can_be_confirmed = false;
 		}
-		else if (target_selection_projectile_type == PROJECTILE_TYPE.FEAST
-			&& !feast_target_touches_corruption(_target_world_x, _target_world_y))
+		else if (target_selection_projectile_type == PROJECTILE_TYPE.CORRUPTION
+			&& !taint_compost_target_touches_corruption(_target_world_x, _target_world_y))
 		{
 			_target_can_be_confirmed = false;
 		}
@@ -1696,17 +1676,6 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && mouse_check_button_p
 			&& !ground_cell_is_tainted_at_position(_target_world_x, _target_world_y))
 		{
 			_target_can_be_confirmed = false;
-		}
-
-		if (_target_can_be_confirmed)
-		{
-			if (target_selection_projectile_type == PROJECTILE_TYPE.FEAST)
-			{
-				if (!cannon_satiety_spend_feast())
-				{
-					_target_can_be_confirmed = false;
-				}
-			}
 		}
 
 		if (_target_can_be_confirmed)

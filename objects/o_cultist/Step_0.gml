@@ -5,14 +5,54 @@ if (hp <= 0)
 	exit;
 }
 
-// Regular cultists wander near the cannon only during the day.
-if (global.pause || global.day_phase != DAY_PHASE.DAY || !instance_exists(o_cannon))
+// Pause and a missing home anchor stop regular cultist movement.
+if (global.pause || !instance_exists(o_cannon))
 {
 	exit;
 }
 
 // The game controller owns the position while the cultist follows the cursor.
 if (is_being_dragged)
+{
+	exit;
+}
+
+// Cursed Point construction workers keep their assignment but return home at night.
+if (global.day_phase == DAY_PHASE.NIGHT)
+{
+	var _is_cursed_point_construction_worker = is_struct(assigned_event)
+		&& variable_struct_exists(assigned_event, "is_cursed_point_construction")
+		&& assigned_event.is_cursed_point_construction;
+
+	if (_is_cursed_point_construction_worker)
+	{
+		var _home_cannon = instance_find(o_cannon, 0);
+		var _home_x = _home_cannon.x + home_offset_x;
+		var _home_y = _home_cannon.y + home_offset_y;
+		var _home_distance = point_distance(x, y, _home_x, _home_y);
+
+		if (_home_distance <= move_speed)
+		{
+			x = _home_x;
+			y = _home_y;
+		}
+		else
+		{
+			var _home_direction = point_direction(x, y, _home_x, _home_y);
+			x += lengthdir_x(move_speed, _home_direction);
+			y += lengthdir_y(move_speed, _home_direction);
+			image_xscale = abs(image_xscale) * (_home_x >= x ? 1 : -1);
+		}
+
+		drag_drop_x = x;
+		drag_drop_y = y;
+	}
+
+	exit;
+}
+
+// Regular cultists wander and work only during the day.
+if (global.day_phase != DAY_PHASE.DAY)
 {
 	exit;
 }

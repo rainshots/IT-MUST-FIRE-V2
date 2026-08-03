@@ -23,6 +23,11 @@ squad_info_window_height = 430;
 squad_info_padding = 18;
 squad_info_unit_icon_size = 52;
 squad_info_unit_icon_gap = 8;
+squad_info_unit_count_scale = 0.72;
+squad_info_unit_count_margin = 2;
+squad_info_unit_count_padding_x = 4;
+squad_info_unit_count_padding_y = 2;
+squad_info_unit_count_background_alpha = 0.88;
 
 hud_squad_at_gui_position = function(_mouse_x, _mouse_y)
 {
@@ -336,7 +341,12 @@ hud_unit_matchups_get = function(_unit_object)
 	var _strong_against = [];
 	var _weak_against = [];
 
-	if (_unit_object == o_skeleton_warrior)
+	if (_unit_object == o_skeleton_bonelet)
+	{
+		_strong_against = [o_enemy_mage];
+		_weak_against = [o_enemy_peasant, o_enemy_knight];
+	}
+	else if (_unit_object == o_skeleton_warrior)
 	{
 		_strong_against = [o_enemy_peasant, o_enemy_catapult];
 		_weak_against = [o_enemy_mage];
@@ -350,6 +360,11 @@ hud_unit_matchups_get = function(_unit_object)
 	{
 		_strong_against = [o_enemy_knight, o_enemy_mage];
 		_weak_against = [o_enemy_peasant, o_enemy_catapult];
+	}
+	else if (_unit_object == o_mawling)
+	{
+		_strong_against = [o_enemy_mage];
+		_weak_against = [o_enemy_peasant, o_enemy_knight];
 	}
 	else if (_unit_object == o_pitling)
 	{
@@ -820,11 +835,10 @@ projectile_description_line_separation = 16;
 
 projectile_names = array_create(PROJECTILE_TYPE.COUNT, "");
 projectile_names[PROJECTILE_TYPE.DAMAGE] = "DAMAGE";
-projectile_names[PROJECTILE_TYPE.CORRUPTION] = "TAINT";
+projectile_names[PROJECTILE_TYPE.CORRUPTION] = "TAINT COMPOST";
 projectile_names[PROJECTILE_TYPE.SUMMON] = "SUMMON";
 projectile_names[PROJECTILE_TYPE.RALLY] = "RALLY";
 projectile_names[PROJECTILE_TYPE.CULTIST] = "CULTIST";
-projectile_names[PROJECTILE_TYPE.FEAST] = "TAINT";
 projectile_names[PROJECTILE_TYPE.HEAL] = "FIRST AID MEAT";
 projectile_names[PROJECTILE_TYPE.BOMB] = "HELLCOW";
 projectile_names[PROJECTILE_TYPE.SKELETONS] = "SKELETONS";
@@ -834,13 +848,12 @@ projectile_names[PROJECTILE_TYPE.DOOM_BELL] = "DOOM BELL";
 
 projectile_descriptions = array_create(PROJECTILE_TYPE.COUNT, "");
 projectile_descriptions[PROJECTILE_TYPE.DAMAGE] = "Damages units and buildings inside the impact area.";
-projectile_descriptions[PROJECTILE_TYPE.CORRUPTION] = "Taints the ground, giving the player's troops an advantage while fighting on it.";
+projectile_descriptions[PROJECTILE_TYPE.CORRUPTION] = "Fires a wide volley that taints the ground. Its impact radius must touch existing Taint.";
 projectile_descriptions[PROJECTILE_TYPE.SUMMON] = "Summons friendly forces through valid target reactions.";
 projectile_descriptions[PROJECTILE_TYPE.RALLY] = "Sends half of nearby friendly units to the impact point.";
 projectile_descriptions[PROJECTILE_TYPE.CULTIST] = "Launches a cultist into battle, dealing impact damage and spawning demon form.";
-projectile_descriptions[PROJECTILE_TYPE.FEAST] = "Fires corpse-fed Taint impacts that spread Taint, damage enemies, and destroy Ihor Veins for Ihor.";
 projectile_descriptions[PROJECTILE_TYPE.HEAL] = "Restores " + string(BALANCE_PROJECTILE_HEAL_AMOUNT) + " health to all friendly units inside a " + string(BALANCE_PROJECTILE_HEAL_RADIUS) + " pixel base radius. Each unit can be healed only once per volley. Payload Mastery improves healing; Tight tamping of meat improves healing and radius.";
-projectile_descriptions[PROJECTILE_TYPE.BOMB] = "Deals " + string(BALANCE_PROJECTILE_BOMB_DAMAGE_AMOUNT) + " damage to every unit inside a " + string(BALANCE_PROJECTILE_BOMB_RADIUS) + " pixel radius. Payload Mastery improves it.";
+projectile_descriptions[PROJECTILE_TYPE.BOMB] = "Deals " + string(BALANCE_PROJECTILE_BOMB_DAMAGE_AMOUNT) + " damage to enemy units inside a " + string(BALANCE_PROJECTILE_BOMB_RADIUS) + " pixel radius. Payload Mastery improves it.";
 projectile_descriptions[PROJECTILE_TYPE.SKELETONS] = "Summons " + string(BALANCE_PROJECTILE_SKELETON_COUNT) + " skeleton inside a " + string(BALANCE_PROJECTILE_SKELETON_RADIUS) + " pixel radius. Payload Mastery improves it.";
 projectile_descriptions[PROJECTILE_TYPE.BUILDING_SHELL] = "Builds its stored structure where it lands. Must be fired onto tainted ground.";
 projectile_descriptions[PROJECTILE_TYPE.CLEANSE] = "Enemy projectile that removes Taint where it lands.";

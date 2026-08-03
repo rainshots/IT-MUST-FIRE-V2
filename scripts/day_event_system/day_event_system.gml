@@ -22,6 +22,33 @@ function day_event_add_first(_event)
 	return true;
 }
 
+function day_event_move_to_end(_event_id)
+{
+	var _event_count = array_length(global.day_events);
+
+	for (var _event_index = 0; _event_index < _event_count; ++_event_index)
+	{
+		var _event = global.day_events[_event_index];
+
+		if (!is_struct(_event)
+			|| !variable_struct_exists(_event, "event_id")
+			|| _event.event_id != _event_id)
+		{
+			continue;
+		}
+
+		if (_event_index < _event_count - 1)
+		{
+			array_delete(global.day_events, _event_index, 1);
+			array_push(global.day_events, _event);
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
 function day_event_available_cultist_find(_prefer_lowest_hp = false)
 {
 	var _selected_cultist = noone;
@@ -248,6 +275,7 @@ function day_event_building_construction_create(_construction_site, _choice, _is
 		? _choice.building_sprite
 		: object_get_sprite(_choice.building_object);
 	_event.construction_site = _construction_site;
+	_event.is_cursed_point_construction = _is_cursed_point;
 	_construction_site.construction_event_pending = true;
 	day_event_add_first(_event);
 
@@ -1159,6 +1187,11 @@ function day_event_archdemon_count_get()
 	return array_length(global.archdemons);
 }
 
+function day_event_world_archdemon_event_id_get(_archdemon_number)
+{
+	return "world_job_archdemon_" + string(_archdemon_number);
+}
+
 function day_event_world_archdemon_job_is_available(_archdemon_number)
 {
 	var _archdemon_limit = global.squad_limits[SQUAD_TYPE.ARCHDEMON];
@@ -1171,13 +1204,21 @@ function day_event_world_archdemon_job_is_available(_archdemon_number)
 
 	var _current_day = day_event_current_day_get();
 
+	if (_archdemon_number == 1)
+	{
+		return !global.world_job_first_archdemon_completed
+			&& _current_day >= BALANCE_WORLD_JOB_FIRST_ARCHDEMON_UNLOCK_DAY;
+	}
+
 	if (_archdemon_number == 2)
 	{
-		return !global.world_job_second_archdemon_completed
+		return global.world_job_first_archdemon_completed
+			&& !global.world_job_second_archdemon_completed
 			&& _current_day >= BALANCE_WORLD_JOB_SECOND_ARCHDEMON_UNLOCK_DAY;
 	}
 
-	return !global.world_job_third_archdemon_completed
+	return global.world_job_second_archdemon_completed
+		&& !global.world_job_third_archdemon_completed
 		&& _current_day >= BALANCE_WORLD_JOB_THIRD_ARCHDEMON_UNLOCK_DAY;
 }
 
@@ -1198,6 +1239,19 @@ function day_event_world_archdemon_execute(_event, _assigned_cultists, _data)
 	var _spawn_distance = BALANCE_EVENT_CULTIST_WANDER_HORIZONTAL_DISTANCE;
 	var _spawn_x = _cannon.x + lengthdir_x(_spawn_distance, _spawn_angle);
 	var _spawn_y = _cannon.y + lengthdir_y(_spawn_distance, _spawn_angle);
+	var _possessed_cultist_name = "";
+
+	if (array_length(_assigned_cultists) > 0)
+	{
+		var _possessed_cultist = _assigned_cultists[0];
+
+		if (instance_exists(_possessed_cultist)
+			&& variable_instance_exists(_possessed_cultist, "cultist_name"))
+		{
+			_possessed_cultist_name = _possessed_cultist.cultist_name;
+		}
+	}
+
 	var _archdemon = instance_create_layer(_spawn_x, _spawn_y, "Instances", o_archdemon);
 
 	if (!instance_exists(_archdemon))
@@ -1209,7 +1263,11 @@ function day_event_world_archdemon_execute(_event, _assigned_cultists, _data)
 	squad_register_existing_unit(SQUAD_TYPE.ARCHDEMON, _archdemon);
 	day_event_cultist_hp_cost_apply(_assigned_cultists, _data.hp_cost);
 
-	if (_data.archdemon_number == 2)
+	if (_data.archdemon_number == 1)
+	{
+		global.world_job_first_archdemon_completed = true;
+	}
+	else if (_data.archdemon_number == 2)
 	{
 		global.world_job_second_archdemon_completed = true;
 	}
@@ -1221,7 +1279,7 @@ function day_event_world_archdemon_execute(_event, _assigned_cultists, _data)
 	// Keep an already-open selection on the earliest unconfigured Archdemon.
 	if (global.focus_window != FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 	{
-		_game_controller.open_cultist_demon_selection(_archdemon_index);
+		_game_controller.open_cultist_demon_selection(_archdemon_index, _possessed_cultist_name);
 	}
 
 	return true;
@@ -1230,6 +1288,7 @@ function day_event_world_archdemon_execute(_event, _assigned_cultists, _data)
 function day_event_world_archdemon_create(
 	_archdemon_number,
 	_title,
+	_description,
 	_cultist_count,
 	_hp_cost
 )
@@ -1239,9 +1298,9 @@ function day_event_world_archdemon_create(
 		: "Requires " + string(_cultist_count) + " Cultists. Each loses "
 			+ string(_hp_cost) + " HP.";
 	var _event = new day_event_constructor(
-		"world_job_archdemon_" + string(_archdemon_number),
+		day_event_world_archdemon_event_id_get(_archdemon_number),
 		_title,
-		"Summon a new Archdemon.\n" + _cost_text,
+		_description + "\n" + _cost_text,
 		_cultist_count,
 		1,
 		[
@@ -1250,7 +1309,8 @@ function day_event_world_archdemon_create(
 				day_event_world_archdemon_execute,
 				{
 					archdemon_number: _archdemon_number,
-					hp_cost: _hp_cost
+					hp_cost: _hp_cost,
+					unit_object: o_archdemon
 				}
 			)
 		]
@@ -1261,11 +1321,23 @@ function day_event_world_archdemon_create(
 
 function day_event_world_jobs_generate()
 {
+	if (day_event_world_archdemon_job_is_available(1))
+	{
+		day_event_add(day_event_world_archdemon_create(
+			1,
+			"Summon an Archdemon",
+			"One of your cultists becomes possessed by a demon. You can choose which Archdemon they become.",
+			BALANCE_WORLD_JOB_FIRST_ARCHDEMON_CULTIST_COUNT,
+			BALANCE_WORLD_JOB_FIRST_ARCHDEMON_HP_COST
+		));
+	}
+
 	if (day_event_world_archdemon_job_is_available(2))
 	{
 		day_event_add(day_event_world_archdemon_create(
 			2,
 			"Summon a Second Archdemon",
+			"Summon a new Archdemon.",
 			BALANCE_WORLD_JOB_SECOND_ARCHDEMON_CULTIST_COUNT,
 			BALANCE_WORLD_JOB_SECOND_ARCHDEMON_HP_COST
 		));
@@ -1276,6 +1348,7 @@ function day_event_world_jobs_generate()
 		day_event_add(day_event_world_archdemon_create(
 			3,
 			"Summon a Third Archdemon",
+			"Summon a new Archdemon.",
 			BALANCE_WORLD_JOB_THIRD_ARCHDEMON_CULTIST_COUNT,
 			BALANCE_WORLD_JOB_THIRD_ARCHDEMON_HP_COST
 		));
@@ -2844,7 +2917,7 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 					_shell_factory,
 					"shell_factory_hellcow_diet",
 					"Hellcow's diet change",
-					"Increase Hellcow shell damage by 25%. Maximum 4 upgrades.",
+					"Permanently increase Hellcow shell damage by 25%.",
 					"hellcow"
 				));
 			}
@@ -2856,7 +2929,7 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 					_shell_factory,
 					"shell_factory_tight_tamping",
 					"Tight tamping of meat",
-					"Permanently increase the healing effect and radius of First Aid Meat shells by 25%. Maximum 4 upgrades.",
+					"Permanently increase the healing effect and radius of First Aid Meat shells by 25%.",
 					"first_aid"
 				));
 			}
@@ -2894,12 +2967,11 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 		var _pit = instance_find(o_pitlings_pit2, _pit_index);
 		var _mawling_squads = day_event_squads_get(SQUAD_TYPE.DEMON, o_mawling);
 		var _demon_squads = day_event_squads_get(SQUAD_TYPE.DEMON);
-		var _pit_undead_squads = day_event_squads_get(SQUAD_TYPE.UNDEAD);
 		var _pit_eligible_squads = [];
 		var _demon_slot_limit = global.squad_limits[SQUAD_TYPE.DEMON];
 		var _all_demon_slots_occupied = array_length(_demon_squads) >= _demon_slot_limit;
-		var _pit_support_summon_is_available = array_length(_demon_squads) > 0
-			|| array_length(_pit_undead_squads) > 0;
+		// Until the first Demon squad exists, this building offers only Summon Mawlings.
+		var _pit_support_summon_is_available = array_length(_demon_squads) > 0;
 		array_copy(_pit_eligible_squads, 0, global.squads, 0, array_length(global.squads));
 
 		// Slot expansion is offered only when every current Demon slot is occupied.
@@ -3044,7 +3116,7 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 				_pit,
 				"infernal_vitality",
 				"Infernal Vitality",
-				"Permanently increase the health of the selected Demon Squad by 15%.\nRequires 1 Cultist, who loses 30 HP.",
+				"Permanently increase the max health of the selected Demon Squad by 15%.\nRequires 1 Cultist, who loses 30 HP.",
 				BALANCE_SQUAD_PERMANENT_UPGRADE_CULTIST_COUNT,
 				"increase_demon_squad_health",
 				day_event_squad_permanent_upgrade_execute,
@@ -3061,12 +3133,11 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 		var _graveyard = instance_find(o_graveyard2, _graveyard_index);
 		var _bonelet_squads = day_event_squads_get(SQUAD_TYPE.UNDEAD, o_skeleton_bonelet);
 		var _undead_squads = day_event_squads_get(SQUAD_TYPE.UNDEAD);
-		var _graveyard_demon_squads = day_event_squads_get(SQUAD_TYPE.DEMON);
 		var _all_squads = [];
 		var _undead_slot_limit = global.squad_limits[SQUAD_TYPE.UNDEAD];
 		var _all_undead_slots_occupied = array_length(_undead_squads) >= _undead_slot_limit;
-		var _graveyard_support_summon_is_available = array_length(_undead_squads) > 0
-			|| array_length(_graveyard_demon_squads) > 0;
+		// Until the first Undead squad exists, this building offers only Raise Bonelets Squad.
+		var _graveyard_support_summon_is_available = array_length(_undead_squads) > 0;
 		array_copy(_all_squads, 0, global.squads, 0, array_length(global.squads));
 
 		if (squad_slot_is_available(SQUAD_TYPE.UNDEAD))
@@ -3360,6 +3431,9 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 	{
 		day_event_additional_building_events_generate();
 	}
+
+	// Keep the mandatory first Archdemon Job below every other generated event.
+	day_event_move_to_end(day_event_world_archdemon_event_id_get(1));
 
 	return array_length(global.day_events);
 }

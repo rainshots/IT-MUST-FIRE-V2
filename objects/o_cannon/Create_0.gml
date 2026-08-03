@@ -9,8 +9,8 @@ night_damage_start_hp = max_hp;
 night_damage_agony_threshold_index = 0;
 night_damage_agony_step_share = 0.1;
 
-// Cannon accepts a small crew of daytime corpse haulers.
-building_accepts_workers = true;
+// Corpse-fed Taint is disabled, so the cannon no longer accepts corpse haulers.
+building_accepts_workers = false;
 worker_cultists = [];
 worker_max = BALANCE_RESOURCE_BUILDING_WORKER_MAX;
 
@@ -660,24 +660,14 @@ cannon_morning_skeleton_count_range_get = function()
 	return [0, 0];
 };
 
-cannon_feast_radius_get = function()
+cannon_taint_compost_radius_get = function()
 {
-	return round(BALANCE_CANNON_FEAST_RADIUS * cannon_payload_mastery_taint_multiplier_get());
+	return round(BALANCE_PROJECTILE_TAINT_COMPOST_RADIUS * cannon_payload_mastery_taint_multiplier_get());
 };
 
-cannon_feast_projectile_count_get = function()
+cannon_taint_compost_projectile_count_get = function()
 {
-	return max(1, ceil(BALANCE_CANNON_FEAST_PROJECTILE_COUNT * cannon_payload_mastery_taint_multiplier_get()));
-};
-
-cannon_feast_projectile_visual_radius_get = function()
-{
-	return round(BALANCE_CANNON_FEAST_PROJECTILE_VISUAL_RADIUS * cannon_payload_mastery_taint_multiplier_get());
-};
-
-cannon_feast_projectile_corruption_radius_get = function()
-{
-	return round(BALANCE_CANNON_FEAST_PROJECTILE_CORRUPTION_RADIUS * cannon_payload_mastery_taint_multiplier_get());
+	return max(1, ceil(BALANCE_CANNON_TAINT_COMPOST_PROJECTILE_COUNT * cannon_payload_mastery_taint_multiplier_get()));
 };
 
 cannon_payload_upgrade_level_get = function()

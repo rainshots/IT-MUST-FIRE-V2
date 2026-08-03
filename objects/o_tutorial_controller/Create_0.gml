@@ -51,7 +51,7 @@ tutorial_items = [
 	{
 		id: "buildings",
 		title: "Buildings",
-		body: "There are several building types. Some produce the three main resources: iron, flesh, and souls. Others summon unholy creatures, heal cultists, repair walls, and provide other services.\n\nConstruction does not cost resources. Each selected building creates an Assign Duties event that requires 1 Cultist.\n\nTo begin, I recommend building a Blood Bath so your cultists can recover after battle."
+		body: "You can build 1 building per day around the cannon. Each building provides 1 random job for your Cultists. The more buildings you have, the more jobs your Cultists will have!\n\nConstruction does not cost resources. Each selected building creates an Assign Duties event that requires 1 Cultist.\n\nJobs often reduce your Cultists’ HP. That’s why I recommend building a Blood Bath first, so you can heal their wounds."
 	},
 	{
 		id: "meat_bath_needed",
@@ -86,7 +86,7 @@ tutorial_items = [
 	{
 		id: "night",
 		title: "Night",
-		body: "At night, your cultists and other combat units are swallowed by the possessed cannon. You can choose where it spits them onto the battlefield by pressing 1 and then the left mouse button.\n\nEach cultist gets a separate volley. Other combat units are split evenly between volleys."
+		body: "At night, your combat units are swallowed by the possessed cannon. You can choose where it spits them onto the battlefield by pressing 1 and then the LMB.\n\nEach squad gets a separate volley."
 	},
 	{
 		id: "damage_types",

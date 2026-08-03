@@ -453,6 +453,12 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 	if (target_selection_projectile_type == PROJECTILE_TYPE.CORRUPTION)
 	{
 		_target_color = COLOR_PROJECTILE_CORRUPTION;
+
+		if (!taint_compost_target_touches_corruption(_mouse_world_x, _mouse_world_y))
+		{
+			_target_color = COLOR_STATUS_NEGATIVE_RED;
+			_target_hint_text = "Must touch existing Taint";
+		}
 	}
 	else if (target_selection_projectile_type == PROJECTILE_TYPE.SUMMON)
 	{
@@ -471,16 +477,6 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 		{
 			_target_color = COLOR_STATUS_NEGATIVE_RED;
 			_target_hint_text = "Aim at a revealed zone";
-		}
-	}
-	else if (target_selection_projectile_type == PROJECTILE_TYPE.FEAST)
-	{
-		_target_color = COLOR_PROJECTILE_CORRUPTION;
-
-		if (!feast_target_touches_corruption(_mouse_world_x, _mouse_world_y))
-		{
-			_target_color = COLOR_STATUS_NEGATIVE_RED;
-			_target_hint_text = "Must touch existing Taint";
 		}
 	}
 	else if (target_selection_projectile_type == PROJECTILE_TYPE.HEAL)
@@ -704,7 +700,6 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 	var _ability_count = array_length(_ability_options);
 	var _preview_ability = cultist_selected_starting_ability;
 	var _preview_ability_is_valid = false;
-	var _recommended_demon_type = DEMON_TYPE.NONE;
 	var _hovered_demon_type = DEMON_TYPE.NONE;
 	var _hovered_ability = DEMON_ABILITY.NONE;
 
@@ -858,19 +853,6 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 		];
 		var _stat_y_values = [292, 358, 420];
 
-		if (_body_points >= _fervor_points && _body_points >= _spirit_points)
-		{
-			_recommended_demon_type = DEMON_TYPE.BRUTE;
-		}
-		else if (_fervor_points >= _spirit_points)
-		{
-			_recommended_demon_type = DEMON_TYPE.IMP;
-		}
-		else
-		{
-			_recommended_demon_type = DEMON_TYPE.WARLOCK;
-		}
-
 		draw_set_halign(fa_left);
 		draw_set_valign(fa_top);
 		draw_set_color(COLOR_HUD_TEXT);
@@ -983,12 +965,6 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 		draw_set_valign(fa_middle);
 		draw_set_color(COLOR_HUD_TEXT);
 		draw_text_transformed(_button_x + (_button_width * 0.5), _button_y + (_button_height * 0.5), cultist_demon_name_get(_demon_type), 1.12 * _design_scale, 1.12 * _design_scale, 0);
-
-		if (_demon_type == _recommended_demon_type)
-		{
-			draw_set_color(COLOR_CULTIST_SELECTION_RECOMMENDED);
-			draw_text_transformed(_button_x + (_button_width * 0.5), _button_y + _button_height + (13 * _design_scale), "RECOMMENDED", 1.05 * _design_scale, 1.05 * _design_scale, 0);
-		}
 	}
 
 	// Draw starting ability buttons.
@@ -1277,7 +1253,6 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 	var _mouse_x = device_mouse_x_to_gui(0);
 	var _mouse_y = device_mouse_y_to_gui(0);
 	var _hovered_demon_type = DEMON_TYPE.NONE;
-	var _recommended_demon_type = DEMON_TYPE.NONE;
 	var _ability_options = cultist_demon_active_abilities_get(cultist_selected_demon_type);
 	var _ability_count = array_length(_ability_options);
 	var _preview_ability = cultist_selected_starting_ability;
@@ -1339,20 +1314,6 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 		var _stat_notes = ["HP, Armor, Physical damage", "Crit chance, Attack, Ability Recharge", "Exp, Magic damage, Magic power, Magic resistance"];
 		var _stat_points = [_body_points, _fervor_points, _spirit_points];
 		var _stat_colors = [COLOR_CULTIST_BODY, COLOR_CULTIST_FERVOR, COLOR_CULTIST_SPIRIT];
-
-		// Recommend the demon form that best fits the cultist's strongest attribute.
-		if (_body_points >= _fervor_points && _body_points >= _spirit_points)
-		{
-			_recommended_demon_type = DEMON_TYPE.BRUTE;
-		}
-		else if (_fervor_points >= _spirit_points)
-		{
-			_recommended_demon_type = DEMON_TYPE.IMP;
-		}
-		else
-		{
-			_recommended_demon_type = DEMON_TYPE.WARLOCK;
-		}
 
 		draw_set_halign(fa_left);
 
@@ -1565,12 +1526,6 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 		draw_set_halign(fa_center);
 		draw_set_color(_is_selected ? c_black : COLOR_HUD_TEXT);
 		draw_text(_button_x + (cultist_selection_button_width * 0.5), _button_y + (cultist_selection_button_height * 0.5), cultist_demon_name_get(_demon_type));
-
-		if (_demon_type == _recommended_demon_type)
-		{
-			draw_set_color(COLOR_HEALTH_BAR);
-			draw_text(_button_x + (cultist_selection_button_width * 0.5), _button_y + cultist_selection_button_height + 18, "RECOMMENDED");
-		}
 	}
 
 	var _confirm_x = _panel_x + _panel_width - 210;

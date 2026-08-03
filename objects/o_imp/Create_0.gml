@@ -1177,8 +1177,9 @@ imp_clone_stats_copy = function(_clone)
 		_life_time = BALANCE_IMP_BLOODY_CLONE_LIFE_TIME_LEVEL_2;
 	}
 
-	_clone.max_hp = max_hp;
-	_clone.hp = hp;
+	// Clones are fragile decoys with health based on the Imp's maximum HP.
+	_clone.max_hp = max_hp * BALANCE_IMP_BLOODY_CLONE_HP_SHARE;
+	_clone.hp = _clone.max_hp;
 	_clone.damage = damage * _damage_multiplier;
 	_clone.magic_damage = magic_damage;
 	_clone.armor = armor;

@@ -66,20 +66,15 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 		{
 			_fired_projectile_count = 1;
 		}
-		else if (target_projectile_type == PROJECTILE_TYPE.FEAST)
+		else if (target_projectile_type == PROJECTILE_TYPE.CORRUPTION)
 		{
-			_fired_projectile_count = cannon_feast_projectile_count_get();
+			_fired_projectile_count = cannon_taint_compost_projectile_count_get();
 		}
 
 		for (var _projectile_index = 0; _projectile_index < _fired_projectile_count; ++_projectile_index)
 		{
 			var _spread_direction = random(360);
 			var _spread_radius = volley_spread_radius;
-
-			if (target_projectile_type == PROJECTILE_TYPE.FEAST)
-			{
-				_spread_radius = cannon_feast_radius_get();
-			}
 
 			var _spread_distance = sqrt(random(1)) * _spread_radius;
 			var _spread_target_x = target_x + lengthdir_x(_spread_distance, _spread_direction);
@@ -98,11 +93,6 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 				_spread_target_y = target_y;
 				_launch_delay_seconds = 0;
 			}
-			else if (target_projectile_type == PROJECTILE_TYPE.FEAST)
-			{
-				_launch_delay_seconds = random(BALANCE_CANNON_FEAST_PROJECTILE_LAUNCH_TIME);
-			}
-
 			var _projectile_distance = point_distance(_projectile_x, _projectile_y, _spread_target_x, _spread_target_y);
 			var _flight_time_seconds = clamp(
 				_projectile_distance / _projectile.projectile_speed,
@@ -145,13 +135,6 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 					_projectile.cultist_deploy_units = _game_controller.squad_projectile_deploy_units_take(_projectile_payload);
 				}
 			}
-			else if (target_projectile_type == PROJECTILE_TYPE.FEAST)
-			{
-				_projectile.effect_radius = cannon_feast_projectile_visual_radius_get();
-				_projectile.damage_amount = BALANCE_CANNON_FEAST_DAMAGE_AMOUNT;
-				_projectile.ground_corruption_amount = BALANCE_CANNON_FEAST_CORRUPTION_AMOUNT;
-				_projectile.ground_corruption_radius = cannon_feast_projectile_corruption_radius_get();
-			}
 			else if (target_projectile_type == PROJECTILE_TYPE.HEAL)
 			{
 				_projectile.effect_radius = cannon_projectile_heal_radius_get();
@@ -167,6 +150,7 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			}
 			else if (target_projectile_type == PROJECTILE_TYPE.CORRUPTION)
 			{
+				_projectile.effect_radius = cannon_taint_compost_radius_get();
 				_projectile.projectile_sprite = s_taint_shell;
 			}
 			else if (target_projectile_type == PROJECTILE_TYPE.DOOM_BELL)

@@ -41,6 +41,10 @@ if (_regular_hud_is_visible)
 		var _squad_type_y = 38 * _sidebar_scale;
 		var _squad_card_index = 0;
 
+		// Every squad-card label is positioned from the horizontal center of its card.
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_top);
+
 		for (var _squad_type = SQUAD_TYPE.ARCHDEMON; _squad_type < SQUAD_TYPE.COUNT; ++_squad_type)
 		{
 			var _type_name = _squad_type == SQUAD_TYPE.ARCHDEMON ? "ARCHDEMON" : (_squad_type == SQUAD_TYPE.UNDEAD ? "UNDEAD SQUAD" : "DEMON SQUAD");
@@ -118,6 +122,9 @@ if (_regular_hud_is_visible)
 				_squad_card_index++;
 			}
 		}
+
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
 	}
 
 	// Draw the regular-cultist counter as a squad-style card below the roster.
@@ -1492,7 +1499,7 @@ if (variable_global_exists("cannon_projectile_queue")
 	var _deploy_preview_cursor = 0;
 	var _remaining_cultist_projectile_count = 0;
 	var _selected_projectile_index = 0;
-	var _selected_projectile_type = PROJECTILE_TYPE.FEAST;
+	var _selected_projectile_type = PROJECTILE_TYPE.DAMAGE;
 
 	if (_projectile_display_count > 0 && variable_global_exists("cannon_selected_projectile_index"))
 	{
@@ -1633,10 +1640,6 @@ if (variable_global_exists("cannon_projectile_queue")
 		else if (_projectile_type == PROJECTILE_TYPE.CULTIST)
 		{
 			_projectile_color = COLOR_PROJECTILE_CULTIST;
-		}
-		else if (_projectile_type == PROJECTILE_TYPE.FEAST)
-		{
-			_projectile_color = COLOR_PROJECTILE_CORRUPTION;
 		}
 		else if (_projectile_type == PROJECTILE_TYPE.HEAL)
 		{
@@ -1892,36 +1895,14 @@ if (variable_global_exists("cannon_projectile_queue")
 		}
 	}
 
+	// Projectile descriptions stay hidden until the player points at a visible slot.
 	var _description_projectile_index = _hovered_projectile_index;
-
-	if (_description_projectile_index < 0 && _projectile_display_count > 0)
-	{
-		for (var _selected_display_index = 0; _selected_display_index < _projectile_display_count; ++_selected_display_index)
-		{
-			var _selected_slot = _projectile_display_slots[_selected_display_index];
-
-			if (_selected_slot.queue_index == _selected_projectile_index
-				|| (_selected_slot.count > 1
-					&& _selected_slot.projectile_type == _selected_projectile_type
-					&& _selected_slot.projectile_type != PROJECTILE_TYPE.CULTIST
-					&& _selected_slot.projectile_type != PROJECTILE_TYPE.BUILDING_SHELL))
-			{
-				_description_projectile_index = _selected_display_index;
-				break;
-			}
-		}
-
-		if (_description_projectile_index < 0)
-		{
-			_description_projectile_index = 0;
-		}
-	}
 
 	if (_description_projectile_index >= 0)
 	{
 		var _description_slot = _projectile_display_slots[_description_projectile_index];
 		var _description_queue_index = _description_slot.queue_index;
-		var _description_type = PROJECTILE_TYPE.FEAST;
+		var _description_type = PROJECTILE_TYPE.DAMAGE;
 		var _description_payload = noone;
 		var _draw_cultist_payload_card = false;
 
@@ -2123,6 +2104,40 @@ if (_regular_hud_is_visible && variable_global_exists("squads"))
 
 				draw_sprite_ext(_unit_sprite, 0, _sprite_x, _sprite_y, _sprite_scale, _sprite_scale, 0, c_white, 1);
 			}
+
+			// Display this unit type's squad count as a badge over the icon.
+			var _icon_unit_count = hud_squad_unit_type_count_get(squad_info_squad, _unit_object);
+			var _count_text = string(_icon_unit_count);
+			var _count_text_width = string_width(_count_text) * squad_info_unit_count_scale;
+			var _count_text_height = string_height(_count_text) * squad_info_unit_count_scale;
+			var _count_badge_right = _icon_rect.x + _icon_rect.width - squad_info_unit_count_margin;
+			var _count_badge_bottom = _icon_rect.y + _icon_rect.height - squad_info_unit_count_margin;
+			var _count_badge_width = _count_text_width + (squad_info_unit_count_padding_x * 2);
+			var _count_badge_height = _count_text_height + (squad_info_unit_count_padding_y * 2);
+
+			draw_set_alpha(squad_info_unit_count_background_alpha);
+			draw_set_color(COLOR_HUD_BACKGROUND);
+			draw_rectangle(
+				_count_badge_right - _count_badge_width,
+				_count_badge_bottom - _count_badge_height,
+				_count_badge_right,
+				_count_badge_bottom,
+				false
+			);
+			draw_set_alpha(1);
+			draw_set_halign(fa_right);
+			draw_set_valign(fa_bottom);
+			draw_set_color(COLOR_HUD_TEXT);
+			draw_text_transformed(
+				_count_badge_right - squad_info_unit_count_padding_x,
+				_count_badge_bottom - squad_info_unit_count_padding_y,
+				_count_text,
+				squad_info_unit_count_scale,
+				squad_info_unit_count_scale,
+				0
+			);
+			draw_set_halign(fa_left);
+			draw_set_valign(fa_top);
 
 			if (_icon_is_hovered)
 			{

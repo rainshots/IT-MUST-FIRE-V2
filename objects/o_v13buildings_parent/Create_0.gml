@@ -122,9 +122,8 @@ foundry_shell_duration = BALANCE_FOUNDRY_SHELL_PRODUCTION_TIME;
 foundry_prompt_text = "Choose Structure";
 foundry_product_offset_y = 176;
 
-// World event cards keep their hover while the cursor moves between the building and card.
+// World event cards normally remain visible only while their building is hovered.
 world_event_hover_active = false;
-world_event_hover_keeps_selector_area = false;
 
 // Daily event generation avoids IDs selected for this building on the previous day.
 previous_day_event_ids = [];
@@ -155,7 +154,20 @@ world_event_current_get = function()
 	return noone;
 };
 
-world_event_layout_get = function(_event, _include_selector_options = false)
+// Squad selectors keep their card open only inside a compact area above the building.
+world_event_selector_hover_contains = function(_world_x, _world_y)
+{
+	return point_in_rectangle(
+		_world_x,
+		_world_y,
+		x - BALANCE_WORLD_EVENT_SELECTOR_HOVER_HALF_WIDTH,
+		y - BALANCE_WORLD_EVENT_SELECTOR_HOVER_HEIGHT,
+		x + BALANCE_WORLD_EVENT_SELECTOR_HOVER_HALF_WIDTH,
+		y
+	);
+};
+
+world_event_layout_get = function(_event)
 {
 	if (!is_struct(_event) || !instance_exists(o_camera_controller))
 	{
@@ -242,25 +254,6 @@ world_event_layout_get = function(_event, _include_selector_options = false)
 		)
 	);
 
-	var _action_extra_height = day_event_building_action_is_available(_event)
-		? BALANCE_WORLD_EVENT_PIN_ICON_GAP + BALANCE_WORLD_EVENT_PIN_ICON_HEIGHT
-		: 0;
-	var _content_left = min(_building_left, _card_x);
-	var _content_top = min(_building_top, _card_y);
-	var _content_right = max(_building_right, _card_x + BALANCE_WORLD_EVENT_CARD_WIDTH);
-	var _content_bottom = max(
-		_building_bottom,
-		_card_y + _card_height + _action_extra_height
-	);
-
-	if (_include_selector_options && _has_selector)
-	{
-		_content_left = min(_content_left, _selector_x);
-		_content_top = min(_content_top, _options_y);
-		_content_right = max(_content_right, _selector_x + BALANCE_WORLD_EVENT_SELECTOR_WIDTH);
-		_content_bottom = max(_content_bottom, _options_y + _options_height);
-	}
-
 	return {
 		camera_x: _camera_x,
 		camera_y: _camera_y,
@@ -287,11 +280,7 @@ world_event_layout_get = function(_event, _include_selector_options = false)
 		selector_height: BALANCE_WORLD_EVENT_SELECTOR_HEIGHT,
 		options_y: _options_y,
 		option_height: BALANCE_WORLD_EVENT_SELECTOR_OPTION_HEIGHT,
-		option_count: _option_count,
-		hover_left: _content_left - BALANCE_WORLD_EVENT_HOVER_MARGIN,
-		hover_top: _content_top - BALANCE_WORLD_EVENT_HOVER_MARGIN,
-		hover_right: _content_right + BALANCE_WORLD_EVENT_HOVER_MARGIN,
-		hover_bottom: _content_bottom + BALANCE_WORLD_EVENT_HOVER_MARGIN
+		option_count: _option_count
 	};
 };
 

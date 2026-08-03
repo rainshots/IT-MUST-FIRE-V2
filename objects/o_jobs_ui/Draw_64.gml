@@ -99,7 +99,7 @@ if (global.day_phase == DAY_PHASE.DAY && global.focus_window == FOCUS_WINDOW.NOO
 		}
 	}
 
-	// End Day becomes available only after the assignment window has been opened.
+	// The bottom action appears after Jobs onboarding; its first-day prompt remains non-interactive.
 	if (jobs_end_day_is_visible())
 	{
 		var _end_rect = jobs_end_day_button_rect_get();
@@ -139,12 +139,26 @@ if (global.day_phase == DAY_PHASE.DAY && global.focus_window == FOCUS_WINDOW.NOO
 		draw_set_valign(fa_middle);
 		draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
 		draw_set_font(jobs_button_font);
+		var _end_text = jobs_end_day_button_text_get();
+		var _end_text_draw_scale = _end_rect.scale * _end_visual_scale;
+		var _end_text_width = string_width(_end_text) * _end_text_draw_scale;
+		var _end_text_height = string_height(_end_text) * _end_text_draw_scale;
+		var _end_text_available_width = _end_visual_width - (jobs_end_day_button_text_padding_x * 2 * _end_rect.scale);
+		var _end_text_available_height = _end_visual_height - (jobs_end_day_button_text_padding_y * 2 * _end_rect.scale);
+		var _end_text_fit_scale = min(
+			1,
+			min(
+				_end_text_available_width / max(1, _end_text_width),
+				_end_text_available_height / max(1, _end_text_height)
+			)
+		);
+		_end_text_draw_scale *= _end_text_fit_scale;
 		draw_text_transformed(
 			_end_center_x,
 			_end_center_y,
-			"END DAY",
-			_end_rect.scale * _end_visual_scale,
-			_end_rect.scale * _end_visual_scale,
+			_end_text,
+			_end_text_draw_scale,
+			_end_text_draw_scale,
 			0
 		);
 	}
@@ -294,6 +308,9 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 	};
 	var _event_scissor = jobs_scissor_rect_get(_event_scissor_viewport);
 	var _previous_scissor = gpu_get_scissor();
+	var _hovered_result_unit_object = noone;
+	var _mouse_gui_x = device_mouse_x_to_gui(0);
+	var _mouse_gui_y = device_mouse_y_to_gui(0);
 	gpu_set_scissor(_event_scissor);
 
 	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
@@ -362,7 +379,9 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 		draw_set_font(jobs_title_font);
 		draw_text(_event_rect.x + (34 * _layout.scale), _event_rect.y + (18 * _layout.scale), _event.title);
 		draw_set_font(jobs_description_font);
-		var _description_width = 390 * _layout.scale;
+		var _result_unit_object = jobs_event_result_unit_object_get(_event);
+		var _has_result_unit = _result_unit_object != noone;
+		var _description_width = (_has_result_unit ? 328 : 390) * _layout.scale;
 		var _has_archdemon_target = variable_struct_exists(_event, "target_archdemon_name")
 			&& variable_struct_exists(_event, "target_archdemon_sprite")
 			&& sprite_exists(_event.target_archdemon_sprite);
@@ -379,6 +398,66 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			16 * _layout.scale,
 			_description_width
 		);
+
+		// Unit recruitment, summoning, and transformation Jobs preview their result.
+		if (_has_result_unit)
+		{
+			var _result_icon_rect = jobs_event_result_unit_icon_rect_get(_event_index);
+			var _result_icon_center_x = _result_icon_rect.x + (_result_icon_rect.width * 0.5);
+			var _result_icon_center_y = _result_icon_rect.y + (_result_icon_rect.height * 0.5);
+			var _result_icon_radius = _result_icon_rect.width * 0.5;
+			var _result_unit_sprite = object_get_sprite(_result_unit_object);
+
+			draw_set_alpha(0.9);
+			draw_set_color(COLOR_JOBS_ASSIGN_BACKGROUND);
+			draw_circle(_result_icon_center_x, _result_icon_center_y, _result_icon_radius, false);
+			draw_set_alpha(1);
+			draw_set_color(COLOR_PROJECTILE_SUMMON);
+			draw_circle(_result_icon_center_x, _result_icon_center_y, _result_icon_radius, true);
+
+			if (sprite_exists(_result_unit_sprite))
+			{
+				var _result_sprite_width = max(1, sprite_get_width(_result_unit_sprite));
+				var _result_sprite_height = max(1, sprite_get_height(_result_unit_sprite));
+				var _result_available_size = _result_icon_rect.width * 0.78;
+				var _result_sprite_scale = min(
+					_result_available_size / _result_sprite_width,
+					_result_available_size / _result_sprite_height
+				);
+				var _result_sprite_x = _result_icon_center_x
+					+ ((sprite_get_xoffset(_result_unit_sprite) - (_result_sprite_width * 0.5)) * _result_sprite_scale);
+				var _result_sprite_y = _result_icon_center_y
+					+ ((sprite_get_yoffset(_result_unit_sprite) - (_result_sprite_height * 0.5)) * _result_sprite_scale);
+
+				draw_sprite_ext(
+					_result_unit_sprite,
+					0,
+					_result_sprite_x,
+					_result_sprite_y,
+					_result_sprite_scale,
+					_result_sprite_scale,
+					0,
+					c_white,
+					1
+				);
+			}
+
+			var _result_icon_is_visible = _result_icon_rect.y + _result_icon_rect.height >= _event_viewport.y
+				&& _result_icon_rect.y <= _event_viewport.y + _event_viewport.height;
+
+			if (_result_icon_is_visible
+				&& point_in_rectangle(
+					_mouse_gui_x,
+					_mouse_gui_y,
+					_result_icon_rect.x,
+					_result_icon_rect.y,
+					_result_icon_rect.x + _result_icon_rect.width,
+					_result_icon_rect.y + _result_icon_rect.height
+				))
+			{
+				_hovered_result_unit_object = _result_unit_object;
+			}
+		}
 
 		// Targeted Foundry training shows the locked Archdemon portrait and name.
 		if (_has_archdemon_target)
@@ -505,6 +584,23 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 					_plus_center_y + _plus_half_size,
 					false
 				);
+
+				// Show the HP cost before a cultist is assigned, matching occupied slots.
+				var _empty_slot_hp_cost_text = jobs_event_empty_slot_hp_cost_text_get(_event);
+
+				if (_empty_slot_hp_cost_text != "")
+				{
+					draw_set_halign(fa_center);
+					draw_set_valign(fa_top);
+					draw_set_font(jobs_hp_font);
+					draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+					draw_text(
+						_plus_center_x,
+						_slot_y + _slot_rect.height + (22 * _layout.scale),
+						_empty_slot_hp_cost_text
+					);
+					draw_set_halign(fa_left);
+				}
 			}
 		}
 
@@ -882,6 +978,17 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 				);
 			}
 		}
+	}
+
+	// Result-unit hover uses the same stat card and matchup information as world units.
+	if (_hovered_result_unit_object != noone && instance_exists(o_game_controller))
+	{
+		o_game_controller.player_unit_object_stats_card_draw(
+			_hovered_result_unit_object,
+			18 * _layout.scale,
+			120 * _layout.scale,
+			jobs_hp_font
+		);
 	}
 
 }

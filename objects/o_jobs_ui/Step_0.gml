@@ -32,7 +32,7 @@ if (global.day_phase == DAY_PHASE.DAY && global.focus_window == FOCUS_WINDOW.NOO
 		_hover_show_rect.y + _hover_show_rect.height
 	);
 
-	if (jobs_end_day_is_visible())
+	if (jobs_end_day_is_visible() && jobs_end_day_is_actionable())
 	{
 		var _hover_end_rect = jobs_end_day_button_rect_get();
 		_end_hovered_now = point_in_rectangle(
@@ -550,10 +550,14 @@ if (mouse_check_button_pressed(mb_left))
 				: noone;
 
 			if (instance_exists(_auto_assign_cultist)
-				&& _clicked_event.cultist_assign(_auto_assign_cultist)
-				&& variable_global_exists("ui_confirm_sound_play"))
+				&& _clicked_event.cultist_assign(_auto_assign_cultist))
 			{
-				global.ui_confirm_sound_play();
+				// Clicking a plus uses the same Cultist response as a successful drag release.
+				if (variable_global_exists("sound_play_random")
+					&& variable_global_exists("release_worker_sounds"))
+				{
+					global.sound_play_random(global.release_worker_sounds);
+				}
 			}
 		}
 
