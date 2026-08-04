@@ -4,6 +4,13 @@
 /// @param _amount Optional. Particle count.
 function blood_rage_particles_create(_x, _y, _amount = BALANCE_IMP_BLOOD_RAGE_PARTICLE_COUNT)
 {
+	if (!BALANCE_TEST_BLOOD_PARTICLES_ENABLED
+		&& variable_global_exists("balance_test_active")
+		&& global.balance_test_active)
+	{
+		return;
+	}
+
 	if (!variable_global_exists("particle_system_effects") || !variable_global_exists("particle_type_blood_rage"))
 	{
 		return;

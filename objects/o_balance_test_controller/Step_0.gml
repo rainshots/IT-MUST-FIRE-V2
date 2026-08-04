@@ -11,13 +11,47 @@ if (keyboard_check_pressed(ord("R")))
 	exit;
 }
 
-// Wait for the player to choose optional support before starting the tests.
+// Wait for the player to choose regular rows, Archdemon rows, and optional support.
 if (!configuration_is_confirmed)
 {
 	if (mouse_check_button_pressed(mb_left))
 	{
 		var _mouse_x = device_mouse_x_to_gui(0);
 		var _mouse_y = device_mouse_y_to_gui(0);
+
+		for (var _option_index = 0; _option_index < array_length(regular_test_configs); ++_option_index)
+		{
+			var _option_rect = balance_test_regular_option_rect_get(_option_index);
+
+			if (point_in_rectangle(
+				_mouse_x,
+				_mouse_y,
+				_option_rect.x,
+				_option_rect.y,
+				_option_rect.x + _option_rect.width,
+				_option_rect.y + _option_rect.height
+			))
+			{
+				regular_test_configs[_option_index].enabled = !regular_test_configs[_option_index].enabled;
+			}
+		}
+
+		for (var _option_index = 0; _option_index < array_length(demon_test_configs); ++_option_index)
+		{
+			var _option_rect = balance_test_demon_option_rect_get(_option_index);
+
+			if (point_in_rectangle(
+				_mouse_x,
+				_mouse_y,
+				_option_rect.x,
+				_option_rect.y,
+				_option_rect.x + _option_rect.width,
+				_option_rect.y + _option_rect.height
+			))
+			{
+				demon_test_configs[_option_index].enabled = !demon_test_configs[_option_index].enabled;
+			}
+		}
 
 		for (var _option_index = 0; _option_index < array_length(optional_test_configs); ++_option_index)
 		{
@@ -47,17 +81,13 @@ if (!configuration_is_confirmed)
 			_start_rect.y + _start_rect.height
 		))
 		{
-			configuration_is_confirmed = true;
-			status_message = "Preparing balance test...";
-			row_start_timer = 1;
+			balance_test_configuration_confirm();
 		}
 	}
 
 	if (keyboard_check_pressed(vk_enter) || keyboard_check_pressed(vk_space))
 	{
-		configuration_is_confirmed = true;
-		status_message = "Preparing balance test...";
-		row_start_timer = 1;
+		balance_test_configuration_confirm();
 	}
 
 	exit;
@@ -211,19 +241,37 @@ for (var _simulation_tick = 0; _simulation_tick < simulation_speed_multiplier; +
 			continue;
 		}
 
-		var _run_score = balance_test_run_score_get(
-			_friendly_equivalent,
-			_enemy_equivalent,
-			friendly_test_units[current_row].count,
-			enemy_test_units[_column_index].count
-		);
+		var _friendly_config = friendly_test_units[current_row];
+		var _run_score = 0;
+
+		if (_friendly_config.test_type == "archdemon")
+		{
+			_run_score = balance_test_archdemon_hp_percent_get(active_friendly_groups[_column_index]);
+		}
+		else
+		{
+			_run_score = balance_test_army_score_get(
+				_friendly_equivalent,
+				_enemy_equivalent,
+				_friendly_config.count,
+				enemy_test_units[_column_index].count
+			);
+		}
 
 		test_score_totals[current_row][_column_index] += _run_score;
 
 		if (current_simulation_index + 1 >= simulation_count)
 		{
 			var _average_score = test_score_totals[current_row][_column_index] / simulation_count;
-			test_results[current_row][_column_index] = balance_test_result_text_get(_average_score);
+
+			if (_friendly_config.test_type == "archdemon")
+			{
+				test_results[current_row][_column_index] = balance_test_archdemon_result_text_get(_average_score);
+			}
+			else
+			{
+				test_results[current_row][_column_index] = balance_test_army_result_text_get(_average_score);
+			}
 		}
 		else
 		{
@@ -334,6 +382,8 @@ with (o_particle_explosion)
 {
 	instance_destroy();
 }
+
+global.archdemons = [];
 
 row_is_running = false;
 

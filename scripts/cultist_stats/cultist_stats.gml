@@ -347,15 +347,15 @@ function cultist_demon_description_get(_demon_type)
 {
 	if (_demon_type == DEMON_TYPE.IMP)
 	{
-		return "Fast melee fighter.";
+		return "Fast melee fighter. A versatile soldier, most effective against archers and catapults.";
 	}
 	else if (_demon_type == DEMON_TYPE.WARLOCK)
 	{
-		return "Ranged caster with magic orbs.";
+		return "Ranged caster. Very effective against ranged enemies (archers and mages) and knights. Very weak without melee support.";
 	}
 	else if (_demon_type == DEMON_TYPE.BRUTE)
 	{
-		return "Slow tank with area attacks.";
+		return "Slow tank with area attacks. Effective against clusters of enemies. Very weak against magic damage.";
 	}
 
 	return "";

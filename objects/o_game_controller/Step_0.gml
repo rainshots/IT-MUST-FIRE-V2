@@ -123,6 +123,33 @@ if (blood_moon_reward_focus_restore_pending)
 	}
 
 	blood_moon_reward_modal_state_restore();
+
+	if (early_upgrade_popup_pending)
+	{
+		early_upgrade_popup_show();
+		exit;
+	}
+}
+
+// The daybreak upgrade choice blocks every lower gameplay and UI input.
+if (global.early_upgrade_popup_active)
+{
+	early_upgrade_popup_input_update();
+	exit;
+}
+
+// Keep the modal focus until the input used to choose an upgrade is released.
+if (early_upgrade_popup_focus_restore_pending)
+{
+	if (mouse_check_button(mb_left)
+		|| keyboard_check(ord("1"))
+		|| keyboard_check(ord("2"))
+		|| keyboard_check(ord("3")))
+	{
+		exit;
+	}
+
+	early_upgrade_popup_modal_state_restore();
 }
 
 // Tutorial popups block every lower gameplay and UI input.

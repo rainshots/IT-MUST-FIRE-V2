@@ -15,7 +15,11 @@ hp = max_hp;
 armor = BALANCE_MAGIC_TOWER_ARMOR;
 magic_resistance = BALANCE_MAGIC_TOWER_MAGIC_RESISTANCE;
 player_building_cleansed_base_max_hp = max_hp;
-shoot_radius = BALANCE_MAGIC_TOWER_RADIUS;
+base_shoot_radius = BALANCE_MAGIC_TOWER_RADIUS;
+var _tower_radius_multiplier = variable_global_exists("player_tower_radius_multiplier")
+	? global.player_tower_radius_multiplier
+	: 1;
+shoot_radius = base_shoot_radius * _tower_radius_multiplier;
 magic_damage = BALANCE_MAGIC_TOWER_DAMAGE_AMOUNT;
 reload_time = BALANCE_MAGIC_TOWER_RELOAD_TIME * room_speed;
 reload_timer = 0;

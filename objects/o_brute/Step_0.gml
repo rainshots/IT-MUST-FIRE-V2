@@ -6,6 +6,11 @@ if (global.pause || hp <= 0)
 	exit;
 }
 
+if (attack_aoe_circle_timer > 0)
+{
+	attack_aoe_circle_timer--;
+}
+
 if (is_being_dragged || is_stunned)
 {
 	exit;

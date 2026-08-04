@@ -32,6 +32,8 @@ saint_ground_heal_timer = irandom(max(1, saint_ground_heal_interval) - 1);
 tainted_ground_check_interval = BALANCE_TAINT_FRIENDLY_GROUND_CHECK_INTERVAL;
 tainted_ground_check_timer = tainted_ground_check_interval;
 cached_is_on_tainted_ground = false;
+tainted_ground_heal_interval = max(1, round(BALANCE_DAY_THREE_TAINTED_GROUND_HEAL_INTERVAL * room_speed));
+tainted_ground_heal_timer = irandom(tainted_ground_heal_interval - 1);
 forced_attack_target = noone;
 forced_attack_target_timer = 0;
 manual_structure_target = noone;
@@ -71,6 +73,7 @@ unit_can_attack_cannon = true;
 debug_combat_spawned = false;
 balance_test_match_id = -1;
 balance_test_simulation_finished = false;
+health_bar_world_draw_forced = false;
 is_night_attack_unit = false;
 holy_tower_reinforcement_waits_for_night = false;
 foundry_permanent_bonuses_pending = true;
@@ -112,6 +115,10 @@ attack_lunge_return_time_multiplier = 0.65;
 visual_attack_offset_x = 0;
 visual_attack_offset_y = 0;
 visual_offset_is_ability_controlled = false;
+
+// Damage briefly replaces the unit sprite colors with a white silhouette.
+damage_flash_duration = max(1, round(BALANCE_UNIT_DAMAGE_FLASH_TIME * room_speed));
+damage_flash_timer = 0;
 
 // Optional combat modifiers used by cultist demon forms and debuffs.
 armor = 100;
@@ -514,6 +521,42 @@ enemy_saint_ground_heal_update = function()
 	var _heal_amount = max_hp * _heal_share * clamp(_saint_amount, 0, 1);
 
 	hp = min(hp + _heal_amount, max_hp);
+};
+
+friendly_tainted_ground_heal_update = function()
+{
+	if (unit_faction != UNIT_FACTION.FRIENDLY
+		|| !variable_global_exists("player_tainted_ground_healing_active")
+		|| !global.player_tainted_ground_healing_active
+		|| hp <= 0
+		|| hp >= max_hp)
+	{
+		return;
+	}
+
+	tainted_ground_heal_timer++;
+
+	if (tainted_ground_heal_timer < tainted_ground_heal_interval)
+	{
+		return;
+	}
+
+	tainted_ground_heal_timer = 0;
+
+	if (!unit_is_on_tainted_ground())
+	{
+		return;
+	}
+
+	var _heal_amount = BALANCE_DAY_THREE_TAINTED_GROUND_HEAL_PER_SECOND
+		* (tainted_ground_heal_interval / max(1, room_speed));
+	var _previous_hp = hp;
+	hp = min(hp + _heal_amount, max_hp);
+
+	if (hp > _previous_hp)
+	{
+		heal_feedback_create(id, hp - _previous_hp);
+	}
 };
 
 status_effect_apply = function(_status_type, _duration_seconds, _strength = 0, _secondary_value = 0, _tick_interval_seconds = 0, _source_faction = UNIT_FACTION.NOONE)
@@ -1079,6 +1122,7 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 
 	var _applied_damage = min(_damage_amount, hp);
 	hp = max(hp - _damage_amount, 0);
+	damage_flash_timer = damage_flash_duration;
 
 	if (variable_global_exists("day_phase")
 		&& global.day_phase == DAY_PHASE.NIGHT
@@ -1324,6 +1368,49 @@ warlock_skeleton_death_effect_apply = function()
 	}
 };
 
+player_death_explosion_apply = function()
+{
+	if (unit_faction != UNIT_FACTION.FRIENDLY
+		|| !variable_global_exists("player_death_explosion_active")
+		|| !global.player_death_explosion_active)
+	{
+		return;
+	}
+
+	var _explosion_damage = max_hp * BALANCE_DAY_THREE_DEATH_EXPLOSION_MAX_HP_SHARE;
+	var _enemy_list = ds_list_create();
+	var _enemy_count = collision_circle_list(
+		x,
+		y,
+		BALANCE_DAY_THREE_DEATH_EXPLOSION_RADIUS,
+		o_enemy_units,
+		false,
+		true,
+		_enemy_list,
+		false
+	);
+
+	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	{
+		var _enemy = _enemy_list[| _enemy_index];
+
+		if (target_can_be_attacked(_enemy)
+			&& variable_instance_exists(_enemy, "unit_damage_receive"))
+		{
+			_enemy.unit_damage_receive(
+				_explosion_damage,
+				UNIT_FACTION.FRIENDLY,
+				false,
+				true,
+				id
+			);
+		}
+	}
+
+	ds_list_destroy(_enemy_list);
+	instance_create_layer(x, y, "Instances", o_particle_explosion);
+};
+
 unit_corpse_snapshot_create = function()
 {
 	var _game_controller = noone;
@@ -1438,12 +1525,23 @@ unit_death_process = function()
 	}
 
 	unit_death_sound_play();
+	player_death_explosion_apply();
 	unit_corpse_snapshot_create();
 	soul_chain_death_effect_apply();
 	warlock_soul_engine_enemy_death_notify();
 	warlock_skeleton_death_effect_apply();
 	status_effect_death_rewards_try();
 	meat_drop_try();
+
+	// The daybreak upgrade replaces a fallen friendly unit inside its persistent squad.
+	if (unit_faction == UNIT_FACTION.FRIENDLY
+		&& variable_global_exists("player_unit_bonelet_resurrection_active")
+		&& global.player_unit_bonelet_resurrection_active
+		&& random(1) < BALANCE_EARLY_UPGRADE_BONELET_RESURRECTION_CHANCE)
+	{
+		squad_unit_resurrect_as_bonelet(id);
+	}
+
 	instance_destroy();
 };
 
@@ -2548,6 +2646,13 @@ attack_target = function(_target)
 	if (aoe_radius > 0)
 	{
 		var _aoe_object = o_enemy_units;
+		var _aoe_feedback_enabled = variable_instance_exists(id, "unit_aoe_attack_feedback_show");
+		var _aoe_hit_positions = [];
+
+		if (_aoe_feedback_enabled)
+		{
+			array_push(_aoe_hit_positions, { x: _target_hit_x, y: _target_hit_y });
+		}
 
 		if (unit_faction == UNIT_FACTION.ENEMY)
 		{
@@ -2570,6 +2675,8 @@ attack_target = function(_target)
 
 			if (target_can_be_attacked(_aoe_target) && _aoe_target != _target && variable_instance_exists(_aoe_target, "hp"))
 			{
+				var _aoe_target_x = _aoe_target.x;
+				var _aoe_target_y = _aoe_target.y;
 				var _aoe_damage_amount = physical_damage_after_armor(_raw_physical_damage, _aoe_target)
 					+ magic_damage_after_resistance(_raw_magic_damage, _aoe_target);
 
@@ -2588,10 +2695,20 @@ attack_target = function(_target)
 				}
 
 				_attack_targets_hit++;
+
+				if (_aoe_feedback_enabled)
+				{
+					array_push(_aoe_hit_positions, { x: _aoe_target_x, y: _aoe_target_y });
+				}
 			}
 		}
 
 		ds_list_destroy(_aoe_list);
+
+		if (_aoe_feedback_enabled)
+		{
+			unit_aoe_attack_feedback_show(_target_hit_x, _target_hit_y, _aoe_range, _aoe_hit_positions);
+		}
 	}
 
 	next_attack_damage_multiplier = 1;

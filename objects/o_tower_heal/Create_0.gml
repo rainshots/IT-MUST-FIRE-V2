@@ -12,7 +12,10 @@ image_speed = 0;
 // Heal tower restores allied troops inside its radius.
 base_heal_radius = BALANCE_TOWER_HEAL_RADIUS;
 base_heal_amount = BALANCE_TOWER_HEAL_AMOUNT;
-heal_radius = base_heal_radius;
+var _tower_radius_multiplier = variable_global_exists("player_tower_radius_multiplier")
+	? global.player_tower_radius_multiplier
+	: 1;
+heal_radius = base_heal_radius * _tower_radius_multiplier;
 heal_amount = base_heal_amount;
 heal_tick_time = BALANCE_TOWER_HEAL_TICK_TIME * room_speed;
 heal_tick_timer = irandom(heal_tick_time - 1);
@@ -39,7 +42,12 @@ building_upgrade_level_maxes = [BALANCE_TOWER_HEAL_RADIUS_UPGRADE_MAX, BALANCE_T
 
 map_building_upgrade_effect_apply = function(_upgrade_index)
 {
-	heal_radius = base_heal_radius * (1 + (building_upgrade_levels[0] * BALANCE_TOWER_HEAL_RADIUS_UPGRADE_BONUS));
+	var _radius_multiplier = variable_global_exists("player_tower_radius_multiplier")
+		? global.player_tower_radius_multiplier
+		: 1;
+	heal_radius = base_heal_radius
+		* (1 + (building_upgrade_levels[0] * BALANCE_TOWER_HEAL_RADIUS_UPGRADE_BONUS))
+		* _radius_multiplier;
 	heal_amount = base_heal_amount * (1 + (building_upgrade_levels[1] * BALANCE_TOWER_HEAL_AMOUNT_UPGRADE_BONUS));
 };
 

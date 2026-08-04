@@ -287,6 +287,102 @@ function squad_create(_squad_type, _primary_unit_object, _unit_count)
 	return _squad;
 }
 
+function squad_copy_with_extra_slot(_source_squad)
+{
+	if (!is_struct(_source_squad) || _source_squad.squad_type == SQUAD_TYPE.ARCHDEMON)
+	{
+		return noone;
+	}
+
+	var _unit_count = array_length(_source_squad.unit_objects);
+
+	if (_unit_count <= 0)
+	{
+		return noone;
+	}
+
+	// This upgrade grants the copied squad its own permanent slot.
+	global.squad_limits[_source_squad.squad_type]++;
+
+	var _copied_squad = new squad_constructor(
+		_source_squad.squad_type,
+		_source_squad.primary_unit_object,
+		_unit_count
+	);
+	_copied_squad.unit_objects = array_create(_unit_count, noone);
+	array_copy(_copied_squad.unit_objects, 0, _source_squad.unit_objects, 0, _unit_count);
+	_copied_squad.name = squad_name_create(_source_squad.primary_unit_object);
+
+	// Copy permanent squad upgrades, but create independent marker state.
+	if (variable_struct_exists(_source_squad.properties, "health_multiplier"))
+	{
+		_copied_squad.properties.health_multiplier = _source_squad.properties.health_multiplier;
+	}
+
+	if (variable_struct_exists(_source_squad.properties, "damage_multiplier"))
+	{
+		_copied_squad.properties.damage_multiplier = _source_squad.properties.damage_multiplier;
+	}
+
+	array_push(global.squads, _copied_squad);
+
+	for (var _unit_index = 0; _unit_index < _unit_count; ++_unit_index)
+	{
+		var _unit = squad_unit_spawn(
+			_copied_squad,
+			_copied_squad.unit_objects[_unit_index],
+			_unit_index
+		);
+		array_push(_copied_squad.units, _unit);
+
+		if (instance_exists(_unit))
+		{
+			_copied_squad.total_max_hp += _unit.max_hp;
+		}
+	}
+
+	return _copied_squad;
+}
+
+function squad_unit_resurrect_as_bonelet(_dead_unit)
+{
+	if (!instance_exists(_dead_unit))
+	{
+		return noone;
+	}
+
+	var _bonelet = instance_create_layer(_dead_unit.x, _dead_unit.y, "Instances", o_skeleton_bonelet);
+
+	if (!instance_exists(_bonelet))
+	{
+		return noone;
+	}
+
+	if (variable_instance_exists(_dead_unit, "squad") && is_struct(_dead_unit.squad))
+	{
+		var _squad = _dead_unit.squad;
+		var _unit_index = variable_instance_exists(_dead_unit, "squad_unit_index")
+			? _dead_unit.squad_unit_index
+			: -1;
+
+		if (_unit_index >= 0 && _unit_index < array_length(_squad.units))
+		{
+			var _previous_max_hp = _dead_unit.max_hp;
+			_bonelet.squad = _squad;
+			_bonelet.squad_unit_index = _unit_index;
+			squad_unit_permanent_bonuses_apply(_squad, _bonelet);
+			foundry_unit_permanent_bonuses_apply(_bonelet);
+			_bonelet.foundry_permanent_bonuses_pending = false;
+			_bonelet.hp = _bonelet.max_hp;
+			_squad.units[_unit_index] = _bonelet;
+			_squad.unit_objects[_unit_index] = o_skeleton_bonelet;
+			_squad.total_max_hp += _bonelet.max_hp - _previous_max_hp;
+		}
+	}
+
+	return _bonelet;
+}
+
 function squad_register_existing_unit(_squad_type, _unit)
 {
 	if (!instance_exists(_unit) || !squad_slot_is_available(_squad_type)) return noone;

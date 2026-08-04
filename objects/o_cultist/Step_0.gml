@@ -17,14 +17,10 @@ if (is_being_dragged)
 	exit;
 }
 
-// Cursed Point construction workers keep their assignment but return home at night.
+// Cursed Point construction workers return home and remain there during the night.
 if (global.day_phase == DAY_PHASE.NIGHT)
 {
-	var _is_cursed_point_construction_worker = is_struct(assigned_event)
-		&& variable_struct_exists(assigned_event, "is_cursed_point_construction")
-		&& assigned_event.is_cursed_point_construction;
-
-	if (_is_cursed_point_construction_worker)
+	if (return_to_cannon_at_night)
 	{
 		var _home_cannon = instance_find(o_cannon, 0);
 		var _home_x = _home_cannon.x + home_offset_x;
@@ -56,6 +52,9 @@ if (global.day_phase != DAY_PHASE.DAY)
 {
 	exit;
 }
+
+// The retreat request lasts only through the night after construction.
+return_to_cannon_at_night = false;
 
 // Jobs assignments replace random wandering with movement to the event's world anchor.
 if (is_struct(assigned_event) && instance_exists(o_game_controller))

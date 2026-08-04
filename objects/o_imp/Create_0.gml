@@ -316,7 +316,10 @@ imp_blood_frenzy_stack_add = function()
 
 imp_blood_frenzy_particles_create = function()
 {
-	if (!variable_global_exists("particle_system_effects")
+	if ((!BALANCE_TEST_BLOOD_PARTICLES_ENABLED
+			&& variable_global_exists("balance_test_active")
+			&& global.balance_test_active)
+		|| !variable_global_exists("particle_system_effects")
 		|| !variable_global_exists("particle_type_imp_blood_frenzy_smoke")
 		|| global.particle_system_effects == noone
 		|| global.particle_type_imp_blood_frenzy_smoke == noone)

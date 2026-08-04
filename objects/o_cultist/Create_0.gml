@@ -24,6 +24,7 @@ move_speed = BALANCE_EVENT_CULTIST_MOVE_SPEED;
 y_sort_enabled = true;
 
 // Cursed Point construction workers return to their original cannon-side home at night.
+return_to_cannon_at_night = false;
 home_offset_x = 0;
 home_offset_y = BALANCE_EVENT_CULTIST_WANDER_VERTICAL_DISTANCE_MIN;
 

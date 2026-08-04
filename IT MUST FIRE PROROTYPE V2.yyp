@@ -161,6 +161,7 @@
     {"id":{"name":"health_bar_width_get","path":"scripts/health_bar_width_get/health_bar_width_get.yy",},},
     {"id":{"name":"resource_popup_create","path":"scripts/resource_popup_create/resource_popup_create.yy",},},
     {"id":{"name":"squad_system","path":"scripts/squad_system/squad_system.yy",},},
+    {"id":{"name":"sh_unit_damage_flash","path":"shaders/sh_unit_damage_flash/sh_unit_damage_flash.yy",},},
     {"id":{"name":"A_Circle_of_Faun___Mountain_Realm","path":"sounds/A_Circle_of_Faun___Mountain_Realm/A_Circle_of_Faun___Mountain_Realm.yy",},},
     {"id":{"name":"Alpha_Omega___Monasterium_Imperium","path":"sounds/Alpha_Omega___Monasterium_Imperium/Alpha_Omega___Monasterium_Imperium.yy",},},
     {"id":{"name":"ambient01","path":"sounds/ambient01/ambient01.yy",},},

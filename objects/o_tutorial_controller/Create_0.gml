@@ -41,7 +41,9 @@ tutorial_items = [
 	{
 		id: "welcome",
 		title: "Welcome",
-		body: "Greetings, Great Pontiff! This is the prototype of IT MUST FIRE. You lead a cult that worships a possessed cannon with a demon sealed inside.\n\nYour goal: Survive 12 days."
+		body: "Greetings, Great Pontiff! This is the prototype of IT MUST FIRE. You lead a cult that worships a possessed cannon with a demon sealed inside.\n\nYour goal: Survive "
+			+ string(BALANCE_SURVIVAL_OBJECTIVE_DAYS)
+			+ " days."
 	},
 	{
 		id: "construction_start",

@@ -52,6 +52,12 @@ global.day_timer = global.day_duration * global.game_speed_normal;
 global.night_attack_unit_count = 0;
 global.full_moon_night_active = false;
 global.blood_moon_reward_popup_active = false;
+global.early_upgrade_popup_active = false;
+global.player_unit_bonelet_resurrection_active = false;
+global.early_upgrade_shell_morning_bonus = array_create(PROJECTILE_TYPE.COUNT, 0);
+global.player_tower_radius_multiplier = 1;
+global.player_tainted_ground_healing_active = false;
+global.player_death_explosion_active = false;
 global.day_cycle_enabled = true;
 global.legacy_building_logic_enabled = false;
 global.archdemons = array_create(0);
@@ -351,6 +357,700 @@ blood_moon_reward_popup_draw = function()
 		_button_y + (blood_moon_reward_button_height * 0.5),
 		"CONTINUE"
 	);
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+};
+
+// One-time daybreak upgrade choice.
+early_upgrade_choice_completed = false;
+day_three_upgrade_choice_completed = false;
+early_upgrade_popup_set = DAYBREAK_UPGRADE_SET.DAY_TWO;
+early_upgrade_popup_pending = false;
+early_upgrade_popup_input_blocked = false;
+early_upgrade_popup_previous_focus_window = FOCUS_WINDOW.NOONE;
+early_upgrade_popup_previous_pause_state = false;
+early_upgrade_popup_focus_restore_pending = false;
+early_upgrade_popup_selected_squad = noone;
+early_upgrade_popup_squad_dropdown_open = false;
+early_upgrade_popup_hovered_choice = -1;
+early_upgrade_popup_selector_hovered = false;
+early_upgrade_popup_option_hovered = -1;
+
+early_upgrade_set_is_completed = function(_upgrade_set)
+{
+	if (_upgrade_set == DAYBREAK_UPGRADE_SET.DAY_TWO)
+	{
+		return early_upgrade_choice_completed;
+	}
+
+	return day_three_upgrade_choice_completed;
+};
+
+early_upgrade_popup_layout_get = function()
+{
+	var _gui_width = display_get_gui_width();
+	var _gui_height = display_get_gui_height();
+	var _popup_width = min(1120, _gui_width - 40);
+	var _popup_height = min(620, _gui_height - 40);
+	var _popup_x = (_gui_width - _popup_width) * 0.5;
+	var _popup_y = (_gui_height - _popup_height) * 0.5;
+	var _card_gap = 20;
+	var _card_margin = 28;
+	var _card_top = _popup_y + 94;
+	var _card_width = (_popup_width - (_card_margin * 2) - (_card_gap * 2)) / 3;
+	var _card_height = _popup_height - 122;
+
+	return {
+		gui_width: _gui_width,
+		gui_height: _gui_height,
+		popup_x: _popup_x,
+		popup_y: _popup_y,
+		popup_width: _popup_width,
+		popup_height: _popup_height,
+		card_gap: _card_gap,
+		card_margin: _card_margin,
+		card_top: _card_top,
+		card_width: _card_width,
+		card_height: _card_height,
+		button_height: 44,
+		selector_height: 40,
+		option_height: 34
+	};
+};
+
+early_upgrade_copy_squads_get = function()
+{
+	var _eligible_squads = [];
+
+	for (var _squad_index = 0; _squad_index < array_length(global.squads); ++_squad_index)
+	{
+		var _squad = global.squads[_squad_index];
+
+		if (is_struct(_squad) && _squad.squad_type != SQUAD_TYPE.ARCHDEMON)
+		{
+			array_push(_eligible_squads, _squad);
+		}
+	}
+
+	return _eligible_squads;
+};
+
+early_upgrade_selected_squad_refresh = function()
+{
+	var _eligible_squads = early_upgrade_copy_squads_get();
+	var _selected_squad_is_valid = false;
+
+	for (var _squad_index = 0; _squad_index < array_length(_eligible_squads); ++_squad_index)
+	{
+		if (_eligible_squads[_squad_index] == early_upgrade_popup_selected_squad)
+		{
+			_selected_squad_is_valid = true;
+			break;
+		}
+	}
+
+	if (!_selected_squad_is_valid)
+	{
+		early_upgrade_popup_selected_squad = array_length(_eligible_squads) > 0
+			? _eligible_squads[0]
+			: noone;
+	}
+
+	return _eligible_squads;
+};
+
+early_upgrade_popup_modal_state_restore = function()
+{
+	if (global.focus_window == FOCUS_WINDOW.EARLY_UPGRADE_SELECTION)
+	{
+		global.focus_window = early_upgrade_popup_previous_focus_window;
+	}
+
+	var _tutorial_popup_active = variable_global_exists("tutorial_popup_active")
+		&& global.tutorial_popup_active;
+	global.pause = early_upgrade_popup_previous_pause_state || _tutorial_popup_active;
+	early_upgrade_popup_previous_focus_window = FOCUS_WINDOW.NOONE;
+	early_upgrade_popup_previous_pause_state = false;
+	early_upgrade_popup_focus_restore_pending = false;
+};
+
+early_upgrade_popup_show = function(_upgrade_set = early_upgrade_popup_set)
+{
+	if (early_upgrade_set_is_completed(_upgrade_set) || global.early_upgrade_popup_active)
+	{
+		return false;
+	}
+
+	early_upgrade_popup_set = _upgrade_set;
+	early_upgrade_selected_squad_refresh();
+	early_upgrade_popup_input_blocked = true;
+	early_upgrade_popup_squad_dropdown_open = false;
+	early_upgrade_popup_hovered_choice = -1;
+	early_upgrade_popup_selector_hovered = false;
+	early_upgrade_popup_option_hovered = -1;
+	debug_menu_open = false;
+	early_upgrade_popup_previous_focus_window = global.focus_window;
+	early_upgrade_popup_previous_pause_state = global.pause;
+	early_upgrade_popup_focus_restore_pending = false;
+	early_upgrade_popup_pending = false;
+	global.early_upgrade_popup_active = true;
+	global.focus_window = FOCUS_WINDOW.EARLY_UPGRADE_SELECTION;
+	global.pause = true;
+	return true;
+};
+
+early_upgrade_popup_request_show = function(_upgrade_set)
+{
+	if (early_upgrade_set_is_completed(_upgrade_set) || global.early_upgrade_popup_active)
+	{
+		return false;
+	}
+
+	early_upgrade_popup_set = _upgrade_set;
+
+	if (global.blood_moon_reward_popup_active || blood_moon_reward_focus_restore_pending)
+	{
+		early_upgrade_popup_pending = true;
+		return false;
+	}
+
+	return early_upgrade_popup_show(_upgrade_set);
+};
+
+early_upgrade_popup_close = function()
+{
+	early_upgrade_popup_squad_dropdown_open = false;
+	early_upgrade_popup_hovered_choice = -1;
+	early_upgrade_popup_selector_hovered = false;
+	early_upgrade_popup_option_hovered = -1;
+	early_upgrade_popup_input_blocked = false;
+	global.early_upgrade_popup_active = false;
+	early_upgrade_popup_focus_restore_pending = mouse_check_button(mb_left)
+		|| keyboard_check(ord("1"))
+		|| keyboard_check(ord("2"))
+		|| keyboard_check(ord("3"));
+
+	if (!early_upgrade_popup_focus_restore_pending)
+	{
+		early_upgrade_popup_modal_state_restore();
+	}
+};
+
+early_upgrade_choice_apply = function(_choice)
+{
+	if (early_upgrade_set_is_completed(early_upgrade_popup_set))
+	{
+		return false;
+	}
+
+	if (early_upgrade_popup_set == DAYBREAK_UPGRADE_SET.DAY_TWO)
+	{
+		if (_choice == EARLY_UPGRADE_CHOICE.COPY_SQUAD)
+		{
+			if (!is_struct(early_upgrade_popup_selected_squad)
+				|| !is_struct(squad_copy_with_extra_slot(early_upgrade_popup_selected_squad)))
+			{
+				return false;
+			}
+		}
+		else if (_choice == EARLY_UPGRADE_CHOICE.BONELET_RESURRECTION)
+		{
+			global.player_unit_bonelet_resurrection_active = true;
+		}
+		else if (_choice == EARLY_UPGRADE_CHOICE.DOUBLE_SHELL_PRODUCTION)
+		{
+			var _projectile_types = [
+				PROJECTILE_TYPE.BOMB,
+				PROJECTILE_TYPE.CORRUPTION,
+				PROJECTILE_TYPE.HEAL
+			];
+
+			// Snapshot the current production as a permanent flat daily bonus.
+			for (var _type_index = 0; _type_index < array_length(_projectile_types); ++_type_index)
+			{
+				var _projectile_type = _projectile_types[_type_index];
+				var _current_production = shell_factory_morning_projectile_target_count_get(_projectile_type);
+				global.early_upgrade_shell_morning_bonus[_projectile_type] += _current_production;
+			}
+
+			// The morning refill already happened before the choice, so grant the difference now.
+			shell_factory_morning_projectiles_refill();
+		}
+		else
+		{
+			return false;
+		}
+
+		early_upgrade_choice_completed = true;
+	}
+	else if (early_upgrade_popup_set == DAYBREAK_UPGRADE_SET.DAY_THREE)
+	{
+		if (_choice == DAY_THREE_UPGRADE_CHOICE.TRIPLE_TOWER_RADIUS)
+		{
+			global.player_tower_radius_multiplier = BALANCE_DAY_THREE_TOWER_RADIUS_MULTIPLIER;
+
+			with (o_tower_damage)
+			{
+				map_building_upgrade_effect_apply(0);
+			}
+
+			with (o_tower_heal)
+			{
+				map_building_upgrade_effect_apply(0);
+			}
+
+			with (o_tower_corruption)
+			{
+				map_building_upgrade_effect_apply(0);
+			}
+
+			with (o_tower_vision)
+			{
+				map_building_upgrade_effect_apply(0);
+			}
+
+			with (o_magic_tower)
+			{
+				shoot_radius = base_shoot_radius * global.player_tower_radius_multiplier;
+			}
+		}
+		else if (_choice == DAY_THREE_UPGRADE_CHOICE.TAINTED_GROUND_HEALING)
+		{
+			global.player_tainted_ground_healing_active = true;
+		}
+		else if (_choice == DAY_THREE_UPGRADE_CHOICE.DEATH_EXPLOSION)
+		{
+			global.player_death_explosion_active = true;
+		}
+		else
+		{
+			return false;
+		}
+
+		day_three_upgrade_choice_completed = true;
+	}
+	else
+	{
+		return false;
+	}
+
+	early_upgrade_popup_close();
+	return true;
+};
+
+early_upgrade_popup_input_update = function()
+{
+	var _layout = early_upgrade_popup_layout_get();
+	var _eligible_squads = early_upgrade_selected_squad_refresh();
+	var _mouse_x = device_mouse_x_to_gui(0);
+	var _mouse_y = device_mouse_y_to_gui(0);
+	var _copy_card_x = _layout.popup_x + _layout.card_margin;
+	var _selector_x = _copy_card_x + 18;
+	var _selector_y = _layout.card_top + 226;
+	var _selector_width = _layout.card_width - 36;
+	var _left_pressed = mouse_check_button_pressed(mb_left);
+	var _is_day_two_upgrade = early_upgrade_popup_set == DAYBREAK_UPGRADE_SET.DAY_TWO;
+	var _choice_count = _is_day_two_upgrade
+		? EARLY_UPGRADE_CHOICE.COUNT
+		: DAY_THREE_UPGRADE_CHOICE.COUNT;
+
+	early_upgrade_popup_selector_hovered = _is_day_two_upgrade && ui_mouse_is_inside_rect(
+		_mouse_x,
+		_mouse_y,
+		_selector_x,
+		_selector_y,
+		_selector_width,
+		_layout.selector_height
+	);
+	early_upgrade_popup_hovered_choice = -1;
+	early_upgrade_popup_option_hovered = -1;
+
+	for (var _choice = 0; _choice < _choice_count; ++_choice)
+	{
+		var _card_x = _layout.popup_x + _layout.card_margin
+			+ (_choice * (_layout.card_width + _layout.card_gap));
+		var _button_x = _card_x + 18;
+		var _button_y = _layout.card_top + _layout.card_height - _layout.button_height - 18;
+		var _button_width = _layout.card_width - 36;
+
+		if (ui_mouse_is_inside_rect(
+			_mouse_x,
+			_mouse_y,
+			_button_x,
+			_button_y,
+			_button_width,
+			_layout.button_height
+		))
+		{
+			early_upgrade_popup_hovered_choice = _choice;
+		}
+	}
+
+	if (_is_day_two_upgrade && early_upgrade_popup_squad_dropdown_open)
+	{
+		for (var _option_index = 0; _option_index < array_length(_eligible_squads); ++_option_index)
+		{
+			var _option_y = _selector_y + _layout.selector_height
+				+ (_option_index * _layout.option_height);
+
+			if (ui_mouse_is_inside_rect(
+				_mouse_x,
+				_mouse_y,
+				_selector_x,
+				_option_y,
+				_selector_width,
+				_layout.option_height
+			))
+			{
+				early_upgrade_popup_option_hovered = _option_index;
+				break;
+			}
+		}
+	}
+
+	// Ignore the mouse press that opened the modal until it is released.
+	if (early_upgrade_popup_input_blocked)
+	{
+		if (!mouse_check_button(mb_left)
+			&& !keyboard_check(ord("1"))
+			&& !keyboard_check(ord("2"))
+			&& !keyboard_check(ord("3")))
+		{
+			early_upgrade_popup_input_blocked = false;
+		}
+
+		return;
+	}
+
+	if (_is_day_two_upgrade && early_upgrade_popup_squad_dropdown_open && _left_pressed)
+	{
+		if (early_upgrade_popup_option_hovered >= 0)
+		{
+			early_upgrade_popup_selected_squad = _eligible_squads[early_upgrade_popup_option_hovered];
+			early_upgrade_popup_squad_dropdown_open = false;
+
+			if (variable_global_exists("ui_confirm_sound_play"))
+			{
+				global.ui_confirm_sound_play();
+			}
+		}
+		else if (early_upgrade_popup_selector_hovered)
+		{
+			early_upgrade_popup_squad_dropdown_open = false;
+		}
+		else
+		{
+			early_upgrade_popup_squad_dropdown_open = false;
+		}
+
+		return;
+	}
+
+	if (_is_day_two_upgrade
+		&& _left_pressed
+		&& early_upgrade_popup_selector_hovered
+		&& array_length(_eligible_squads) > 0)
+	{
+		early_upgrade_popup_squad_dropdown_open = true;
+		return;
+	}
+
+	var _requested_choice = -1;
+
+	if (_left_pressed && early_upgrade_popup_hovered_choice >= 0)
+	{
+		_requested_choice = early_upgrade_popup_hovered_choice;
+	}
+	else if (keyboard_check_pressed(ord("1")))
+	{
+		_requested_choice = 0;
+	}
+	else if (keyboard_check_pressed(ord("2")))
+	{
+		_requested_choice = 1;
+	}
+	else if (keyboard_check_pressed(ord("3")))
+	{
+		_requested_choice = 2;
+	}
+
+	if (_requested_choice >= 0
+		&& (!_is_day_two_upgrade
+			|| _requested_choice != EARLY_UPGRADE_CHOICE.COPY_SQUAD
+			|| array_length(_eligible_squads) > 0)
+		&& early_upgrade_choice_apply(_requested_choice)
+		&& variable_global_exists("ui_confirm_sound_play"))
+	{
+		global.ui_confirm_sound_play();
+	}
+};
+
+early_upgrade_popup_draw = function()
+{
+	var _layout = early_upgrade_popup_layout_get();
+	var _eligible_squads = early_upgrade_selected_squad_refresh();
+	var _hellcow_after = shell_factory_morning_projectile_target_count_get(PROJECTILE_TYPE.BOMB) * 2;
+	var _taint_after = shell_factory_morning_projectile_target_count_get(PROJECTILE_TYPE.CORRUPTION) * 2;
+	var _first_aid_after = shell_factory_morning_projectile_target_count_get(PROJECTILE_TYPE.HEAL) * 2;
+	var _is_day_two_upgrade = early_upgrade_popup_set == DAYBREAK_UPGRADE_SET.DAY_TWO;
+	var _choice_count = _is_day_two_upgrade
+		? EARLY_UPGRADE_CHOICE.COUNT
+		: DAY_THREE_UPGRADE_CHOICE.COUNT;
+	var _heading = _is_day_two_upgrade
+		? "CLAIM THE CANNON’S BLESSING"
+		: "CLAIM THE CANNON’S BLESSING";
+
+	// Dim the world and draw a single blocking choice panel.
+	draw_set_alpha(0.7);
+	draw_set_color(c_black);
+	draw_rectangle(0, 0, _layout.gui_width, _layout.gui_height, false);
+	draw_set_alpha(1);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_rectangle(
+		_layout.popup_x,
+		_layout.popup_y,
+		_layout.popup_x + _layout.popup_width,
+		_layout.popup_y + _layout.popup_height,
+		false
+	);
+	draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+	draw_rectangle(
+		_layout.popup_x,
+		_layout.popup_y,
+		_layout.popup_x + _layout.popup_width,
+		_layout.popup_y + _layout.popup_height,
+		true
+	);
+
+	if (variable_global_exists("ui_heading_font") && font_exists(global.ui_heading_font))
+	{
+		draw_set_font(global.ui_heading_font);
+	}
+
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
+	draw_set_color(COLOR_HUD_TEXT);
+	draw_text(
+		_layout.popup_x + (_layout.popup_width * 0.5),
+		_layout.popup_y + 34,
+		_heading
+	);
+
+	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+	{
+		draw_set_font(global.ui_font);
+	}
+
+	draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+	draw_text(
+		_layout.popup_x + (_layout.popup_width * 0.5),
+		_layout.popup_y + 67,
+		"Choose one. This decision is permanent."
+	);
+
+	for (var _choice = 0; _choice < _choice_count; ++_choice)
+	{
+		var _card_x = _layout.popup_x + _layout.card_margin
+			+ (_choice * (_layout.card_width + _layout.card_gap));
+		var _card_enabled = !_is_day_two_upgrade
+			|| _choice != EARLY_UPGRADE_CHOICE.COPY_SQUAD
+			|| array_length(_eligible_squads) > 0;
+		var _card_hovered = early_upgrade_popup_hovered_choice == _choice && _card_enabled;
+		var _button_x = _card_x + 18;
+		var _button_y = _layout.card_top + _layout.card_height - _layout.button_height - 18;
+		var _button_width = _layout.card_width - 36;
+		var _title = "";
+		var _description = "";
+
+		if (_is_day_two_upgrade && _choice == EARLY_UPGRADE_CHOICE.COPY_SQUAD)
+		{
+			_title = "COPY SQUAD";
+			_description = "Create a full copy of the selected squad. The Archdemon cannot be copied.";
+		}
+		else if (_is_day_two_upgrade && _choice == EARLY_UPGRADE_CHOICE.BONELET_RESURRECTION)
+		{
+			_title = "RISE AGAIN";
+			_description = "Every player unit has a "
+				+ string(round(BALANCE_EARLY_UPGRADE_BONELET_RESURRECTION_CHANCE * 100))
+				+ "% chance to rise as a Bonelet after death.";
+		}
+		else if (_is_day_two_upgrade)
+		{
+			_title = "DOUBLE PRODUCTION";
+			_description = "Double the current daily shell production. After upgrade:\nHELLCOW: "
+				+ string(_hellcow_after)
+				+ "\nTAINT: " + string(_taint_after);
+
+			if (_first_aid_after > 0)
+			{
+				_description += "\nFIRST AID MEAT: " + string(_first_aid_after);
+			}
+		}
+		else if (_choice == DAY_THREE_UPGRADE_CHOICE.TRIPLE_TOWER_RADIUS)
+		{
+			_title = "TOWER DOMINION";
+			_description = "Multiply the effect radius of every player tower by "
+				+ string(BALANCE_DAY_THREE_TOWER_RADIUS_MULTIPLIER)
+				+ ". Applies to current and future towers.";
+		}
+		else if (_choice == DAY_THREE_UPGRADE_CHOICE.TAINTED_GROUND_HEALING)
+		{
+			_title = "TAINTED REGENERATION";
+			_description = "Every player unit restores "
+				+ string(BALANCE_DAY_THREE_TAINTED_GROUND_HEAL_PER_SECOND)
+				+ " HP per second while standing on Taint.";
+		}
+		else
+		{
+			_title = "DEATH THROES";
+			_description = "Every player unit explodes on death, dealing "
+				+ string(round(BALANCE_DAY_THREE_DEATH_EXPLOSION_MAX_HP_SHARE * 100))
+				+ "% of its maximum HP as damage to enemies within "
+				+ string(BALANCE_DAY_THREE_DEATH_EXPLOSION_RADIUS)
+				+ "px.";
+		}
+
+		draw_set_alpha(_card_enabled ? 0.92 : 0.45);
+		draw_set_color(COLOR_JOBS_ASSIGN_BACKGROUND);
+		draw_rectangle(
+			_card_x,
+			_layout.card_top,
+			_card_x + _layout.card_width,
+			_layout.card_top + _layout.card_height,
+			false
+		);
+		draw_set_alpha(1);
+		draw_set_color(_card_hovered ? COLOR_STATUS_NEGATIVE_RED : COLOR_HUD_PROJECTILE_DESCRIPTION);
+		draw_rectangle(
+			_card_x,
+			_layout.card_top,
+			_card_x + _layout.card_width,
+			_layout.card_top + _layout.card_height,
+			true
+		);
+
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_top);
+		draw_set_color(_card_enabled ? COLOR_HUD_TEXT : COLOR_HUD_PROJECTILE_DESCRIPTION);
+		draw_text(_card_x + (_layout.card_width * 0.5), _layout.card_top + 22, _title);
+		draw_set_halign(fa_left);
+		draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+		draw_text_ext(
+			_card_x + 18,
+			_layout.card_top + 64,
+			_description,
+			20,
+			_layout.card_width - 36
+		);
+
+		if (_is_day_two_upgrade && _choice == EARLY_UPGRADE_CHOICE.COPY_SQUAD)
+		{
+			var _selector_x = _card_x + 18;
+			var _selector_y = _layout.card_top + 226;
+			var _selector_width = _layout.card_width - 36;
+			var _selected_name = is_struct(early_upgrade_popup_selected_squad)
+				? squad_name_display_get(early_upgrade_popup_selected_squad.name)
+				: "NO SQUAD AVAILABLE";
+
+			draw_set_halign(fa_left);
+			draw_set_valign(fa_top);
+			draw_set_color(COLOR_HUD_TEXT);
+			draw_text(_selector_x, _selector_y - 25, "SQUAD TO COPY");
+			draw_set_color(COLOR_HUD_BACKGROUND);
+			draw_rectangle(
+				_selector_x,
+				_selector_y,
+				_selector_x + _selector_width,
+				_selector_y + _layout.selector_height,
+				false
+			);
+			draw_set_color(early_upgrade_popup_selector_hovered
+				? COLOR_STATUS_NEGATIVE_RED
+				: COLOR_HUD_PROJECTILE_DESCRIPTION);
+			draw_rectangle(
+				_selector_x,
+				_selector_y,
+				_selector_x + _selector_width,
+				_selector_y + _layout.selector_height,
+				true
+			);
+			draw_set_halign(fa_left);
+			draw_set_valign(fa_middle);
+			draw_set_color(COLOR_HUD_TEXT);
+			draw_text(_selector_x + 10, _selector_y + (_layout.selector_height * 0.5), _selected_name);
+			draw_set_halign(fa_right);
+			draw_text(_selector_x + _selector_width - 10, _selector_y + (_layout.selector_height * 0.5), "v");
+		}
+
+		draw_set_alpha(_card_enabled ? (_card_hovered ? 1 : 0.78) : 0.35);
+		draw_set_color(COLOR_JOBS_ASSIGN_BACKGROUND);
+		draw_rectangle(
+			_button_x,
+			_button_y,
+			_button_x + _button_width,
+			_button_y + _layout.button_height,
+			false
+		);
+		draw_set_alpha(1);
+		draw_set_color(_card_hovered ? COLOR_STATUS_NEGATIVE_RED : COLOR_HUD_TEXT);
+		draw_rectangle(
+			_button_x,
+			_button_y,
+			_button_x + _button_width,
+			_button_y + _layout.button_height,
+			true
+		);
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_middle);
+		draw_set_color(_card_enabled ? COLOR_HUD_TEXT : COLOR_HUD_PROJECTILE_DESCRIPTION);
+		draw_text(
+			_button_x + (_button_width * 0.5),
+			_button_y + (_layout.button_height * 0.5),
+			"CHOOSE [" + string(_choice + 1) + "]"
+		);
+	}
+
+	// Draw selector options last so they stay above the card contents.
+	if (_is_day_two_upgrade && early_upgrade_popup_squad_dropdown_open)
+	{
+		var _dropdown_x = _layout.popup_x + _layout.card_margin + 18;
+		var _dropdown_y = _layout.card_top + 226;
+		var _dropdown_width = _layout.card_width - 36;
+
+		for (var _option_index = 0; _option_index < array_length(_eligible_squads); ++_option_index)
+		{
+			var _option_y = _dropdown_y + _layout.selector_height
+				+ (_option_index * _layout.option_height);
+			var _option_hovered = early_upgrade_popup_option_hovered == _option_index;
+			draw_set_color(_option_hovered ? COLOR_JOBS_ASSIGN_BACKGROUND : COLOR_HUD_BACKGROUND);
+			draw_rectangle(
+				_dropdown_x,
+				_option_y,
+				_dropdown_x + _dropdown_width,
+				_option_y + _layout.option_height,
+				false
+			);
+			draw_set_color(_option_hovered ? COLOR_STATUS_NEGATIVE_RED : COLOR_HUD_PROJECTILE_DESCRIPTION);
+			draw_rectangle(
+				_dropdown_x,
+				_option_y,
+				_dropdown_x + _dropdown_width,
+				_option_y + _layout.option_height,
+				true
+			);
+			draw_set_halign(fa_left);
+			draw_set_valign(fa_middle);
+			draw_set_color(COLOR_HUD_TEXT);
+			draw_text(
+				_dropdown_x + 10,
+				_option_y + (_layout.option_height * 0.5),
+				squad_name_display_get(_eligible_squads[_option_index].name)
+			);
+		}
+	}
 
 	draw_set_halign(fa_left);
 	draw_set_valign(fa_top);
@@ -5450,15 +6150,34 @@ cannon_projectile_queue_type_count_get = function(_projectile_type)
 	return _matching_count;
 };
 
-shell_factory_morning_projectiles_refill = function()
+shell_factory_morning_projectile_target_count_get = function(_projectile_type)
 {
+	var _target_count = 0;
 	var _shell_factory_count = instance_number(o_shell_factory);
 
-	if (_shell_factory_count <= 0)
+	for (var _factory_index = 0; _factory_index < _shell_factory_count; ++_factory_index)
 	{
-		return 0;
+		var _shell_factory = instance_find(o_shell_factory, _factory_index);
+
+		if (instance_exists(_shell_factory)
+			&& variable_instance_exists(_shell_factory, "shell_factory_morning_projectile_limit_get"))
+		{
+			_target_count += _shell_factory.shell_factory_morning_projectile_limit_get(_projectile_type);
+		}
 	}
 
+	if (variable_global_exists("early_upgrade_shell_morning_bonus")
+		&& _projectile_type >= 0
+		&& _projectile_type < array_length(global.early_upgrade_shell_morning_bonus))
+	{
+		_target_count += global.early_upgrade_shell_morning_bonus[_projectile_type];
+	}
+
+	return _target_count;
+};
+
+shell_factory_morning_projectiles_refill = function()
+{
 	var _projectile_types = [
 		PROJECTILE_TYPE.BOMB,
 		PROJECTILE_TYPE.CORRUPTION,
@@ -5471,18 +6190,7 @@ shell_factory_morning_projectiles_refill = function()
 	for (var _type_index = 0; _type_index < _projectile_type_count; ++_type_index)
 	{
 		var _projectile_type = _projectile_types[_type_index];
-		var _target_count = 0;
-
-		for (var _factory_index = 0; _factory_index < _shell_factory_count; ++_factory_index)
-		{
-			var _shell_factory = instance_find(o_shell_factory, _factory_index);
-
-			if (instance_exists(_shell_factory)
-				&& variable_instance_exists(_shell_factory, "shell_factory_morning_projectile_limit_get"))
-			{
-				_target_count += _shell_factory.shell_factory_morning_projectile_limit_get(_projectile_type);
-			}
-		}
+		var _target_count = shell_factory_morning_projectile_target_count_get(_projectile_type);
 
 		var _current_count = cannon_projectile_queue_type_count_get(_projectile_type);
 		var _missing_count = max(0, _target_count - _current_count);
@@ -10240,6 +10948,15 @@ start_day_phase = function()
 	if (_previous_night_was_full_moon)
 	{
 		blood_moon_reward_popup_show(_blood_moon_reward_cultists);
+	}
+
+	if (night_attack_night_index == BALANCE_EARLY_UPGRADE_CHOICE_DAY)
+	{
+		early_upgrade_popup_request_show(DAYBREAK_UPGRADE_SET.DAY_TWO);
+	}
+	else if (night_attack_night_index == BALANCE_DAY_THREE_UPGRADE_CHOICE_DAY)
+	{
+		early_upgrade_popup_request_show(DAYBREAK_UPGRADE_SET.DAY_THREE);
 	}
 };
 

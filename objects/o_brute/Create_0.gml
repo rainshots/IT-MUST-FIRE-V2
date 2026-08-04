@@ -51,6 +51,14 @@ corpse_armor_cooldown = BALANCE_BRUTE_CORPSE_ARMOR_COOLDOWN * room_speed;
 corpse_armor_ability_timer = 0;
 corpse_armor_retry_timer = 0;
 
+// Normal attacks show their true AOE and mark every unit that received damage.
+attack_aoe_circle_timer = 0;
+attack_aoe_circle_duration = max(1, BALANCE_BRUTE_ATTACK_AOE_CIRCLE_TIME * room_speed);
+attack_aoe_circle_x = x;
+attack_aoe_circle_y = y;
+attack_aoe_circle_radius = aoe_radius;
+attack_aoe_hit_positions = [];
+
 // Ability visuals use fading circles and one hook line per pulled target.
 grave_slam_circle_timer = 0;
 grave_slam_circle_duration = BALANCE_BRUTE_GRAVE_SLAM_CIRCLE_FADE_TIME * room_speed;
@@ -69,6 +77,15 @@ hook_chain_state_outbound = 0;
 hook_chain_state_returning = 1;
 hook_line_active = false;
 butcher_chains_second_wave_pending = false;
+
+unit_aoe_attack_feedback_show = function(_hit_x, _hit_y, _radius, _hit_positions)
+{
+	attack_aoe_circle_x = _hit_x;
+	attack_aoe_circle_y = _hit_y;
+	attack_aoe_circle_radius = _radius;
+	attack_aoe_hit_positions = _hit_positions;
+	attack_aoe_circle_timer = attack_aoe_circle_duration;
+};
 
 brute_ability_level_get = function(_ability)
 {

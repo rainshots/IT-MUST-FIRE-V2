@@ -361,6 +361,16 @@ if (_flight_progress >= 1)
 			}
 		}
 
+		// A shell explicitly aimed at the cannon includes it in the normal artillery hit limit.
+		if (instance_exists(artillery_direct_target)
+			&& variable_instance_exists(artillery_direct_target, "hp")
+			&& artillery_direct_target.hp > 0)
+		{
+			var _direct_target_distance_squared = sqr(artillery_direct_target.x - target_x)
+				+ sqr(artillery_direct_target.y - target_y);
+			ds_priority_add(_artillery_targets, artillery_direct_target, _direct_target_distance_squared);
+		}
+
 		// Apply physical damage to no more than the configured number of targets.
 		var _available_target_count = ds_priority_size(_artillery_targets);
 		var _hit_target_count = min(max(1, floor(damage_target_count)), _available_target_count);

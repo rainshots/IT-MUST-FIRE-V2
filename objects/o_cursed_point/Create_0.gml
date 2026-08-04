@@ -38,7 +38,7 @@ tooltip_offset_y = 94;
 // Structure choice window settings.
 structure_selection_open = false;
 structure_selection_previous_pause_state = false;
-structure_choice_window_width = 560;
+structure_choice_window_width = 800;
 structure_choice_window_height = 360;
 structure_choice_tile_width = 220;
 structure_choice_tile_height = 214;
@@ -49,13 +49,13 @@ structure_choice_options = [];
 structure_choice_options_rolled = false;
 restore_structure_choice = noone;
 
-// Captured points offer two different random towers from this roster.
+// Captured points let the player choose any tower from this roster.
 structure_choice_packs = [
 	[
 		{
 			building_object: o_tower_damage,
 			building_name: "Damage Tower",
-			building_description: "Attacks nearby enemies after capture.",
+			building_description: "Shoots enemies with exploding projectiles. Physical damage.",
 			construction_costs: [
 				{
 					resource: RESOURCES.IRON,
@@ -66,7 +66,7 @@ structure_choice_packs = [
 		{
 			building_object: o_tower_heal,
 			building_name: "Heal Tower",
-			building_description: "Heals nearby friendly units after capture.",
+			building_description: "Heals nearby friendly units.",
 			construction_costs: [
 				{
 					resource: RESOURCES.SOULS,
@@ -77,6 +77,11 @@ structure_choice_packs = [
 					cost: BALANCE_TOWER_HEAL_BUILD_IRON_COST
 				}
 			]
+		},
+		{
+			building_object: o_magic_tower,
+			building_name: "Magic Tower",
+			building_description: "Strikes enemies with magic in a huge radius."
 		}
 	]
 ];
@@ -285,28 +290,13 @@ cursed_point_summon_button_is_hovered = function()
 cursed_point_structure_options_roll = function()
 {
 	var _pack = structure_choice_packs[irandom(array_length(structure_choice_packs) - 1)];
-	var _first_index = irandom(array_length(_pack) - 1);
-	var _second_index = irandom(array_length(_pack) - 1);
+	structure_choice_options = [];
 
-	for (var _attempt_index = 0; _attempt_index < 8; ++_attempt_index)
+	for (var _choice_index = 0; _choice_index < array_length(_pack); ++_choice_index)
 	{
-		if (_second_index != _first_index)
-		{
-			break;
-		}
-
-		_second_index = irandom(array_length(_pack) - 1);
+		array_push(structure_choice_options, _pack[_choice_index]);
 	}
 
-	if (_second_index == _first_index)
-	{
-		_second_index = (_first_index + 1) mod array_length(_pack);
-	}
-
-	structure_choice_options = [
-		_pack[_first_index],
-		_pack[_second_index]
-	];
 	structure_choice_options_rolled = true;
 };
 
@@ -388,7 +378,9 @@ cursed_point_structure_choice_rect_get = function(_choice_index)
 	var _gui_size = cursed_point_gui_size_get();
 	var _panel_x = (_gui_size[0] - structure_choice_window_width) * 0.5;
 	var _panel_y = (_gui_size[1] - structure_choice_window_height) * 0.5;
-	var _total_width = (structure_choice_tile_width * 2) + structure_choice_tile_gap;
+	var _choice_count = max(1, array_length(structure_choice_options));
+	var _total_width = (structure_choice_tile_width * _choice_count)
+		+ (structure_choice_tile_gap * max(0, _choice_count - 1));
 	var _tile_x = _panel_x + ((structure_choice_window_width - _total_width) * 0.5)
 		+ ((structure_choice_tile_width + structure_choice_tile_gap) * _choice_index);
 	var _tile_y = _panel_y + 104;

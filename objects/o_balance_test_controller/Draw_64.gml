@@ -29,14 +29,52 @@ if (!configuration_is_confirmed)
 		false
 	);
 	draw_set_color(c_white);
-	draw_text(_panel_x + 44, _panel_y + 24, "BALANCE TEST SETUP");
+	draw_text(_panel_x + configuration_column_margin, _panel_y + 24, "BALANCE TEST SETUP");
 	draw_set_color(COLOR_BALANCE_TEST_MUTED_TEXT);
-	draw_text(_panel_x + 44, _panel_y + 52, "Optional friendly support for every fight:");
+	draw_text(_panel_x + configuration_column_margin, _panel_y + 76, "REGULAR UNIT TESTS");
+	draw_text(
+		_panel_x + configuration_column_margin + configuration_column_width + configuration_column_gap,
+		_panel_y + 76,
+		"ARCHDEMON TESTS (+ Warrior + Archer)"
+	);
+	draw_text(
+		_panel_x + configuration_column_margin
+			+ ((configuration_column_width + configuration_column_gap) * 2),
+		_panel_y + 76,
+		"OPTIONAL SUPPORT FOR EVERY FIGHT"
+	);
 
-	for (var _option_index = 0; _option_index < array_length(optional_test_configs); ++_option_index)
+	for (var _regular_option_index = 0; _regular_option_index < array_length(regular_test_configs); ++_regular_option_index)
 	{
-		var _option = optional_test_configs[_option_index];
-		var _option_rect = balance_test_configuration_option_rect_get(_option_index);
+		var _regular_option = regular_test_configs[_regular_option_index];
+		var _regular_option_rect = balance_test_regular_option_rect_get(_regular_option_index);
+		var _regular_is_hovered = point_in_rectangle(
+			_mouse_x,
+			_mouse_y,
+			_regular_option_rect.x,
+			_regular_option_rect.y,
+			_regular_option_rect.x + _regular_option_rect.width,
+			_regular_option_rect.y + _regular_option_rect.height
+		);
+
+		draw_set_color(_regular_is_hovered ? COLOR_BALANCE_TEST_ROW_ALTERNATE : COLOR_BALANCE_TEST_ROW);
+		draw_rectangle(
+			_regular_option_rect.x,
+			_regular_option_rect.y,
+			_regular_option_rect.x + _regular_option_rect.width,
+			_regular_option_rect.y + _regular_option_rect.height,
+			false
+		);
+		draw_set_color(_regular_option.enabled ? COLOR_BALANCE_TEST_PLAYER_WIN : COLOR_BALANCE_TEST_MUTED_TEXT);
+		draw_text(_regular_option_rect.x + 16, _regular_option_rect.y + 10, _regular_option.enabled ? "[X]" : "[ ]");
+		draw_set_color(c_white);
+		draw_text(_regular_option_rect.x + 58, _regular_option_rect.y + 10, _regular_option.label);
+	}
+
+	for (var _option_index = 0; _option_index < array_length(demon_test_configs); ++_option_index)
+	{
+		var _option = demon_test_configs[_option_index];
+		var _option_rect = balance_test_demon_option_rect_get(_option_index);
 		var _is_hovered = point_in_rectangle(
 			_mouse_x,
 			_mouse_y,
@@ -55,9 +93,36 @@ if (!configuration_is_confirmed)
 			false
 		);
 		draw_set_color(_option.enabled ? COLOR_BALANCE_TEST_PLAYER_WIN : COLOR_BALANCE_TEST_MUTED_TEXT);
-		draw_text(_option_rect.x + 16, _option_rect.y + 13, _option.enabled ? "[X]" : "[ ]");
+		draw_text(_option_rect.x + 16, _option_rect.y + 10, _option.enabled ? "[X]" : "[ ]");
 		draw_set_color(c_white);
-		draw_text(_option_rect.x + 58, _option_rect.y + 13, _option.label);
+		draw_text(_option_rect.x + 58, _option_rect.y + 10, _option.label);
+	}
+
+	for (var _support_option_index = 0; _support_option_index < array_length(optional_test_configs); ++_support_option_index)
+	{
+		var _support_option = optional_test_configs[_support_option_index];
+		var _support_option_rect = balance_test_configuration_option_rect_get(_support_option_index);
+		var _support_is_hovered = point_in_rectangle(
+			_mouse_x,
+			_mouse_y,
+			_support_option_rect.x,
+			_support_option_rect.y,
+			_support_option_rect.x + _support_option_rect.width,
+			_support_option_rect.y + _support_option_rect.height
+		);
+
+		draw_set_color(_support_is_hovered ? COLOR_BALANCE_TEST_ROW_ALTERNATE : COLOR_BALANCE_TEST_ROW);
+		draw_rectangle(
+			_support_option_rect.x,
+			_support_option_rect.y,
+			_support_option_rect.x + _support_option_rect.width,
+			_support_option_rect.y + _support_option_rect.height,
+			false
+		);
+		draw_set_color(_support_option.enabled ? COLOR_BALANCE_TEST_PLAYER_WIN : COLOR_BALANCE_TEST_MUTED_TEXT);
+		draw_text(_support_option_rect.x + 16, _support_option_rect.y + 10, _support_option.enabled ? "[X]" : "[ ]");
+		draw_set_color(c_white);
+		draw_text(_support_option_rect.x + 58, _support_option_rect.y + 10, _support_option.label);
 	}
 
 	var _start_rect = balance_test_configuration_start_rect_get();
@@ -83,7 +148,12 @@ if (!configuration_is_confirmed)
 	draw_text(_start_rect.x + (_start_rect.width * 0.5), _start_rect.y + 17, "START TESTS");
 	draw_set_halign(fa_left);
 	draw_set_color(COLOR_BALANCE_TEST_MUTED_TEXT);
-	draw_text(_panel_x + 44, _panel_y + configuration_panel_height - 20, "Enter/Space: start    Esc: return");
+	draw_text(_panel_x + configuration_column_margin, _panel_y + 570, status_message);
+	draw_text(
+		_panel_x + configuration_column_margin,
+		_panel_y + configuration_panel_height - 20,
+		"Enter/Space: start    Esc: return"
+	);
 
 	draw_set_halign(fa_left);
 	draw_set_valign(fa_top);
@@ -99,7 +169,12 @@ var _label_width = 210;
 var _column_width = (_gui_width - (_margin * 2) - _label_width) / enemy_test_unit_count;
 var _header_y = 92;
 var _header_height = 54;
-var _row_height = 54;
+var _table_footer_height = 78;
+var _available_rows_height = display_get_gui_height()
+	- _header_y
+	- _header_height
+	- _table_footer_height;
+var _row_height = min(54, floor(_available_rows_height / max(1, friendly_test_unit_count)));
 var _table_width = _label_width + (_column_width * enemy_test_unit_count);
 
 draw_set_halign(fa_left);
@@ -171,26 +246,31 @@ for (var _row_index = 0; _row_index < friendly_test_unit_count; ++_row_index)
 		var _result = test_results[_row_index][_column_index];
 		var _column_x = _margin + _label_width + (_column_index * _column_width);
 
-		if (string_pos("+", _result) == 1)
+		if (_friendly_config.test_type == "unit" && string_pos("+", _result) == 1)
 		{
 			draw_set_color(COLOR_BALANCE_TEST_PLAYER_WIN);
 		}
-		else if (string_pos("-", _result) == 1)
+		else if (_friendly_config.test_type == "unit" && string_pos("-", _result) == 1)
 		{
 			draw_set_color(COLOR_BALANCE_TEST_ENEMY_WIN);
+		}
+		else if (_friendly_config.test_type == "archdemon" && string_pos("%", _result) > 0)
+		{
+			var _hp_percent = real(string_replace_all(_result, "%", ""));
+			draw_set_color(_hp_percent > 0 ? COLOR_BALANCE_TEST_PLAYER_WIN : COLOR_BALANCE_TEST_ENEMY_WIN);
 		}
 		else
 		{
 			draw_set_color(COLOR_BALANCE_TEST_NEUTRAL);
 		}
 
-		draw_text(_column_x + 7, _row_y + 18, _result);
+		draw_text(_column_x + 7, _row_y + ((_row_height - 18) * 0.5), _result);
 	}
 }
 
 draw_set_color(COLOR_BALANCE_TEST_MUTED_TEXT);
 draw_text(_margin, _header_y + _header_height + (friendly_test_unit_count * _row_height) + 18,
-	"Result = average remaining-army HP advantage across 3 fixed-seed simulations.");
+	"Regular rows = average remaining-army HP advantage. Archdemon rows = average Archdemon HP remaining.");
 draw_text(_margin, _header_y + _header_height + (friendly_test_unit_count * _row_height) + 42,
 	"1-5: watch arena    F: 1x/" + string(BALANCE_TEST_SIMULATION_SPEED)
 		+ "x    Tab: hide table    C: copy TSV    R: restart    Esc: return");

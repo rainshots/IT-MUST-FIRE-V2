@@ -40,6 +40,11 @@ if (global.pause)
 	exit;
 }
 
+if (damage_flash_timer > 0)
+{
+	damage_flash_timer--;
+}
+
 // Visual attack offset returns even while the unit has no target this frame.
 update_attack_lunge();
 is_stunned = false;
@@ -204,6 +209,9 @@ if (hp <= 0)
 
 // Holy ground slowly restores enemy units standing on it.
 enemy_saint_ground_heal_update();
+
+// The day-three upgrade slowly restores player units standing on Taint.
+friendly_tainted_ground_heal_update();
 
 // Stunned units stay vulnerable but cannot move, attack, or progress timers.
 if (is_stunned)

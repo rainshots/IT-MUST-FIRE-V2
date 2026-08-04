@@ -82,7 +82,7 @@ draw_set_color(_daily_limit_reached ? COLOR_STATUS_NEGATIVE_RED : COLOR_HUD_PROJ
 draw_text(
 	_panel_x + (structure_choice_window_width * 0.5),
 	_panel_y + 68,
-	_daily_limit_reached ? "MAX 1 CURSED POINT STRUCTURE PER DAY" : "Choose one captured structure"
+	_daily_limit_reached ? "MAX 1 CURSED POINT STRUCTURE PER DAY" : "Choose one tower to summon"
 );
 
 for (var _choice_index = 0; _choice_index < array_length(structure_choice_options); ++_choice_index)

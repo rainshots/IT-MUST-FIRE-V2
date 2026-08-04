@@ -171,6 +171,20 @@ function day_event_building_construction_execute(_event, _assigned_cultists, _da
 		{
 			_construction_site.cursed_point_construction_effect_create();
 		}
+
+		// Send surviving construction workers back to their cannon-side homes for the night.
+		var _assigned_cultist_count = array_length(_assigned_cultists);
+
+		for (var _assigned_cultist_index = 0; _assigned_cultist_index < _assigned_cultist_count; ++_assigned_cultist_index)
+		{
+			var _assigned_cultist = _assigned_cultists[_assigned_cultist_index];
+
+			if (instance_exists(_assigned_cultist)
+				&& variable_instance_exists(_assigned_cultist, "return_to_cannon_at_night"))
+			{
+				_assigned_cultist.return_to_cannon_at_night = true;
+			}
+		}
 	}
 	else
 	{

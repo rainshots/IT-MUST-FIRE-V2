@@ -11,7 +11,10 @@ image_speed = 0;
 
 // Vision tower reveals fog around itself after capture.
 base_vision_radius = BALANCE_TOWER_VISION_RADIUS;
-vision_radius = base_vision_radius;
+var _tower_radius_multiplier = variable_global_exists("player_tower_radius_multiplier")
+	? global.player_tower_radius_multiplier
+	: 1;
+vision_radius = base_vision_radius * _tower_radius_multiplier;
 
 // Tooltip lines describe captured tower behavior.
 tooltip_lines = [
@@ -31,5 +34,10 @@ building_upgrade_level_maxes = [BALANCE_TOWER_VISION_RADIUS_UPGRADE_MAX];
 
 map_building_upgrade_effect_apply = function(_upgrade_index)
 {
-	vision_radius = base_vision_radius * (1 + (building_upgrade_levels[0] * BALANCE_TOWER_VISION_RADIUS_UPGRADE_BONUS));
+	var _radius_multiplier = variable_global_exists("player_tower_radius_multiplier")
+		? global.player_tower_radius_multiplier
+		: 1;
+	vision_radius = base_vision_radius
+		* (1 + (building_upgrade_levels[0] * BALANCE_TOWER_VISION_RADIUS_UPGRADE_BONUS))
+		* _radius_multiplier;
 };

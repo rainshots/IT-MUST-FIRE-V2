@@ -19,7 +19,10 @@ player_building_cleansed_base_max_hp = max_hp;
 // Damage tower shoots the nearest enemy inside its radius.
 base_shoot_radius = BALANCE_TOWER_DAMAGE_RADIUS;
 base_damage = BALANCE_TOWER_DAMAGE_AMOUNT;
-shoot_radius = base_shoot_radius;
+var _tower_radius_multiplier = variable_global_exists("player_tower_radius_multiplier")
+	? global.player_tower_radius_multiplier
+	: 1;
+shoot_radius = base_shoot_radius * _tower_radius_multiplier;
 damage = base_damage;
 reload_time = BALANCE_TOWER_DAMAGE_RELOAD_TIME * room_speed;
 reload_timer = 0;
@@ -55,7 +58,12 @@ building_upgrade_level_maxes = [BALANCE_TOWER_DAMAGE_RADIUS_UPGRADE_MAX, BALANCE
 
 map_building_upgrade_effect_apply = function(_upgrade_index)
 {
-	shoot_radius = base_shoot_radius * (1 + (building_upgrade_levels[0] * BALANCE_TOWER_DAMAGE_RADIUS_UPGRADE_BONUS));
+	var _radius_multiplier = variable_global_exists("player_tower_radius_multiplier")
+		? global.player_tower_radius_multiplier
+		: 1;
+	shoot_radius = base_shoot_radius
+		* (1 + (building_upgrade_levels[0] * BALANCE_TOWER_DAMAGE_RADIUS_UPGRADE_BONUS))
+		* _radius_multiplier;
 	damage = base_damage * (1 + (building_upgrade_levels[1] * BALANCE_TOWER_DAMAGE_DAMAGE_UPGRADE_BONUS));
 };
 

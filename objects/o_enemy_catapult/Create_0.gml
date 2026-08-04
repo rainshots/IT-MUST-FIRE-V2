@@ -10,6 +10,7 @@ damage = BALANCE_ENEMY_CATAPULT_DAMAGE;
 magic_damage = BALANCE_ENEMY_CATAPULT_MAGIC_DAMAGE;
 reload_time = BALANCE_ENEMY_CATAPULT_RELOAD_TIME * room_speed;
 attack_radius = BALANCE_ENEMY_CATAPULT_ATTACK_RADIUS;
+cannon_attack_radius = BALANCE_ENEMY_CATAPULT_CANNON_ATTACK_RADIUS;
 move_speed = BALANCE_ENEMY_CATAPULT_MOVE_SPEED;
 target_detection_radius = attack_radius;
 vision_radius = attack_radius;
@@ -24,12 +25,24 @@ catapult_target_search_timer = target_search_update_interval;
 
 catapult_target_is_in_attack_band = function(_target)
 {
-	if (!target_can_be_attacked(_target) || !target_is_player_unit(_target))
+	if (!target_can_be_attacked(_target))
 	{
 		return false;
 	}
 
 	var _target_distance = point_distance(x, y, _target.x, _target.y);
+
+	if (_target.object_index == o_cannon)
+	{
+		return unit_can_attack_cannon
+			&& _target_distance <= cannon_wall_attack_radius_get();
+	}
+
+	if (!target_is_player_unit(_target))
+	{
+		return false;
+	}
+
 	return _target_distance >= catapult_minimum_attack_radius
 		&& _target_distance <= attack_radius;
 };
@@ -63,39 +76,57 @@ catapult_target_find = function()
 		}
 	}
 
-	if (!variable_global_exists("archdemons"))
+	// Archdemons are player units but do not inherit from o_friendly_units.
+	if (variable_global_exists("archdemons"))
 	{
-		return _nearest_target;
+		for (var _cultist_index = 0; _cultist_index < array_length(global.archdemons); ++_cultist_index)
+		{
+			var _cultist = global.archdemons[_cultist_index];
+
+			if (!target_can_be_attacked(_cultist) || !_cultist.visible)
+			{
+				continue;
+			}
+
+			var _cultist_distance_x = _cultist.x - x;
+			var _cultist_distance_y = _cultist.y - y;
+			var _cultist_distance_squared = (_cultist_distance_x * _cultist_distance_x)
+				+ (_cultist_distance_y * _cultist_distance_y);
+
+			if (_cultist_distance_squared >= _minimum_distance_squared
+				&& _cultist_distance_squared <= _nearest_distance_squared)
+			{
+				_nearest_target = _cultist;
+				_nearest_distance_squared = _cultist_distance_squared;
+			}
+		}
 	}
 
-	// Archdemons are player units but do not inherit from o_friendly_units.
-	for (var _cultist_index = 0; _cultist_index < array_length(global.archdemons); ++_cultist_index)
+	// The cannon becomes the fallback target once the catapult reaches firing distance from the wall.
+	if (!instance_exists(_nearest_target)
+		&& unit_can_attack_cannon
+		&& instance_exists(o_cannon))
 	{
-		var _cultist = global.archdemons[_cultist_index];
+		var _cannon = instance_find(o_cannon, 0);
 
-		if (!target_can_be_attacked(_cultist) || !_cultist.visible)
+		if (catapult_target_is_in_attack_band(_cannon))
 		{
-			continue;
-		}
-
-		var _cultist_distance_x = _cultist.x - x;
-		var _cultist_distance_y = _cultist.y - y;
-		var _cultist_distance_squared = (_cultist_distance_x * _cultist_distance_x)
-			+ (_cultist_distance_y * _cultist_distance_y);
-
-		if (_cultist_distance_squared >= _minimum_distance_squared
-			&& _cultist_distance_squared <= _nearest_distance_squared)
-		{
-			_nearest_target = _cultist;
-			_nearest_distance_squared = _cultist_distance_squared;
+			_nearest_target = _cannon;
 		}
 	}
 
 	return _nearest_target;
 };
 
-catapult_projectile_create = function(_target_x, _target_y)
+catapult_projectile_create = function(_target)
 {
+	if (!instance_exists(_target))
+	{
+		return noone;
+	}
+
+	var _target_x = _target.x;
+	var _target_y = _target.y;
 	var _projectile_x = x;
 	var _projectile_y = y + catapult_projectile_spawn_offset_y;
 	var _projectile = instance_create_layer(_projectile_x, _projectile_y, catapult_projectile_layer_name, o_projectile);
@@ -116,6 +147,7 @@ catapult_projectile_create = function(_target_x, _target_y)
 	_projectile.damage_faction = UNIT_FACTION.ENEMY;
 	_projectile.damage_target_count = catapult_projectile_target_count;
 	_projectile.source_instance = id;
+	_projectile.artillery_direct_target = _target.object_index == o_cannon ? _target : noone;
 	_projectile.balance_test_match_id = balance_test_match_id;
 	_projectile.projectile_speed = BALANCE_ENEMY_CATAPULT_PROJECTILE_SPEED;
 	_projectile.flight_time = _flight_time_seconds * room_speed;
@@ -138,6 +170,7 @@ catapult_behavior_update = function()
 	if (instance_exists(target_instance))
 	{
 		is_walking = false;
+		is_attacking_target = true;
 		face_world_x(target_instance.x);
 
 		if (reload_timer > 0)
@@ -146,7 +179,7 @@ catapult_behavior_update = function()
 			return true;
 		}
 
-		catapult_projectile_create(target_instance.x, target_instance.y);
+		catapult_projectile_create(target_instance);
 		reload_timer = reload_time * unit_attack_reload_multiplier_get();
 		return true;
 	}

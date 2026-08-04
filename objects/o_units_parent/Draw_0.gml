@@ -24,6 +24,13 @@ if (variable_instance_exists(id, "whip_timer") && whip_timer > 0)
 
 if (sprite_exists(sprite_index))
 {
+	var _damage_flash_is_active = damage_flash_timer > 0;
+
+	if (_damage_flash_is_active)
+	{
+		shader_set(sh_unit_damage_flash);
+	}
+
 	draw_sprite_ext(
 		sprite_index,
 		image_index,
@@ -35,6 +42,11 @@ if (sprite_exists(sprite_index))
 		image_blend,
 		image_alpha
 	);
+
+	if (_damage_flash_is_active)
+	{
+		shader_reset();
+	}
 }
 
 // Friendly support effects draw animated motes and a label above the target.
@@ -286,7 +298,7 @@ if (is_knocked_out)
 
 // Draw regular unit health bars; demon bars are drawn above the world from the controller.
 var _hp_progress = clamp(hp / max_hp, 0, 1);
-var _is_demon_bar_drawn_by_controller = is_demon_form_unit();
+var _is_demon_bar_drawn_by_controller = is_demon_form_unit() && !health_bar_world_draw_forced;
 var _is_day_garrison_unit = global.day_phase == DAY_PHASE.DAY
 	&& variable_instance_exists(id, "settlement_garrison_unit")
 	&& settlement_garrison_unit;

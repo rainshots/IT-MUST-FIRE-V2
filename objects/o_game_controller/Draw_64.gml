@@ -5,6 +5,13 @@ if (global.blood_moon_reward_popup_active)
 	exit;
 }
 
+// The daybreak upgrade choice is the only visible GUI layer until a card is chosen.
+if (global.early_upgrade_popup_active)
+{
+	early_upgrade_popup_draw();
+	exit;
+}
+
 // Draw phase tint over the world while keeping HUD readable.
 if (variable_global_exists("ui_font") && font_exists(global.ui_font))
 {
