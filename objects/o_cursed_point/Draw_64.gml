@@ -61,7 +61,6 @@ var _panel_y = (_gui_height - structure_choice_window_height) * 0.5;
 var _mouse_x = device_mouse_x_to_gui(0);
 var _mouse_y = device_mouse_y_to_gui(0);
 var _hovered_choice = cursed_point_structure_choice_hover_index_get(_mouse_x, _mouse_y);
-var _daily_limit_reached = !day_event_cursed_point_construction_can_start();
 
 draw_set_alpha(0.55);
 draw_set_color(c_black);
@@ -78,11 +77,11 @@ draw_set_valign(fa_middle);
 draw_set_color(COLOR_HUD_TEXT);
 draw_text(_panel_x + (structure_choice_window_width * 0.5), _panel_y + 38, "Summon Structure");
 
-draw_set_color(_daily_limit_reached ? COLOR_STATUS_NEGATIVE_RED : COLOR_HUD_PROJECTILE_DESCRIPTION);
+draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
 draw_text(
 	_panel_x + (structure_choice_window_width * 0.5),
 	_panel_y + 68,
-	_daily_limit_reached ? "MAX 1 CURSED POINT STRUCTURE PER DAY" : "Choose one tower to summon"
+	"Choose one tower to summon"
 );
 
 for (var _choice_index = 0; _choice_index < array_length(structure_choice_options); ++_choice_index)
@@ -93,14 +92,17 @@ for (var _choice_index = 0; _choice_index < array_length(structure_choice_option
 	var _tile_y = _choice_rect[1];
 	var _is_hovered = _choice_index == _hovered_choice;
 	var _can_pay_choice = cursed_point_structure_choice_can_pay(_choice);
+	var _can_construct_choice = cursed_point_structure_choice_can_construct(_choice);
+	var _choice_is_blocked = !_can_construct_choice;
 	var _sprite = object_get_sprite(_choice.building_object);
+	var _built_count = instance_number(_choice.building_object);
 
 	draw_set_alpha(0.82);
 	draw_set_color(c_black);
 	draw_rectangle(_tile_x, _tile_y, _tile_x + structure_choice_tile_width, _tile_y + structure_choice_tile_height, false);
 
 	draw_set_alpha(1);
-	draw_set_color(_daily_limit_reached ? COLOR_PROJECTILE_DAMAGE : (_is_hovered ? COLOR_PROJECTILE_SUMMON : c_white));
+	draw_set_color(_choice_is_blocked ? COLOR_PROJECTILE_DAMAGE : (_is_hovered ? COLOR_PROJECTILE_SUMMON : c_white));
 	draw_rectangle(_tile_x, _tile_y, _tile_x + structure_choice_tile_width, _tile_y + structure_choice_tile_height, true);
 
 	if (_sprite != -1 && sprite_exists(_sprite))
@@ -121,14 +123,14 @@ for (var _choice_index = 0; _choice_index < array_length(structure_choice_option
 			_sprite_draw_width,
 			_sprite_draw_height,
 			c_white,
-			_daily_limit_reached ? 0.35 : 1
+			_choice_is_blocked ? 0.35 : 1
 		);
 	}
 
 	draw_set_halign(fa_center);
 	draw_set_valign(fa_middle);
-	draw_set_alpha(_can_pay_choice && !_daily_limit_reached ? 1 : 0.5);
-	draw_set_color(_daily_limit_reached ? COLOR_PROJECTILE_DAMAGE : COLOR_HUD_TEXT);
+	draw_set_alpha(_can_pay_choice && _can_construct_choice ? 1 : 0.5);
+	draw_set_color(_choice_is_blocked ? COLOR_HUD_PROJECTILE_DESCRIPTION : COLOR_HUD_TEXT);
 	draw_text(_tile_x + (structure_choice_tile_width * 0.5), _tile_y + 124, _choice.building_name);
 	draw_set_alpha(1);
 
@@ -154,6 +156,27 @@ for (var _choice_index = 0; _choice_index < array_length(structure_choice_option
 		_tile_y + structure_choice_tile_height - 22,
 		string(BALANCE_BUILDING_CONSTRUCTION_CULTIST_COST) + _cultist_label
 	);
+
+	// Cursed Point cards also show the number of completed towers of this type.
+	draw_set_valign(fa_top);
+	draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+	draw_text(
+		_tile_x + (structure_choice_tile_width * 0.5),
+		_tile_y + structure_choice_tile_height + 6,
+		"Built: " + string(_built_count)
+	);
+
+	if (_choice_is_blocked)
+	{
+		var _blocked_text = _built_count > 0 ? "Already built" : "Already ordered";
+
+		draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+		draw_text(
+			_tile_x + (structure_choice_tile_width * 0.5),
+			_tile_y + structure_choice_tile_height + 24,
+			_blocked_text
+		);
+	}
 }
 
 // Restore default draw state.

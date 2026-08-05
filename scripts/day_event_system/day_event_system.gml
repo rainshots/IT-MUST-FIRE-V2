@@ -228,14 +228,44 @@ function day_event_building_construction_can_start()
 	return global.building_construction_count_today < BALANCE_BUILDING_CONSTRUCTION_DAILY_LIMIT;
 }
 
-function day_event_cursed_point_construction_can_start()
+function day_event_building_construction_type_count_get(_building_object)
 {
-	if (!variable_global_exists("cursed_point_construction_count_today"))
+	var _building_count = instance_number(_building_object);
+
+	if (!variable_global_exists("day_events"))
 	{
-		return false;
+		return _building_count;
 	}
 
-	return global.cursed_point_construction_count_today < BALANCE_CURSED_POINT_CONSTRUCTION_DAILY_LIMIT;
+	// Pending construction events reserve the building type before the structure appears.
+	var _event_count = array_length(global.day_events);
+
+	for (var _event_index = 0; _event_index < _event_count; ++_event_index)
+	{
+		var _event = global.day_events[_event_index];
+
+		if (!is_struct(_event)
+			|| !variable_struct_exists(_event, "actions")
+			|| array_length(_event.actions) <= 0)
+		{
+			continue;
+		}
+
+		var _action = _event.actions[0];
+
+		if (is_struct(_action)
+			&& variable_struct_exists(_action, "action_type")
+			&& _action.action_type == "construct_building"
+			&& variable_struct_exists(_action, "data")
+			&& is_struct(_action.data)
+			&& variable_struct_exists(_action.data, "building_object")
+			&& _action.data.building_object == _building_object)
+		{
+			_building_count++;
+		}
+	}
+
+	return _building_count;
 }
 
 function day_event_building_construction_create(_construction_site, _choice, _is_cursed_point = false)
@@ -247,11 +277,15 @@ function day_event_building_construction_create(_construction_site, _choice, _is
 		return noone;
 	}
 
-	var _construction_can_start = _is_cursed_point
-		? day_event_cursed_point_construction_can_start()
-		: day_event_building_construction_can_start();
+	// Duplicate limits apply only to regular settlement buildings, never to Cursed Point towers.
+	if (!_is_cursed_point
+		&& BALANCE_BUILDING_DUPLICATE_LIMIT_ENABLED
+		&& day_event_building_construction_type_count_get(_choice.building_object) >= BALANCE_BUILDING_DEFAULT_LIMIT)
+	{
+		return noone;
+	}
 
-	if (!_construction_can_start)
+	if (!_is_cursed_point && !day_event_building_construction_can_start())
 	{
 		return noone;
 	}
@@ -293,11 +327,7 @@ function day_event_building_construction_create(_construction_site, _choice, _is
 	_construction_site.construction_event_pending = true;
 	day_event_add_first(_event);
 
-	if (_is_cursed_point)
-	{
-		global.cursed_point_construction_count_today++;
-	}
-	else
+	if (!_is_cursed_point)
 	{
 		global.building_construction_count_today++;
 	}
@@ -1992,97 +2022,6 @@ function day_event_ritual_events_add(_ritual_circle)
 	day_event_add(day_event_squad_selection_add(_hell_event, _eligible_squads));
 }
 
-function day_event_additional_building_events_generate()
-{
-	if (!global.ritual_extra_building_event_active)
-	{
-		return;
-	}
-
-	var _source_buildings = [];
-	var _event_count = array_length(global.day_events);
-
-	for (var _event_index = 0; _event_index < _event_count; ++_event_index)
-	{
-		var _event = global.day_events[_event_index];
-
-		if (!is_struct(_event)
-			|| !variable_struct_exists(_event, "source_building")
-			|| !instance_exists(_event.source_building))
-		{
-			continue;
-		}
-
-		var _source_is_known = false;
-
-		for (var _source_index = 0; _source_index < array_length(_source_buildings); ++_source_index)
-		{
-			if (_source_buildings[_source_index] == _event.source_building)
-			{
-				_source_is_known = true;
-				break;
-			}
-		}
-
-		if (!_source_is_known)
-		{
-			array_push(_source_buildings, _event.source_building);
-		}
-	}
-
-	for (var _source_index = 0; _source_index < array_length(_source_buildings); ++_source_index)
-	{
-		var _source_building = _source_buildings[_source_index];
-		var _candidate_events = [];
-
-		for (var _event_index = 0; _event_index < _event_count; ++_event_index)
-		{
-			var _candidate = global.day_events[_event_index];
-
-			if (is_struct(_candidate)
-				&& variable_struct_exists(_candidate, "source_building")
-				&& _candidate.source_building == _source_building)
-			{
-				array_push(_candidate_events, _candidate);
-			}
-		}
-
-		if (array_length(_candidate_events) <= 0)
-		{
-			continue;
-		}
-
-		var _template = _candidate_events[irandom(array_length(_candidate_events) - 1)];
-		var _bonus_event = new day_event_constructor(
-			_template.event_id + "_invite_bonus",
-			_template.title,
-			_template.description,
-			_template.cultist_cost,
-			_template.activation_limit,
-			_template.actions
-		);
-		_bonus_event.source_building = _source_building;
-		_bonus_event.source_event_id = day_event_source_event_id_get(_template);
-
-		if (variable_struct_exists(_template, "requires_squad_selection")
-			&& _template.requires_squad_selection)
-		{
-			day_event_squad_selection_add(_bonus_event, _template.eligible_squads);
-		}
-
-		if (variable_struct_exists(_template, "target_archdemon_name"))
-		{
-			_bonus_event.target_archdemon_name = _template.target_archdemon_name;
-			_bonus_event.target_archdemon_sprite = _template.target_archdemon_sprite;
-			_bonus_event.target_archdemon_frame = _template.target_archdemon_frame;
-		}
-
-		day_event_add(_bonus_event);
-	}
-
-	global.ritual_extra_building_event_active = false;
-}
-
 function day_event_blood_warpaint_execute(_event, _assigned_cultists, _data)
 {
 	global.blood_bath_warpaint_morning_pending = true;
@@ -2717,7 +2656,7 @@ function day_event_reroll(_event)
 	return true;
 }
 
-function day_event_building_daily_events_limit_apply()
+function day_event_building_daily_events_limit_apply(_additional_event_count = 0)
 {
 	var _events_without_building_source = [];
 	var _source_buildings = [];
@@ -2851,7 +2790,10 @@ function day_event_building_daily_events_limit_apply()
 			array_push(_random_candidates, _repeated_candidates[_repeat_index]);
 		}
 
-		var _selected_event_count = min(BALANCE_BUILDING_DAY_EVENT_COUNT, _candidate_count);
+		// Invite the Worthy expands the unique selection instead of cloning an existing card.
+		var _event_limit = BALANCE_BUILDING_DAY_EVENT_COUNT
+			+ max(0, floor(_additional_event_count));
+		var _selected_event_count = min(_event_limit, _candidate_count);
 
 		for (var _random_index = 0;
 			array_length(_selected_candidates) < _selected_event_count
@@ -3435,15 +3377,21 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 		));
 	}
 
+	// Invite the Worthy selects one extra unique candidate from each building's full catalog.
+	var _additional_event_count = _apply_additional_bonus
+		&& global.ritual_extra_building_event_active
+		? 1
+		: 0;
+
 	// Normal days resolve every source to its limited daily selection.
 	if (_apply_daily_limit)
 	{
-		day_event_building_daily_events_limit_apply();
+		day_event_building_daily_events_limit_apply(_additional_event_count);
 	}
 
-	if (_apply_additional_bonus)
+	if (_apply_additional_bonus && global.ritual_extra_building_event_active)
 	{
-		day_event_additional_building_events_generate();
+		global.ritual_extra_building_event_active = false;
 	}
 
 	// Keep the mandatory first Archdemon Job below every other generated event.
@@ -3573,6 +3521,7 @@ function day_event_cultist_add(_name = "", _max_hp = BALANCE_EVENT_CULTIST_MAX_H
 function day_event_finish_day()
 {
 	var _executed_activation_count = 0;
+	var _executed_event_lines = [];
 	var _event_count = array_length(global.day_events);
 
 	for (var _event_index = 0; _event_index < _event_count; ++_event_index)
@@ -3587,7 +3536,33 @@ function day_event_finish_day()
 				day_event_squad_selection_default_apply(_event);
 			}
 
-			_executed_activation_count += _event.execute();
+			var _event_activation_count = _event.execute();
+			_executed_activation_count += _event_activation_count;
+
+			if (_event_activation_count > 0)
+			{
+				var _event_name = variable_struct_exists(_event, "title")
+					? string(_event.title)
+					: string(_event.event_id);
+
+				if (_event_activation_count > 1)
+				{
+					_event_name += " x" + string(_event_activation_count);
+				}
+
+				array_push(_executed_event_lines, _event_name);
+			}
+		}
+	}
+
+	// Cheat balance sessions record the actual funded events before the night starts.
+	if (global.cheats_enabled && instance_exists(o_game_controller))
+	{
+		var _game_controller = instance_find(o_game_controller, 0);
+
+		if (variable_instance_exists(_game_controller, "balance_log_day_append"))
+		{
+			_game_controller.balance_log_day_append(day_event_current_day_get(), _executed_event_lines);
 		}
 	}
 
@@ -3612,7 +3587,6 @@ function day_event_new_day_reset()
 	// Preserve today's final choices, including rerolls, before removing the cards.
 	day_event_previous_building_selections_store();
 	global.building_construction_count_today = 0;
-	global.cursed_point_construction_count_today = 0;
 	global.day_event_reroll_used_today = false;
 
 	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)

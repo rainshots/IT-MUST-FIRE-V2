@@ -97,9 +97,9 @@ griffith_spawn_knight = function(_spawn_x, _spawn_y)
 	{
 		var _game_controller = instance_find(o_game_controller, 0);
 
-		if (variable_instance_exists(_game_controller, "enemy_night_hp_scale_apply"))
+		if (variable_instance_exists(_game_controller, "enemy_night_balance_scale_apply"))
 		{
-			_game_controller.enemy_night_hp_scale_apply(_knight);
+			_game_controller.enemy_night_balance_scale_apply(_knight);
 		}
 	}
 

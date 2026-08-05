@@ -1622,6 +1622,7 @@ if (variable_global_exists("cannon_projectile_queue")
 				&& _projectile_type != PROJECTILE_TYPE.BUILDING_SHELL);
 		var _projectile_color = COLOR_PROJECTILE_DAMAGE;
 		var _projectile_sprite = noone;
+		var _projectile_squad_unit_sprite = noone;
 		var _circle_radius = projectile_circle_radius;
 
 		if (_projectile_type == PROJECTILE_TYPE.CORRUPTION)
@@ -1640,6 +1641,14 @@ if (variable_global_exists("cannon_projectile_queue")
 		else if (_projectile_type == PROJECTILE_TYPE.CULTIST)
 		{
 			_projectile_color = COLOR_PROJECTILE_CULTIST;
+
+			if (variable_global_exists("cannon_projectile_payload_queue")
+				&& _projectile_index >= 0
+				&& _projectile_index < array_length(global.cannon_projectile_payload_queue))
+			{
+				var _squad_projectile_payload = global.cannon_projectile_payload_queue[_projectile_index];
+				_projectile_squad_unit_sprite = projectile_squad_unit_sprite_get(_squad_projectile_payload);
+			}
 		}
 		else if (_projectile_type == PROJECTILE_TYPE.HEAL)
 		{
@@ -1726,6 +1735,31 @@ if (variable_global_exists("cannon_projectile_queue")
 		{
 			draw_set_color(_projectile_color);
 			draw_circle(_slot_x + (_slot_width * 0.5), _slot_y + 22, _circle_radius, false);
+		}
+
+		// Squad shells place their main combat unit inside the colored projectile circle.
+		if (_projectile_squad_unit_sprite != noone && sprite_exists(_projectile_squad_unit_sprite))
+		{
+			var _unit_sprite_width = max(1, sprite_get_width(_projectile_squad_unit_sprite));
+			var _unit_sprite_height = max(1, sprite_get_height(_projectile_squad_unit_sprite));
+			var _unit_sprite_max_size = max(_unit_sprite_width, _unit_sprite_height);
+			var _unit_icon_size = _circle_radius * projectile_squad_unit_icon_scale;
+			var _unit_icon_scale = _unit_icon_size / _unit_sprite_max_size;
+			var _unit_icon_width = _unit_sprite_width * _unit_icon_scale;
+			var _unit_icon_height = _unit_sprite_height * _unit_icon_scale;
+			var _unit_icon_center_x = _slot_x + (_slot_width * 0.5);
+			var _unit_icon_center_y = _slot_y + 22;
+
+			draw_sprite_stretched_ext(
+				_projectile_squad_unit_sprite,
+				0,
+				_unit_icon_center_x - (_unit_icon_width * 0.5),
+				_unit_icon_center_y - (_unit_icon_height * 0.5),
+				_unit_icon_width,
+				_unit_icon_height,
+				c_white,
+				_projectile_draw_alpha
+			);
 		}
 
 		if (_projectile_stack_count > 1)

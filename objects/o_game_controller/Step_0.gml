@@ -59,6 +59,56 @@ if (night_effect_transition_active)
 	}
 }
 
+// The completion popup is permanent and only allows opening the feedback form.
+if (global.game_completion_popup_active)
+{
+	var _completion_button_rect = game_completion_button_rect_get();
+	var _completion_mouse_x = device_mouse_x_to_gui(0);
+	var _completion_mouse_y = device_mouse_y_to_gui(0);
+	var _completion_button_hovered_now = ui_mouse_is_inside_rect(
+		_completion_mouse_x,
+		_completion_mouse_y,
+		_completion_button_rect.x,
+		_completion_button_rect.y,
+		_completion_button_rect.width,
+		_completion_button_rect.height
+	);
+
+	if (_completion_button_hovered_now
+		&& !game_completion_button_hovered
+		&& variable_global_exists("sound_play_random")
+		&& variable_global_exists("ui_hover_sounds"))
+	{
+		global.sound_play_random(global.ui_hover_sounds, global.sound_priority_ui);
+	}
+
+	game_completion_button_hovered = _completion_button_hovered_now;
+
+	// Ignore the click or key that ended the night until the input is released.
+	if (game_completion_input_blocked)
+	{
+		if (!mouse_check_button(mb_left)
+			&& !keyboard_check(vk_enter)
+			&& !keyboard_check(vk_space))
+		{
+			game_completion_input_blocked = false;
+		}
+	}
+	else if ((_completion_button_hovered_now && mouse_check_button_pressed(mb_left))
+		|| keyboard_check_pressed(vk_enter)
+		|| keyboard_check_pressed(vk_space))
+	{
+		if (variable_global_exists("ui_confirm_sound_play"))
+		{
+			global.ui_confirm_sound_play();
+		}
+
+		url_open(game_completion_feedback_url);
+	}
+
+	exit;
+}
+
 // Blood Moon rewards block lower input until the player acknowledges the arrivals.
 if (global.blood_moon_reward_popup_active)
 {

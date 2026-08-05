@@ -16,22 +16,22 @@ global.game_speed_normal = BALANCE_GAME_SPEED_NORMAL;
 game_set_speed(global.game_speed_normal, gamespeed_fps);
 
 
-// Fixed enemy budget and HP multiplier for each day; later days reuse the final entry.
+// Fixed enemy budget, HP multiplier, and damage multiplier for each day; later days reuse the final entry.
 night_attack_balance_by_day = [
-	{ difficulty_budget: 70, enemy_hp_multiplier: 1 }, // Day 1.
-	{ difficulty_budget: 85,  enemy_hp_multiplier: 1.04 }, // Day 2.
-	{ difficulty_budget: 105, enemy_hp_multiplier: 1.08 }, // Day 3.
-	{ difficulty_budget: 169, enemy_hp_multiplier: 1.12 }, // Day 4: Full Moon.
-	{ difficulty_budget: 160, enemy_hp_multiplier: 1.16 }, // Day 5.
-	{ difficulty_budget: 78, enemy_hp_multiplier: 1.2 }, // Day 6: Griffith.
-	{ difficulty_budget: 235, enemy_hp_multiplier: 1.24 }, // Day 7.
-	{ difficulty_budget: 364, enemy_hp_multiplier: 1.28 }, // Day 8: Full Moon.
-	{ difficulty_budget: 330, enemy_hp_multiplier: 1.32 }, // Day 9.
-	{ difficulty_budget: 330, enemy_hp_multiplier: 1.52 }, // Day 10.
-	{ difficulty_budget: 429, enemy_hp_multiplier: 1.72 }, // Day 11: Full Moon.
-	{ difficulty_budget: 330, enemy_hp_multiplier: 1.92 }, // Day 12.
-	{ difficulty_budget: 132, enemy_hp_multiplier: 2.12 }, // Day 13: Crusader horde boss.
-	{ difficulty_budget: 330, enemy_hp_multiplier: 2.12 }  // Day 14 and later.
+	{ difficulty_budget: 70, enemy_hp_multiplier: 1.1, enemy_damage_multiplier: 1.1 }, // Day 1.
+	{ difficulty_budget: 85, enemy_hp_multiplier: 1.14, enemy_damage_multiplier: 1.15 }, // Day 2.
+	{ difficulty_budget: 105, enemy_hp_multiplier: 1.18, enemy_damage_multiplier: 1.2 }, // Day 3.
+	{ difficulty_budget: 169, enemy_hp_multiplier: 1.22, enemy_damage_multiplier: 1.25 }, // Day 4: Full Moon.
+	{ difficulty_budget: 160, enemy_hp_multiplier: 1.26, enemy_damage_multiplier: 1.3 }, // Day 5.
+	{ difficulty_budget: 78, enemy_hp_multiplier: 1.3, enemy_damage_multiplier: 1 }, // Day 6: Griffith.
+	{ difficulty_budget: 235, enemy_hp_multiplier: 1.34, enemy_damage_multiplier: 1.45 }, // Day 7.
+	{ difficulty_budget: 364, enemy_hp_multiplier: 1.38, enemy_damage_multiplier: 1 }, // Day 8: Full Moon.
+	{ difficulty_budget: 330, enemy_hp_multiplier: 1.52, enemy_damage_multiplier: 1.72 }, // Day 9.
+	{ difficulty_budget: 330, enemy_hp_multiplier: 1.72, enemy_damage_multiplier: 1.95 }, // Day 10.
+	{ difficulty_budget: 429, enemy_hp_multiplier: 2.02, enemy_damage_multiplier: 2.20 }, // Day 11: Full Moon.
+	{ difficulty_budget: 330, enemy_hp_multiplier: 2.22, enemy_damage_multiplier: 2.30 }, // Day 12.
+	{ difficulty_budget: 132, enemy_hp_multiplier: 2.42, enemy_damage_multiplier: 2.55 }, // Day 13: Crusader horde boss.
+	{ difficulty_budget: 330, enemy_hp_multiplier: 2.62, enemy_damage_multiplier: 2.65 }  // Day 14 and later.
 ];
 
 // Q toggles quadruple simulation speed during the night.
@@ -53,6 +53,7 @@ global.night_attack_unit_count = 0;
 global.full_moon_night_active = false;
 global.blood_moon_reward_popup_active = false;
 global.early_upgrade_popup_active = false;
+global.game_completion_popup_active = false;
 global.player_unit_bonelet_resurrection_active = false;
 global.early_upgrade_shell_morning_bonus = array_create(PROJECTILE_TYPE.COUNT, 0);
 global.player_tower_radius_multiplier = 1;
@@ -67,9 +68,8 @@ global.squad_limits = [BALANCE_SQUAD_ARCHDEMON_LIMIT, BALANCE_SQUAD_UNDEAD_LIMIT
 // Archdemons keep the existing combat and cannon lifecycle; regular cultists belong to day events.
 global.event_cultists = array_create(0);
 global.cultist_limit = BALANCE_STARTING_CULTIST_LIMIT;
-// Creating a construction event immediately consumes its corresponding daily allowance.
+// Creating a regular building event immediately consumes its daily allowance.
 global.building_construction_count_today = 0;
-global.cursed_point_construction_count_today = 0;
 global.blood_bath_infernal_regeneration_uses = 0;
 global.blood_bath_warpaint_morning_pending = false;
 global.blood_bath_undying_devotion_pending = false;
@@ -170,6 +170,135 @@ blood_moon_reward_input_blocked = false;
 blood_moon_reward_previous_focus_window = FOCUS_WINDOW.NOONE;
 blood_moon_reward_previous_pause_state = false;
 blood_moon_reward_focus_restore_pending = false;
+
+// The final modal permanently stops the run after the survival objective is completed.
+game_completion_popup_width = 760;
+game_completion_popup_height = 300;
+game_completion_button_width = 340;
+game_completion_button_height = 58;
+game_completion_button_bottom_padding = 30;
+game_completion_button_hovered = false;
+game_completion_input_blocked = false;
+game_completion_popup_was_shown = false;
+game_completion_feedback_url = "https://docs.google.com/forms/d/e/1FAIpQLSfgL-bwMH9ZA8Qg0vJVbVQYc794G50wqBUqDl-JQ_p5rO13bw/viewform";
+
+game_completion_button_rect_get = function()
+{
+	var _popup_x = (display_get_gui_width() - game_completion_popup_width) * 0.5;
+	var _popup_y = (display_get_gui_height() - game_completion_popup_height) * 0.5;
+
+	return {
+		x: _popup_x + ((game_completion_popup_width - game_completion_button_width) * 0.5),
+		y: _popup_y + game_completion_popup_height - game_completion_button_height - game_completion_button_bottom_padding,
+		width: game_completion_button_width,
+		height: game_completion_button_height
+	};
+};
+
+game_completion_popup_show = function()
+{
+	if (game_completion_popup_was_shown)
+	{
+		return false;
+	}
+
+	game_completion_popup_was_shown = true;
+	game_completion_button_hovered = false;
+	game_completion_input_blocked = true;
+	pause_menu_open = false;
+	settings_open = false;
+	debug_menu_open = false;
+	global.game_completion_popup_active = true;
+	global.focus_window = FOCUS_WINDOW.GAME_COMPLETION;
+	global.pause = true;
+	player_pause_active = false;
+	night_fast_forward_set(false);
+	return true;
+};
+
+game_completion_popup_draw = function()
+{
+	var _gui_width = display_get_gui_width();
+	var _gui_height = display_get_gui_height();
+	var _popup_x = (_gui_width - game_completion_popup_width) * 0.5;
+	var _popup_y = (_gui_height - game_completion_popup_height) * 0.5;
+	var _popup_center_x = _popup_x + (game_completion_popup_width * 0.5);
+	var _button_rect = game_completion_button_rect_get();
+	var _title = "Congratulations";
+	var _subtitle = "You’ve completed the task, pontifex! The demons’ favor towards you has grown.";
+
+	// Dim the finished battlefield behind the final message.
+	draw_set_alpha(0.72);
+	draw_set_color(c_black);
+	draw_rectangle(0, 0, _gui_width, _gui_height, false);
+
+	draw_set_alpha(1);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_rectangle(
+		_popup_x,
+		_popup_y,
+		_popup_x + game_completion_popup_width,
+		_popup_y + game_completion_popup_height,
+		false
+	);
+	draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+	draw_rectangle(
+		_popup_x,
+		_popup_y,
+		_popup_x + game_completion_popup_width,
+		_popup_y + game_completion_popup_height,
+		true
+	);
+
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
+	draw_set_color(COLOR_HUD_TEXT);
+
+	if (variable_global_exists("ui_heading_font") && font_exists(global.ui_heading_font))
+	{
+		draw_set_font(global.ui_heading_font);
+	}
+
+	draw_text(_popup_center_x, _popup_y + 58, _title);
+
+	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+	{
+		draw_set_font(global.ui_font);
+	}
+
+	draw_set_valign(fa_top);
+	draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+	draw_text_ext(_popup_center_x, _popup_y + 105, _subtitle, 22, game_completion_popup_width - 100);
+
+	draw_set_valign(fa_middle);
+	draw_set_color(game_completion_button_hovered ? COLOR_STATUS_NEGATIVE_RED : COLOR_HUD_PROJECTILE_SELECTED);
+	draw_rectangle(
+		_button_rect.x,
+		_button_rect.y,
+		_button_rect.x + _button_rect.width,
+		_button_rect.y + _button_rect.height,
+		false
+	);
+	draw_set_color(COLOR_HUD_TEXT);
+	draw_rectangle(
+		_button_rect.x,
+		_button_rect.y,
+		_button_rect.x + _button_rect.width,
+		_button_rect.y + _button_rect.height,
+		true
+	);
+	draw_text(
+		_button_rect.x + (_button_rect.width * 0.5),
+		_button_rect.y + (_button_rect.height * 0.5),
+		"Оставить фидбэк"
+	);
+
+	// Restore the project draw defaults for any later GUI work.
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+};
 
 blood_moon_reward_modal_state_restore = function()
 {
@@ -2570,7 +2699,7 @@ building_tile_columns = 5;
 building_tile_sprite_size = 44;
 building_tile_cost_icon_size = 18;
 building_group_header_height = 18;
-building_group_gap_y = 24;
+building_group_gap_y = 42;
 building_tooltip_width = 310;
 building_tooltip_height = 120;
 building_tooltip_padding = 12;
@@ -3760,6 +3889,216 @@ night_attack_night_index = 1;
 night_attack_plan_exists = false;
 night_attack_directions = [];
 
+// Cheat-only balance logging writes one session file into the game's Local AppData folder.
+balance_log_file_path = "";
+balance_log_has_content = false;
+balance_log_session_start = function()
+{
+	if (!global.cheats_enabled)
+	{
+		return false;
+	}
+
+	var _session_datetime = date_current_datetime();
+	var _day_text = string(date_get_day(_session_datetime));
+	var _month_text = string(date_get_month(_session_datetime));
+	var _hour_text = string(date_get_hour(_session_datetime));
+	var _minute_text = string(date_get_minute(_session_datetime));
+
+	if (string_length(_day_text) < 2)
+	{
+		_day_text = "0" + _day_text;
+	}
+
+	if (string_length(_month_text) < 2)
+	{
+		_month_text = "0" + _month_text;
+	}
+
+	if (string_length(_hour_text) < 2)
+	{
+		_hour_text = "0" + _hour_text;
+	}
+
+	if (string_length(_minute_text) < 2)
+	{
+		_minute_text = "0" + _minute_text;
+	}
+
+	var _file_name = "balance_log_" + _day_text + "_" + _month_text + "_" + _hour_text + _minute_text + ".txt";
+	balance_log_file_path = working_directory + _file_name;
+	balance_log_has_content = false;
+	var _file = file_text_open_write(balance_log_file_path);
+
+	if (_file < 0)
+	{
+		balance_log_file_path = "";
+		return false;
+	}
+
+	file_text_close(_file);
+	return true;
+};
+
+balance_log_day_append = function(_day_number, _event_lines)
+{
+	if (!global.cheats_enabled || balance_log_file_path == "")
+	{
+		return false;
+	}
+
+	var _file = file_text_open_append(balance_log_file_path);
+
+	if (_file < 0)
+	{
+		return false;
+	}
+
+	file_text_write_string(_file, "Day " + string(max(1, floor(_day_number))));
+	file_text_writeln(_file);
+	var _event_count = array_length(_event_lines);
+
+	if (_event_count <= 0)
+	{
+		file_text_write_string(_file, "No events used");
+		file_text_writeln(_file);
+	}
+	else
+	{
+		for (var _event_index = 0; _event_index < _event_count; ++_event_index)
+		{
+			file_text_write_string(_file, string(_event_lines[_event_index]));
+			file_text_writeln(_file);
+		}
+	}
+
+	file_text_close(_file);
+	balance_log_has_content = true;
+	return true;
+};
+
+balance_log_session_start();
+
+// The nightly player HP snapshot is only read by the cheat balance overlay.
+balance_player_hp_snapshot_id = 0;
+balance_player_hp_start_total = 0;
+balance_player_hp_night_snapshot_store = function()
+{
+	if (!global.cheats_enabled)
+	{
+		return;
+	}
+
+	balance_player_hp_snapshot_id++;
+	balance_player_hp_start_total = 0;
+	var _unit_count = instance_number(o_units_parent);
+
+	for (var _unit_index = 0; _unit_index < _unit_count; ++_unit_index)
+	{
+		var _unit = instance_find(o_units_parent, _unit_index);
+
+		if (!instance_exists(_unit)
+			|| _unit.unit_faction != UNIT_FACTION.FRIENDLY
+			|| _unit.hp <= 0
+			|| _unit.max_hp <= 0
+			|| (variable_instance_exists(_unit, "ritual_hell_undeployed") && _unit.ritual_hell_undeployed))
+		{
+			continue;
+		}
+
+		_unit.balance_player_hp_snapshot_id = balance_player_hp_snapshot_id;
+		balance_player_hp_start_total += max(0, _unit.hp);
+	}
+
+	// Day-form Archdemons do not inherit from the combat parent, so include them separately.
+	var _archdemon_count = array_length(global.archdemons);
+
+	for (var _archdemon_index = 0; _archdemon_index < _archdemon_count; ++_archdemon_index)
+	{
+		var _archdemon = global.archdemons[_archdemon_index];
+
+		if (!instance_exists(_archdemon)
+			|| _archdemon.object_index != o_archdemon
+			|| _archdemon.demon_type == DEMON_TYPE.NONE
+			|| _archdemon.hp <= 0
+			|| _archdemon.max_hp <= 0
+			|| (variable_instance_exists(_archdemon, "ritual_hell_undeployed") && _archdemon.ritual_hell_undeployed))
+		{
+			continue;
+		}
+
+		_archdemon.balance_player_hp_snapshot_id = balance_player_hp_snapshot_id;
+		balance_player_hp_start_total += max(0, _archdemon.hp);
+	}
+};
+
+balance_player_hp_percent_get = function()
+{
+	if (balance_player_hp_start_total <= 0)
+	{
+		return 100;
+	}
+
+	var _current_hp_total = 0;
+	var _unit_count = instance_number(o_units_parent);
+
+	for (var _unit_index = 0; _unit_index < _unit_count; ++_unit_index)
+	{
+		var _unit = instance_find(o_units_parent, _unit_index);
+
+		if (instance_exists(_unit)
+			&& _unit.unit_faction == UNIT_FACTION.FRIENDLY
+			&& variable_instance_exists(_unit, "balance_player_hp_snapshot_id")
+			&& _unit.balance_player_hp_snapshot_id == balance_player_hp_snapshot_id)
+		{
+			_current_hp_total += max(0, _unit.hp);
+		}
+	}
+
+	// A still-loaded day-form Archdemon remains part of the same night snapshot.
+	var _archdemon_count = array_length(global.archdemons);
+
+	for (var _archdemon_index = 0; _archdemon_index < _archdemon_count; ++_archdemon_index)
+	{
+		var _archdemon = global.archdemons[_archdemon_index];
+
+		if (instance_exists(_archdemon)
+			&& _archdemon.object_index == o_archdemon
+			&& _archdemon.balance_player_hp_snapshot_id == balance_player_hp_snapshot_id)
+		{
+			_current_hp_total += max(0, _archdemon.hp);
+		}
+	}
+
+	return clamp((_current_hp_total / balance_player_hp_start_total) * 100, 0, 100);
+};
+
+balance_log_night_hp_append = function()
+{
+	if (!global.cheats_enabled
+		|| global.day_phase != DAY_PHASE.NIGHT
+		|| balance_log_file_path == "")
+	{
+		return false;
+	}
+
+	var _file = file_text_open_append(balance_log_file_path);
+
+	if (_file < 0)
+	{
+		return false;
+	}
+
+	var _player_hp_percent = round(balance_player_hp_percent_get());
+	file_text_write_string(_file, "Night player army hp: " + string(_player_hp_percent) + "%");
+	file_text_writeln(_file);
+	// A blank line separates completed day and night blocks.
+	file_text_writeln(_file);
+	file_text_close(_file);
+	balance_log_has_content = true;
+	return true;
+};
+
 
 
 boss_griffith_night_interval = BALANCE_BOSS_GRIFFITH_NIGHT_INTERVAL;
@@ -3821,7 +4160,7 @@ world_position_is_revealed_by_fog = function(_world_x, _world_y)
 	return _fog_alpha <= _fog_of_war.revealed_alpha;
 };
 
-// Taint Compost shots must expand from existing fully corrupted ground.
+// Taint Compost shots must overlap existing visible Taint.
 taint_compost_target_touches_corruption = function(_world_x, _world_y)
 {
 	if (!instance_exists(o_corruption_grid))
@@ -3831,7 +4170,7 @@ taint_compost_target_touches_corruption = function(_world_x, _world_y)
 
 	var _corruption_grid = instance_find(o_corruption_grid, 0);
 
-	if (!variable_instance_exists(_corruption_grid, "circle_has_full_corruption"))
+	if (!variable_instance_exists(_corruption_grid, "circle_touches_corruption"))
 	{
 		return false;
 	}
@@ -3848,7 +4187,7 @@ taint_compost_target_touches_corruption = function(_world_x, _world_y)
 		}
 	}
 
-	return _corruption_grid.circle_has_full_corruption(
+	return _corruption_grid.circle_touches_corruption(
 		_world_x,
 		_world_y,
 		_taint_compost_radius
@@ -4757,57 +5096,11 @@ close_building_events_window = function()
 	global.focus_window = FOCUS_WINDOW.NOONE;
 };
 
-settlement_expansion_is_purchased = function()
-{
-	if (!instance_exists(o_cannon))
-	{
-		return false;
-	}
-
-	var _cannon = instance_find(o_cannon, 0);
-
-	return variable_instance_exists(_cannon, "building_upgrade_levels")
-		&& array_length(_cannon.building_upgrade_levels) > CANNON_UPGRADE.SETTLEMENT_EXPANSION
-		&& _cannon.building_upgrade_levels[CANNON_UPGRADE.SETTLEMENT_EXPANSION] > 0;
-};
-
-building_choice_uses_expansion_limit = function(_choice)
-{
-	return _choice.building_object == o_slaughter_table
-		|| _choice.building_object == o_quarry
-		|| _choice.building_object == o_souls_well
-		|| _choice.building_object == o_shell_factory
-		|| _choice.building_object == o_graveyard2
-		|| _choice.building_object == o_pitlings_pit2;
-};
-
 building_choice_limit_get = function(_choice)
 {
 	if (instance_exists(building_window_foundry))
 	{
 		return 999;
-	}
-
-	if (_choice.building_object == o_goblins_pit)
-	{
-		if (settlement_expansion_is_purchased())
-		{
-			return BALANCE_BUILDING_GOBLINS_PIT_LIMIT;
-		}
-
-		return BALANCE_BUILDING_GOBLINS_PIT_LIMIT_BEFORE_EXPANSION;
-	}
-
-	// One Foundry is placed in the starting settlement; allow another to be constructed.
-	if (_choice.building_object == o_foundry)
-	{
-		return BALANCE_BUILDING_FOUNDRY_LIMIT;
-	}
-
-	if (building_choice_uses_expansion_limit(_choice)
-		&& settlement_expansion_is_purchased())
-	{
-		return BALANCE_BUILDING_RESOURCE_LIMIT_AFTER_EXPANSION;
 	}
 
 	return BALANCE_BUILDING_DEFAULT_LIMIT;
@@ -4820,32 +5113,7 @@ building_choice_count_get = function(_choice)
 		return 0;
 	}
 
-	var _building_count = instance_number(_choice.building_object);
-
-	// Reserved construction sites count toward the same building limit.
-	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
-	{
-		var _event = global.day_events[_event_index];
-
-		if (!is_struct(_event)
-			|| !variable_struct_exists(_event, "actions")
-			|| array_length(_event.actions) <= 0)
-		{
-			continue;
-		}
-
-		var _action = _event.actions[0];
-
-		if (is_struct(_action)
-			&& _action.action_type == "construct_building"
-			&& is_struct(_action.data)
-			&& _action.data.building_object == _choice.building_object)
-		{
-			_building_count++;
-		}
-	}
-
-	return _building_count;
+	return day_event_building_construction_type_count_get(_choice.building_object);
 };
 
 building_choice_can_construct = function(_choice)
@@ -5009,15 +5277,6 @@ building_resource_summary_draw = function(_center_x, _y)
 
 building_choice_costs_get = function(_choice)
 {
-	var _cost_multiplier = 1;
-
-	// Duplicate base buildings cost more, while Foundry shell choices keep their own prices.
-	if (!instance_exists(building_window_foundry)
-		&& building_choice_count_get(_choice) > 0)
-	{
-		_cost_multiplier = 2;
-	}
-
 	var _costs = [];
 
 	if (variable_struct_exists(_choice, "construction_costs"))
@@ -5032,7 +5291,7 @@ building_choice_costs_get = function(_choice)
 				_costs,
 				{
 					resource: _cost_data.resource,
-					cost: _cost_data.cost * _cost_multiplier
+					cost: _cost_data.cost
 				}
 			);
 		}
@@ -5043,7 +5302,7 @@ building_choice_costs_get = function(_choice)
 	return [
 		{
 			resource: RESOURCES.IRON,
-			cost: _choice.iron_cost * _cost_multiplier
+			cost: _choice.iron_cost
 		}
 	];
 };
@@ -5114,19 +5373,9 @@ building_choice_requirement_text_get = function(_choice)
 		return "";
 	}
 
-	if (_choice.building_object == o_goblins_pit
-		&& _limit_max < BALANCE_BUILDING_GOBLINS_PIT_LIMIT)
-	{
-		return "Limit reached.\nBuy Settlement Expansion";
-	}
-
-	if (building_choice_uses_expansion_limit(_choice)
-		&& _limit_max < BALANCE_BUILDING_RESOURCE_LIMIT_AFTER_EXPANSION)
-	{
-		return "Limit reached.\nBuy Settlement Expansion";
-	}
-
-	return "";
+	return instance_number(_choice.building_object) > 0
+		? "Already built"
+		: "Already ordered";
 };
 
 building_upgrade_costs_get = function(_building, _upgrade_index)
@@ -6811,7 +7060,7 @@ shrine_can_spawn_night_attack = function(_shrine)
 
 shrine_objective_update = function()
 {
-	if (global.shrine_objective_complete)
+	if (global.shrine_objective_complete || shrine_objective_required <= 0)
 	{
 		return;
 	}
@@ -7097,6 +7346,11 @@ transform_cultists_to_demons = function()
 		if (variable_instance_exists(_cultist, "adaptive_night_hp_start"))
 		{
 			_demon.adaptive_night_hp_start = _cultist.adaptive_night_hp_start;
+		}
+
+		if (variable_instance_exists(_cultist, "balance_player_hp_snapshot_id"))
+		{
+			_demon.balance_player_hp_snapshot_id = _cultist.balance_player_hp_snapshot_id;
 		}
 
 		if (variable_instance_exists(_cultist, "adaptive_night_damage_taken"))
@@ -7945,6 +8199,11 @@ transform_demons_to_archdemons = function()
 			_cultist.adaptive_night_hp_start = _unit.adaptive_night_hp_start;
 		}
 
+		if (variable_instance_exists(_unit, "balance_player_hp_snapshot_id"))
+		{
+			_cultist.balance_player_hp_snapshot_id = _unit.balance_player_hp_snapshot_id;
+		}
+
 		if (variable_instance_exists(_unit, "adaptive_night_damage_taken"))
 		{
 			_cultist.adaptive_night_damage_taken = _unit.adaptive_night_damage_taken;
@@ -8277,8 +8536,16 @@ open_cultist_levelup = function()
 	return true;
 };
 
-award_archdemon_daily_levels = function()
+award_archdemon_scheduled_levels = function(_day_index)
 {
+	var _completed_day_count = max(0, _day_index - 1);
+	var _level_day_interval = max(1, BALANCE_ARCHDEMON_AUTOMATIC_LEVEL_DAY_INTERVAL);
+
+	if (_completed_day_count <= 0 || _completed_day_count mod _level_day_interval != 0)
+	{
+		return;
+	}
+
 	var _cultist_count = array_length(global.archdemons);
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
@@ -8446,7 +8713,8 @@ night_attack_balance_get = function(_night_index)
 	{
 		return {
 			difficulty_budget: 0,
-			enemy_hp_multiplier: 1
+			enemy_hp_multiplier: 1,
+			enemy_damage_multiplier: 1
 		};
 	}
 
@@ -8471,7 +8739,15 @@ night_attack_balance_debug_draw = function()
 	var _night_balance = night_attack_balance_get(_night_index);
 	var _debug_text = "Night " + string(_night_index)
 		+ " | Difficulty: " + string_format(_night_balance.difficulty_budget, 0, 2)
-		+ " | HP multiplier: x" + string_format(_night_balance.enemy_hp_multiplier, 0, 3);
+		+ " | HP multiplier: x" + string_format(_night_balance.enemy_hp_multiplier, 0, 3)
+		+ " | Damage multiplier: x" + string_format(_night_balance.enemy_damage_multiplier, 0, 3);
+
+	if (global.day_phase == DAY_PHASE.NIGHT)
+	{
+		var _player_hp_percent = round(balance_player_hp_percent_get());
+		_debug_text += " | Player HP: " + string(_player_hp_percent) + "%";
+	}
+
 	var _debug_x = 18;
 	var _debug_y = 18;
 	var _debug_padding = 8;
@@ -8512,6 +8788,7 @@ night_attack_difficulty_debug_log = function(_total_difficulty, _direction_count
 	var _balance_day_count = array_length(night_attack_balance_by_day);
 	var _uses_final_day_balance = _night_index > _balance_day_count;
 	var _enemy_hp_multiplier = enemy_night_hp_multiplier_get();
+	var _enemy_damage_multiplier = enemy_night_damage_multiplier_get();
 
 	var _difficulty_text = "[Night Difficulty] Night " + string(_night_index)
 		+ "\n  Fixed enemy budget: " + string_format(_total_difficulty, 0, 2);
@@ -8536,7 +8813,8 @@ night_attack_difficulty_debug_log = function(_total_difficulty, _direction_count
 		_difficulty_text += "\n  Enemy HP adaptive multiplier: disabled";
 	}
 
-	_difficulty_text += "\n  Enemy HP total multiplier: x" + string_format(_enemy_hp_multiplier, 0, 2);
+	_difficulty_text += "\n  Enemy HP total multiplier: x" + string_format(_enemy_hp_multiplier, 0, 2)
+		+ "\n  Enemy damage multiplier: x" + string_format(_enemy_damage_multiplier, 0, 2);
 
 	show_debug_message(_difficulty_text);
 };
@@ -8781,11 +9059,15 @@ enemy_night_hp_multiplier_get = function()
 	return _night_hp_multiplier;
 };
 
-enemy_night_hp_scale_apply = function(_enemy)
+enemy_night_damage_multiplier_get = function()
 {
-	if (!instance_exists(_enemy)
-		|| !variable_instance_exists(_enemy, "max_hp")
-		|| !variable_instance_exists(_enemy, "hp"))
+	var _night_balance = night_attack_balance_get(night_attack_night_index);
+	return _night_balance.enemy_damage_multiplier;
+};
+
+enemy_night_balance_scale_apply = function(_enemy)
+{
+	if (!instance_exists(_enemy))
 	{
 		return;
 	}
@@ -8810,23 +9092,62 @@ enemy_night_hp_scale_apply = function(_enemy)
 	}
 
 	var _scale_index = max(1, night_attack_night_index);
+	var _has_hp = variable_instance_exists(_enemy, "max_hp")
+		&& variable_instance_exists(_enemy, "hp");
+	var _hp_scale_is_pending = _has_hp
+		&& (!variable_instance_exists(_enemy, "night_hp_scale_index_applied")
+			|| _enemy.night_hp_scale_index_applied < _scale_index);
 
-	if (variable_instance_exists(_enemy, "night_hp_scale_index_applied")
-		&& _enemy.night_hp_scale_index_applied >= _scale_index)
+	// Preserve the current HP share when the enemy receives this night's HP multiplier.
+	if (_hp_scale_is_pending)
+	{
+		var _hp_share = _enemy.hp / max(1, _enemy.max_hp);
+
+		if (!variable_instance_exists(_enemy, "base_max_hp"))
+		{
+			_enemy.base_max_hp = _enemy.max_hp;
+		}
+
+		_enemy.max_hp = _enemy.base_max_hp * enemy_night_hp_multiplier_get();
+		_enemy.hp = clamp(_enemy.max_hp * _hp_share, 0, _enemy.max_hp);
+		_enemy.night_hp_scale_index_applied = _scale_index;
+	}
+
+	var _has_damage = variable_instance_exists(_enemy, "damage")
+		|| variable_instance_exists(_enemy, "magic_damage");
+	var _damage_scale_is_pending = _has_damage
+		&& (!variable_instance_exists(_enemy, "night_damage_scale_index_applied")
+			|| _enemy.night_damage_scale_index_applied < _scale_index);
+
+	if (!_damage_scale_is_pending)
 	{
 		return;
 	}
 
-	var _hp_share = _enemy.hp / max(1, _enemy.max_hp);
+	// Scale both physical and magical damage from their original values.
+	var _damage_multiplier = enemy_night_damage_multiplier_get();
 
-	if (!variable_instance_exists(_enemy, "base_max_hp"))
+	if (variable_instance_exists(_enemy, "damage"))
 	{
-		_enemy.base_max_hp = _enemy.max_hp;
+		if (!variable_instance_exists(_enemy, "night_base_damage"))
+		{
+			_enemy.night_base_damage = _enemy.damage;
+		}
+
+		_enemy.damage = _enemy.night_base_damage * _damage_multiplier;
 	}
 
-	_enemy.max_hp = _enemy.base_max_hp * enemy_night_hp_multiplier_get();
-	_enemy.hp = clamp(_enemy.max_hp * _hp_share, 0, _enemy.max_hp);
-	_enemy.night_hp_scale_index_applied = _scale_index;
+	if (variable_instance_exists(_enemy, "magic_damage"))
+	{
+		if (!variable_instance_exists(_enemy, "night_base_magic_damage"))
+		{
+			_enemy.night_base_magic_damage = _enemy.magic_damage;
+		}
+
+		_enemy.magic_damage = _enemy.night_base_magic_damage * _damage_multiplier;
+	}
+
+	_enemy.night_damage_scale_index_applied = _scale_index;
 };
 
 combat_unit_matchup_get = function(_unit_object)
@@ -9742,6 +10063,11 @@ night_attack_wave_count_get = function(_direction_difficulty, _enemy_objects)
 		_wave_count = max(1, BALANCE_NIGHT_ATTACK_LOW_UNIT_WAVE_COUNT);
 	}
 
+	// Keep each wave large enough to provide at least one full Difficulty-based batch.
+	var _batch_difficulty = max(0.01, BALANCE_NIGHT_ATTACK_BATCH_DIFFICULTY);
+	var _batch_wave_count_max = max(1, floor(_direction_difficulty / _batch_difficulty));
+	_wave_count = min(_wave_count, _batch_wave_count_max);
+
 	return _wave_count;
 };
 
@@ -9827,7 +10153,7 @@ night_attack_enemy_difficulties_spend = function(_enemy_objects, _enemy_difficul
 	return _enemy_difficulties;
 };
 
-// Night attacks come from the direction of a random active shrine with a small angle drift.
+// Night attacks prefer an active shrine and fall back to a random direction when none exist.
 night_attack_shrine_source_roll = function()
 {
 	var _shrine_count = array_length(shrine_instances);
@@ -9894,11 +10220,6 @@ night_attack_plan_create = function()
 	for (var _roll_index = 0; _roll_index < _direction_count; ++_roll_index)
 	{
 		var _source_shrine = night_attack_shrine_source_roll();
-
-		if (!instance_exists(_source_shrine))
-		{
-			continue;
-		}
 
 		array_push(
 			_directions,
@@ -9990,7 +10311,6 @@ night_attack_plan_create = function()
 				wave_index: 0,
 				wave_timer: 0,
 				spawn_timer: 0,
-				spawn_limit_wait_timer: 0,
 				current_wave_units: [],
 				current_wave_spawn_index: 0
 			}
@@ -10043,14 +10363,13 @@ night_attack_direction_wave_start = function(_direction_index)
 		night_attack_array_sum(_direction_data.remaining_enemy_difficulties)
 	);
 	_direction_data.current_wave_spawn_index = 0;
-	_direction_data.spawn_timer = 0;
-	_direction_data.spawn_limit_wait_timer = 0;
 	night_attack_directions[_direction_index] = _direction_data;
 };
 
-night_attack_direction_alive_enemy_count_get = function(_direction_index)
+night_attack_direction_alive_state_get = function(_direction_index)
 {
-	var _alive_count = 0;
+	var _alive_unit_count = 0;
+	var _alive_difficulty = 0;
 	var _enemy_count = instance_number(o_enemy_units);
 
 	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
@@ -10065,11 +10384,45 @@ night_attack_direction_alive_enemy_count_get = function(_direction_index)
 			&& variable_instance_exists(_enemy, "night_attack_direction_index")
 			&& _enemy.night_attack_direction_index == _direction_index)
 		{
-			_alive_count++;
+			_alive_unit_count++;
+			_alive_difficulty += night_attack_enemy_difficulty_get(_enemy.object_index);
 		}
 	}
 
-	return _alive_count;
+	return {
+		unit_count: _alive_unit_count,
+		difficulty: _alive_difficulty
+	};
+};
+
+night_attack_direction_next_batch_get = function(_direction_data)
+{
+	var _wave_unit_count = array_length(_direction_data.current_wave_units);
+	var _batch_unit_count = 0;
+	var _batch_difficulty = 0;
+	var _batch_difficulty_target = max(0, BALANCE_NIGHT_ATTACK_BATCH_DIFFICULTY);
+	var _batch_unit_count_max = max(1, BALANCE_NIGHT_ATTACK_BATCH_UNIT_COUNT_MAX);
+
+	// Add complete units until the batch reaches its Difficulty target.
+	for (var _wave_unit_index = _direction_data.current_wave_spawn_index;
+		_wave_unit_index < _wave_unit_count && _batch_unit_count < _batch_unit_count_max;
+		++_wave_unit_index)
+	{
+		var _enemy_object = _direction_data.current_wave_units[_wave_unit_index];
+
+		_batch_unit_count++;
+		_batch_difficulty += night_attack_enemy_difficulty_get(_enemy_object);
+
+		if (_batch_difficulty >= _batch_difficulty_target)
+		{
+			break;
+		}
+	}
+
+	return {
+		unit_count: _batch_unit_count,
+		difficulty: _batch_difficulty
+	};
 };
 
 night_attack_enemy_spawn = function(_direction_index, _direction_data, _enemy_object)
@@ -10100,7 +10453,7 @@ night_attack_enemy_spawn = function(_direction_index, _direction_data, _enemy_ob
 	_enemy.night_attack_direction_index = _direction_index;
 	_enemy.owner_garnizon = noone;
 	_enemy.guard_target = noone;
-	enemy_night_hp_scale_apply(_enemy);
+	enemy_night_balance_scale_apply(_enemy);
 	global.night_attack_unit_count++;
 };
 
@@ -10211,7 +10564,7 @@ boss_enemy_spawn = function(
 		_enemy.hp = _enemy.max_hp * _hp_share;
 	}
 
-	enemy_night_hp_scale_apply(_enemy);
+	enemy_night_balance_scale_apply(_enemy);
 	global.night_attack_unit_count++;
 
 	return _enemy;
@@ -10238,7 +10591,7 @@ boss_griffith_spawn_for_night = function()
 	_boss.is_night_attack_unit = true;
 	_boss.owner_garnizon = noone;
 	_boss.guard_target = noone;
-	enemy_night_hp_scale_apply(_boss);
+	enemy_night_balance_scale_apply(_boss);
 	global.night_attack_unit_count++;
 
 	var _entourage_archer_count = round(
@@ -10332,6 +10685,7 @@ night_attack_spawning_update = function()
 		var _direction_data = night_attack_directions[_direction_index];
 
 		if (variable_struct_exists(_direction_data, "source_shrine")
+			&& _direction_data.source_shrine != noone
 			&& !shrine_can_spawn_night_attack(_direction_data.source_shrine))
 		{
 			_direction_data.wave_index = _direction_data.wave_count;
@@ -10349,6 +10703,7 @@ night_attack_spawning_update = function()
 		if (_direction_data.wave_timer > 0)
 		{
 			_direction_data.wave_timer--;
+			_direction_data.spawn_timer = max(_direction_data.spawn_timer - 1, 0);
 			night_attack_directions[_direction_index] = _direction_data;
 			continue;
 		}
@@ -10367,36 +10722,26 @@ night_attack_spawning_update = function()
 		}
 
 		var _wave_unit_count = array_length(_direction_data.current_wave_units);
-		var _alive_enemy_count = night_attack_direction_alive_enemy_count_get(_direction_index);
-		var _soft_limit = BALANCE_NIGHT_ATTACK_DIRECTION_ALIVE_ENEMY_LIMIT;
-		var _hard_limit = max(_soft_limit, BALANCE_NIGHT_ATTACK_DIRECTION_HARD_ALIVE_ENEMY_LIMIT);
-		var _spawn_slot_count = max(0, _soft_limit - _alive_enemy_count);
-		var _spawn_limit_check_time = BALANCE_NIGHT_ATTACK_UNIT_SPAWN_INTERVAL * room_speed;
-		var _max_limit_wait_time = BALANCE_NIGHT_ATTACK_MAX_LIMIT_WAIT_TIME * room_speed;
-		var _limit_wait_is_over = _direction_data.spawn_limit_wait_timer >= _max_limit_wait_time;
-		var _batch_spawn_count = 0;
+		var _next_batch = night_attack_direction_next_batch_get(_direction_data);
+		var _alive_state = night_attack_direction_alive_state_get(_direction_index);
+		var _alive_difficulty_limit = max(1, BALANCE_NIGHT_ATTACK_ALIVE_DIFFICULTY_LIMIT);
+		var _alive_unit_count_limit = max(1, BALANCE_NIGHT_ATTACK_ALIVE_UNIT_COUNT_LIMIT);
+		var _batch_fits_difficulty_limit = _alive_state.difficulty + _next_batch.difficulty
+			<= _alive_difficulty_limit;
+		var _batch_fits_unit_count_limit = _alive_state.unit_count + _next_batch.unit_count
+			<= _alive_unit_count_limit;
+		var _direction_is_empty = _alive_state.unit_count <= 0;
 
-		if (_alive_enemy_count < _soft_limit)
+		// Wait until the complete next batch fits instead of releasing single-unit trickles.
+		if (!_direction_is_empty
+			&& (!_batch_fits_difficulty_limit || !_batch_fits_unit_count_limit))
 		{
-			_direction_data.spawn_limit_wait_timer = 0;
-			_batch_spawn_count = min(BALANCE_NIGHT_ATTACK_SPAWN_BATCH_COUNT, _spawn_slot_count);
-		}
-		else if (_alive_enemy_count < _hard_limit || _limit_wait_is_over)
-		{
-			_direction_data.spawn_limit_wait_timer = 0;
-			_batch_spawn_count = BALANCE_NIGHT_ATTACK_SOFT_LIMIT_BATCH_COUNT;
-		}
-		else
-		{
-			_direction_data.spawn_limit_wait_timer += _spawn_limit_check_time;
-			_direction_data.spawn_timer = BALANCE_NIGHT_ATTACK_UNIT_SPAWN_INTERVAL * room_speed;
+			_direction_data.spawn_timer = BALANCE_NIGHT_ATTACK_BATCH_LIMIT_RECHECK_INTERVAL * room_speed;
 			night_attack_directions[_direction_index] = _direction_data;
 			continue;
 		}
 
-		_batch_spawn_count = max(0, _batch_spawn_count);
-
-		for (var _batch_index = 0; _batch_index < _batch_spawn_count; ++_batch_index)
+		for (var _batch_index = 0; _batch_index < _next_batch.unit_count; ++_batch_index)
 		{
 			if (_direction_data.current_wave_spawn_index >= _wave_unit_count)
 			{
@@ -10421,7 +10766,7 @@ night_attack_spawning_update = function()
 			}
 		}
 
-		_direction_data.spawn_timer = BALANCE_NIGHT_ATTACK_UNIT_SPAWN_INTERVAL * room_speed;
+		_direction_data.spawn_timer = BALANCE_NIGHT_ATTACK_BATCH_INTERVAL * room_speed;
 		night_attack_directions[_direction_index] = _direction_data;
 	}
 };
@@ -10754,7 +11099,7 @@ start_night_phase = function()
 			_enemy.is_night_attack_unit = true;
 			_enemy.guard_target = noone;
 			_enemy.owner_garnizon = noone;
-			enemy_night_hp_scale_apply(_enemy);
+			enemy_night_balance_scale_apply(_enemy);
 		}
 	}
 
@@ -10764,7 +11109,7 @@ start_night_phase = function()
 	{
 		var _existing_enemy = instance_find(o_enemy_units, _existing_enemy_index);
 
-		enemy_night_hp_scale_apply(_existing_enemy);
+		enemy_night_balance_scale_apply(_existing_enemy);
 	}
 
 	if (boss_griffith_pending_next_night)
@@ -10778,11 +11123,26 @@ start_night_phase = function()
 			boss_griffith_spawn_for_night();
 		}
 	}
+
+	// Store the final player combat roster after all night-start health changes.
+	balance_player_hp_night_snapshot_store();
 };
 
 start_day_phase = function()
 {
 	clear_dragged_unit();
+
+	// Completing the thirteenth night ends the prototype before another day can begin.
+	if (night_attack_night_index == BALANCE_SURVIVAL_OBJECTIVE_DAYS
+		&& !game_completion_popup_was_shown)
+	{
+		balance_log_night_hp_append();
+		game_completion_popup_show();
+		return;
+	}
+
+	// Record the surviving player army before morning cleanup and recovery.
+	balance_log_night_hp_append();
 	var _previous_night_was_full_moon = global.full_moon_night_active;
 	var _blood_moon_reward_cultists = [];
 
@@ -10941,7 +11301,7 @@ start_day_phase = function()
 		}
 	}
 
-	award_archdemon_daily_levels();
+	award_archdemon_scheduled_levels(night_attack_night_index);
 	award_day_cultists();
 	night_attack_plan_create();
 

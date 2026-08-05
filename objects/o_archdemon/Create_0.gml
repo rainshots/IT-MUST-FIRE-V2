@@ -104,6 +104,8 @@ has_warlock_demonic_infusion = false;
 max_hp = 10;
 hp = max_hp;
 last_heal_volley_id = -1;
+// Cheat balance UI carries this nightly HP snapshot marker into demon form.
+balance_player_hp_snapshot_id = 0;
 
 // Stamina is spent while working and recovers every morning.
 stamina_max = BALANCE_CULTIST_STAMINA_MAX;

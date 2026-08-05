@@ -432,12 +432,10 @@ cleanse_circle = function(_center_x, _center_y, _radius, _cleanse_amount)
 	}
 };
 
-// Checks whether a world-space circle touches at least one fully corrupted cell.
-circle_has_full_corruption = function(_center_x, _center_y, _radius)
+// Checks whether a world-space circle overlaps at least one visibly tainted cell.
+circle_touches_corruption = function(_center_x, _center_y, _radius)
 {
 	var _safe_radius = max(_radius, 1);
-	var _center_cell_x = clamp(floor(_center_x / cell_size), 0, grid_width - 1);
-	var _center_cell_y = clamp(floor(_center_y / cell_size), 0, grid_height - 1);
 	var _left_cell = clamp(floor((_center_x - _safe_radius) / cell_size), 0, grid_width - 1);
 	var _right_cell = clamp(floor((_center_x + _safe_radius) / cell_size), 0, grid_width - 1);
 	var _top_cell = clamp(floor((_center_y - _safe_radius) / cell_size), 0, grid_height - 1);
@@ -447,20 +445,25 @@ circle_has_full_corruption = function(_center_x, _center_y, _radius)
 	{
 		for (var _cell_y = _top_cell; _cell_y <= _bottom_cell; ++_cell_y)
 		{
-			var _cell_center_x = (_cell_x * cell_size) + (cell_size * 0.5);
-			var _cell_center_y = (_cell_y * cell_size) + (cell_size * 0.5);
-			var _cell_distance = point_distance(_center_x, _center_y, _cell_center_x, _cell_center_y);
-			var _is_center_cell = (_cell_x == _center_cell_x && _cell_y == _center_cell_y);
+			var _corruption = ds_grid_get(corruption_grid, _cell_x, _cell_y);
+			var _saint = ds_grid_get(saint_grid, _cell_x, _cell_y);
 
-			if (_cell_distance <= _safe_radius || _is_center_cell)
+			if (_corruption < minimum_draw_corruption || _saint >= minimum_draw_corruption)
 			{
-				var _corruption = ds_grid_get(corruption_grid, _cell_x, _cell_y);
-				var _saint = ds_grid_get(saint_grid, _cell_x, _cell_y);
+				continue;
+			}
 
-				if (_saint <= 0 && _corruption >= full_corruption_value)
-				{
-					return true;
-				}
+			// Test the circle against the nearest point of the cell rectangle.
+			var _cell_left = _cell_x * cell_size;
+			var _cell_top = _cell_y * cell_size;
+			var _cell_right = _cell_left + cell_size;
+			var _cell_bottom = _cell_top + cell_size;
+			var _nearest_x = clamp(_center_x, _cell_left, _cell_right);
+			var _nearest_y = clamp(_center_y, _cell_top, _cell_bottom);
+
+			if (point_distance(_center_x, _center_y, _nearest_x, _nearest_y) <= _safe_radius)
+			{
+				return true;
 			}
 		}
 	}

@@ -571,6 +571,7 @@ uncaptured_sprite_index = noone;
 captured_sprite_index = noone;
 capture_check_interval = BALANCE_TOWER_CAPTURE_CHECK_INTERVAL;
 capture_check_timer = irandom(capture_check_interval - 1);
+capture_ground_radius = 0;
 
 // Default projectile reactions. Children override these methods.
 on_damage_projectile_hit = function()
@@ -667,7 +668,8 @@ ground_cell_corruption_get = function(_world_x, _world_y)
 	}
 
 	if (variable_instance_exists(_corruption_grid_object, "saint_grid")
-		&& ds_grid_get(_corruption_grid_object.saint_grid, _cell_x, _cell_y) > 0)
+		&& ds_grid_get(_corruption_grid_object.saint_grid, _cell_x, _cell_y)
+			>= _corruption_grid_object.minimum_draw_corruption)
 	{
 		return 0;
 	}
@@ -675,7 +677,7 @@ ground_cell_corruption_get = function(_world_x, _world_y)
 	return ds_grid_get(_corruption_grid_object.corruption_grid, _cell_x, _cell_y);
 };
 
-ground_cell_has_full_corruption = function(_world_x, _world_y)
+ground_area_is_tainted = function(_world_x, _world_y, _radius = 0)
 {
 	if (!instance_exists(o_corruption_grid))
 	{
@@ -683,8 +685,15 @@ ground_cell_has_full_corruption = function(_world_x, _world_y)
 	}
 
 	var _corruption_grid_object = instance_find(o_corruption_grid, 0);
+
+	if (_radius > 0
+		&& variable_instance_exists(_corruption_grid_object, "circle_touches_corruption"))
+	{
+		return _corruption_grid_object.circle_touches_corruption(_world_x, _world_y, _radius);
+	}
+
 	var _corruption = ground_cell_corruption_get(_world_x, _world_y);
-	return _corruption >= _corruption_grid_object.full_corruption_value;
+	return _corruption >= _corruption_grid_object.minimum_draw_corruption;
 };
 
 tower_capture_update = function()
@@ -702,9 +711,10 @@ tower_capture_update = function()
 	}
 
 	capture_check_timer = 0;
-	corruption = ground_cell_corruption_get(x, y) * max_corruption;
+	var _ground_is_tainted = ground_area_is_tainted(x, y, capture_ground_radius);
+	corruption = _ground_is_tainted ? max_corruption : 0;
 
-	if (!ground_cell_has_full_corruption(x, y))
+	if (!_ground_is_tainted)
 	{
 		return;
 	}

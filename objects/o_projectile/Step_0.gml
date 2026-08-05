@@ -728,6 +728,11 @@ if (_flight_progress >= 1)
 				_demon.adaptive_night_hp_start = _cultist.adaptive_night_hp_start;
 			}
 
+			if (variable_instance_exists(_cultist, "balance_player_hp_snapshot_id"))
+			{
+				_demon.balance_player_hp_snapshot_id = _cultist.balance_player_hp_snapshot_id;
+			}
+
 			if (variable_instance_exists(_cultist, "stamina_amount"))
 			{
 				_demon.stamina_amount = _cultist.stamina_amount;

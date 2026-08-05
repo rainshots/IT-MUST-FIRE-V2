@@ -77,6 +77,8 @@ health_bar_world_draw_forced = false;
 is_night_attack_unit = false;
 holy_tower_reinforcement_waits_for_night = false;
 foundry_permanent_bonuses_pending = true;
+// Cheat balance UI uses this snapshot marker to keep dead units in the nightly HP total.
+balance_player_hp_snapshot_id = 0;
 
 // Unit separation keeps units from stacking into one point.
 separation_radius = BALANCE_UNIT_SEPARATION_RADIUS;

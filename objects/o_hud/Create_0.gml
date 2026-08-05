@@ -825,6 +825,7 @@ projectile_payload_offset_y = 56;
 projectile_payload_icon_size = 14;
 projectile_payload_icon_gap = 4;
 projectile_payload_count_gap = 2;
+projectile_squad_unit_icon_scale = 1.55;
 projectile_aim_prompt_gap = 6;
 projectile_key_prompt_prefix = "Press ";
 projectile_day_alpha = 0.45;
@@ -832,6 +833,44 @@ projectile_description_width = 330;
 projectile_description_height = 58;
 projectile_description_gap = 8;
 projectile_description_line_separation = 16;
+
+projectile_squad_unit_sprite_get = function(_payload)
+{
+	if (!instance_exists(_payload))
+	{
+		return noone;
+	}
+
+	// Archdemon shells show their selected combat form instead of the daytime body.
+	if (variable_instance_exists(_payload, "squad")
+		&& is_struct(_payload.squad)
+		&& _payload.squad.squad_type == SQUAD_TYPE.ARCHDEMON
+		&& variable_instance_exists(_payload, "demon_type")
+		&& _payload.demon_type != DEMON_TYPE.NONE)
+	{
+		var _demon_object = cultist_demon_object_get(_payload.demon_type);
+
+		if (_demon_object != noone && object_exists(_demon_object))
+		{
+			return object_get_sprite(_demon_object);
+		}
+	}
+
+	// Regular squad shells use the squad's main unit type, ignoring support additions.
+	if (variable_instance_exists(_payload, "squad")
+		&& is_struct(_payload.squad)
+		&& variable_struct_exists(_payload.squad, "primary_unit_object"))
+	{
+		var _primary_unit_object = _payload.squad.primary_unit_object;
+
+		if (_primary_unit_object != noone && object_exists(_primary_unit_object))
+		{
+			return object_get_sprite(_primary_unit_object);
+		}
+	}
+
+	return sprite_exists(_payload.sprite_index) ? _payload.sprite_index : noone;
+};
 
 projectile_names = array_create(PROJECTILE_TYPE.COUNT, "");
 projectile_names[PROJECTILE_TYPE.DAMAGE] = "DAMAGE";

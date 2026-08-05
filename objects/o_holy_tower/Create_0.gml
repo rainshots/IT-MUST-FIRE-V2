@@ -96,9 +96,9 @@ holy_tower_enemy_spawn = function(_enemy_object)
 		{
 			var _game_controller = instance_find(o_game_controller, 0);
 
-			if (variable_instance_exists(_game_controller, "enemy_night_hp_scale_apply"))
+			if (variable_instance_exists(_game_controller, "enemy_night_balance_scale_apply"))
 			{
-				_game_controller.enemy_night_hp_scale_apply(_enemy);
+				_game_controller.enemy_night_balance_scale_apply(_enemy);
 			}
 		}
 	}
@@ -401,8 +401,8 @@ holy_tower_is_revealed_by_fog = function()
 		var _corruption_grid = instance_find(o_corruption_grid, 0);
 		var _taint_reveal_radius = _fog_of_war.reveal_radius_in_cells * _fog_of_war.cell_size;
 
-		if (variable_instance_exists(_corruption_grid, "circle_has_full_corruption")
-			&& _corruption_grid.circle_has_full_corruption(x, y, _taint_reveal_radius))
+		if (variable_instance_exists(_corruption_grid, "circle_touches_corruption")
+			&& _corruption_grid.circle_touches_corruption(x, y, _taint_reveal_radius))
 		{
 			return true;
 		}

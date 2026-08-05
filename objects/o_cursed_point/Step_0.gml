@@ -24,18 +24,22 @@ if (structure_selection_open)
 		var _mouse_y = device_mouse_y_to_gui(0);
 		var _hovered_choice = cursed_point_structure_choice_hover_index_get(_mouse_x, _mouse_y);
 
-		if (day_event_cursed_point_construction_can_start()
-			&& _hovered_choice >= 0
+		if (_hovered_choice >= 0
 			&& _hovered_choice < array_length(structure_choice_options))
 		{
-			cursed_point_structure_build(structure_choice_options[_hovered_choice]);
+			var _choice = structure_choice_options[_hovered_choice];
+
+			if (cursed_point_structure_choice_can_construct(_choice))
+			{
+				cursed_point_structure_build(_choice);
+			}
 		}
 	}
 
 	exit;
 }
 
-// Check whether the ground under the cursed point has fully corrupted.
+// Check whether visible Taint overlaps the ground under the cursed point.
 tower_capture_update();
 
 // The summon button stays interactive during lightweight gameplay pause.

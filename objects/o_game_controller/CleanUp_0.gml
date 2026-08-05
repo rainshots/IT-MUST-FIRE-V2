@@ -1,3 +1,13 @@
+// Do not leave an empty balance file when a cheat session ends before its first completed day.
+if (variable_instance_exists(id, "balance_log_file_path")
+	&& variable_instance_exists(id, "balance_log_has_content")
+	&& balance_log_file_path != ""
+	&& !balance_log_has_content
+	&& file_exists(balance_log_file_path))
+{
+	file_delete(balance_log_file_path);
+}
+
 // Destroy shared particle resources created by the game controller.
 if (variable_global_exists("particle_type_blood") && global.particle_type_blood != noone)
 {

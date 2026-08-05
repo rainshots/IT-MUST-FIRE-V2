@@ -3,6 +3,7 @@ event_inherited();
 
 tower_capture_enabled = true;
 is_captured = false;
+capture_ground_radius = BALANCE_GRID_CELL_SIZE * 0.5;
 uncaptured_sprite_index = s_building_slot_empty;
 captured_sprite_index = s_building_slot;
 sprite_index = uncaptured_sprite_index;
@@ -139,6 +140,12 @@ cursed_point_resource_color_get = function(_resource)
 cursed_point_structure_choice_can_pay = function(_choice)
 {
 	return true;
+};
+
+cursed_point_structure_choice_can_construct = function(_choice)
+{
+	return is_struct(_choice)
+		&& variable_struct_exists(_choice, "building_object");
 };
 
 cursed_point_structure_choice_costs_pay = function(_choice)
@@ -365,9 +372,10 @@ cursed_point_deactivate = function()
 
 cursed_point_ground_state_update = function()
 {
-	corruption = ground_cell_corruption_get(x, y) * max_corruption;
+	var _ground_is_tainted = ground_area_is_tainted(x, y, capture_ground_radius);
+	corruption = _ground_is_tainted ? max_corruption : 0;
 
-	if (is_captured && corruption <= 0)
+	if (is_captured && !_ground_is_tainted)
 	{
 		cursed_point_deactivate();
 	}
@@ -438,14 +446,19 @@ cursed_point_structure_choice_hover_key_get = function(_mouse_x, _mouse_y)
 
 cursed_point_structure_build = function(_choice, _close_selection = true)
 {
-	if (global.day_phase != DAY_PHASE.DAY
-		|| !day_event_cursed_point_construction_can_start())
+	if (global.day_phase != DAY_PHASE.DAY)
 	{
 		if (_close_selection)
 		{
 			cursed_point_structure_selection_close();
 		}
 
+		return false;
+	}
+
+	// Keep the window open if the selected Cursed Point option is invalid.
+	if (!cursed_point_structure_choice_can_construct(_choice))
+	{
 		return false;
 	}
 

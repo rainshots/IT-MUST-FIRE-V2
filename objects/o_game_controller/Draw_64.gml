@@ -1,3 +1,10 @@
+// The final completion message is the only visible GUI layer after the last night.
+if (global.game_completion_popup_active)
+{
+	game_completion_popup_draw();
+	exit;
+}
+
 // The Blood Moon reward is the only visible GUI layer until it is acknowledged.
 if (global.blood_moon_reward_popup_active)
 {
@@ -94,7 +101,7 @@ if ((global.day_phase == DAY_PHASE.DAY || _night_warning_active)
 		var _arrow_scale = BALANCE_NIGHT_ATTACK_WARNING_ARROW_LENGTH / _arrow_sprite_width;
 		var _arrow_y_scale = _arrow_scale * 0.55;
 
-		draw_sprite_ext(s_attack_arrow, 0, _inner_x, _inner_y, _arrow_scale, _arrow_y_scale, _arrow_angle, c_white, 0.9 * _warning_alpha);
+		draw_sprite_ext(s_attack_arrow, 0, _inner_x, _inner_y, _arrow_scale, _arrow_y_scale, _arrow_angle, c_white, BALANCE_ATTACK_ARROW_ALPHA * _warning_alpha);
 
 		var _enemy_objects = _direction_data.enemy_objects;
 		var _enemy_count = array_length(_enemy_objects);
@@ -174,7 +181,7 @@ if ((global.day_phase == DAY_PHASE.DAY || _night_warning_active)
 			_boss_arrow_y_scale,
 			_boss_arrow_angle,
 			COLOR_STATUS_NEGATIVE_RED,
-			0.95
+			BALANCE_ATTACK_ARROW_ALPHA
 		);
 
 		for (var _boss_enemy_index = 0; _boss_enemy_index < _boss_enemy_count; ++_boss_enemy_index)
@@ -825,7 +832,7 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 		var _arrow_x = _panel_x + (220 * _design_scale);
 		var _arrow_y = _panel_y + (374 * _design_scale);
 
-		draw_sprite_ext(s_attack_arrow, 0, _arrow_x, _arrow_y, _arrow_scale, _arrow_scale * 0.72, 0, COLOR_CULTIST_SELECTION_BODY, 1);
+		draw_sprite_ext(s_attack_arrow, 0, _arrow_x, _arrow_y, _arrow_scale, _arrow_scale * 0.72, 0, COLOR_CULTIST_SELECTION_BODY, BALANCE_ATTACK_ARROW_ALPHA);
 	}
 
 	var _preview_object = cultist_demon_object_get(cultist_selected_demon_type);
@@ -1428,7 +1435,7 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 		var _arrow_x = _preview_x - 70;
 		var _arrow_scale = 72 / _arrow_sprite_width;
 
-		draw_sprite_ext(s_attack_arrow, 0, _arrow_x, _preview_y - 50, _arrow_scale, _arrow_scale * 0.42, 0, c_white, 0.92);
+		draw_sprite_ext(s_attack_arrow, 0, _arrow_x, _preview_y - 50, _arrow_scale, _arrow_scale * 0.42, 0, c_white, BALANCE_ATTACK_ARROW_ALPHA);
 	}
 
 	var _ability_button_x = _panel_x + _panel_width - 300;
@@ -2557,6 +2564,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 		var _sprite_y = _tile_y + 30;
 		var _name_y = _tile_y + 68;
 		var _cost_y = _tile_y + 94;
+		var _built_count = _is_foundry_window ? 0 : instance_number(_choice.building_object);
 		var _limit_count = 0;
 		var _limit_max = 0;
 		var _limit_reached = false;
@@ -2719,6 +2727,15 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 			draw_set_halign(fa_center);
 			draw_set_color(_choice_is_blocked ? COLOR_PROJECTILE_DAMAGE : COLOR_HUD_TEXT);
 			draw_text(_sprite_x, _cost_y, _construction_cultist_cost_text);
+
+			// Show only completed structures, not reserved construction events.
+			draw_set_valign(fa_top);
+			draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+			draw_text(
+				_sprite_x,
+				_tile_y + building_tile_height + 4,
+				"Built: " + string(_built_count)
+			);
 		}
 
 		if (_requirement_text != "")
@@ -2727,7 +2744,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 			draw_set_valign(fa_top);
 			draw_set_alpha(1);
 			draw_set_color(COLOR_STATUS_NEGATIVE_RED);
-			draw_text_ext(_sprite_x, _tile_y + building_tile_height + 4, _requirement_text, 10, building_tile_width - 12);
+			draw_text_ext(_sprite_x, _tile_y + building_tile_height + 22, _requirement_text, 10, building_tile_width - 12);
 		}
 
 		if (!_is_foundry_window)

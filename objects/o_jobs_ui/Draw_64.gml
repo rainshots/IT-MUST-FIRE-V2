@@ -94,7 +94,7 @@ if (global.day_phase == DAY_PHASE.DAY && global.focus_window == FOCUS_WINDOW.NOO
 				_hint_arrow_scale,
 				jobs_assignment_hint_arrow_angle,
 				c_white,
-				1
+				BALANCE_ATTACK_ARROW_ALPHA
 			);
 		}
 	}
@@ -974,7 +974,7 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 					_hint_arrow_scale,
 					_hint_arrow.angle,
 					c_white,
-					1
+					BALANCE_ATTACK_ARROW_ALPHA
 				);
 			}
 		}
