@@ -1535,7 +1535,7 @@ unit_death_process = function()
 	status_effect_death_rewards_try();
 	meat_drop_try();
 
-	// The daybreak upgrade replaces a fallen friendly unit inside its persistent squad.
+	// The daybreak upgrade temporarily replaces a fallen friendly squad unit until morning.
 	if (unit_faction == UNIT_FACTION.FRIENDLY
 		&& variable_global_exists("player_unit_bonelet_resurrection_active")
 		&& global.player_unit_bonelet_resurrection_active

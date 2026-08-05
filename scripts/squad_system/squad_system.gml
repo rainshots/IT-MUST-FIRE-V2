@@ -367,16 +367,15 @@ function squad_unit_resurrect_as_bonelet(_dead_unit)
 
 		if (_unit_index >= 0 && _unit_index < array_length(_squad.units))
 		{
-			var _previous_max_hp = _dead_unit.max_hp;
 			_bonelet.squad = _squad;
 			_bonelet.squad_unit_index = _unit_index;
 			squad_unit_permanent_bonuses_apply(_squad, _bonelet);
 			foundry_unit_permanent_bonuses_apply(_bonelet);
 			_bonelet.foundry_permanent_bonuses_pending = false;
 			_bonelet.hp = _bonelet.max_hp;
+
+			// Replace only the active night unit. The permanent squad composition returns in the morning.
 			_squad.units[_unit_index] = _bonelet;
-			_squad.unit_objects[_unit_index] = o_skeleton_bonelet;
-			_squad.total_max_hp += _bonelet.max_hp - _previous_max_hp;
 		}
 	}
 
@@ -423,13 +422,28 @@ function squad_units_restore_morning()
 function squad_total_hp_get(_squad)
 {
 	var _hp = 0;
-	var _max_hp = _squad.total_max_hp;
+	var _is_archdemon_squad = _squad.squad_type == SQUAD_TYPE.ARCHDEMON;
+	var _max_hp = _is_archdemon_squad ? 0 : _squad.total_max_hp;
 
 	for (var _unit_index = 0; _unit_index < array_length(_squad.units); ++_unit_index)
 	{
 		var _unit = _squad.units[_unit_index];
-		if (!instance_exists(_unit)) continue;
-		_hp += max(0, _unit.hp);
+
+		if (!instance_exists(_unit))
+		{
+			continue;
+		}
+
+		if (variable_instance_exists(_unit, "hp"))
+		{
+			_hp += max(0, _unit.hp);
+		}
+
+		// Archdemon Max HP changes with form and attributes, so never use its creation-time cache.
+		if (_is_archdemon_squad && variable_instance_exists(_unit, "max_hp"))
+		{
+			_max_hp += max(0, _unit.max_hp);
+		}
 	}
 
 	return [_hp, max(1, _max_hp)];

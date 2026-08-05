@@ -167,7 +167,7 @@ cannon_agony_projectile_create = function(_target_x, _target_y, _projectile_type
 
 	if (_projectile_type == PROJECTILE_TYPE.BOMB)
 	{
-		_projectile.effect_radius = BALANCE_PROJECTILE_BOMB_RADIUS;
+		_projectile.effect_radius = BALANCE_PROJECTILE_HELLCOW_RADIUS;
 		_projectile.damage_amount = cannon_projectile_bomb_damage_get();
 	}
 	else if (_projectile_type == PROJECTILE_TYPE.SKELETONS)
@@ -686,19 +686,19 @@ cannon_projectile_bomb_damage_get = function()
 	var _level = cannon_payload_upgrade_level_get();
 	var _shell_factory_multiplier = 1
 		+ (global.shell_factory_hellcow_damage_upgrade_count * BALANCE_SHELL_FACTORY_UPGRADE_BONUS);
-	var _damage = BALANCE_PROJECTILE_BOMB_DAMAGE_AMOUNT;
+	var _damage = BALANCE_PROJECTILE_HELLCOW_DAMAGE_AMOUNT;
 
 	if (_level >= 3)
 	{
-		_damage = BALANCE_PROJECTILE_BOMB_DAMAGE_AMOUNT_LEVEL_4;
+		_damage = BALANCE_PROJECTILE_HELLCOW_DAMAGE_AMOUNT_LEVEL_4;
 	}
 	else if (_level == 2)
 	{
-		_damage = BALANCE_PROJECTILE_BOMB_DAMAGE_AMOUNT_LEVEL_3;
+		_damage = BALANCE_PROJECTILE_HELLCOW_DAMAGE_AMOUNT_LEVEL_3;
 	}
 	else if (_level == 1)
 	{
-		_damage = BALANCE_PROJECTILE_BOMB_DAMAGE_AMOUNT_LEVEL_2;
+		_damage = BALANCE_PROJECTILE_HELLCOW_DAMAGE_AMOUNT_LEVEL_2;
 	}
 
 	return _damage * _shell_factory_multiplier;
@@ -813,26 +813,26 @@ building_upgrade_description_get = function(_upgrade_index)
 	else if (_upgrade_index == CANNON_UPGRADE.PAYLOAD_MASTERY)
 	{
 		var _payload_level = min(_level + 2, 4);
-		var _bomb_damage = BALANCE_PROJECTILE_BOMB_DAMAGE_AMOUNT;
+		var _bomb_damage = BALANCE_PROJECTILE_HELLCOW_DAMAGE_AMOUNT;
 		var _skeleton_count = BALANCE_PROJECTILE_SKELETON_COUNT;
 		var _heal_amount = BALANCE_PROJECTILE_HEAL_AMOUNT;
 		var _taint_bonus_percent = round(BALANCE_CANNON_PAYLOAD_MASTERY_TAINT_BONUS_PER_LEVEL * 100 * (_level + 1));
 
 		if (_payload_level >= 4)
 		{
-			_bomb_damage = BALANCE_PROJECTILE_BOMB_DAMAGE_AMOUNT_LEVEL_4;
+			_bomb_damage = BALANCE_PROJECTILE_HELLCOW_DAMAGE_AMOUNT_LEVEL_4;
 			_skeleton_count = BALANCE_PROJECTILE_SKELETON_COUNT_LEVEL_4;
 			_heal_amount = BALANCE_PROJECTILE_HEAL_AMOUNT_LEVEL_4;
 		}
 		else if (_payload_level == 3)
 		{
-			_bomb_damage = BALANCE_PROJECTILE_BOMB_DAMAGE_AMOUNT_LEVEL_3;
+			_bomb_damage = BALANCE_PROJECTILE_HELLCOW_DAMAGE_AMOUNT_LEVEL_3;
 			_skeleton_count = BALANCE_PROJECTILE_SKELETON_COUNT_LEVEL_3;
 			_heal_amount = BALANCE_PROJECTILE_HEAL_AMOUNT_LEVEL_3;
 		}
 		else if (_payload_level == 2)
 		{
-			_bomb_damage = BALANCE_PROJECTILE_BOMB_DAMAGE_AMOUNT_LEVEL_2;
+			_bomb_damage = BALANCE_PROJECTILE_HELLCOW_DAMAGE_AMOUNT_LEVEL_2;
 			_skeleton_count = BALANCE_PROJECTILE_SKELETON_COUNT_LEVEL_2;
 			_heal_amount = BALANCE_PROJECTILE_HEAL_AMOUNT_LEVEL_2;
 		}

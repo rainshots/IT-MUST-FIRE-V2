@@ -156,6 +156,8 @@ var _event_is_ready = _current_event.activation_ready_count_get() > 0;
 var _card_x = _layout.card_x;
 var _card_y = _layout.card_y;
 var _card_height = _layout.card_height;
+var _hovered_result_unit_object = noone;
+var _result_stats_font = -1;
 
 if (_is_hovered)
 {
@@ -193,6 +195,11 @@ if (_is_hovered)
 		draw_set_font(_jobs_ui.jobs_description_font);
 	}
 
+	if (instance_exists(_jobs_ui) && font_exists(_jobs_ui.jobs_hp_font))
+	{
+		_result_stats_font = _jobs_ui.jobs_hp_font;
+	}
+
 	draw_text_ext(
 		_card_x + BALANCE_WORLD_EVENT_CARD_PADDING_X,
 		_card_y
@@ -204,6 +211,97 @@ if (_is_hovered)
 			- (BALANCE_WORLD_EVENT_CARD_PADDING_X * 2)
 			- (_event_is_ready ? BALANCE_WORLD_EVENT_READY_ICON_WIDTH : 0)
 	);
+
+	// Specialization Jobs expose every result directly on the building card.
+	if (_layout.has_unit_choice)
+	{
+		var _choice_count = array_length(_current_event.unit_choice_options);
+		var _selected_choice_index = variable_struct_exists(_current_event, "selected_unit_choice_index")
+			? floor(_current_event.selected_unit_choice_index)
+			: 0;
+
+		for (var _choice_index = 0; _choice_index < _choice_count; ++_choice_index)
+		{
+			var _choice = _current_event.unit_choice_options[_choice_index];
+
+			if (!is_struct(_choice)
+				|| !variable_struct_exists(_choice, "target_unit_object"))
+			{
+				continue;
+			}
+
+			var _choice_rect = world_event_unit_choice_rect_get(_current_event, _layout, _choice_index);
+			var _choice_center_x = _choice_rect.x + (_choice_rect.width * 0.5);
+			var _choice_center_y = _choice_rect.y + (_choice_rect.height * 0.5);
+			var _choice_radius = _choice_rect.width * 0.5;
+			var _choice_unit_object = _choice.target_unit_object;
+			var _choice_sprite = object_get_sprite(_choice_unit_object);
+			var _choice_is_hovered = point_in_rectangle(
+				_mouse_gui_x,
+				_mouse_gui_y,
+				_choice_rect.x,
+				_choice_rect.y,
+				_choice_rect.x + _choice_rect.width,
+				_choice_rect.y + _choice_rect.height
+			);
+			var _choice_is_selected = _choice_index == _selected_choice_index;
+			var _choice_alpha = _choice_is_selected
+				? BALANCE_EVENT_UNIT_CHOICE_SELECTED_ALPHA
+				: BALANCE_EVENT_UNIT_CHOICE_UNSELECTED_ALPHA;
+
+			draw_set_alpha(_choice_alpha);
+			draw_set_color(COLOR_JOBS_ASSIGN_BACKGROUND);
+			draw_circle(_choice_center_x, _choice_center_y, _choice_radius, false);
+			draw_set_color(_choice_is_selected || _choice_is_hovered
+				? COLOR_JOBS_EVENT_ACTIVE
+				: COLOR_JOBS_SLOT_BORDER);
+			draw_circle(_choice_center_x, _choice_center_y, _choice_radius, true);
+
+			if (sprite_exists(_choice_sprite))
+			{
+				var _choice_sprite_width = max(1, sprite_get_width(_choice_sprite));
+				var _choice_sprite_height = max(1, sprite_get_height(_choice_sprite));
+				var _choice_available_size = _choice_rect.width * 0.78;
+				var _choice_sprite_scale = min(
+					_choice_available_size / _choice_sprite_width,
+					_choice_available_size / _choice_sprite_height
+				);
+				var _choice_sprite_x = _choice_center_x
+					+ ((sprite_get_xoffset(_choice_sprite) - (_choice_sprite_width * 0.5)) * _choice_sprite_scale);
+				var _choice_sprite_y = _choice_center_y
+					+ ((sprite_get_yoffset(_choice_sprite) - (_choice_sprite_height * 0.5)) * _choice_sprite_scale);
+
+				draw_sprite_ext(
+					_choice_sprite,
+					0,
+					_choice_sprite_x,
+					_choice_sprite_y,
+					_choice_sprite_scale,
+					_choice_sprite_scale,
+					0,
+					c_white,
+					1
+				);
+			}
+
+			draw_set_halign(fa_center);
+			draw_set_valign(fa_top);
+
+			if (_result_stats_font != -1)
+			{
+				draw_set_font(_result_stats_font);
+			}
+
+			draw_set_color(_choice_is_selected ? COLOR_STATUS_NEGATIVE_RED : COLOR_JOBS_ASSIGN_TEXT);
+			draw_text(_choice_center_x, _choice_rect.label_y, _choice.label);
+			draw_set_alpha(1);
+
+			if (_choice_is_hovered)
+			{
+				_hovered_result_unit_object = _choice_unit_object;
+			}
+		}
+	}
 
 	// Squad events expose the same selector used by the Assign Jobs window.
 	if (_layout.has_selector)
@@ -261,14 +359,15 @@ if (_is_hovered)
 		var _action_icon_y = _card_y
 			+ _card_height
 			+ BALANCE_WORLD_EVENT_ACTION_ICON_GAP;
-		var _reroll_remaining = global.day_event_reroll_used_today ? 0 : 1;
+		var _reroll_remaining = global.day_event_rerolls_remaining;
 		var _pin_action = "";
 
 		if (day_event_pin_is_event(_current_event))
 		{
 			_pin_action = "unpin";
 		}
-		else if (!day_event_pin_is_active())
+		else if (global.day_event_pins_remaining > 0
+			&& !day_event_pin_source_is_active(_current_event.source_building))
 		{
 			_pin_action = "pin";
 		}
@@ -311,7 +410,9 @@ if (_is_hovered)
 			draw_text(
 				_card_x + BALANCE_WORLD_EVENT_CARD_WIDTH,
 				_action_label_y,
-				_pin_action == "unpin" ? "PRESS T TO UNPIN" : "PRESS T TO PIN"
+				_pin_action == "unpin"
+					? "PRESS T TO UNPIN"
+					: "PRESS T TO PIN (" + string(global.day_event_pins_remaining) + ")"
 			);
 
 			if (sprite_exists(s_pin_icon))
@@ -423,6 +524,16 @@ if (_event_is_ready && sprite_exists(s_ok_icon))
 		BALANCE_WORLD_EVENT_READY_ICON_HEIGHT,
 		c_white,
 		1
+	);
+}
+
+if (_hovered_result_unit_object != noone && instance_exists(o_game_controller))
+{
+	o_game_controller.player_unit_object_stats_card_draw(
+		_hovered_result_unit_object,
+		18,
+		120,
+		_result_stats_font
 	);
 }
 

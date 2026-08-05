@@ -194,6 +194,9 @@ world_event_layout_get = function(_event)
 		&& _event.requires_squad_selection
 		&& variable_struct_exists(_event, "eligible_squads")
 		&& array_length(_event.eligible_squads) > 0;
+	var _has_unit_choice = variable_struct_exists(_event, "unit_choice_options")
+		&& is_array(_event.unit_choice_options)
+		&& array_length(_event.unit_choice_options) > 0;
 	var _event_is_ready = _event.activation_ready_count_get() > 0;
 	var _description_width = BALANCE_WORLD_EVENT_CARD_WIDTH
 		- (BALANCE_WORLD_EVENT_CARD_PADDING_X * 2)
@@ -223,6 +226,7 @@ world_event_layout_get = function(_event)
 		+ BALANCE_WORLD_EVENT_CARD_PADDING_Y;
 	var _card_body_height = max(BALANCE_WORLD_EVENT_CARD_HEIGHT, _card_content_height);
 	var _card_height = _card_body_height
+		+ (_has_unit_choice ? BALANCE_WORLD_EVENT_UNIT_CHOICE_SECTION_HEIGHT : 0)
 		+ (_has_selector ? BALANCE_WORLD_EVENT_SELECTOR_SECTION_HEIGHT : 0);
 	var _card_x = clamp(
 		_building_center_x - (BALANCE_WORLD_EVENT_CARD_WIDTH * 0.5),
@@ -271,6 +275,7 @@ world_event_layout_get = function(_event)
 		building_bottom: _building_bottom,
 		building_center_x: _building_center_x,
 		has_selector: _has_selector,
+		has_unit_choice: _has_unit_choice,
 		card_x: _card_x,
 		card_y: _card_y,
 		card_width: BALANCE_WORLD_EVENT_CARD_WIDTH,
@@ -283,6 +288,41 @@ world_event_layout_get = function(_event)
 		options_y: _options_y,
 		option_height: BALANCE_WORLD_EVENT_SELECTOR_OPTION_HEIGHT,
 		option_count: _option_count
+	};
+};
+
+world_event_unit_choice_rect_get = function(_event, _layout, _choice_index)
+{
+	if (!is_struct(_event)
+		|| !is_struct(_layout)
+		|| !_layout.has_unit_choice)
+	{
+		return noone;
+	}
+
+	var _choice_count = array_length(_event.unit_choice_options);
+
+	if (_choice_index < 0 || _choice_index >= _choice_count)
+	{
+		return noone;
+	}
+
+	var _choice_area_width = _layout.card_width - (BALANCE_WORLD_EVENT_CARD_PADDING_X * 2);
+	var _choice_step = _choice_area_width / _choice_count;
+	var _icon_x = _layout.card_x
+		+ BALANCE_WORLD_EVENT_CARD_PADDING_X
+		+ (_choice_step * _choice_index)
+		+ ((_choice_step - BALANCE_WORLD_EVENT_UNIT_CHOICE_ICON_SIZE) * 0.5);
+	var _icon_y = _layout.card_y
+		+ _layout.card_body_height
+		+ BALANCE_WORLD_EVENT_UNIT_CHOICE_ICON_TOP_PADDING;
+
+	return {
+		x: _icon_x,
+		y: _icon_y,
+		width: BALANCE_WORLD_EVENT_UNIT_CHOICE_ICON_SIZE,
+		height: BALANCE_WORLD_EVENT_UNIT_CHOICE_ICON_SIZE,
+		label_y: _icon_y + BALANCE_WORLD_EVENT_UNIT_CHOICE_ICON_SIZE + 2
 	};
 };
 
@@ -757,7 +797,7 @@ else if (object_index == o_meat_bath)
 	production_resource_icon = s_flesh_icon;
 	production_resource_color = COLOR_HUD_FLESH;
 	building_tooltip_title = "Healing";
-	building_tooltip_description = "Allows performing operations with blood.";
+	building_tooltip_description = "Allows performing operations with blood to heal your cultitsts.";
 	building_tooltip_detail = "Uses " + string(BALANCE_MEAT_BATH_FLESH_COST) + " Flesh for " + string(BALANCE_MEAT_BATH_FLESH_HEAL_AMOUNT) + " HP";
 	building_tooltip_detail_color = COLOR_HUD_FLESH;
 }
@@ -805,12 +845,10 @@ else if (object_index == o_shell_factory)
 	production_bonus_stat_name = "BODY";
 	production_bonus_stat_color = COLOR_CULTIST_BODY;
 	building_tooltip_title = "Shell Production";
-	building_tooltip_description = "Produces special shells while staffed and refills shell stockpiles every morning.";
+	building_tooltip_description = "Produces special shells while staffed and can improve morning stockpile limits.";
 	building_tooltip_detail = "Uses " + string(BALANCE_SHELL_FACTORY_SOUL_COST) + " Souls + "
-		+ string(BALANCE_SHELL_FACTORY_IRON_COST) + " Iron while staffed. Morning stockpile: "
-		+ string(BALANCE_SHELL_FACTORY_MORNING_HELLCOW_LIMIT) + " Hellcow, "
-		+ string(BALANCE_SHELL_FACTORY_MORNING_FIRST_AID_LIMIT) + " First Aid Meat, "
-		+ string(BALANCE_SHELL_FACTORY_MORNING_TAINT_COMPOST_LIMIT) + " Taint Compost. Bonus: "
+		+ string(BALANCE_SHELL_FACTORY_IRON_COST) + " Iron while staffed. "
+		+ "Events can permanently increase morning shell limits. Bonus: "
 		+ production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
 	building_tooltip_detail_color = production_bonus_stat_color;
 	building_has_upgrades = true;
@@ -2000,20 +2038,17 @@ shell_factory_morning_projectile_limit_get = function(_projectile_type)
 
 	if (_projectile_type == PROJECTILE_TYPE.BOMB)
 	{
-		return BALANCE_SHELL_FACTORY_MORNING_HELLCOW_LIMIT
-			+ shell_factory_hellcow_morning_limit_bonus;
+		return shell_factory_hellcow_morning_limit_bonus;
 	}
 
 	if (_projectile_type == PROJECTILE_TYPE.HEAL)
 	{
-		return BALANCE_SHELL_FACTORY_MORNING_FIRST_AID_LIMIT
-			+ shell_factory_first_aid_morning_limit_bonus;
+		return shell_factory_first_aid_morning_limit_bonus;
 	}
 
 	if (_projectile_type == PROJECTILE_TYPE.CORRUPTION)
 	{
-		return BALANCE_SHELL_FACTORY_MORNING_TAINT_COMPOST_LIMIT
-			+ shell_factory_taint_compost_morning_limit_bonus;
+		return shell_factory_taint_compost_morning_limit_bonus;
 	}
 
 	return 0;
@@ -2034,9 +2069,9 @@ building_tooltip_detail_get = function()
 		var _taint_compost_limit = shell_factory_morning_projectile_limit_get(PROJECTILE_TYPE.CORRUPTION);
 
 		return "Uses " + string(BALANCE_SHELL_FACTORY_SOUL_COST) + " Souls + "
-			+ string(BALANCE_SHELL_FACTORY_IRON_COST) + " Iron while staffed. Morning stockpile: "
-			+ string(_hellcow_limit) + " Hellcow, "
-			+ string(_first_aid_limit) + " First Aid Meat, "
+			+ string(BALANCE_SHELL_FACTORY_IRON_COST) + " Iron while staffed. Morning stockpile bonus: +"
+			+ string(_hellcow_limit) + " Hellcow, +"
+			+ string(_first_aid_limit) + " First Aid Meat, +"
 			+ string(_taint_compost_limit) + " Taint Compost. Bonus: "
 			+ production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
 	}

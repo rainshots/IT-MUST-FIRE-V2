@@ -137,7 +137,20 @@ else if (_current_day_phase == DAY_PHASE.NIGHT)
 		tutorial_trigger("cursed_buildings");
 	}
 
-	if (_current_day == 1 && _night_elapsed_frames >= 10 * _game_speed_normal)
+	if (_current_day == 1
+		&& _night_elapsed_frames >= BALANCE_TUTORIAL_SQUAD_DRAG_HINT_DELAY * _game_speed_normal)
+	{
+		tutorial_trigger("squad_dragging");
+	}
+
+	if (_current_day == 2
+		&& _night_elapsed_frames >= BALANCE_TUTORIAL_TAINTED_GROUND_HINT_DELAY * _game_speed_normal)
+	{
+		tutorial_trigger("tainted_ground");
+	}
+
+	if (_current_day == 1
+		&& _night_elapsed_frames >= BALANCE_TUTORIAL_DAMAGE_TYPES_HINT_DELAY * _game_speed_normal)
 	{
 		tutorial_trigger("damage_types");
 	}

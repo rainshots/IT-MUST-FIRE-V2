@@ -210,7 +210,7 @@ for (var _event_index = 0; _event_index < array_length(global.day_events); ++_ev
 
 	var _reroll_rect = jobs_event_action_rect_get(_event_index, "reroll");
 
-	if (!global.day_event_reroll_used_today
+	if (global.day_event_rerolls_remaining > 0
 		&& point_in_rectangle(
 			_mouse_x,
 			_mouse_y,
@@ -414,12 +414,55 @@ if (mouse_check_button_pressed(mb_left))
 		))
 		{
 			var _pin_changed = _pin_action == "unpin"
-				? day_event_pin_clear()
+				? day_event_pin_clear(_event)
 				: day_event_pin_set(_event);
 
 			jobs_squad_selector_event = noone;
 
 			if (_pin_changed && variable_global_exists("ui_confirm_sound_play"))
+			{
+				global.ui_confirm_sound_play();
+			}
+
+			exit;
+		}
+	}
+
+	// Unit-specialization Jobs choose their result directly from the three portraits.
+	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
+	{
+		var _event = global.day_events[_event_index];
+
+		if (!is_struct(_event)
+			|| !variable_struct_exists(_event, "unit_choice_options")
+			|| !is_array(_event.unit_choice_options))
+		{
+			continue;
+		}
+
+		var _choice_count = array_length(_event.unit_choice_options);
+
+		for (var _choice_index = 0; _choice_index < _choice_count; ++_choice_index)
+		{
+			var _choice_rect = jobs_event_unit_choice_icon_rect_get(_event_index, _choice_index);
+
+			if (!_mouse_is_over_event_viewport
+				|| !point_in_rectangle(
+					_mouse_x,
+					_mouse_y,
+					_choice_rect.x,
+					_choice_rect.y,
+					_choice_rect.x + _choice_rect.width,
+					_choice_rect.y + _choice_rect.height
+				))
+			{
+				continue;
+			}
+
+			_event.selected_unit_choice_index = _choice_index;
+			jobs_squad_selector_event = noone;
+
+			if (variable_global_exists("ui_confirm_sound_play"))
 			{
 				global.ui_confirm_sound_play();
 			}

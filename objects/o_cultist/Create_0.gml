@@ -9,6 +9,8 @@ drag_drop_y = y;
 // Blood Bath effects queued during the day resolve after the following night.
 blood_bath_morning_heal_pending = 0;
 blood_bath_morning_full_heal_pending = false;
+// Lingering Wounds restores this exact start-of-day HP value next morning.
+blood_bath_morning_hp_snapshot = hp;
 
 // Give every regular cultist a small random day-form appearance.
 var _cultist_sprites = [s_cultist_01, s_cultist_02, s_cultist_03, s_cultist_04];

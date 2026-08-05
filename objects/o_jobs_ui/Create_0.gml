@@ -11,6 +11,10 @@ jobs_pool_width = 700;
 jobs_pool_height = 86;
 jobs_event_height = 132;
 jobs_event_gap = 6;
+// Reminder shown after the final event card in the scrollable list.
+jobs_event_footer_gap = 18;
+jobs_event_footer_height = 34;
+jobs_event_footer_text = "Don't forget that you can build buildings and towers. They require a Cultist, but do not cost HP.";
 jobs_icon_width = 38;
 jobs_icon_height = 60;
 jobs_icon_gap = 18;
@@ -19,6 +23,12 @@ jobs_event_slot_step = 58;
 jobs_result_unit_icon_center_x = 401;
 jobs_result_unit_icon_center_y = 58;
 jobs_result_unit_icon_size = 54;
+// Specialization Jobs place three selectable result portraits before worker slots.
+jobs_unit_choice_icon_start_x = 264;
+jobs_unit_choice_icon_y = 35;
+jobs_unit_choice_icon_size = 44;
+jobs_unit_choice_icon_step = 58;
+jobs_unit_choice_label_y = 92;
 jobs_scroll_offset = 0;
 jobs_scroll_step = 80;
 jobs_scrollbar_width = 8;
@@ -27,6 +37,13 @@ jobs_dragged_cultist = noone;
 jobs_drag_origin_event = noone;
 jobs_drag_origin_slot_index = -1;
 jobs_hovered_cultist = noone;
+// Assigned Cultists explain the RMB shortcut below the hover hand.
+jobs_unassign_hint_text = "RMB to unassign";
+jobs_unassign_hint_offset_y = 36;
+jobs_unassign_hint_padding_x = 7;
+jobs_unassign_hint_padding_y = 4;
+jobs_unassign_hint_screen_margin = 8;
+jobs_unassign_hint_background_alpha = 0.86;
 jobs_hovered_empty_slot_key = "";
 jobs_show_hovered = false;
 jobs_end_hovered = false;
@@ -202,9 +219,10 @@ jobs_event_pin_action_get = function(_event)
 		return "unpin";
 	}
 
-	return day_event_pin_is_active()
-		? ""
-		: "pin";
+	return global.day_event_pins_remaining > 0
+		&& !day_event_pin_source_is_active(_event.source_building)
+		? "pin"
+		: "";
 };
 
 jobs_show_button_rect_get = function()
@@ -466,6 +484,27 @@ jobs_event_slot_rect_get = function(_event_index, _slot_index)
 
 jobs_event_result_unit_object_get = function(_event)
 {
+	// Choice Jobs preview the unit currently selected by the player.
+	if (is_struct(_event)
+		&& variable_struct_exists(_event, "unit_choice_options")
+		&& is_array(_event.unit_choice_options)
+		&& variable_struct_exists(_event, "selected_unit_choice_index"))
+	{
+		var _choice_count = array_length(_event.unit_choice_options);
+		var _choice_index = floor(_event.selected_unit_choice_index);
+
+		if (_choice_index >= 0 && _choice_index < _choice_count)
+		{
+			var _choice = _event.unit_choice_options[_choice_index];
+
+			if (is_struct(_choice)
+				&& variable_struct_exists(_choice, "target_unit_object"))
+			{
+				return _choice.target_unit_object;
+			}
+		}
+	}
+
 	if (!is_struct(_event)
 		|| !variable_struct_exists(_event, "actions")
 		|| !is_array(_event.actions))
@@ -553,6 +592,22 @@ jobs_event_result_unit_icon_rect_get = function(_event_index)
 	return {
 		x: _event_rect.x + (jobs_result_unit_icon_center_x * _layout.scale) - (_icon_size * 0.5),
 		y: _event_rect.y + (jobs_result_unit_icon_center_y * _layout.scale) - (_icon_size * 0.5),
+		width: _icon_size,
+		height: _icon_size
+	};
+};
+
+jobs_event_unit_choice_icon_rect_get = function(_event_index, _choice_index)
+{
+	var _layout = jobs_layout_get();
+	var _event_rect = jobs_event_rect_get(_event_index);
+	var _icon_size = jobs_unit_choice_icon_size * _layout.scale;
+
+	return {
+		x: _event_rect.x
+			+ ((jobs_unit_choice_icon_start_x
+				+ (_choice_index * jobs_unit_choice_icon_step)) * _layout.scale),
+		y: _event_rect.y + (jobs_unit_choice_icon_y * _layout.scale),
 		width: _icon_size,
 		height: _icon_size
 	};
@@ -705,6 +760,26 @@ jobs_event_cultist_hp_preview_get = function(_event, _slot_index, _cultist)
 				);
 				break;
 
+			case "lingering_wounds":
+				if (variable_instance_exists(_cultist, "blood_bath_morning_hp_snapshot"))
+				{
+					var _lingering_wounds_target_hp = clamp(
+						_cultist.blood_bath_morning_hp_snapshot,
+						0,
+						_cultist.max_hp
+					);
+
+					if (_lingering_wounds_target_hp > _cultist.hp)
+					{
+						_hp_gain += _lingering_wounds_target_hp - _cultist.hp;
+					}
+					else
+					{
+						_hp_loss += _cultist.hp - _lingering_wounds_target_hp;
+					}
+				}
+				break;
+
 			case "blood_transfusion":
 				if (array_length(_event.assigned_cultists) >= 2)
 				{
@@ -832,6 +907,37 @@ jobs_event_viewport_get = function()
 	};
 };
 
+jobs_event_content_height_get = function()
+{
+	var _event_count = array_length(global.day_events);
+
+	if (_event_count <= 0)
+	{
+		return 0;
+	}
+
+	var _event_cards_height = (_event_count * jobs_event_height)
+		+ (max(0, _event_count - 1) * jobs_event_gap);
+
+	return _event_cards_height + jobs_event_footer_gap + jobs_event_footer_height;
+};
+
+jobs_event_footer_rect_get = function()
+{
+	var _layout = jobs_layout_get();
+	var _event_count = array_length(global.day_events);
+	var _event_cards_height = (_event_count * jobs_event_height)
+		+ (max(0, _event_count - 1) * jobs_event_gap);
+
+	return {
+		x: _layout.event_x,
+		y: _layout.event_y
+			+ ((_event_cards_height + jobs_event_footer_gap - jobs_scroll_offset) * _layout.scale),
+		width: _layout.event_width,
+		height: jobs_event_footer_height * _layout.scale
+	};
+};
+
 jobs_scroll_max_get = function()
 {
 	var _event_count = array_length(global.day_events);
@@ -843,8 +949,7 @@ jobs_scroll_max_get = function()
 
 	var _layout = jobs_layout_get();
 	var _viewport = jobs_event_viewport_get();
-	var _content_height = (_event_count * jobs_event_height)
-		+ (max(0, _event_count - 1) * jobs_event_gap);
+	var _content_height = jobs_event_content_height_get();
 	var _viewport_height = _viewport.height / max(0.01, _layout.scale);
 	return max(0, _content_height - _viewport_height);
 };

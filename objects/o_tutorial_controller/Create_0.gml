@@ -91,6 +91,16 @@ tutorial_items = [
 		body: "At night, your combat units are swallowed by the possessed cannon. You can choose where it spits them onto the battlefield by pressing 1 and then the LMB.\n\nEach squad gets a separate volley."
 	},
 	{
+		id: "squad_dragging",
+		title: "Dragging Squads During Combat",
+		body: "You can reposition squads during combat at night. Hover over a squad icon, hold LMB, and drag the squad to a new position.\n\nKeep in mind that the squad will be stunned for a while after being moved."
+	},
+	{
+		id: "tainted_ground",
+		title: "Tainted Ground",
+		body: "Try to fight on tainted ground to give your troops an advantage. On tainted ground, your troops move and attack faster, while enemies take continuous damage."
+	},
+	{
 		id: "damage_types",
 		title: "Physical and Magic Damage",
 		body: "There are only 2 damage types in the game: physical and magic.\n\nArmor blocks part of incoming physical damage. Magic resistance blocks part of incoming magic damage."

@@ -1,7 +1,6 @@
-// Passive boss effects continue while regular movement may be paused by leap movement.
+// Passive summoning continues while regular movement may be paused by leap movement.
 if (!global.pause)
 {
-	griffith_ground_cleanse_update();
 	griffith_summon_update();
 }
 

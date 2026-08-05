@@ -661,6 +661,40 @@ function day_event_squad_units_replace_execute(_event, _assigned_cultists, _data
 	return true;
 }
 
+function day_event_squad_units_choice_replace_execute(_event, _assigned_cultists, _data)
+{
+	if (!variable_struct_exists(_event, "unit_choice_options")
+		|| !is_array(_event.unit_choice_options)
+		|| !variable_struct_exists(_event, "selected_unit_choice_index"))
+	{
+		return false;
+	}
+
+	var _choice_count = array_length(_event.unit_choice_options);
+	var _choice_index = floor(_event.selected_unit_choice_index);
+
+	if (_choice_index < 0 || _choice_index >= _choice_count)
+	{
+		return false;
+	}
+
+	var _choice = _event.unit_choice_options[_choice_index];
+
+	if (!is_struct(_choice)
+		|| !variable_struct_exists(_choice, "target_unit_object"))
+	{
+		return false;
+	}
+
+	// Reuse the normal squad replacement after resolving the player's selected unit type.
+	var _replacement_data = {
+		source_unit_object: _data.source_unit_object,
+		target_unit_object: _choice.target_unit_object,
+		hp_cost: _data.hp_cost
+	};
+	return day_event_squad_units_replace_execute(_event, _assigned_cultists, _replacement_data);
+}
+
 function day_event_squad_draft_execute(_event, _assigned_cultists, _data)
 {
 	if (!variable_struct_exists(_event, "selected_squad") || !is_struct(_event.selected_squad))
@@ -879,6 +913,12 @@ function day_event_blood_bath_heal_execute(_event, _assigned_cultists, _data)
 	return true;
 }
 
+function day_event_lingering_wounds_execute(_event, _assigned_cultists, _data)
+{
+	global.blood_bath_lingering_wounds_morning_pending = true;
+	return true;
+}
+
 function day_event_blood_transfusion_execute(_event, _assigned_cultists, _data)
 {
 	var _first_cultist = _assigned_cultists[0];
@@ -1086,6 +1126,9 @@ function day_event_blood_bath_morning_effects_apply()
 {
 	var _cultist_count = array_length(global.event_cultists);
 	var _warpaint_is_pending = global.blood_bath_warpaint_morning_pending;
+	var _lingering_wounds_is_pending = variable_global_exists(
+		"blood_bath_lingering_wounds_morning_pending"
+	) && global.blood_bath_lingering_wounds_morning_pending;
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
@@ -1122,12 +1165,38 @@ function day_event_blood_bath_morning_effects_apply()
 			_cultist.hp = min(_cultist.max_hp, BALANCE_BLOOD_WARPAINT_MORNING_HP);
 		}
 
+		// Lingering Wounds overrides other recovery with the previous morning's exact HP.
+		if (_lingering_wounds_is_pending
+			&& variable_instance_exists(_cultist, "blood_bath_morning_hp_snapshot"))
+		{
+			_cultist.hp = clamp(_cultist.blood_bath_morning_hp_snapshot, 0, _cultist.max_hp);
+		}
+
 		_cultist.blood_bath_morning_heal_pending = 0;
 		_cultist.blood_bath_morning_full_heal_pending = false;
 	}
 
 	global.blood_bath_warpaint_morning_pending = false;
+	global.blood_bath_lingering_wounds_morning_pending = false;
 	day_event_undying_devotion_morning_apply();
+
+	// Store the final morning HP for a possible Lingering Wounds activation today.
+	_cultist_count = array_length(global.event_cultists);
+
+	for (var _snapshot_cultist_index = 0;
+		_snapshot_cultist_index < _cultist_count;
+		++_snapshot_cultist_index)
+	{
+		var _snapshot_cultist = global.event_cultists[_snapshot_cultist_index];
+
+		if (instance_exists(_snapshot_cultist)
+			&& variable_instance_exists(_snapshot_cultist, "hp")
+			&& _snapshot_cultist.hp > 0)
+		{
+			_snapshot_cultist.blood_bath_morning_hp_snapshot = _snapshot_cultist.hp;
+		}
+	}
+
 	return true;
 }
 
@@ -2077,6 +2146,20 @@ function day_event_shell_factory_morning_limit_total_get(_projectile_type)
 	var _shell_factory_count = instance_number(o_shell_factory);
 	var _total_limit = 0;
 
+	// Shell Factories add to the Cannon's default morning stockpile limits.
+	if (_projectile_type == PROJECTILE_TYPE.BOMB)
+	{
+		_total_limit = BALANCE_DEFAULT_MORNING_HELLCOW_LIMIT;
+	}
+	else if (_projectile_type == PROJECTILE_TYPE.HEAL)
+	{
+		_total_limit = BALANCE_DEFAULT_MORNING_FIRST_AID_LIMIT;
+	}
+	else if (_projectile_type == PROJECTILE_TYPE.CORRUPTION)
+	{
+		_total_limit = BALANCE_DEFAULT_MORNING_TAINT_COMPOST_LIMIT;
+	}
+
 	for (var _factory_index = 0; _factory_index < _shell_factory_count; ++_factory_index)
 	{
 		var _shell_factory = instance_find(o_shell_factory, _factory_index);
@@ -2139,7 +2222,7 @@ function day_event_shell_factory_daily_production_create(
 	var _next_limit = _current_limit + 1;
 	var _description = "Permanently increases the morning " + _shell_name
 		+ " stockpile limit from " + string(_current_limit) + " to " + string(_next_limit) + ". "
-		+ "Each morning, Shell Factories refill these shells up to that limit. "
+		+ "Each morning, the Cannon refills these shells up to that limit. "
 		+ _effect_description + "\nRequires "
 		+ string(BALANCE_SHELL_FACTORY_DAILY_PRODUCTION_CULTIST_COUNT)
 		+ " Cultist, who loses "
@@ -2295,11 +2378,9 @@ function day_event_building_catalog_get(_building_object)
 		case o_pitlings_pit2:
 			return [
 				_entry("Hell Makes Room", "Add one more Demon squad slot, up to the event slot limit."),
-				_entry("Fill the Ranks", "Add one unit of the most common type to a selected Demon squad."),
+				_entry("Fill the Ranks", "Add " + string(BALANCE_DEMONS_PIT_FILL_UNIT_COUNT) + " units of the most common type to a selected Demon squad."),
 				_entry("Summon Mawlings", "Summon a new squad of " + string(BALANCE_SQUAD_PITLING_COUNT) + " Mawlings."),
-				_entry("Forge Balgors", "Replace all Mawlings in a selected squad with Balgors."),
-				_entry("Lessons in Temptation", "Replace all Mawlings in a selected squad with Succubi."),
-				_entry("Born in Pit", "Replace all Mawlings in a selected squad with Pitlings."),
+				_entry("Mawling Specialization", "Choose whether all Mawlings in a selected squad become Balgors, Succubi, or Pitlings."),
 				_entry(
 					"Summon Demon Wizard",
 					"Summon " + string(BALANCE_SUPPORT_SUMMON_UNIT_COUNT)
@@ -2315,9 +2396,7 @@ function day_event_building_catalog_get(_building_object)
 			return [
 				_entry("Raise Bonelets Squad", "Summon a new squad of " + string(BALANCE_SQUAD_SKELETON_COUNT) + " Bonelets."),
 				_entry("Extend the Catacombs", "Add one more Undead squad slot, up to the event slot limit."),
-				_entry("Arm the Dead", "Replace all Bonelets in a selected squad with Bone Warriors."),
-				_entry("Bone Scholars", "Replace all Bonelets in a selected squad with Bone Mages."),
-				_entry("Bone Archery", "Replace all Bonelets in a selected squad with Bone Archers."),
+				_entry("Bonelet Specialization", "Choose whether all Bonelets in a selected squad become Bone Warriors, Bone Mages, or Bone Archers."),
 				_entry(
 					"Summon Skeleton Healer",
 					"Summon " + string(BALANCE_SUPPORT_SUMMON_UNIT_COUNT)
@@ -2355,13 +2434,8 @@ function day_event_building_catalog_get(_building_object)
 					BALANCE_BLOOD_BATH_HEAL_CULTIST_LIMIT
 				),
 				_entry(
-					"Blood Transfusion",
-					"The healthiest assigned Cultist loses "
-						+ string(BALANCE_BLOOD_TRANSFUSION_HEALTHY_DAMAGE)
-						+ " HP. The most wounded assigned Cultist restores "
-						+ string(BALANCE_BLOOD_TRANSFUSION_WOUNDED_HEAL)
-						+ " HP.",
-					2
+					"Lingering Wounds",
+					"All living Cultists will have the same amount of HP tomorrow morning as they do this morning. Dead Cultists will not be resurrected."
 				),
 				_entry(
 					"Harden the Vessel",
@@ -2520,74 +2594,57 @@ function day_event_assignments_clear(_event)
 	return _released_count;
 }
 
-function day_event_pin_is_active()
+function day_event_pin_count_get()
 {
-	return global.day_event_pinned_event_id != ""
-		&& instance_exists(global.day_event_pinned_source_building);
-}
-
-function day_event_pin_is_event(_event)
-{
-	if (!day_event_building_action_is_available(_event)
-		|| !day_event_pin_is_active())
+	if (!variable_global_exists("day_event_pinned_events")
+		|| !is_array(global.day_event_pinned_events))
 	{
-		return false;
+		return 0;
 	}
 
-	return variable_struct_exists(_event, "is_pinned_event")
-		&& _event.is_pinned_event
-		&& _event.source_building == global.day_event_pinned_source_building
-		&& day_event_source_event_id_get(_event) == global.day_event_pinned_event_id;
+	return array_length(global.day_event_pinned_events);
 }
 
-function day_event_pin_set(_event)
+function day_event_pin_index_get(_event)
 {
-	if (!day_event_building_action_is_available(_event)
-		|| (day_event_pin_is_active() && !day_event_pin_is_event(_event)))
+	if (!day_event_building_action_is_available(_event))
 	{
-		return false;
+		return -1;
 	}
 
-	day_event_pin_clear();
-	global.day_event_pinned_event_id = day_event_source_event_id_get(_event);
-	global.day_event_pinned_source_building = _event.source_building;
-	_event.is_pinned_event = true;
-	return true;
-}
+	var _source_event_id = day_event_source_event_id_get(_event);
+	var _pin_count = day_event_pin_count_get();
 
-function day_event_pin_clear()
-{
-	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
+	for (var _pin_index = 0; _pin_index < _pin_count; ++_pin_index)
 	{
-		var _event = global.day_events[_event_index];
+		var _pin = global.day_event_pinned_events[_pin_index];
 
-		if (is_struct(_event) && variable_struct_exists(_event, "is_pinned_event"))
+		if (is_struct(_pin)
+			&& _pin.source_building == _event.source_building
+			&& _pin.source_event_id == _source_event_id)
 		{
-			_event.is_pinned_event = false;
+			return _pin_index;
 		}
 	}
 
-	global.day_event_pinned_event_id = "";
-	global.day_event_pinned_source_building = noone;
-	return true;
+	return -1;
 }
 
-function day_event_pin_marker_apply()
+function day_event_pin_is_active()
 {
-	if (!day_event_pin_is_active())
-	{
-		return false;
-	}
+	return day_event_pin_count_get() > 0;
+}
 
-	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
-	{
-		var _event = global.day_events[_event_index];
+function day_event_pin_source_is_active(_source_building)
+{
+	var _pin_count = day_event_pin_count_get();
 
-		if (day_event_building_action_is_available(_event)
-			&& _event.source_building == global.day_event_pinned_source_building
-			&& day_event_source_event_id_get(_event) == global.day_event_pinned_event_id)
+	for (var _pin_index = 0; _pin_index < _pin_count; ++_pin_index)
+	{
+		var _pin = global.day_event_pinned_events[_pin_index];
+
+		if (is_struct(_pin) && _pin.source_building == _source_building)
 		{
-			_event.is_pinned_event = true;
 			return true;
 		}
 	}
@@ -2595,9 +2652,95 @@ function day_event_pin_marker_apply()
 	return false;
 }
 
+function day_event_pin_is_event(_event)
+{
+	return day_event_pin_index_get(_event) >= 0;
+}
+
+function day_event_pin_set(_event)
+{
+	if (!day_event_building_action_is_available(_event)
+		|| global.day_event_pins_remaining <= 0
+		|| day_event_pin_is_event(_event)
+		|| day_event_pin_source_is_active(_event.source_building))
+	{
+		return false;
+	}
+
+	array_push(global.day_event_pinned_events, {
+		source_building: _event.source_building,
+		source_event_id: day_event_source_event_id_get(_event)
+	});
+	global.day_event_pins_remaining--;
+	_event.is_pinned_event = true;
+	return true;
+}
+
+function day_event_pin_clear(_event = noone, _refund_pin = true)
+{
+	var _clear_all = !is_struct(_event);
+	var _cleared_pin_count = 0;
+
+	for (var _pin_index = day_event_pin_count_get() - 1; _pin_index >= 0; --_pin_index)
+	{
+		var _pin = global.day_event_pinned_events[_pin_index];
+		var _pin_matches_event = !_clear_all
+			&& is_struct(_pin)
+			&& _pin.source_building == _event.source_building
+			&& _pin.source_event_id == day_event_source_event_id_get(_event);
+
+		if (_clear_all || _pin_matches_event)
+		{
+			array_delete(global.day_event_pinned_events, _pin_index, 1);
+			_cleared_pin_count++;
+		}
+	}
+
+	if (_cleared_pin_count <= 0)
+	{
+		return false;
+	}
+
+	if (_refund_pin)
+	{
+		global.day_event_pins_remaining += _cleared_pin_count;
+	}
+
+	// Refresh every visible marker after removing one or more active pins.
+	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
+	{
+		var _current_event = global.day_events[_event_index];
+
+		if (day_event_building_action_is_available(_current_event))
+		{
+			_current_event.is_pinned_event = day_event_pin_is_event(_current_event);
+		}
+	}
+
+	return true;
+}
+
+function day_event_pin_marker_apply()
+{
+	var _applied_pin_count = 0;
+
+	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
+	{
+		var _event = global.day_events[_event_index];
+
+		if (day_event_building_action_is_available(_event))
+		{
+			_event.is_pinned_event = day_event_pin_is_event(_event);
+			_applied_pin_count += _event.is_pinned_event;
+		}
+	}
+
+	return _applied_pin_count > 0;
+}
+
 function day_event_reroll(_event)
 {
-	if (global.day_event_reroll_used_today
+	if (global.day_event_rerolls_remaining <= 0
 		|| !day_event_building_action_is_available(_event))
 	{
 		return false;
@@ -2647,12 +2790,12 @@ function day_event_reroll(_event)
 
 	if (day_event_pin_is_event(_event))
 	{
-		day_event_pin_clear();
+		day_event_pin_clear(_event);
 	}
 
 	day_event_assignments_clear(_event);
 	global.day_events[_event_index] = _candidate_events[irandom(array_length(_candidate_events) - 1)];
-	global.day_event_reroll_used_today = true;
+	global.day_event_rerolls_remaining--;
 	return true;
 }
 
@@ -2661,7 +2804,6 @@ function day_event_building_daily_events_limit_apply(_additional_event_count = 0
 	var _events_without_building_source = [];
 	var _source_buildings = [];
 	var _source_event_candidates = [];
-	var _pinned_event_found = false;
 
 	// Separate world jobs from events generated by individual building instances.
 	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
@@ -2722,14 +2864,10 @@ function day_event_building_daily_events_limit_apply(_additional_event_count = 0
 		{
 			var _candidate = _candidates[_candidate_index];
 
-			if (!_pinned_event_found
-				&& day_event_pin_is_active()
-				&& _candidate.source_building == global.day_event_pinned_source_building
-				&& day_event_source_event_id_get(_candidate) == global.day_event_pinned_event_id)
+			if (day_event_pin_is_event(_candidate))
 			{
 				_candidate.is_pinned_event = true;
 				array_push(_selected_candidates, _candidate);
-				_pinned_event_found = true;
 			}
 			else
 			{
@@ -2809,10 +2947,10 @@ function day_event_building_daily_events_limit_apply(_additional_event_count = 0
 		}
 	}
 
-	// The pin is consumed after forcing tomorrow's event, or discarded if it became invalid.
-	if (global.day_event_pinned_event_id != "")
+	// Pins are consumed after forcing tomorrow's events, or discarded if they became invalid.
+	if (day_event_pin_is_active())
 	{
-		day_event_pin_clear();
+		day_event_pin_clear(noone, false);
 	}
 
 	return array_length(global.day_events);
@@ -2930,6 +3068,31 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 		var _pit_support_summon_is_available = array_length(_demon_squads) > 0;
 		array_copy(_pit_eligible_squads, 0, global.squads, 0, array_length(global.squads));
 
+		// Mawlings must be specialized before Demons Pit can offer its normal event pool again.
+		if (array_length(_mawling_squads) > 0)
+		{
+			var _demon_specialization_cost = day_event_demons_pit_random_cultist_cost_get();
+			var _demon_specialization_event = day_event_squad_create(
+				_pit,
+				"mawling_specialization",
+				"Mawling Specialization",
+				"Choose how to transform every Mawling in the selected squad.\n" + _demon_specialization_cost.text,
+				_demon_specialization_cost.cultist_count,
+				"replace_mawlings_with_selected_unit",
+				day_event_squad_units_choice_replace_execute,
+				{ source_unit_object: o_mawling, hp_cost: _demon_specialization_cost.hp_cost }
+			);
+			_demon_specialization_event.unit_choice_options = [
+				{ title: "Forge Balgors", label: "Balgor", target_unit_object: o_balgor },
+				{ title: "Lessons in Temptation", label: "Succubus", target_unit_object: o_succubus },
+				{ title: "Born in Pit", label: "Pitling", target_unit_object: o_pitling }
+			];
+			_demon_specialization_event.selected_unit_choice_index = 0;
+			_demon_specialization_event.selected_squad = _mawling_squads[0];
+			day_event_add(_demon_specialization_event);
+			continue;
+		}
+
 		// Slot expansion is offered only when every current Demon slot is occupied.
 		if (_demon_slot_limit < BALANCE_SQUAD_EVENT_SLOT_LIMIT
 			&& _all_demon_slots_occupied)
@@ -2954,7 +3117,7 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 				"fill_the_ranks",
 				"Fill the Ranks",
 				"Add " + string(BALANCE_DEMONS_PIT_FILL_UNIT_COUNT)
-					+ " unit of the most common unit type in the selected demon squad.",
+					+ " units of the most common unit type in the selected demon squad.",
 				BALANCE_DEMONS_PIT_FILL_CULTIST_COUNT,
 				"fill_demon_ranks",
 				day_event_squad_draft_execute,
@@ -2977,48 +3140,6 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 				day_event_squad_summon_execute,
 				{ squad_type: SQUAD_TYPE.DEMON, unit_object: o_mawling, unit_count: BALANCE_SQUAD_PITLING_COUNT, hp_cost: _summon_cost.hp_cost }
 			));
-		}
-
-		if (array_length(_mawling_squads) > 0)
-		{
-			var _balgor_cost = day_event_demons_pit_random_cultist_cost_get();
-			var _balgor_event = day_event_squad_create(
-				_pit,
-				"forge_balgors",
-				"Forge Balgors",
-				"Replace all Mawlings in the selected squad with Balgors.\n" + _balgor_cost.text,
-				_balgor_cost.cultist_count,
-				"replace_mawlings_with_balgors",
-				day_event_squad_units_replace_execute,
-				{ source_unit_object: o_mawling, target_unit_object: o_balgor, hp_cost: _balgor_cost.hp_cost }
-			);
-			day_event_add(day_event_squad_selection_add(_balgor_event, _mawling_squads));
-
-			var _succubus_cost = day_event_demons_pit_random_cultist_cost_get();
-			var _succubus_event = day_event_squad_create(
-				_pit,
-				"lessons_in_temptation",
-				"Lessons in Temptation",
-				"Replace all Mawlings in the selected squad with Succubi.\n" + _succubus_cost.text,
-				_succubus_cost.cultist_count,
-				"replace_mawlings_with_succubi",
-				day_event_squad_units_replace_execute,
-				{ source_unit_object: o_mawling, target_unit_object: o_succubus, hp_cost: _succubus_cost.hp_cost }
-			);
-			day_event_add(day_event_squad_selection_add(_succubus_event, _mawling_squads));
-
-			var _pitling_cost = day_event_demons_pit_random_cultist_cost_get();
-			var _pitling_event = day_event_squad_create(
-				_pit,
-				"born_in_pit",
-				"Born in Pit",
-				"Replace all Mawlings in the selected squad with Pitlings.\n" + _pitling_cost.text,
-				_pitling_cost.cultist_count,
-				"replace_mawlings_with_pitlings",
-				day_event_squad_units_replace_execute,
-				{ source_unit_object: o_mawling, target_unit_object: o_pitling, hp_cost: _pitling_cost.hp_cost }
-			);
-			day_event_add(day_event_squad_selection_add(_pitling_event, _mawling_squads));
 		}
 
 		if (_pit_support_summon_is_available)
@@ -3096,6 +3217,31 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 		var _graveyard_support_summon_is_available = array_length(_undead_squads) > 0;
 		array_copy(_all_squads, 0, global.squads, 0, array_length(global.squads));
 
+		// Bonelets must be specialized before Graveyard can offer its normal event pool again.
+		if (array_length(_bonelet_squads) > 0)
+		{
+			var _undead_specialization_cost = day_event_random_cultist_cost_get();
+			var _undead_specialization_event = day_event_squad_create(
+				_graveyard,
+				"bonelet_specialization",
+				"Bonelet Specialization",
+				"Choose how to transform every Bonelet in the selected squad.\n" + _undead_specialization_cost.text,
+				_undead_specialization_cost.cultist_count,
+				"replace_bonelets_with_selected_unit",
+				day_event_squad_units_choice_replace_execute,
+				{ source_unit_object: o_skeleton_bonelet, hp_cost: _undead_specialization_cost.hp_cost }
+			);
+			_undead_specialization_event.unit_choice_options = [
+				{ title: "Arm the Dead", label: "Warrior", target_unit_object: o_skeleton_warrior },
+				{ title: "Bone Scholars", label: "Mage", target_unit_object: o_skeleton_mage },
+				{ title: "Bone Archery", label: "Archer", target_unit_object: o_skeleton_archer }
+			];
+			_undead_specialization_event.selected_unit_choice_index = 0;
+			_undead_specialization_event.selected_squad = _bonelet_squads[0];
+			day_event_add(_undead_specialization_event);
+			continue;
+		}
+
 		if (squad_slot_is_available(SQUAD_TYPE.UNDEAD))
 		{
 			var _raise_cost = day_event_random_cultist_cost_get();
@@ -3127,48 +3273,6 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 				day_event_squad_slot_add_execute,
 				{ squad_type: SQUAD_TYPE.UNDEAD, slot_limit: BALANCE_SQUAD_EVENT_SLOT_LIMIT, hp_cost: _catacombs_cost.hp_cost }
 			));
-		}
-
-		if (array_length(_bonelet_squads) > 0)
-		{
-			var _arm_cost = day_event_random_cultist_cost_get();
-			var _arm_event = day_event_squad_create(
-				_graveyard,
-				"arm_the_dead",
-				"Arm the Dead",
-				"Replace all Bonelets in the selected squad with Bone Warriors.\n" + _arm_cost.text,
-				_arm_cost.cultist_count,
-				"replace_bonelets_with_warriors",
-				day_event_squad_units_replace_execute,
-				{ source_unit_object: o_skeleton_bonelet, target_unit_object: o_skeleton_warrior, hp_cost: _arm_cost.hp_cost }
-			);
-			day_event_add(day_event_squad_selection_add(_arm_event, _bonelet_squads));
-
-			var _scholars_cost = day_event_random_cultist_cost_get();
-			var _scholars_event = day_event_squad_create(
-				_graveyard,
-				"bone_scholars",
-				"Bone Scholars",
-				"Replace all Bonelets in the selected squad with Bone Mages.\n" + _scholars_cost.text,
-				_scholars_cost.cultist_count,
-				"replace_bonelets_with_mages",
-				day_event_squad_units_replace_execute,
-				{ source_unit_object: o_skeleton_bonelet, target_unit_object: o_skeleton_mage, hp_cost: _scholars_cost.hp_cost }
-			);
-			day_event_add(day_event_squad_selection_add(_scholars_event, _bonelet_squads));
-
-			var _archery_cost = day_event_random_cultist_cost_get();
-			var _archery_event = day_event_squad_create(
-				_graveyard,
-				"bone_archery",
-				"Bone Archery",
-				"Replace all Bonelets in the selected squad with Bone Archers.\n" + _archery_cost.text,
-				_archery_cost.cultist_count,
-				"replace_bonelets_with_archers",
-				day_event_squad_units_replace_execute,
-				{ source_unit_object: o_skeleton_bonelet, target_unit_object: o_skeleton_archer, hp_cost: _archery_cost.hp_cost }
-			);
-			day_event_add(day_event_squad_selection_add(_archery_event, _bonelet_squads));
 		}
 
 		if (_graveyard_support_summon_is_available)
@@ -3299,16 +3403,12 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 		));
 		day_event_add(day_event_blood_bath_create(
 			_blood_bath,
-			"blood_transfusion",
-			"Blood Transfusion",
-			"The healthiest assigned Cultist loses "
-				+ string(BALANCE_BLOOD_TRANSFUSION_HEALTHY_DAMAGE)
-				+ " HP. The most wounded assigned Cultist restores "
-				+ string(BALANCE_BLOOD_TRANSFUSION_WOUNDED_HEAL)
-				+ " HP.\nRequires 2 Cultists.",
-			2,
+			"lingering_wounds",
+			"Lingering Wounds",
+			"All living Cultists will have the same amount of HP tomorrow morning as they do this morning. Dead Cultists will not be resurrected.\nRequires 1 Cultist.",
 			1,
-			day_event_blood_transfusion_execute
+			1,
+			day_event_lingering_wounds_execute
 		));
 		day_event_add(day_event_blood_bath_create(
 			_blood_bath,
@@ -3514,6 +3614,7 @@ function day_event_cultist_add(_name = "", _max_hp = BALANCE_EVENT_CULTIST_MAX_H
 	_cultist.cultist_name = _name == "" ? day_event_cultist_random_name_get() : _name;
 	_cultist.max_hp = max(1, _max_hp);
 	_cultist.hp = _cultist.max_hp;
+	_cultist.blood_bath_morning_hp_snapshot = _cultist.hp;
 	array_push(global.event_cultists, _cultist);
 	return _cultist;
 }
@@ -3587,7 +3688,8 @@ function day_event_new_day_reset()
 	// Preserve today's final choices, including rerolls, before removing the cards.
 	day_event_previous_building_selections_store();
 	global.building_construction_count_today = 0;
-	global.day_event_reroll_used_today = false;
+	global.day_event_rerolls_remaining = BALANCE_DAY_EVENT_DAILY_REROLL_COUNT;
+	global.day_event_pins_remaining = BALANCE_DAY_EVENT_DAILY_PIN_COUNT;
 
 	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
 	{

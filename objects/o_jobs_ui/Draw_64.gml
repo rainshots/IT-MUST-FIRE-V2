@@ -381,7 +381,10 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 		draw_set_font(jobs_description_font);
 		var _result_unit_object = jobs_event_result_unit_object_get(_event);
 		var _has_result_unit = _result_unit_object != noone;
-		var _description_width = (_has_result_unit ? 328 : 390) * _layout.scale;
+		var _has_unit_choices = variable_struct_exists(_event, "unit_choice_options")
+			&& is_array(_event.unit_choice_options)
+			&& array_length(_event.unit_choice_options) > 0;
+		var _description_width = (_has_unit_choices ? 220 : (_has_result_unit ? 328 : 390)) * _layout.scale;
 		var _has_archdemon_target = variable_struct_exists(_event, "target_archdemon_name")
 			&& variable_struct_exists(_event, "target_archdemon_sprite")
 			&& sprite_exists(_event.target_archdemon_sprite);
@@ -399,8 +402,123 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			_description_width
 		);
 
-		// Unit recruitment, summoning, and transformation Jobs preview their result.
-		if (_has_result_unit)
+		// Specialization Jobs show all outcomes and let the player compare them by hovering.
+		if (_has_unit_choices)
+		{
+			var _choice_count = array_length(_event.unit_choice_options);
+			var _selected_choice_index = variable_struct_exists(_event, "selected_unit_choice_index")
+				? floor(_event.selected_unit_choice_index)
+				: 0;
+
+			for (var _choice_index = 0; _choice_index < _choice_count; ++_choice_index)
+			{
+				var _choice = _event.unit_choice_options[_choice_index];
+
+				if (!is_struct(_choice)
+					|| !variable_struct_exists(_choice, "target_unit_object"))
+				{
+					continue;
+				}
+
+				var _choice_unit_object = _choice.target_unit_object;
+				var _choice_icon_rect = jobs_event_unit_choice_icon_rect_get(_event_index, _choice_index);
+				var _choice_center_x = _choice_icon_rect.x + (_choice_icon_rect.width * 0.5);
+				var _choice_center_y = _choice_icon_rect.y + (_choice_icon_rect.height * 0.5);
+				var _choice_radius = _choice_icon_rect.width * 0.5;
+				var _choice_sprite = object_get_sprite(_choice_unit_object);
+				var _choice_is_visible = _choice_icon_rect.y + _choice_icon_rect.height >= _event_viewport.y
+					&& _choice_icon_rect.y <= _event_viewport.y + _event_viewport.height;
+				var _choice_is_hovered = _choice_is_visible
+					&& point_in_rectangle(
+						_mouse_gui_x,
+						_mouse_gui_y,
+						_choice_icon_rect.x,
+						_choice_icon_rect.y,
+						_choice_icon_rect.x + _choice_icon_rect.width,
+						_choice_icon_rect.y + _choice_icon_rect.height
+					);
+				var _choice_is_selected = _choice_index == _selected_choice_index;
+				var _choice_alpha = _choice_is_selected
+					? BALANCE_EVENT_UNIT_CHOICE_SELECTED_ALPHA
+					: BALANCE_EVENT_UNIT_CHOICE_UNSELECTED_ALPHA;
+
+				draw_set_alpha(_choice_alpha);
+				draw_set_color(COLOR_JOBS_ASSIGN_BACKGROUND);
+				draw_circle(_choice_center_x, _choice_center_y, _choice_radius, false);
+				draw_set_color(_choice_is_selected || _choice_is_hovered
+					? COLOR_JOBS_EVENT_ACTIVE
+					: COLOR_JOBS_SLOT_BORDER);
+				draw_circle(_choice_center_x, _choice_center_y, _choice_radius, true);
+
+				if (sprite_exists(_choice_sprite))
+				{
+					var _choice_sprite_width = max(1, sprite_get_width(_choice_sprite));
+					var _choice_sprite_height = max(1, sprite_get_height(_choice_sprite));
+					var _choice_available_size = _choice_icon_rect.width * 0.78;
+					var _choice_sprite_scale = min(
+						_choice_available_size / _choice_sprite_width,
+						_choice_available_size / _choice_sprite_height
+					);
+					var _choice_sprite_x = _choice_center_x
+						+ ((sprite_get_xoffset(_choice_sprite) - (_choice_sprite_width * 0.5)) * _choice_sprite_scale);
+					var _choice_sprite_y = _choice_center_y
+						+ ((sprite_get_yoffset(_choice_sprite) - (_choice_sprite_height * 0.5)) * _choice_sprite_scale);
+
+					draw_sprite_ext(
+						_choice_sprite,
+						0,
+						_choice_sprite_x,
+						_choice_sprite_y,
+						_choice_sprite_scale,
+						_choice_sprite_scale,
+						0,
+						c_white,
+						1
+					);
+				}
+
+				draw_set_halign(fa_center);
+				draw_set_valign(fa_top);
+				draw_set_font(jobs_hp_font);
+				draw_set_color(_choice_is_selected ? COLOR_STATUS_NEGATIVE_RED : COLOR_JOBS_ASSIGN_TEXT);
+				draw_text(
+					_choice_center_x,
+					_event_rect.y + (jobs_unit_choice_label_y * _layout.scale),
+					_choice.label
+				);
+				draw_set_alpha(1);
+
+				if (_choice_is_hovered)
+				{
+					_hovered_result_unit_object = _choice_unit_object;
+				}
+			}
+
+			if (_selected_choice_index >= 0 && _selected_choice_index < _choice_count)
+			{
+				var _selected_choice = _event.unit_choice_options[_selected_choice_index];
+
+				if (is_struct(_selected_choice) && variable_struct_exists(_selected_choice, "title"))
+				{
+					// Center the selection summary directly below the three result portraits.
+					var _selected_text_x = _event_rect.x
+						+ ((jobs_unit_choice_icon_start_x
+							+ (jobs_unit_choice_icon_size * 0.5)
+							+ (((_choice_count - 1) * jobs_unit_choice_icon_step) * 0.5)) * _layout.scale);
+					draw_set_halign(fa_center);
+					draw_set_valign(fa_top);
+					draw_set_font(jobs_hp_font);
+					draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+					draw_text(
+						_selected_text_x,
+						_event_rect.y + (111 * _layout.scale),
+						"Selected: " + _selected_choice.title
+					);
+				}
+			}
+		}
+		// Unit recruitment and summoning Jobs preview their single result.
+		else if (_has_result_unit)
 		{
 			var _result_icon_rect = jobs_event_result_unit_icon_rect_get(_event_index);
 			var _result_icon_center_x = _result_icon_rect.x + (_result_icon_rect.width * 0.5);
@@ -609,7 +727,7 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 		{
 			var _reroll_rect = jobs_event_action_rect_get(_event_index, "reroll");
 			var _reroll_key = jobs_event_action_key_get(_event, "reroll");
-			var _reroll_enabled = !global.day_event_reroll_used_today;
+			var _reroll_enabled = global.day_event_rerolls_remaining > 0;
 			var _reroll_hovered = _reroll_enabled
 				&& jobs_hovered_event_action_key == _reroll_key;
 			var _reroll_visual_scale = _reroll_hovered ? 1.08 : 1;
@@ -638,7 +756,7 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			draw_text(
 				_reroll_rect.x + (_reroll_rect.width * 0.5),
 				_event_rect.y + (jobs_event_action_label_y * _layout.scale),
-				"Reroll (" + string(_reroll_enabled ? 1 : 0) + ")"
+				"Reroll (" + string(global.day_event_rerolls_remaining) + ")"
 			);
 
 			var _pin_action = jobs_event_pin_action_get(_event);
@@ -650,7 +768,9 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 				var _pin_hovered = jobs_hovered_event_action_key == _pin_key;
 				var _pin_visual_scale = _pin_hovered ? 1.08 : 1;
 				var _pin_sprite_scale = _layout.scale * _pin_visual_scale;
-				var _pin_label = _pin_action == "unpin" ? "Unpin" : "Pin (1)";
+				var _pin_label = _pin_action == "unpin"
+					? "Unpin"
+					: "Pin (" + string(global.day_event_pins_remaining) + ")";
 
 				draw_sprite_ext(
 					s_pin_icon,
@@ -674,6 +794,26 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 				);
 			}
 		}
+	}
+
+	// Finish the scrollable event list with a compact construction reminder.
+	if (array_length(global.day_events) > 0)
+	{
+		var _event_footer_rect = jobs_event_footer_rect_get();
+
+		draw_set_alpha(0.72);
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_top);
+		draw_set_font(jobs_description_font);
+		draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+		draw_text_ext(
+			_event_footer_rect.x + (_event_footer_rect.width * 0.5),
+			_event_footer_rect.y,
+			jobs_event_footer_text,
+			14 * _layout.scale,
+			_event_footer_rect.width
+		);
+		draw_set_alpha(1);
 	}
 
 	// The active selector is drawn last so its squad list overlays the event cards below it.
@@ -848,9 +988,7 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			+ _layout.panel_width
 			- ((jobs_scrollbar_width + jobs_scrollbar_gap) * _layout.scale);
 		var _scrollbar_width = jobs_scrollbar_width * _layout.scale;
-		var _event_count = array_length(global.day_events);
-		var _content_height = ((_event_count * jobs_event_height)
-			+ (max(0, _event_count - 1) * jobs_event_gap)) * _layout.scale;
+		var _content_height = jobs_event_content_height_get() * _layout.scale;
 		var _thumb_height = max(32 * _layout.scale, _event_viewport.height * (_event_viewport.height / _content_height));
 		var _thumb_travel = _event_viewport.height - _thumb_height;
 		var _thumb_y = _event_viewport.y + (_thumb_travel * (jobs_scroll_offset / _scroll_max));
@@ -899,17 +1037,60 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 	{
 		// Use the same red hand cursor feedback as cultists in the world.
 		var _hand_scale = 0.33 * _layout.scale;
+		var _hand_x = device_mouse_x_to_gui(0);
+		var _hand_y = device_mouse_y_to_gui(0);
 		draw_sprite_ext(
 			s_hand,
 			0,
-			device_mouse_x_to_gui(0),
-			device_mouse_y_to_gui(0),
+			_hand_x,
+			_hand_y,
 			_hand_scale,
 			_hand_scale,
 			0,
 			c_white,
 			1
 		);
+
+		// RMB can unassign only Cultists that already occupy a Job slot.
+		if (variable_instance_exists(jobs_hovered_cultist, "assigned_event")
+			&& is_struct(jobs_hovered_cultist.assigned_event))
+		{
+			draw_set_font(jobs_hp_font);
+			var _hint_padding_x = jobs_unassign_hint_padding_x * _layout.scale;
+			var _hint_padding_y = jobs_unassign_hint_padding_y * _layout.scale;
+			var _hint_width = (string_width(jobs_unassign_hint_text) * _layout.scale) + (_hint_padding_x * 2);
+			var _hint_height = (string_height(jobs_unassign_hint_text) * _layout.scale) + (_hint_padding_y * 2);
+			var _hint_margin = jobs_unassign_hint_screen_margin * _layout.scale;
+			var _hint_x = clamp(
+				_hand_x - (_hint_width * 0.5),
+				_hint_margin,
+				display_get_gui_width() - _hint_width - _hint_margin
+			);
+			var _hint_y = min(
+				_hand_y + (jobs_unassign_hint_offset_y * _layout.scale),
+				display_get_gui_height() - _hint_height - _hint_margin
+			);
+
+			draw_set_alpha(jobs_unassign_hint_background_alpha);
+			draw_set_color(COLOR_JOBS_ASSIGN_BACKGROUND);
+			draw_rectangle(_hint_x, _hint_y, _hint_x + _hint_width, _hint_y + _hint_height, false);
+			draw_set_alpha(1);
+			draw_set_color(COLOR_JOBS_SLOT_BORDER);
+			draw_rectangle(_hint_x, _hint_y, _hint_x + _hint_width, _hint_y + _hint_height, true);
+			draw_set_halign(fa_center);
+			draw_set_valign(fa_top);
+			draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+			draw_text_transformed(
+				_hint_x + (_hint_width * 0.5),
+				_hint_y + _hint_padding_y,
+				jobs_unassign_hint_text,
+				_layout.scale,
+				_layout.scale,
+				0
+			);
+			draw_set_halign(fa_left);
+			draw_set_valign(fa_top);
+		}
 	}
 
 	// Close button.

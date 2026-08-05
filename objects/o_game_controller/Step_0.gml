@@ -223,6 +223,14 @@ if (global.cheats_enabled && keyboard_check_pressed(vk_f3))
 	global.fog_of_war_visible = !global.fog_of_war_visible;
 }
 
+// F1 grants one additional Reroll and Pin for the current day.
+if (global.cheats_enabled && keyboard_check_pressed(vk_f1))
+{
+	var _day_event_action_cheat_amount = 1;
+	global.day_event_rerolls_remaining += _day_event_action_cheat_amount;
+	global.day_event_pins_remaining += _day_event_action_cheat_amount;
+}
+
 // F6 replaces the current daily cards with every currently available event.
 if (global.cheats_enabled && keyboard_check_pressed(vk_f6))
 {
@@ -1254,7 +1262,7 @@ if ((_building_reroll_key_pressed || _building_pin_key_pressed)
 
 	if (day_event_building_action_is_available(_action_event))
 	{
-		if (_building_reroll_key_pressed && !global.day_event_reroll_used_today)
+		if (_building_reroll_key_pressed && global.day_event_rerolls_remaining > 0)
 		{
 			_event_action_changed = day_event_reroll(_action_event);
 		}
@@ -1262,9 +1270,10 @@ if ((_building_reroll_key_pressed || _building_pin_key_pressed)
 		{
 			if (day_event_pin_is_event(_action_event))
 			{
-				_event_action_changed = day_event_pin_clear();
+				_event_action_changed = day_event_pin_clear(_action_event);
 			}
-			else if (!day_event_pin_is_active())
+			else if (global.day_event_pins_remaining > 0
+				&& !day_event_pin_source_is_active(_action_event.source_building))
 			{
 				_event_action_changed = day_event_pin_set(_action_event);
 			}
@@ -1611,6 +1620,12 @@ if (!global.pause
 	{
 		global.cannon_projectile_gain_timer = 0;
 	}
+}
+
+// Restore missing Hellcow and First Aid Meat shells throughout the night.
+if (!global.pause)
+{
+	cannon_night_shell_recharge_update();
 }
 
 // Move night cultists into the cannon until they become queued projectiles.

@@ -26,12 +26,12 @@ night_attack_balance_by_day = [
 	{ difficulty_budget: 78, enemy_hp_multiplier: 1.3, enemy_damage_multiplier: 1 }, // Day 6: Griffith.
 	{ difficulty_budget: 235, enemy_hp_multiplier: 1.34, enemy_damage_multiplier: 1.45 }, // Day 7.
 	{ difficulty_budget: 364, enemy_hp_multiplier: 1.38, enemy_damage_multiplier: 1 }, // Day 8: Full Moon.
-	{ difficulty_budget: 330, enemy_hp_multiplier: 1.52, enemy_damage_multiplier: 1.72 }, // Day 9.
-	{ difficulty_budget: 330, enemy_hp_multiplier: 1.72, enemy_damage_multiplier: 1.95 }, // Day 10.
-	{ difficulty_budget: 429, enemy_hp_multiplier: 2.02, enemy_damage_multiplier: 2.20 }, // Day 11: Full Moon.
-	{ difficulty_budget: 330, enemy_hp_multiplier: 2.22, enemy_damage_multiplier: 2.30 }, // Day 12.
-	{ difficulty_budget: 132, enemy_hp_multiplier: 2.42, enemy_damage_multiplier: 2.55 }, // Day 13: Crusader horde boss.
-	{ difficulty_budget: 330, enemy_hp_multiplier: 2.62, enemy_damage_multiplier: 2.65 }  // Day 14 and later.
+	{ difficulty_budget: 230, enemy_hp_multiplier: 1.72, enemy_damage_multiplier: 1.72 }, // Day 9.
+	{ difficulty_budget: 230, enemy_hp_multiplier: 1.92, enemy_damage_multiplier: 1.95 }, // Day 10.
+	{ difficulty_budget: 429, enemy_hp_multiplier: 2.22, enemy_damage_multiplier: 2.20 }, // Day 11: Full Moon.
+	{ difficulty_budget: 230, enemy_hp_multiplier: 2.42, enemy_damage_multiplier: 2.30 }, // Day 12.
+	{ difficulty_budget: 132, enemy_hp_multiplier: 2.7, enemy_damage_multiplier: 2.55 }, // Day 13: Crusader horde boss.
+	{ difficulty_budget: 250, enemy_hp_multiplier: 2.9, enemy_damage_multiplier: 2.7 }  // Day 14 and later.
 ];
 
 // Q toggles quadruple simulation speed during the night.
@@ -72,6 +72,7 @@ global.cultist_limit = BALANCE_STARTING_CULTIST_LIMIT;
 global.building_construction_count_today = 0;
 global.blood_bath_infernal_regeneration_uses = 0;
 global.blood_bath_warpaint_morning_pending = false;
+global.blood_bath_lingering_wounds_morning_pending = false;
 global.blood_bath_undying_devotion_pending = false;
 global.blood_bath_undying_devotion_dead_cultists = [];
 global.world_job_first_archdemon_completed = false;
@@ -101,10 +102,10 @@ global.event_cultist_names = [
 	"Yorick", "Zevran", "Alaric", "Cedric", "Leoric", "Mordren"
 ];
 global.day_events = array_create(0);
-// Jobs actions allow one reroll per day and one building event pinned for tomorrow.
-global.day_event_reroll_used_today = false;
-global.day_event_pinned_event_id = "";
-global.day_event_pinned_source_building = noone;
+// Jobs actions have daily use counts; pinned events are consumed the following morning.
+global.day_event_rerolls_remaining = BALANCE_DAY_EVENT_DAILY_REROLL_COUNT;
+global.day_event_pins_remaining = BALANCE_DAY_EVENT_DAILY_PIN_COUNT;
+global.day_event_pinned_events = [];
 global.world_event_hover_building = noone;
 global.world_event_squad_selector_building = noone;
 global.world_event_squad_selector_event = noone;
@@ -701,12 +702,12 @@ early_upgrade_choice_apply = function(_choice)
 			for (var _type_index = 0; _type_index < array_length(_projectile_types); ++_type_index)
 			{
 				var _projectile_type = _projectile_types[_type_index];
-				var _current_production = shell_factory_morning_projectile_target_count_get(_projectile_type);
+				var _current_production = cannon_morning_projectile_target_count_get(_projectile_type);
 				global.early_upgrade_shell_morning_bonus[_projectile_type] += _current_production;
 			}
 
 			// The morning refill already happened before the choice, so grant the difference now.
-			shell_factory_morning_projectiles_refill();
+			cannon_morning_projectiles_refill();
 		}
 		else
 		{
@@ -921,9 +922,9 @@ early_upgrade_popup_draw = function()
 {
 	var _layout = early_upgrade_popup_layout_get();
 	var _eligible_squads = early_upgrade_selected_squad_refresh();
-	var _hellcow_after = shell_factory_morning_projectile_target_count_get(PROJECTILE_TYPE.BOMB) * 2;
-	var _taint_after = shell_factory_morning_projectile_target_count_get(PROJECTILE_TYPE.CORRUPTION) * 2;
-	var _first_aid_after = shell_factory_morning_projectile_target_count_get(PROJECTILE_TYPE.HEAL) * 2;
+	var _hellcow_after = cannon_morning_projectile_target_count_get(PROJECTILE_TYPE.BOMB) * 2;
+	var _taint_after = cannon_morning_projectile_target_count_get(PROJECTILE_TYPE.CORRUPTION) * 2;
+	var _first_aid_after = cannon_morning_projectile_target_count_get(PROJECTILE_TYPE.HEAL) * 2;
 	var _is_day_two_upgrade = early_upgrade_popup_set == DAYBREAK_UPGRADE_SET.DAY_TWO;
 	var _choice_count = _is_day_two_upgrade
 		? EARLY_UPGRADE_CHOICE.COUNT
@@ -1004,7 +1005,7 @@ early_upgrade_popup_draw = function()
 			_title = "RISE AGAIN";
 			_description = "Every player unit has a "
 				+ string(round(BALANCE_EARLY_UPGRADE_BONELET_RESURRECTION_CHANCE * 100))
-				+ "% chance to rise as a Bonelet after death.";
+				+ "% chance to rise as a Bonelet after death. The original unit returns in the morning.";
 		}
 		else if (_is_day_two_upgrade)
 		{
@@ -1603,6 +1604,8 @@ global.cannon_projectile_queue_max = BALANCE_CANNON_PROJECTILE_QUEUE_MAX;
 global.cannon_projectile_gain_time = BALANCE_CANNON_PROJECTILE_GAIN_TIME;
 global.cannon_projectile_gain_timer = 0;
 global.cannon_projectile_gain_enabled = false;
+// Per-shell-type night recharge progress measured in frames.
+cannon_night_shell_recharge_timers = array_create(PROJECTILE_TYPE.COUNT, 0);
 global.cannon_projectile_drop_types = [
 	PROJECTILE_TYPE.DAMAGE,
 	PROJECTILE_TYPE.SUMMON,
@@ -2751,7 +2754,7 @@ building_choices = [
 		building_sprite: s_meat_bath,
 		building_name: "Blood Bath",
 		building_group: "Other",
-		building_description: "Allows performing operations with blood.",
+		building_description: "Allows performing operations with blood to heal your cultitsts.",
 		iron_cost: BALANCE_BUILDING_IRON_COST
 	},
 	{
@@ -2767,7 +2770,7 @@ building_choices = [
 		building_sprite: s_shell_factory,
 		building_name: "Shell Factory",
 		building_group: "Other",
-		building_description: "Produces special Cannon shells while staffed and refills configured shell stockpiles every morning.",
+		building_description: "Produces special Cannon shells while staffed and can increase morning stockpile limits through events.",
 		iron_cost: BALANCE_BUILDING_IRON_COST
 	},
 	{
@@ -3556,7 +3559,7 @@ projectile_target_selection_radius_get = function(_projectile_type)
 
 	if (_projectile_type == PROJECTILE_TYPE.BOMB)
 	{
-		return BALANCE_PROJECTILE_BOMB_RADIUS;
+		return BALANCE_PROJECTILE_HELLCOW_RADIUS;
 	}
 
 	if (_projectile_type == PROJECTILE_TYPE.DOOM_BELL)
@@ -3892,6 +3895,41 @@ night_attack_directions = [];
 // Cheat-only balance logging writes one session file into the game's Local AppData folder.
 balance_log_file_path = "";
 balance_log_has_content = false;
+balance_log_text = "";
+
+balance_log_file_save = function()
+{
+	if (balance_log_file_path == "")
+	{
+		return false;
+	}
+
+	// Write an explicit UTF-8 BOM so external text editors never guess UTF-16.
+	var _utf8_bom_bytes = [0xEF, 0xBB, 0xBF];
+	var _utf8_bom_byte_count = array_length(_utf8_bom_bytes);
+	var _buffer_size = _utf8_bom_byte_count + string_byte_length(balance_log_text);
+	var _buffer = buffer_create(_buffer_size, buffer_fixed, 1);
+
+	if (!buffer_exists(_buffer))
+	{
+		return false;
+	}
+
+	for (var _byte_index = 0; _byte_index < _utf8_bom_byte_count; ++_byte_index)
+	{
+		buffer_write(_buffer, buffer_u8, _utf8_bom_bytes[_byte_index]);
+	}
+
+	if (balance_log_text != "")
+	{
+		buffer_write(_buffer, buffer_text, balance_log_text);
+	}
+
+	buffer_save(_buffer, balance_log_file_path);
+	buffer_delete(_buffer);
+	return file_exists(balance_log_file_path);
+};
+
 balance_log_session_start = function()
 {
 	if (!global.cheats_enabled)
@@ -3928,15 +3966,14 @@ balance_log_session_start = function()
 	var _file_name = "balance_log_" + _day_text + "_" + _month_text + "_" + _hour_text + _minute_text + ".txt";
 	balance_log_file_path = working_directory + _file_name;
 	balance_log_has_content = false;
-	var _file = file_text_open_write(balance_log_file_path);
+	balance_log_text = "";
 
-	if (_file < 0)
+	if (!balance_log_file_save())
 	{
 		balance_log_file_path = "";
 		return false;
 	}
 
-	file_text_close(_file);
 	return true;
 };
 
@@ -3947,32 +3984,29 @@ balance_log_day_append = function(_day_number, _event_lines)
 		return false;
 	}
 
-	var _file = file_text_open_append(balance_log_file_path);
-
-	if (_file < 0)
-	{
-		return false;
-	}
-
-	file_text_write_string(_file, "Day " + string(max(1, floor(_day_number))));
-	file_text_writeln(_file);
+	var _line_break = "\r\n";
+	var _day_log_text = "Day " + string(max(1, floor(_day_number))) + _line_break;
 	var _event_count = array_length(_event_lines);
 
 	if (_event_count <= 0)
 	{
-		file_text_write_string(_file, "No events used");
-		file_text_writeln(_file);
+		_day_log_text += "No events used" + _line_break;
 	}
 	else
 	{
 		for (var _event_index = 0; _event_index < _event_count; ++_event_index)
 		{
-			file_text_write_string(_file, string(_event_lines[_event_index]));
-			file_text_writeln(_file);
+			_day_log_text += string(_event_lines[_event_index]) + _line_break;
 		}
 	}
 
-	file_text_close(_file);
+	balance_log_text += _day_log_text;
+
+	if (!balance_log_file_save())
+	{
+		return false;
+	}
+
 	balance_log_has_content = true;
 	return true;
 };
@@ -4082,19 +4116,17 @@ balance_log_night_hp_append = function()
 		return false;
 	}
 
-	var _file = file_text_open_append(balance_log_file_path);
+	var _player_hp_percent = round(balance_player_hp_percent_get());
+	// A blank line separates completed day and night blocks.
+	balance_log_text += "Night player army hp: "
+		+ string(_player_hp_percent)
+		+ "%\r\n\r\n";
 
-	if (_file < 0)
+	if (!balance_log_file_save())
 	{
 		return false;
 	}
 
-	var _player_hp_percent = round(balance_player_hp_percent_get());
-	file_text_write_string(_file, "Night player army hp: " + string(_player_hp_percent) + "%");
-	file_text_writeln(_file);
-	// A blank line separates completed day and night blocks.
-	file_text_writeln(_file);
-	file_text_close(_file);
 	balance_log_has_content = true;
 	return true;
 };
@@ -5871,8 +5903,42 @@ world_event_squad_selector_input_update = function()
 		var _event = _building.world_event_current_get();
 		var _layout = _building.world_event_layout_get(_event);
 
-		if (!is_struct(_layout)
-			|| !_layout.has_selector
+		if (!is_struct(_layout))
+		{
+			continue;
+		}
+
+		// Unit portraits select a specialization without opening another focus window.
+		if (_layout.has_unit_choice)
+		{
+			var _choice_count = array_length(_event.unit_choice_options);
+
+			for (var _choice_index = 0; _choice_index < _choice_count; ++_choice_index)
+			{
+				var _choice_rect = _building.world_event_unit_choice_rect_get(
+					_event,
+					_layout,
+					_choice_index
+				);
+
+				if (is_struct(_choice_rect)
+					&& ui_mouse_is_inside_rect(
+						_mouse_x,
+						_mouse_y,
+						_choice_rect.x,
+						_choice_rect.y,
+						_choice_rect.width,
+						_choice_rect.height
+					))
+				{
+					_event.selected_unit_choice_index = _choice_index;
+					global.ui_confirm_sound_play();
+					return true;
+				}
+			}
+		}
+
+		if (!_layout.has_selector
 			|| !ui_mouse_is_inside_rect(
 				_mouse_x,
 				_mouse_y,
@@ -6399,9 +6465,24 @@ cannon_projectile_queue_type_count_get = function(_projectile_type)
 	return _matching_count;
 };
 
-shell_factory_morning_projectile_target_count_get = function(_projectile_type)
+cannon_morning_projectile_target_count_get = function(_projectile_type)
 {
+	// Hellcow and Taint Compost have a daily baseline even without a Shell Factory.
 	var _target_count = 0;
+
+	if (_projectile_type == PROJECTILE_TYPE.BOMB)
+	{
+		_target_count = BALANCE_DEFAULT_MORNING_HELLCOW_LIMIT;
+	}
+	else if (_projectile_type == PROJECTILE_TYPE.HEAL)
+	{
+		_target_count = BALANCE_DEFAULT_MORNING_FIRST_AID_LIMIT;
+	}
+	else if (_projectile_type == PROJECTILE_TYPE.CORRUPTION)
+	{
+		_target_count = BALANCE_DEFAULT_MORNING_TAINT_COMPOST_LIMIT;
+	}
+
 	var _shell_factory_count = instance_number(o_shell_factory);
 
 	for (var _factory_index = 0; _factory_index < _shell_factory_count; ++_factory_index)
@@ -6425,7 +6506,65 @@ shell_factory_morning_projectile_target_count_get = function(_projectile_type)
 	return _target_count;
 };
 
-shell_factory_morning_projectiles_refill = function()
+cannon_night_shell_recharge_progress_get = function(_projectile_type)
+{
+	if (global.day_phase != DAY_PHASE.NIGHT
+		|| (_projectile_type != PROJECTILE_TYPE.BOMB && _projectile_type != PROJECTILE_TYPE.HEAL))
+	{
+		return 0;
+	}
+
+	var _target_count = cannon_morning_projectile_target_count_get(_projectile_type);
+	var _current_count = cannon_projectile_queue_type_count_get(_projectile_type);
+
+	if (_target_count <= 0 || _current_count >= _target_count)
+	{
+		return 0;
+	}
+
+	var _recharge_interval = max(1, BALANCE_CANNON_NIGHT_SHELL_RECHARGE_TIME * room_speed);
+	return clamp(cannon_night_shell_recharge_timers[_projectile_type] / _recharge_interval, 0, 1);
+};
+
+cannon_night_shell_recharge_update = function()
+{
+	var _projectile_types = [PROJECTILE_TYPE.BOMB, PROJECTILE_TYPE.HEAL];
+	var _projectile_type_count = array_length(_projectile_types);
+
+	// Night recharge is independent for Hellcow and First Aid Meat shells.
+	for (var _type_index = 0; _type_index < _projectile_type_count; ++_type_index)
+	{
+		var _projectile_type = _projectile_types[_type_index];
+
+		if (global.day_phase != DAY_PHASE.NIGHT)
+		{
+			cannon_night_shell_recharge_timers[_projectile_type] = 0;
+			continue;
+		}
+
+		var _target_count = cannon_morning_projectile_target_count_get(_projectile_type);
+		var _current_count = cannon_projectile_queue_type_count_get(_projectile_type);
+
+		if (_target_count <= 0 || _current_count >= _target_count)
+		{
+			cannon_night_shell_recharge_timers[_projectile_type] = 0;
+			continue;
+		}
+
+		var _recharge_interval = max(1, BALANCE_CANNON_NIGHT_SHELL_RECHARGE_TIME * room_speed);
+		var _recharge_timer = cannon_night_shell_recharge_timers[_projectile_type];
+		_recharge_timer = min(_recharge_timer + 1, _recharge_interval);
+		cannon_night_shell_recharge_timers[_projectile_type] = _recharge_timer;
+
+		if (_recharge_timer >= _recharge_interval
+			&& cannon_projectile_queue_add(_projectile_type))
+		{
+			cannon_night_shell_recharge_timers[_projectile_type] = 0;
+		}
+	}
+};
+
+cannon_morning_projectiles_refill = function()
 {
 	var _projectile_types = [
 		PROJECTILE_TYPE.BOMB,
@@ -6435,11 +6574,15 @@ shell_factory_morning_projectiles_refill = function()
 	var _projectile_type_count = array_length(_projectile_types);
 	var _added_count = 0;
 
-	// Sum every factory's stockpile contribution, then add only missing shells.
+	// Morning refill supersedes any partial night recharge progress.
+	cannon_night_shell_recharge_timers[PROJECTILE_TYPE.BOMB] = 0;
+	cannon_night_shell_recharge_timers[PROJECTILE_TYPE.HEAL] = 0;
+
+	// Refill the default stockpile plus permanent bonuses earned by Shell Factories.
 	for (var _type_index = 0; _type_index < _projectile_type_count; ++_type_index)
 	{
 		var _projectile_type = _projectile_types[_type_index];
-		var _target_count = shell_factory_morning_projectile_target_count_get(_projectile_type);
+		var _target_count = cannon_morning_projectile_target_count_get(_projectile_type);
 
 		var _current_count = cannon_projectile_queue_type_count_get(_projectile_type);
 		var _missing_count = max(0, _target_count - _current_count);
@@ -6896,8 +7039,8 @@ spawn_starting_cultists = function()
 		array_push(global.event_cultists, _event_cultist);
 	}
 
-	// Treat the initial daytime setup as the first morning for Shell Factory stockpiles.
-	shell_factory_morning_projectiles_refill();
+	// Treat the initial daytime setup as the first morning for Cannon shell stockpiles.
+	cannon_morning_projectiles_refill();
 
 	// Buildings provide their random daily event after the starting roster exists.
 	day_event_generate_for_buildings();
@@ -11281,7 +11424,7 @@ start_day_phase = function()
 		ihor_extractor_morning_income_collect();
 	}
 
-	shell_factory_morning_projectiles_refill();
+	cannon_morning_projectiles_refill();
 
 	with (o_ritual_circle)
 	{

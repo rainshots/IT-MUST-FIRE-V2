@@ -18,8 +18,7 @@ vision_radius = BALANCE_UNIT_VISION_RADIUS;
 image_xscale = 1.35;
 image_yscale = image_xscale;
 
-// Passive timers.
-griffith_ground_cleanse_timer = irandom(max(1, BALANCE_BOSS_GRIFFITH_GROUND_CLEANSE_INTERVAL - 1));
+// Passive summon timer.
 griffith_summon_timer = BALANCE_BOSS_GRIFFITH_SUMMON_INTERVAL * room_speed;
 
 // Chained leap state mirrors Imp's active jump pattern with boss-owned targeting.
@@ -52,31 +51,6 @@ griffith_target_is_in_array = function(_target, _target_array)
 	}
 
 	return false;
-};
-
-griffith_ground_cleanse_update = function()
-{
-	griffith_ground_cleanse_timer--;
-
-	if (griffith_ground_cleanse_timer > 0)
-	{
-		return;
-	}
-
-	griffith_ground_cleanse_timer = BALANCE_BOSS_GRIFFITH_GROUND_CLEANSE_INTERVAL;
-
-	if (!instance_exists(o_corruption_grid))
-	{
-		return;
-	}
-
-	var _corruption_grid = instance_find(o_corruption_grid, 0);
-	_corruption_grid.cleanse_circle(
-		x,
-		y,
-		BALANCE_BOSS_GRIFFITH_GROUND_CLEANSE_RADIUS,
-		BALANCE_BOSS_GRIFFITH_GROUND_CLEANSE_AMOUNT
-	);
 };
 
 griffith_spawn_knight = function(_spawn_x, _spawn_y)

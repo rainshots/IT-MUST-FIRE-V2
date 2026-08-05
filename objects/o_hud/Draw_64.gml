@@ -1441,14 +1441,56 @@ if (variable_global_exists("cannon_projectile_queue")
 	var _combat_projectiles_are_active = global.day_phase == DAY_PHASE.NIGHT;
 	var _projectile_queue_count = array_length(global.cannon_projectile_queue);
 	var _projectile_display_slots = array_create(0);
+	var _projectile_game_controller = noone;
 
 	if (instance_exists(o_game_controller))
 	{
-		var _projectile_game_controller = instance_find(o_game_controller, 0);
+		_projectile_game_controller = instance_find(o_game_controller, 0);
 
 		if (variable_instance_exists(_projectile_game_controller, "cannon_projectile_display_slots_get"))
 		{
 			_projectile_display_slots = _projectile_game_controller.cannon_projectile_display_slots_get(9);
+		}
+	}
+
+	// Keep an empty rechargeable shell visible while its next charge is being restored.
+	if (_combat_projectiles_are_active
+		&& instance_exists(_projectile_game_controller)
+		&& variable_instance_exists(_projectile_game_controller, "cannon_morning_projectile_target_count_get")
+		&& variable_instance_exists(_projectile_game_controller, "cannon_projectile_queue_type_count_get"))
+	{
+		var _recharge_projectile_types = [PROJECTILE_TYPE.BOMB, PROJECTILE_TYPE.HEAL];
+		var _recharge_projectile_type_count = array_length(_recharge_projectile_types);
+
+		for (var _recharge_type_index = 0; _recharge_type_index < _recharge_projectile_type_count; ++_recharge_type_index)
+		{
+			var _recharge_projectile_type = _recharge_projectile_types[_recharge_type_index];
+			var _recharge_target_count = _projectile_game_controller.cannon_morning_projectile_target_count_get(_recharge_projectile_type);
+			var _recharge_current_count = _projectile_game_controller.cannon_projectile_queue_type_count_get(_recharge_projectile_type);
+			var _recharge_slot_exists = false;
+			var _recharge_display_count = array_length(_projectile_display_slots);
+
+			for (var _recharge_slot_index = 0; _recharge_slot_index < _recharge_display_count; ++_recharge_slot_index)
+			{
+				if (_projectile_display_slots[_recharge_slot_index].projectile_type == _recharge_projectile_type)
+				{
+					_recharge_slot_exists = true;
+					break;
+				}
+			}
+
+			if (!_recharge_slot_exists
+				&& _recharge_target_count > 0
+				&& _recharge_current_count < _recharge_target_count
+				&& array_length(_projectile_display_slots) < 9)
+			{
+				array_push(_projectile_display_slots, {
+					projectile_type: _recharge_projectile_type,
+					queue_index: -1,
+					consume_queue_index: -1,
+					count: 0
+				});
+			}
 		}
 	}
 
@@ -1610,6 +1652,7 @@ if (variable_global_exists("cannon_projectile_queue")
 		var _projectile_index = _projectile_slot.queue_index;
 		var _projectile_type = _projectile_slot.projectile_type;
 		var _projectile_stack_count = _projectile_slot.count;
+		var _projectile_is_available = _projectile_index >= 0 && _projectile_stack_count > 0;
 
 		var _slot_x = _projectile_start_x + ((projectile_slot_width + projectile_slot_gap) * _projectile_display_index);
 		var _slot_y = _projectile_base_y;
@@ -1677,6 +1720,11 @@ if (variable_global_exists("cannon_projectile_queue")
 		var _projectile_is_active = _combat_projectiles_are_active
 			|| _projectile_type == PROJECTILE_TYPE.BUILDING_SHELL;
 		var _projectile_draw_alpha = _projectile_is_active ? 1 : projectile_day_alpha;
+
+		if (!_projectile_is_available)
+		{
+			_projectile_draw_alpha *= projectile_day_alpha;
+		}
 
 		if (_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
 		{
@@ -1762,7 +1810,12 @@ if (variable_global_exists("cannon_projectile_queue")
 			);
 		}
 
-		if (_projectile_stack_count > 1)
+		// Rechargeable shells always show their current count, including zero while recharging.
+		var _projectile_count_is_visible = _projectile_stack_count > 1
+			|| _projectile_type == PROJECTILE_TYPE.BOMB
+			|| _projectile_type == PROJECTILE_TYPE.HEAL;
+
+		if (_projectile_count_is_visible)
 		{
 			draw_set_halign(fa_center);
 			draw_set_valign(fa_middle);
@@ -1811,6 +1864,50 @@ if (variable_global_exists("cannon_projectile_queue")
 		}
 
 		draw_text(_slot_x + (_slot_width * 0.5), _slot_y + projectile_name_offset_y, _projectile_name);
+
+		// Draw the current night recharge progress below rechargeable shells.
+		if (_combat_projectiles_are_active
+			&& instance_exists(_projectile_game_controller)
+			&& (_projectile_type == PROJECTILE_TYPE.BOMB || _projectile_type == PROJECTILE_TYPE.HEAL)
+			&& variable_instance_exists(_projectile_game_controller, "cannon_night_shell_recharge_progress_get"))
+		{
+			var _recharge_progress = _projectile_game_controller.cannon_night_shell_recharge_progress_get(_projectile_type);
+			var _recharge_maximum = _projectile_game_controller.cannon_morning_projectile_target_count_get(_projectile_type);
+			var _recharge_current = _projectile_game_controller.cannon_projectile_queue_type_count_get(_projectile_type);
+
+			if (_recharge_maximum > 0 && _recharge_current < _recharge_maximum)
+			{
+				var _recharge_bar_x = _slot_x + ((_slot_width - projectile_recharge_bar_width) * 0.5);
+				var _recharge_bar_y = _slot_y + projectile_recharge_bar_offset_y;
+				var _recharge_fill_width = projectile_recharge_bar_width * _recharge_progress;
+
+				draw_set_alpha(0.45);
+				draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+				draw_rectangle(
+					_recharge_bar_x,
+					_recharge_bar_y,
+					_recharge_bar_x + projectile_recharge_bar_width,
+					_recharge_bar_y + projectile_recharge_bar_height,
+					false
+				);
+
+				if (_recharge_fill_width > 0)
+				{
+					draw_set_alpha(1);
+					draw_set_color(_projectile_color);
+					draw_rectangle(
+						_recharge_bar_x,
+						_recharge_bar_y,
+						_recharge_bar_x + _recharge_fill_width,
+						_recharge_bar_y + projectile_recharge_bar_height,
+						false
+					);
+				}
+			}
+		}
+
+		draw_set_alpha(_projectile_draw_alpha);
+		draw_set_color(COLOR_HUD_TEXT);
 
 		if (_projectile_index >= 0
 			&& _projectile_index < array_length(_projectile_payload_data)
@@ -1908,7 +2005,7 @@ if (variable_global_exists("cannon_projectile_queue")
 			draw_set_valign(fa_middle);
 		}
 
-		if (_projectile_is_active)
+		if (_projectile_is_active && _projectile_is_available)
 		{
 			var _key_prompt_text = projectile_key_prompt_prefix + string(_projectile_display_index + 1);
 
