@@ -59,7 +59,7 @@ if (global.day_phase == DAY_PHASE.DAY && global.focus_window == FOCUS_WINDOW.NOO
 	);
 
 	// Guide the player to Cultist Assignment until the window has been opened once.
-	if (!jobs_window_opened_once)
+	if (!jobs_window_opened_once && day_event_current_day_get() == 1)
 	{
 		var _hint_text_x = _show_rect.x + (jobs_assignment_hint_text_offset_x * _show_rect.scale);
 		var _hint_text_y = _show_rect.y + (jobs_assignment_hint_text_offset_y * _show_rect.scale);
@@ -917,6 +917,10 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			_cultist_rect.width / sprite_get_width(_cultist.sprite_index),
 			(_cultist_rect.height * 0.874) / sprite_get_height(_cultist.sprite_index)
 		);
+		var _cultist_angle = variable_instance_exists(_cultist, "is_unconscious")
+			&& _cultist.is_unconscious
+			? 90
+			: 0;
 		draw_sprite_ext(
 			_cultist.sprite_index,
 			_cultist.image_index,
@@ -924,7 +928,7 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			_cultist_rect.y + (_cultist_rect.height * 0.62) + (20 * _layout.scale),
 			_sprite_scale,
 			_sprite_scale,
-			0,
+			_cultist_angle,
 			c_white,
 			1
 		);
@@ -978,20 +982,14 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 					draw_text(_cultist_text_x, _change_y, "+" + string(round(_hp_preview.hp_gain)) + " HP");
 				}
 
-				if (_hp_preview.dies && sprite_exists(s_ui_scull_white))
+				if (_hp_preview.loses_consciousness)
 				{
-					var _skull_size = 24 * _layout.scale;
-					var _skull_scale = _skull_size / max(1, sprite_get_width(s_ui_scull_white));
-					draw_sprite_ext(
-						s_ui_scull_white,
-						0,
+					draw_set_valign(fa_middle);
+					draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+					draw_text(
 						_cultist_text_x,
 						_cultist_rect.y + (_cultist_rect.height * 0.5),
-						_skull_scale,
-						_skull_scale,
-						0,
-						COLOR_STATUS_NEGATIVE_RED,
-						1
+						"KO"
 					);
 				}
 			}
@@ -1138,6 +1136,60 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			120 * _layout.scale,
 			jobs_hp_font
 		);
+	}
+
+	// The annotated Assign Duties overview is visible only while the first-day window is open.
+	var _show_onboarding_hints = day_event_current_day_get() == 1
+		&& (!variable_global_exists("tutorial_hints_enabled") || global.tutorial_hints_enabled);
+
+	if (_show_onboarding_hints)
+	{
+		var _onboarding_design_offset_x = _layout.panel_x
+			- (jobs_onboarding_design_panel_x * _layout.scale);
+		var _onboarding_hint_count = array_length(jobs_onboarding_hints);
+
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_color(c_white);
+		draw_set_alpha(1);
+		draw_set_font(jobs_onboarding_font);
+
+		for (var _hint_index = 0; _hint_index < _onboarding_hint_count; ++_hint_index)
+		{
+			var _hint = jobs_onboarding_hints[_hint_index];
+			var _hint_text_x = _onboarding_design_offset_x + (_hint.text_x * _layout.scale);
+			var _hint_text_y = _hint.text_y * _layout.scale;
+
+			draw_text_ext_transformed(
+				_hint_text_x,
+				_hint_text_y,
+				_hint.text,
+				jobs_onboarding_text_line_height,
+				_hint.text_width,
+				_layout.scale,
+				_layout.scale,
+				0
+			);
+
+			if (sprite_exists(s_attack_arrow))
+			{
+				var _hint_arrow_x = _onboarding_design_offset_x + (_hint.arrow_x * _layout.scale);
+				var _hint_arrow_y = _hint.arrow_y * _layout.scale;
+				var _hint_arrow_scale = jobs_onboarding_arrow_scale * _layout.scale;
+
+				draw_sprite_ext(
+					s_attack_arrow,
+					0,
+					_hint_arrow_x,
+					_hint_arrow_y,
+					_hint_arrow_scale,
+					_hint_arrow_scale,
+					_hint.arrow_angle,
+					c_white,
+					BALANCE_ATTACK_ARROW_ALPHA
+				);
+			}
+		}
 	}
 
 }

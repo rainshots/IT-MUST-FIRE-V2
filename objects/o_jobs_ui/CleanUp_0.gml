@@ -44,3 +44,8 @@ if (font_exists(jobs_world_action_font))
 {
 	font_delete(jobs_world_action_font);
 }
+
+if (font_exists(jobs_onboarding_font))
+{
+	font_delete(jobs_onboarding_font);
+}

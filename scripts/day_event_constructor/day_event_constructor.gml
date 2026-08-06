@@ -51,6 +51,13 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 			day_event_pin_clear(self);
 		}
 
+		// Some Jobs introduce a mechanic immediately after their first successful assignment.
+		if (variable_struct_exists(self, "assignment_tutorial_hint_id")
+			&& variable_global_exists("tutorial_hint_trigger"))
+		{
+			global.tutorial_hint_trigger(assignment_tutorial_hint_id);
+		}
+
 		return true;
 	};
 

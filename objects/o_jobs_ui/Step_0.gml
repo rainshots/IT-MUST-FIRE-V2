@@ -8,6 +8,12 @@ var _hovered_empty_slot_key_now = "";
 var _hovered_event_action_key_now = "";
 jobs_hovered_cultist = noone;
 
+// Tutorial popups block Assign Duties input while they are visible above the window.
+if (variable_global_exists("tutorial_popup_active") && global.tutorial_popup_active)
+{
+	exit;
+}
+
 // Consume the mouse press that closed an overlapping modal window.
 if (jobs_input_blocked_until_mouse_release)
 {
@@ -291,7 +297,12 @@ for (var _cultist_index = array_length(global.event_cultists) - 1; _cultist_inde
 	var _cultist = global.event_cultists[_cultist_index];
 	var _cultist_rect = jobs_cultist_rect_get(_cultist);
 	var _cultist_is_in_scroll_list = instance_exists(_cultist) && is_struct(_cultist.assigned_event);
-	var _cultist_can_be_hovered = !_cultist_is_in_scroll_list || _mouse_is_over_event_viewport;
+	var _cultist_is_conscious = instance_exists(_cultist)
+		&& variable_instance_exists(_cultist, "hp")
+		&& _cultist.hp > 0
+		&& (!variable_instance_exists(_cultist, "is_unconscious") || !_cultist.is_unconscious);
+	var _cultist_can_be_hovered = _cultist_is_conscious
+		&& (!_cultist_is_in_scroll_list || _mouse_is_over_event_viewport);
 
 	if (_cultist_can_be_hovered
 		&& is_struct(_cultist_rect)
@@ -615,7 +626,12 @@ if (mouse_check_button_pressed(mb_left))
 		var _cultist = global.event_cultists[_cultist_index];
 		var _cultist_rect = jobs_cultist_rect_get(_cultist);
 		var _cultist_is_in_scroll_list = instance_exists(_cultist) && is_struct(_cultist.assigned_event);
-		var _cultist_can_be_clicked = !_cultist_is_in_scroll_list || _mouse_is_over_event_viewport;
+		var _cultist_is_conscious = instance_exists(_cultist)
+			&& variable_instance_exists(_cultist, "hp")
+			&& _cultist.hp > 0
+			&& (!variable_instance_exists(_cultist, "is_unconscious") || !_cultist.is_unconscious);
+		var _cultist_can_be_clicked = _cultist_is_conscious
+			&& (!_cultist_is_in_scroll_list || _mouse_is_over_event_viewport);
 
 		if (_cultist_can_be_clicked
 			&& is_struct(_cultist_rect)

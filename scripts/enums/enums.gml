@@ -162,6 +162,7 @@ enum STATUS_EFFECT
 
 // GUI draw order keeps Jobs above gameplay indicators within GameMaker's valid depth range.
 #macro DEPTH_JOBS_UI -15000
+#macro DEPTH_TUTORIAL_UI -15900
 
 #macro COLOR_PROJECTILE_DAMAGE $ff4a42
 #macro COLOR_PROJECTILE_CORRUPTION #3E3631

@@ -1,5 +1,16 @@
-// Draw the regular cultist with the numeric HP presentation from the world-event design.
-draw_self();
+// Unconscious Cultists are drawn lying on their side in every world state.
+var _cultist_angle = is_unconscious ? 90 : 0;
+draw_sprite_ext(
+	sprite_index,
+	image_index,
+	x,
+	y,
+	image_xscale,
+	image_yscale,
+	_cultist_angle,
+	image_blend,
+	image_alpha
+);
 
 var _jobs_ui = instance_exists(o_jobs_ui)
 	? instance_find(o_jobs_ui, 0)
@@ -49,23 +60,12 @@ if (is_struct(assigned_event) && instance_exists(_jobs_ui))
 			);
 		}
 
-		if (_hp_preview.dies && sprite_exists(s_ui_scull_white))
+		if (_hp_preview.loses_consciousness)
 		{
-			var _skull_size = BALANCE_WORLD_EVENT_SLOT_WIDTH * 0.7;
-			var _skull_scale = _skull_size / max(1, sprite_get_width(s_ui_scull_white));
-			var _skull_y = (bbox_top + bbox_bottom) * 0.5;
-
-			draw_sprite_ext(
-				s_ui_scull_white,
-				0,
-				x,
-				_skull_y,
-				_skull_scale,
-				_skull_scale,
-				0,
-				COLOR_STATUS_NEGATIVE_RED,
-				1
-			);
+			var _knockout_y = (bbox_top + bbox_bottom) * 0.5;
+			draw_set_valign(fa_middle);
+			draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+			draw_text(x, _knockout_y, "KO");
 		}
 	}
 }

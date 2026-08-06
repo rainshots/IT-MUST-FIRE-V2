@@ -6,9 +6,14 @@ assigned_event = noone;
 is_being_dragged = false;
 drag_drop_x = x;
 drag_drop_y = y;
+// Unconscious Cultists remain in the settlement but cannot work until their HP becomes positive.
+is_unconscious = false;
+unconscious_mornings = 0;
 // Blood Bath effects queued during the day resolve after the following night.
 blood_bath_morning_heal_pending = 0;
+blood_bath_morning_unconscious_heal_pending = 0;
 blood_bath_morning_full_heal_pending = false;
+blood_bath_morning_full_heal_affects_unconscious = false;
 // Lingering Wounds restores this exact start-of-day HP value next morning.
 blood_bath_morning_hp_snapshot = hp;
 
@@ -39,19 +44,15 @@ if (instance_exists(o_cannon))
 
 is_available = function()
 {
-	return hp > 0 && !is_struct(assigned_event);
+	return !is_unconscious && hp > 0 && !is_struct(assigned_event);
 };
 
 damage = function(_amount)
 {
-	var _damage = max(0, _amount);
-	hp = max(0, hp - _damage);
-	return _damage;
+	return day_event_cultist_damage_apply(id, _amount);
 };
 
-heal = function(_amount)
+heal = function(_amount, _affects_unconscious_cultists = false)
 {
-	var _previous_hp = hp;
-	hp = min(max_hp, hp + max(0, _amount));
-	return hp - _previous_hp;
+	return day_event_cultist_heal_apply(id, _amount, _affects_unconscious_cultists);
 };

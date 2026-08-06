@@ -1,5 +1,5 @@
 // Tutorial popups pause gameplay and sit above every other UI layer.
-depth = -2000000;
+depth = DEPTH_TUTORIAL_UI;
 global.tutorial_popup_active = false;
 
 popup_active = false;
@@ -59,6 +59,11 @@ tutorial_items = [
 		id: "meat_bath_needed",
 		title: "Meat Bath",
 		body: "Your cultists need a Meat Bath to heal after battle. Build a Meat Bath, then assign wounded cultists to work there so they can recover before the next night."
+	},
+	{
+		id: "cultist_recovery",
+		title: "Cultist Recovery",
+		body: "Fortunately (or unfortunately), the demons imprisoned inside the Cannon will not let Cultists die. If a Cultist loses too much blood (HP <= 0), they will fall unconscious and be unable to work for a while, but will gradually recover.\n\nOn the day after falling unconscious, they will still be unable to work. On each following day, they will recover 40 HP until they return to their feet."
 	},
 	{
 		id: "workers",

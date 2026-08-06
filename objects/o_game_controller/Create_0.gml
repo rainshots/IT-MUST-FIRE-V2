@@ -76,6 +76,8 @@ global.building_construction_count_today = 0;
 global.blood_bath_infernal_regeneration_uses = 0;
 global.blood_bath_warpaint_morning_pending = false;
 global.blood_bath_lingering_wounds_morning_pending = false;
+global.blood_bath_warpaint_affects_unconscious = false;
+global.blood_bath_lingering_wounds_affects_unconscious = false;
 global.blood_bath_undying_devotion_pending = false;
 global.blood_bath_undying_devotion_dead_cultists = [];
 global.world_job_first_archdemon_completed = false;
@@ -11404,6 +11406,7 @@ start_day_phase = function()
 
 	// Previous day event cards and their assignments never carry into a new day.
 	day_event_new_day_reset();
+	day_event_cultist_unconscious_morning_update();
 	day_event_blood_bath_morning_effects_apply();
 
 	if (_previous_night_was_full_moon)

@@ -91,6 +91,48 @@ jobs_assignment_hint_arrow_tip_offset_x = 19;
 jobs_assignment_hint_arrow_tip_offset_y = 68;
 jobs_assignment_hint_arrow_scale = 0.5;
 jobs_assignment_hint_arrow_angle = 45;
+// First-day Assign Duties onboarding follows the annotated 1920x1080 Figma composition.
+jobs_onboarding_design_panel_x = 1099;
+jobs_onboarding_arrow_scale = 0.5;
+jobs_onboarding_text_line_height = 22;
+jobs_onboarding_hints = [
+	{
+		text: "Unassigned Cultists",
+		text_x: 953,
+		text_y: 69,
+		text_width: 228,
+		arrow_x: 1274,
+		arrow_y: 93,
+		arrow_angle: 0
+	},
+	{
+		text: "Each building gives one random Job per day.",
+		text_x: 839,
+		text_y: 164,
+		text_width: 228,
+		arrow_x: 1155,
+		arrow_y: 194,
+		arrow_angle: 0
+	},
+	{
+		text: "If the required number of Cultists is assigned to the Job, it will be completed tomorrow morning.",
+		text_x: 1123,
+		text_y: 620,
+		text_width: 250,
+		arrow_x: 1179,
+		arrow_y: 505,
+		arrow_angle: 90
+	},
+	{
+		text: "You can pin 1 Job per day, so it will remain available tomorrow.\nYou can also reroll 1 Job per day.\nSome Jobs cannot be rerolled or pinned.",
+		text_x: 1625,
+		text_y: 620,
+		text_width: 250,
+		arrow_x: 1807,
+		arrow_y: 505,
+		arrow_angle: 90
+	}
+];
 jobs_end_day_button_width = 353;
 jobs_end_day_button_height = 88;
 jobs_end_day_button_bottom_margin = 65;
@@ -113,6 +155,7 @@ jobs_hp_font = font_add("Arial", 8, true, false, 32, 1279);
 jobs_show_font = font_add("Arial", 25, true, false, 32, 1279);
 jobs_action_font = font_add("Arial", 12, false, false, 32, 1279);
 jobs_world_action_font = font_add("Arial", 13, true, false, 32, 1279);
+jobs_onboarding_font = font_add("Arial", 20, true, false, 32, 1279);
 
 jobs_layout_get = function()
 {
@@ -689,7 +732,7 @@ jobs_event_cultist_hp_preview_get = function(_event, _slot_index, _cultist)
 			hp_change: 0,
 			hp_loss: 0,
 			hp_gain: 0,
-			dies: false
+			loses_consciousness: false
 		};
 	}
 
@@ -831,7 +874,7 @@ jobs_event_cultist_hp_preview_get = function(_event, _slot_index, _cultist)
 		hp_change: _hp_gain - _hp_loss,
 		hp_loss: _hp_loss,
 		hp_gain: _hp_gain,
-		dies: _cultist.hp - _lethal_hp_loss <= 0
+		loses_consciousness: _cultist.hp - _lethal_hp_loss <= 0
 	};
 };
 

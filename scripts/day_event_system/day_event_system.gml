@@ -82,6 +82,167 @@ function day_event_available_cultist_find(_prefer_lowest_hp = false)
 	return _selected_cultist;
 }
 
+function day_event_affects_unconscious_cultists(_data)
+{
+	return is_struct(_data)
+		&& variable_struct_exists(_data, "affects_unconscious_cultists")
+		&& _data.affects_unconscious_cultists;
+}
+
+function day_event_cultist_unconscious_enter(_cultist)
+{
+	if (!instance_exists(_cultist)
+		|| !variable_instance_exists(_cultist, "hp")
+		|| _cultist.hp > 0)
+	{
+		return false;
+	}
+
+	var _was_unconscious = variable_instance_exists(_cultist, "is_unconscious")
+		&& _cultist.is_unconscious;
+
+	if (!_was_unconscious)
+	{
+		_cultist.is_unconscious = true;
+		_cultist.unconscious_mornings = 0;
+	}
+
+	if (variable_instance_exists(_cultist, "is_being_dragged"))
+	{
+		_cultist.is_being_dragged = false;
+	}
+
+	if (variable_global_exists("dragged_cultist") && global.dragged_cultist == _cultist)
+	{
+		global.dragged_cultist = noone;
+	}
+
+	return !_was_unconscious;
+}
+
+function day_event_cultist_assignment_release(_cultist)
+{
+	if (!instance_exists(_cultist)
+		|| !variable_instance_exists(_cultist, "assigned_event")
+		|| !is_struct(_cultist.assigned_event))
+	{
+		return false;
+	}
+
+	var _assigned_event = _cultist.assigned_event;
+
+	if (variable_struct_exists(_assigned_event, "cultist_unassign"))
+	{
+		return _assigned_event.cultist_unassign(_cultist);
+	}
+
+	_cultist.assigned_event = noone;
+	return true;
+}
+
+function day_event_cultist_damage_apply(_cultist, _amount, _release_assignment = true)
+{
+	if (!instance_exists(_cultist) || !variable_instance_exists(_cultist, "hp"))
+	{
+		return 0;
+	}
+
+	var _damage = max(0, _amount);
+	_cultist.hp -= _damage;
+
+	if (_cultist.hp <= 0)
+	{
+		day_event_cultist_unconscious_enter(_cultist);
+
+		if (_release_assignment)
+		{
+			day_event_cultist_assignment_release(_cultist);
+		}
+	}
+
+	return _damage;
+}
+
+function day_event_cultist_heal_apply(_cultist, _amount, _affects_unconscious_cultists = false)
+{
+	if (!instance_exists(_cultist)
+		|| !variable_instance_exists(_cultist, "hp")
+		|| !variable_instance_exists(_cultist, "max_hp"))
+	{
+		return 0;
+	}
+
+	var _is_unconscious = (variable_instance_exists(_cultist, "is_unconscious")
+		&& _cultist.is_unconscious)
+		|| _cultist.hp <= 0;
+
+	if (_is_unconscious)
+	{
+		day_event_cultist_unconscious_enter(_cultist);
+
+		if (!_affects_unconscious_cultists)
+		{
+			return 0;
+		}
+	}
+
+	var _previous_hp = _cultist.hp;
+	_cultist.hp = min(_cultist.max_hp, _cultist.hp + max(0, _amount));
+
+	if (_cultist.hp > 0 && variable_instance_exists(_cultist, "is_unconscious"))
+	{
+		_cultist.is_unconscious = false;
+		_cultist.unconscious_mornings = 0;
+	}
+
+	return _cultist.hp - _previous_hp;
+}
+
+function day_event_cultist_unconscious_morning_update()
+{
+	var _cultist_count = array_length(global.event_cultists);
+
+	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+	{
+		var _cultist = global.event_cultists[_cultist_index];
+
+		if (!instance_exists(_cultist)
+			|| !variable_instance_exists(_cultist, "hp")
+			|| !variable_instance_exists(_cultist, "max_hp"))
+		{
+			continue;
+		}
+
+		if (_cultist.hp <= 0)
+		{
+			day_event_cultist_unconscious_enter(_cultist);
+		}
+
+		if (!variable_instance_exists(_cultist, "is_unconscious") || !_cultist.is_unconscious)
+		{
+			continue;
+		}
+
+		var _unconscious_mornings = variable_instance_exists(_cultist, "unconscious_mornings")
+			? max(0, floor(_cultist.unconscious_mornings))
+			: 0;
+		var _recovery_starts = _unconscious_mornings
+			>= BALANCE_EVENT_CULTIST_UNCONSCIOUS_RECOVERY_DELAY_MORNINGS;
+		_cultist.unconscious_mornings = _unconscious_mornings + 1;
+
+		if (_recovery_starts)
+		{
+			day_event_cultist_heal_apply(
+				_cultist,
+				BALANCE_EVENT_CULTIST_UNCONSCIOUS_RECOVERY_HP,
+				true
+			);
+		}
+	}
+
+	return true;
+}
+
 function day_event_lowest_hp_available_cultists_assign(_event, _cultist_count)
 {
 	if (!is_struct(_event))
@@ -372,7 +533,7 @@ function day_event_cultist_hp_share_cost_apply(_assigned_cultists, _hp_share)
 			&& variable_instance_exists(_cultist, "max_hp"))
 		{
 			var _hp_cost = _cultist.max_hp * max(0, _hp_share);
-			_cultist.hp = max(0, _cultist.hp - _hp_cost);
+			day_event_cultist_damage_apply(_cultist, _hp_cost, false);
 		}
 	}
 }
@@ -388,7 +549,7 @@ function day_event_cultist_hp_cost_apply(_assigned_cultists, _hp_cost)
 		if (instance_exists(_cultist) && variable_instance_exists(_cultist, "hp"))
 		{
 			// Event costs always affect the assigned cultist, independently of combat damage handling.
-			_cultist.hp = max(0, _cultist.hp - _hp_cost);
+			day_event_cultist_damage_apply(_cultist, _hp_cost, false);
 		}
 	}
 }
@@ -868,20 +1029,41 @@ function day_event_squad_create(_building, _event_id, _title, _description, _cul
 function day_event_blood_bath_crimson_baptism_execute(_event, _assigned_cultists, _data)
 {
 	var _cultist_count = array_length(global.event_cultists);
+	var _affects_unconscious_cultists = day_event_affects_unconscious_cultists(_data);
 
-	// Every Cultist present at activation receives the heal after surviving the night.
+	// Conscious Cultists receive this queued heal unless the action explicitly opts in to unconscious targets.
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
 		var _cultist = global.event_cultists[_cultist_index];
 
 		if (instance_exists(_cultist))
 		{
+			var _is_unconscious = (variable_instance_exists(_cultist, "is_unconscious")
+				&& _cultist.is_unconscious)
+				|| (variable_instance_exists(_cultist, "hp") && _cultist.hp <= 0);
+
+			if (_is_unconscious && !_affects_unconscious_cultists)
+			{
+				continue;
+			}
+
 			if (!variable_instance_exists(_cultist, "blood_bath_morning_heal_pending"))
 			{
 				_cultist.blood_bath_morning_heal_pending = 0;
 			}
 
+			if (!variable_instance_exists(_cultist, "blood_bath_morning_unconscious_heal_pending"))
+			{
+				_cultist.blood_bath_morning_unconscious_heal_pending = 0;
+			}
+
 			_cultist.blood_bath_morning_heal_pending += BALANCE_BLOOD_BATH_CRIMSON_MORNING_HEAL;
+
+			if (_affects_unconscious_cultists)
+			{
+				_cultist.blood_bath_morning_unconscious_heal_pending +=
+					BALANCE_BLOOD_BATH_CRIMSON_MORNING_HEAL;
+			}
 		}
 	}
 
@@ -909,13 +1091,20 @@ function day_event_blood_bath_heal_execute(_event, _assigned_cultists, _data)
 		return false;
 	}
 
-	_cultist.hp = min(_cultist.max_hp, _cultist.hp + BALANCE_BLOOD_BATH_HEAL_AMOUNT);
+	day_event_cultist_heal_apply(
+		_cultist,
+		BALANCE_BLOOD_BATH_HEAL_AMOUNT,
+		day_event_affects_unconscious_cultists(_data)
+	);
 	return true;
 }
 
 function day_event_lingering_wounds_execute(_event, _assigned_cultists, _data)
 {
 	global.blood_bath_lingering_wounds_morning_pending = true;
+	global.blood_bath_lingering_wounds_affects_unconscious =
+		global.blood_bath_lingering_wounds_affects_unconscious
+		|| day_event_affects_unconscious_cultists(_data);
 	return true;
 }
 
@@ -932,8 +1121,16 @@ function day_event_blood_transfusion_execute(_event, _assigned_cultists, _data)
 	var _healthiest = _first_cultist.hp >= _second_cultist.hp ? _first_cultist : _second_cultist;
 	var _most_wounded = _healthiest == _first_cultist ? _second_cultist : _first_cultist;
 
-	_healthiest.hp = max(0, _healthiest.hp - BALANCE_BLOOD_TRANSFUSION_HEALTHY_DAMAGE);
-	_most_wounded.hp = min(_most_wounded.max_hp, _most_wounded.hp + BALANCE_BLOOD_TRANSFUSION_WOUNDED_HEAL);
+	day_event_cultist_damage_apply(
+		_healthiest,
+		BALANCE_BLOOD_TRANSFUSION_HEALTHY_DAMAGE,
+		false
+	);
+	day_event_cultist_heal_apply(
+		_most_wounded,
+		BALANCE_BLOOD_TRANSFUSION_WOUNDED_HEAL,
+		day_event_affects_unconscious_cultists(_data)
+	);
 	return true;
 }
 
@@ -946,14 +1143,25 @@ function day_event_harden_vessel_execute(_event, _assigned_cultists, _data)
 		return false;
 	}
 
-	_cultist.hp = max(0, _cultist.hp - BALANCE_HARDEN_VESSEL_DAMAGE);
+	day_event_cultist_damage_apply(_cultist, BALANCE_HARDEN_VESSEL_DAMAGE, false);
 
 	if (!variable_instance_exists(_cultist, "blood_bath_morning_heal_pending"))
 	{
 		_cultist.blood_bath_morning_heal_pending = 0;
 	}
 
+	if (!variable_instance_exists(_cultist, "blood_bath_morning_unconscious_heal_pending"))
+	{
+		_cultist.blood_bath_morning_unconscious_heal_pending = 0;
+	}
+
 	_cultist.blood_bath_morning_heal_pending += BALANCE_HARDEN_VESSEL_MORNING_HEAL;
+
+	if (day_event_affects_unconscious_cultists(_data))
+	{
+		_cultist.blood_bath_morning_unconscious_heal_pending +=
+			BALANCE_HARDEN_VESSEL_MORNING_HEAL;
+	}
 	return true;
 }
 
@@ -1016,24 +1224,10 @@ function day_event_cultist_death_remove(_cultist)
 		return false;
 	}
 
-	// Preserve this Cultist for Undying Devotion before the instance is removed.
-	day_event_undying_devotion_cultist_store(_cultist);
-
-	// Release a daytime assignment before removing the dead cultist.
-	if (variable_instance_exists(_cultist, "assigned_event")
-		&& is_struct(_cultist.assigned_event)
-		&& variable_struct_exists(_cultist.assigned_event, "cultist_unassign"))
-	{
-		_cultist.assigned_event.cultist_unassign(_cultist);
-	}
-
-	if (variable_global_exists("dragged_cultist")
-		&& global.dragged_cultist == _cultist)
-	{
-		global.dragged_cultist = noone;
-	}
-
-	return day_event_cultist_sacrifice(_cultist);
+	// Legacy callers now use the non-lethal unconscious flow.
+	day_event_cultist_unconscious_enter(_cultist);
+	day_event_cultist_assignment_release(_cultist);
+	return true;
 }
 
 function day_event_bath_demands_name_execute(_event, _assigned_cultists, _data)
@@ -1045,17 +1239,33 @@ function day_event_bath_demands_name_execute(_event, _assigned_cultists, _data)
 		return false;
 	}
 
-	_assigned_cultist.hp = max(0, _assigned_cultist.hp - BALANCE_BATH_DEMANDS_NAME_DAMAGE);
+	day_event_cultist_damage_apply(
+		_assigned_cultist,
+		BALANCE_BATH_DEMANDS_NAME_DAMAGE,
+		false
+	);
 	var _cultist_count = array_length(global.event_cultists);
+	var _affects_unconscious_cultists = day_event_affects_unconscious_cultists(_data);
 
-	// Every other surviving Cultist is fully restored the following morning.
+	// Every other conscious Cultist is fully restored the following morning.
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
 		var _cultist = global.event_cultists[_cultist_index];
 
 		if (instance_exists(_cultist) && _cultist != _assigned_cultist)
 		{
+			var _is_unconscious = (variable_instance_exists(_cultist, "is_unconscious")
+				&& _cultist.is_unconscious)
+				|| (variable_instance_exists(_cultist, "hp") && _cultist.hp <= 0);
+
+			if (_is_unconscious && !_affects_unconscious_cultists)
+			{
+				continue;
+			}
+
 			_cultist.blood_bath_morning_full_heal_pending = true;
+			_cultist.blood_bath_morning_full_heal_affects_unconscious =
+				_affects_unconscious_cultists;
 		}
 	}
 
@@ -1071,7 +1281,7 @@ function day_event_blood_for_blood_execute(_event, _assigned_cultists, _data)
 		return false;
 	}
 
-	_cultist.hp = max(0, _cultist.hp - BALANCE_BLOOD_FOR_BLOOD_DAMAGE);
+	day_event_cultist_damage_apply(_cultist, BALANCE_BLOOD_FOR_BLOOD_DAMAGE, false);
 	day_event_cultist_limit_add(BALANCE_BLOOD_FOR_BLOOD_LIMIT_BONUS);
 	return true;
 }
@@ -1136,8 +1346,7 @@ function day_event_blood_bath_morning_effects_apply()
 
 		if (!instance_exists(_cultist)
 			|| !variable_instance_exists(_cultist, "hp")
-			|| !variable_instance_exists(_cultist, "max_hp")
-			|| _cultist.hp <= 0)
+			|| !variable_instance_exists(_cultist, "max_hp"))
 		{
 			continue;
 		}
@@ -1149,35 +1358,109 @@ function day_event_blood_bath_morning_effects_apply()
 		var _heal_amount = variable_instance_exists(_cultist, "blood_bath_morning_heal_pending")
 			? max(0, _cultist.blood_bath_morning_heal_pending)
 			: 0;
-
-		if (_full_heal_is_pending)
+		var _unconscious_heal_amount = variable_instance_exists(
+			_cultist,
+			"blood_bath_morning_unconscious_heal_pending"
+		)
+			? max(0, _cultist.blood_bath_morning_unconscious_heal_pending)
+			: 0;
+		var _full_heal_affects_unconscious = variable_instance_exists(
+			_cultist,
+			"blood_bath_morning_full_heal_affects_unconscious"
+		) && _cultist.blood_bath_morning_full_heal_affects_unconscious;
+		var _is_unconscious = (variable_instance_exists(_cultist, "is_unconscious")
+			&& _cultist.is_unconscious)
+			|| _cultist.hp <= 0;
+		if (_full_heal_is_pending && (!_is_unconscious || _full_heal_affects_unconscious))
 		{
-			_cultist.hp = _cultist.max_hp;
+			day_event_cultist_heal_apply(
+				_cultist,
+				max(0, _cultist.max_hp - _cultist.hp),
+				_full_heal_affects_unconscious
+			);
 		}
-		else if (_heal_amount > 0)
+		else
 		{
-			_cultist.hp = min(_cultist.max_hp, _cultist.hp + _heal_amount);
+			var _allowed_heal_amount = _is_unconscious
+				? _unconscious_heal_amount
+				: _heal_amount;
+
+			if (_allowed_heal_amount > 0)
+			{
+				day_event_cultist_heal_apply(
+					_cultist,
+					_allowed_heal_amount,
+					_is_unconscious
+				);
+			}
 		}
 
 		// Warpaint sets the final morning HP after all other queued recovery.
-		if (_warpaint_is_pending)
+		_is_unconscious = (variable_instance_exists(_cultist, "is_unconscious")
+			&& _cultist.is_unconscious)
+			|| _cultist.hp <= 0;
+
+		if (_warpaint_is_pending
+			&& (!_is_unconscious || global.blood_bath_warpaint_affects_unconscious))
 		{
-			_cultist.hp = min(_cultist.max_hp, BALANCE_BLOOD_WARPAINT_MORNING_HP);
+			var _warpaint_target_hp = min(
+				_cultist.max_hp,
+				BALANCE_BLOOD_WARPAINT_MORNING_HP
+			);
+
+			if (_warpaint_target_hp > _cultist.hp)
+			{
+				day_event_cultist_heal_apply(
+					_cultist,
+					_warpaint_target_hp - _cultist.hp,
+					global.blood_bath_warpaint_affects_unconscious
+				);
+			}
+			else
+			{
+				_cultist.hp = _warpaint_target_hp;
+			}
 		}
 
 		// Lingering Wounds overrides other recovery with the previous morning's exact HP.
+		_is_unconscious = (variable_instance_exists(_cultist, "is_unconscious")
+			&& _cultist.is_unconscious)
+			|| _cultist.hp <= 0;
+
 		if (_lingering_wounds_is_pending
+			&& (!_is_unconscious || global.blood_bath_lingering_wounds_affects_unconscious)
 			&& variable_instance_exists(_cultist, "blood_bath_morning_hp_snapshot"))
 		{
-			_cultist.hp = clamp(_cultist.blood_bath_morning_hp_snapshot, 0, _cultist.max_hp);
+			var _snapshot_hp = clamp(
+				_cultist.blood_bath_morning_hp_snapshot,
+				0,
+				_cultist.max_hp
+			);
+
+			if (_snapshot_hp > _cultist.hp)
+			{
+				day_event_cultist_heal_apply(
+					_cultist,
+					_snapshot_hp - _cultist.hp,
+					global.blood_bath_lingering_wounds_affects_unconscious
+				);
+			}
+			else
+			{
+				_cultist.hp = _snapshot_hp;
+			}
 		}
 
 		_cultist.blood_bath_morning_heal_pending = 0;
+		_cultist.blood_bath_morning_unconscious_heal_pending = 0;
 		_cultist.blood_bath_morning_full_heal_pending = false;
+		_cultist.blood_bath_morning_full_heal_affects_unconscious = false;
 	}
 
 	global.blood_bath_warpaint_morning_pending = false;
 	global.blood_bath_lingering_wounds_morning_pending = false;
+	global.blood_bath_warpaint_affects_unconscious = false;
+	global.blood_bath_lingering_wounds_affects_unconscious = false;
 	day_event_undying_devotion_morning_apply();
 
 	// Store the final morning HP for a possible Lingering Wounds activation today.
@@ -1429,6 +1712,12 @@ function day_event_world_archdemon_create(
 		]
 	);
 	_event.is_world_job = true;
+
+	if (_archdemon_number == 1)
+	{
+		_event.assignment_tutorial_hint_id = "cultist_recovery";
+	}
+
 	return _event;
 }
 
@@ -1439,7 +1728,7 @@ function day_event_world_jobs_generate()
 		day_event_add(day_event_world_archdemon_create(
 			1,
 			"Summon an Archdemon",
-			"One of your cultists becomes possessed by a demon. You can choose which Archdemon they become.",
+			"One of your Cultists sacrifices all of their blood to summon a powerful combat demon: an ARCHDEMON.\nThe following night, you will be able to choose which Archdemon to summon.",
 			BALANCE_WORLD_JOB_FIRST_ARCHDEMON_CULTIST_COUNT,
 			BALANCE_WORLD_JOB_FIRST_ARCHDEMON_HP_COST
 		));
@@ -2209,10 +2498,22 @@ function day_event_ritual_events_add(_ritual_circle)
 function day_event_blood_warpaint_execute(_event, _assigned_cultists, _data)
 {
 	global.blood_bath_warpaint_morning_pending = true;
+	global.blood_bath_warpaint_affects_unconscious =
+		global.blood_bath_warpaint_affects_unconscious
+		|| day_event_affects_unconscious_cultists(_data);
 	return true;
 }
 
-function day_event_blood_bath_create(_building, _event_id, _title, _description, _cultist_cost, _activation_limit, _action_callback)
+function day_event_blood_bath_create(
+	_building,
+	_event_id,
+	_title,
+	_description,
+	_cultist_cost,
+	_activation_limit,
+	_action_callback,
+	_action_data = {}
+)
 {
 	var _event = new day_event_constructor(
 		_event_id + "_" + string(_building),
@@ -2220,7 +2521,7 @@ function day_event_blood_bath_create(_building, _event_id, _title, _description,
 		_description,
 		_cultist_cost,
 		_activation_limit,
-		[new event_action_constructor(_event_id, _action_callback)]
+		[new event_action_constructor(_event_id, _action_callback, _action_data)]
 	);
 	_event.source_building = _building;
 	return _event;
@@ -3541,7 +3842,7 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 			_blood_bath,
 			"crimson_baptism",
 			"Crimson Baptism",
-			"All current Cultists restore "
+			"All conscious Cultists restore "
 				+ string(BALANCE_BLOOD_BATH_CRIMSON_MORNING_HEAL)
 				+ " HP next morning.\nRequires 1 Cultist.",
 			1,
@@ -3586,7 +3887,7 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 			_blood_bath,
 			"lingering_wounds",
 			"Lingering Wounds",
-			"All living Cultists will have the same amount of HP tomorrow morning as they do this morning. Dead Cultists will not be resurrected.\nRequires 1 Cultist.",
+			"All conscious Cultists will have the same amount of HP tomorrow morning as they do this morning. Unconscious Cultists are unaffected.\nRequires 1 Cultist.",
 			1,
 			1,
 			day_event_lingering_wounds_execute
@@ -3597,7 +3898,7 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 			"Harden the Vessel",
 			"The assigned Cultist loses "
 				+ string(BALANCE_HARDEN_VESSEL_DAMAGE)
-				+ " HP and restores "
+				+ " HP and, if still conscious, restores "
 				+ string(BALANCE_HARDEN_VESSEL_MORNING_HEAL)
 				+ " HP next morning.\nRequires 1 Cultist.",
 			1,
@@ -3610,7 +3911,7 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 			"The Bath Demands a Name",
 			"The assigned Cultist loses "
 				+ string(BALANCE_BATH_DEMANDS_NAME_DAMAGE)
-				+ " HP. All remaining Cultists fully restore their HP next morning.\nRequires 1 Cultist.",
+				+ " HP. All remaining conscious Cultists fully restore their HP next morning.\nRequires 1 Cultist.",
 			1,
 			1,
 			day_event_bath_demands_name_execute
@@ -3649,7 +3950,7 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 			_blood_bath,
 			"blood_warpaint",
 			"Blood Warpaint",
-			"Set every living Cultist to "
+			"Set every conscious Cultist to "
 				+ string(BALANCE_BLOOD_WARPAINT_MORNING_HP)
 				+ " HP next morning.\nRequires 1 Cultist.",
 			1,
@@ -3848,7 +4149,7 @@ function day_event_finish_day()
 		}
 	}
 
-	// Event HP costs kill cultists before the night phase begins.
+	// Event HP costs leave Cultists unconscious before the night phase begins.
 	for (var _cultist_index = array_length(global.event_cultists) - 1; _cultist_index >= 0; --_cultist_index)
 	{
 		var _cultist = global.event_cultists[_cultist_index];
@@ -3857,7 +4158,8 @@ function day_event_finish_day()
 			&& variable_instance_exists(_cultist, "hp")
 			&& _cultist.hp <= 0)
 		{
-			day_event_cultist_death_remove(_cultist);
+			day_event_cultist_unconscious_enter(_cultist);
+			day_event_cultist_assignment_release(_cultist);
 		}
 	}
 
