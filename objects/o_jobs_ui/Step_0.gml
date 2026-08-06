@@ -211,6 +211,7 @@ for (var _event_index = 0; _event_index < array_length(global.day_events); ++_ev
 	var _reroll_rect = jobs_event_action_rect_get(_event_index, "reroll");
 
 	if (global.day_event_rerolls_remaining > 0
+		&& day_event_reroll_is_available(_event)
 		&& point_in_rectangle(
 			_mouse_x,
 			_mouse_y,
@@ -220,6 +221,7 @@ for (var _event_index = 0; _event_index < array_length(global.day_events); ++_ev
 			_reroll_rect.y + _reroll_rect.height
 		))
 	{
+		day_event_reroll_preview_get(_event);
 		_hovered_event_action_key_now = jobs_event_action_key_get(_event, "reroll");
 		break;
 	}
@@ -375,14 +377,15 @@ if (mouse_check_button_pressed(mb_left))
 
 		var _reroll_rect = jobs_event_action_rect_get(_event_index, "reroll");
 
-		if (point_in_rectangle(
-			_mouse_x,
-			_mouse_y,
-			_reroll_rect.x,
-			_reroll_rect.y,
-			_reroll_rect.x + _reroll_rect.width,
-			_reroll_rect.y + _reroll_rect.height
-		))
+		if (day_event_reroll_is_available(_event)
+			&& point_in_rectangle(
+				_mouse_x,
+				_mouse_y,
+				_reroll_rect.x,
+				_reroll_rect.y,
+				_reroll_rect.x + _reroll_rect.width,
+				_reroll_rect.y + _reroll_rect.height
+			))
 		{
 			jobs_squad_selector_event = noone;
 

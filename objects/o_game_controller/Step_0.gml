@@ -1262,7 +1262,9 @@ if ((_building_reroll_key_pressed || _building_pin_key_pressed)
 
 	if (day_event_building_action_is_available(_action_event))
 	{
-		if (_building_reroll_key_pressed && global.day_event_rerolls_remaining > 0)
+		if (_building_reroll_key_pressed
+			&& global.day_event_rerolls_remaining > 0
+			&& day_event_reroll_is_available(_action_event))
 		{
 			_event_action_changed = day_event_reroll(_action_event);
 		}
@@ -1273,6 +1275,7 @@ if ((_building_reroll_key_pressed || _building_pin_key_pressed)
 				_event_action_changed = day_event_pin_clear(_action_event);
 			}
 			else if (global.day_event_pins_remaining > 0
+				&& !day_event_has_funded_activation(_action_event)
 				&& !day_event_pin_source_is_active(_action_event.source_building))
 			{
 				_event_action_changed = day_event_pin_set(_action_event);

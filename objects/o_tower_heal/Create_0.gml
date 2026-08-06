@@ -15,7 +15,10 @@ base_heal_amount = BALANCE_TOWER_HEAL_AMOUNT;
 var _tower_radius_multiplier = variable_global_exists("player_tower_radius_multiplier")
 	? global.player_tower_radius_multiplier
 	: 1;
-heal_radius = base_heal_radius * _tower_radius_multiplier;
+var _foundry_radius_bonus = variable_global_exists("foundry_tower_radius_base_bonus")
+	? global.foundry_tower_radius_base_bonus
+	: 0;
+heal_radius = base_heal_radius * (_tower_radius_multiplier + _foundry_radius_bonus);
 heal_amount = base_heal_amount;
 heal_tick_time = BALANCE_TOWER_HEAL_TICK_TIME * room_speed;
 heal_tick_timer = irandom(heal_tick_time - 1);
@@ -45,9 +48,13 @@ map_building_upgrade_effect_apply = function(_upgrade_index)
 	var _radius_multiplier = variable_global_exists("player_tower_radius_multiplier")
 		? global.player_tower_radius_multiplier
 		: 1;
+	var _foundry_radius_bonus = variable_global_exists("foundry_tower_radius_base_bonus")
+		? global.foundry_tower_radius_base_bonus
+		: 0;
 	heal_radius = base_heal_radius
-		* (1 + (building_upgrade_levels[0] * BALANCE_TOWER_HEAL_RADIUS_UPGRADE_BONUS))
-		* _radius_multiplier;
+		* (((1 + (building_upgrade_levels[0] * BALANCE_TOWER_HEAL_RADIUS_UPGRADE_BONUS))
+			* _radius_multiplier)
+			+ _foundry_radius_bonus);
 	heal_amount = base_heal_amount * (1 + (building_upgrade_levels[1] * BALANCE_TOWER_HEAL_AMOUNT_UPGRADE_BONUS));
 };
 

@@ -316,9 +316,23 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
 	{
 		var _event = global.day_events[_event_index];
+		var _display_event = _event;
 		var _event_rect = jobs_event_rect_get(_event_index);
-		var _is_ready = _event.activation_ready_count_get() > 0;
-		draw_set_color(_is_ready ? COLOR_JOBS_EVENT_ACTIVE : COLOR_JOBS_EVENT_INACTIVE);
+		var _reroll_preview_key = jobs_event_action_key_get(_event, "reroll");
+		var _reroll_preview_is_active = jobs_hovered_event_action_key == _reroll_preview_key
+			&& variable_struct_exists(_event, "reroll_preview_event")
+			&& is_struct(_event.reroll_preview_event);
+
+		if (_reroll_preview_is_active)
+		{
+			_display_event = _event.reroll_preview_event;
+		}
+
+		var _is_ready = _display_event.activation_ready_count_get() > 0;
+		var _event_background_color = _reroll_preview_is_active
+			? COLOR_JOBS_REROLL_PREVIEW
+			: (_is_ready ? COLOR_JOBS_EVENT_ACTIVE : COLOR_JOBS_EVENT_INACTIVE);
+		draw_set_color(_event_background_color);
 		draw_rectangle(
 			_event_rect.x,
 			_event_rect.y,
@@ -331,17 +345,17 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 		var _source_sprite = noone;
 		var _source_frame = 0;
 
-		if (variable_struct_exists(_event, "source_sprite")
-			&& sprite_exists(_event.source_sprite))
+		if (variable_struct_exists(_display_event, "source_sprite")
+			&& sprite_exists(_display_event.source_sprite))
 		{
-			_source_sprite = _event.source_sprite;
+			_source_sprite = _display_event.source_sprite;
 		}
-		else if (variable_struct_exists(_event, "source_building")
-			&& instance_exists(_event.source_building)
-			&& sprite_exists(_event.source_building.sprite_index))
+		else if (variable_struct_exists(_display_event, "source_building")
+			&& instance_exists(_display_event.source_building)
+			&& sprite_exists(_display_event.source_building.sprite_index))
 		{
-			_source_sprite = _event.source_building.sprite_index;
-			_source_frame = _event.source_building.image_index;
+			_source_sprite = _display_event.source_building.sprite_index;
+			_source_frame = _display_event.source_building.image_index;
 		}
 
 		if (sprite_exists(_source_sprite))
@@ -377,17 +391,17 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 		draw_set_valign(fa_top);
 		draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
 		draw_set_font(jobs_title_font);
-		draw_text(_event_rect.x + (34 * _layout.scale), _event_rect.y + (18 * _layout.scale), _event.title);
+		draw_text(_event_rect.x + (34 * _layout.scale), _event_rect.y + (18 * _layout.scale), _display_event.title);
 		draw_set_font(jobs_description_font);
-		var _result_unit_object = jobs_event_result_unit_object_get(_event);
+		var _result_unit_object = jobs_event_result_unit_object_get(_display_event);
 		var _has_result_unit = _result_unit_object != noone;
-		var _has_unit_choices = variable_struct_exists(_event, "unit_choice_options")
-			&& is_array(_event.unit_choice_options)
-			&& array_length(_event.unit_choice_options) > 0;
+		var _has_unit_choices = variable_struct_exists(_display_event, "unit_choice_options")
+			&& is_array(_display_event.unit_choice_options)
+			&& array_length(_display_event.unit_choice_options) > 0;
 		var _description_width = (_has_unit_choices ? 220 : (_has_result_unit ? 328 : 390)) * _layout.scale;
-		var _has_archdemon_target = variable_struct_exists(_event, "target_archdemon_name")
-			&& variable_struct_exists(_event, "target_archdemon_sprite")
-			&& sprite_exists(_event.target_archdemon_sprite);
+		var _has_archdemon_target = variable_struct_exists(_display_event, "target_archdemon_name")
+			&& variable_struct_exists(_display_event, "target_archdemon_sprite")
+			&& sprite_exists(_display_event.target_archdemon_sprite);
 
 		if (_has_archdemon_target)
 		{
@@ -397,7 +411,7 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 		draw_text_ext(
 			_event_rect.x + (34 * _layout.scale),
 			_event_rect.y + (48 * _layout.scale),
-			_event.description,
+			_display_event.description,
 			16 * _layout.scale,
 			_description_width
 		);
@@ -405,14 +419,14 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 		// Specialization Jobs show all outcomes and let the player compare them by hovering.
 		if (_has_unit_choices)
 		{
-			var _choice_count = array_length(_event.unit_choice_options);
-			var _selected_choice_index = variable_struct_exists(_event, "selected_unit_choice_index")
-				? floor(_event.selected_unit_choice_index)
+			var _choice_count = array_length(_display_event.unit_choice_options);
+			var _selected_choice_index = variable_struct_exists(_display_event, "selected_unit_choice_index")
+				? floor(_display_event.selected_unit_choice_index)
 				: 0;
 
 			for (var _choice_index = 0; _choice_index < _choice_count; ++_choice_index)
 			{
-				var _choice = _event.unit_choice_options[_choice_index];
+				var _choice = _display_event.unit_choice_options[_choice_index];
 
 				if (!is_struct(_choice)
 					|| !variable_struct_exists(_choice, "target_unit_object"))
@@ -496,7 +510,7 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 
 			if (_selected_choice_index >= 0 && _selected_choice_index < _choice_count)
 			{
-				var _selected_choice = _event.unit_choice_options[_selected_choice_index];
+				var _selected_choice = _display_event.unit_choice_options[_selected_choice_index];
 
 				if (is_struct(_selected_choice) && variable_struct_exists(_selected_choice, "title"))
 				{
@@ -580,9 +594,9 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 		// Targeted Foundry training shows the locked Archdemon portrait and name.
 		if (_has_archdemon_target)
 		{
-			var _target_sprite = _event.target_archdemon_sprite;
-			var _target_frame = variable_struct_exists(_event, "target_archdemon_frame")
-				? _event.target_archdemon_frame
+			var _target_sprite = _display_event.target_archdemon_sprite;
+			var _target_frame = variable_struct_exists(_display_event, "target_archdemon_frame")
+				? _display_event.target_archdemon_frame
 				: 0;
 			var _target_center_x = _event_rect.x + (386 * _layout.scale);
 			var _target_available_width = 42 * _layout.scale;
@@ -615,21 +629,21 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			draw_text(
 				_target_center_x,
 				_event_rect.y + (113 * _layout.scale),
-				_event.target_archdemon_name
+				_display_event.target_archdemon_name
 			);
 			draw_set_halign(fa_left);
 			draw_set_valign(fa_top);
 		}
 
-		if (variable_struct_exists(_event, "requires_squad_selection")
-			&& _event.requires_squad_selection)
+		if (variable_struct_exists(_display_event, "requires_squad_selection")
+			&& _display_event.requires_squad_selection)
 		{
 			var _selector_rect = jobs_squad_selector_rect_get(_event_index);
 			var _selector_text = "SELECT SQUAD";
 
-			if (variable_struct_exists(_event, "selected_squad") && is_struct(_event.selected_squad))
+			if (variable_struct_exists(_display_event, "selected_squad") && is_struct(_display_event.selected_squad))
 			{
-				_selector_text = squad_name_display_get(_event.selected_squad.name);
+				_selector_text = squad_name_display_get(_display_event.selected_squad.name);
 			}
 
 			draw_set_alpha(0.9);
@@ -642,7 +656,7 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 				false
 			);
 			draw_set_alpha(1);
-			draw_set_color(is_struct(_event.selected_squad) ? COLOR_JOBS_EVENT_ACTIVE : COLOR_JOBS_SLOT_BORDER);
+			draw_set_color(is_struct(_display_event.selected_squad) ? COLOR_JOBS_EVENT_ACTIVE : COLOR_JOBS_SLOT_BORDER);
 			draw_rectangle(
 				_selector_rect.x,
 				_selector_rect.y,
@@ -661,7 +675,7 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			);
 		}
 
-		var _slot_count = _event.cultist_cost * _event.activation_limit;
+		var _slot_count = _display_event.cultist_cost * _display_event.activation_limit;
 
 		for (var _slot_index = 0; _slot_index < _slot_count; ++_slot_index)
 		{
@@ -678,7 +692,7 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			);
 
 			// Empty slots show an enlarging plus as direct assignment affordance.
-			if (_slot_index >= array_length(_event.assigned_cultists))
+			if (_slot_index >= array_length(_display_event.assigned_cultists))
 			{
 				var _slot_key = string(_event_index) + ":" + string(_slot_index);
 				var _plus_scale = jobs_hovered_empty_slot_key == _slot_key ? 1.35 : 1;
@@ -704,7 +718,7 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 				);
 
 				// Show the HP cost before a cultist is assigned, matching occupied slots.
-				var _empty_slot_hp_cost_text = jobs_event_empty_slot_hp_cost_text_get(_event);
+				var _empty_slot_hp_cost_text = jobs_event_empty_slot_hp_cost_text_get(_display_event);
 
 				if (_empty_slot_hp_cost_text != "")
 				{
@@ -725,39 +739,42 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 		// Building events expose the Figma actions to the right of the card.
 		if (day_event_building_action_is_available(_event))
 		{
-			var _reroll_rect = jobs_event_action_rect_get(_event_index, "reroll");
-			var _reroll_key = jobs_event_action_key_get(_event, "reroll");
-			var _reroll_enabled = global.day_event_rerolls_remaining > 0;
-			var _reroll_hovered = _reroll_enabled
-				&& jobs_hovered_event_action_key == _reroll_key;
-			var _reroll_visual_scale = _reroll_hovered ? 1.08 : 1;
-			var _reroll_color = _reroll_enabled
-				? COLOR_JOBS_EVENT_ACTION
-				: COLOR_JOBS_SLOT_BORDER;
-			var _reroll_sprite_scale = _layout.scale * _reroll_visual_scale;
+			if (day_event_reroll_is_available(_event))
+			{
+				var _reroll_rect = jobs_event_action_rect_get(_event_index, "reroll");
+				var _reroll_key = jobs_event_action_key_get(_event, "reroll");
+				var _reroll_enabled = global.day_event_rerolls_remaining > 0;
+				var _reroll_hovered = _reroll_enabled
+					&& jobs_hovered_event_action_key == _reroll_key;
+				var _reroll_visual_scale = _reroll_hovered ? 1.08 : 1;
+				var _reroll_color = _reroll_enabled
+					? COLOR_JOBS_EVENT_ACTION
+					: COLOR_JOBS_SLOT_BORDER;
+				var _reroll_sprite_scale = _layout.scale * _reroll_visual_scale;
 
-			draw_set_alpha(_reroll_enabled ? 1 : 0.35);
-			draw_sprite_ext(
-				s_reroll_icon,
-				0,
-				_reroll_rect.x + (_reroll_rect.width * 0.5),
-				_event_rect.y + (jobs_reroll_action_icon_y * _layout.scale),
-				_reroll_sprite_scale,
-				_reroll_sprite_scale,
-				0,
-				c_white,
-				1
-			);
-			draw_set_alpha(1);
-			draw_set_halign(fa_center);
-			draw_set_valign(fa_top);
-			draw_set_font(jobs_action_font);
-			draw_set_color(_reroll_color);
-			draw_text(
-				_reroll_rect.x + (_reroll_rect.width * 0.5),
-				_event_rect.y + (jobs_event_action_label_y * _layout.scale),
-				"Reroll (" + string(global.day_event_rerolls_remaining) + ")"
-			);
+				draw_set_alpha(_reroll_enabled ? 1 : 0.35);
+				draw_sprite_ext(
+					s_reroll_icon,
+					0,
+					_reroll_rect.x + (_reroll_rect.width * 0.5),
+					_event_rect.y + (jobs_reroll_action_icon_y * _layout.scale),
+					_reroll_sprite_scale,
+					_reroll_sprite_scale,
+					0,
+					c_white,
+					1
+				);
+				draw_set_alpha(1);
+				draw_set_halign(fa_center);
+				draw_set_valign(fa_top);
+				draw_set_font(jobs_action_font);
+				draw_set_color(_reroll_color);
+				draw_text(
+					_reroll_rect.x + (_reroll_rect.width * 0.5),
+					_event_rect.y + (jobs_event_action_label_y * _layout.scale),
+					"Reroll (" + string(global.day_event_rerolls_remaining) + ")"
+				);
+			}
 
 			var _pin_action = jobs_event_pin_action_get(_event);
 
@@ -875,6 +892,15 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 		}
 
 		var _cultist_is_in_scroll_list = is_struct(_cultist.assigned_event);
+		var _assigned_event_is_previewed = _cultist_is_in_scroll_list
+			&& jobs_hovered_event_action_key == jobs_event_action_key_get(_cultist.assigned_event, "reroll")
+			&& variable_struct_exists(_cultist.assigned_event, "reroll_preview_event")
+			&& is_struct(_cultist.assigned_event.reroll_preview_event);
+
+		if (_assigned_event_is_previewed)
+		{
+			continue;
+		}
 
 		if (_cultist_is_in_scroll_list)
 		{

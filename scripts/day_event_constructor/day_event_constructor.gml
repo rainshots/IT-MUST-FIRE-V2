@@ -44,6 +44,13 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 
 		array_push(assigned_cultists, _cultist);
 		_cultist.assigned_event = self;
+
+		// A funded event will execute today, so it no longer needs tomorrow's pin.
+		if (day_event_has_funded_activation(self) && day_event_pin_is_event(self))
+		{
+			day_event_pin_clear(self);
+		}
+
 		return true;
 	};
 

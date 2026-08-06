@@ -14,7 +14,10 @@ base_vision_radius = BALANCE_TOWER_VISION_RADIUS;
 var _tower_radius_multiplier = variable_global_exists("player_tower_radius_multiplier")
 	? global.player_tower_radius_multiplier
 	: 1;
-vision_radius = base_vision_radius * _tower_radius_multiplier;
+var _foundry_radius_bonus = variable_global_exists("foundry_tower_radius_base_bonus")
+	? global.foundry_tower_radius_base_bonus
+	: 0;
+vision_radius = base_vision_radius * (_tower_radius_multiplier + _foundry_radius_bonus);
 
 // Tooltip lines describe captured tower behavior.
 tooltip_lines = [
@@ -37,7 +40,11 @@ map_building_upgrade_effect_apply = function(_upgrade_index)
 	var _radius_multiplier = variable_global_exists("player_tower_radius_multiplier")
 		? global.player_tower_radius_multiplier
 		: 1;
+	var _foundry_radius_bonus = variable_global_exists("foundry_tower_radius_base_bonus")
+		? global.foundry_tower_radius_base_bonus
+		: 0;
 	vision_radius = base_vision_radius
-		* (1 + (building_upgrade_levels[0] * BALANCE_TOWER_VISION_RADIUS_UPGRADE_BONUS))
-		* _radius_multiplier;
+		* (((1 + (building_upgrade_levels[0] * BALANCE_TOWER_VISION_RADIUS_UPGRADE_BONUS))
+			* _radius_multiplier)
+			+ _foundry_radius_bonus);
 };

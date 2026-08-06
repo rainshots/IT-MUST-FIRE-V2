@@ -204,7 +204,15 @@ jobs_event_action_key_get = function(_event, _action)
 		return "";
 	}
 
-	return _action + ":" + _event.event_id;
+	var _action_key = _action + ":" + _event.event_id;
+
+	if (variable_struct_exists(_event, "source_building")
+		&& instance_exists(_event.source_building))
+	{
+		_action_key += ":" + string(_event.source_building.id);
+	}
+
+	return _action_key;
 };
 
 jobs_event_pin_action_get = function(_event)
@@ -220,6 +228,7 @@ jobs_event_pin_action_get = function(_event)
 	}
 
 	return global.day_event_pins_remaining > 0
+		&& !day_event_has_funded_activation(_event)
 		&& !day_event_pin_source_is_active(_event.source_building)
 		? "pin"
 		: "";

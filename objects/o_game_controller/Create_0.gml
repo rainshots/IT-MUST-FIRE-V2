@@ -57,6 +57,9 @@ global.game_completion_popup_active = false;
 global.player_unit_bonelet_resurrection_active = false;
 global.early_upgrade_shell_morning_bonus = array_create(PROJECTILE_TYPE.COUNT, 0);
 global.player_tower_radius_multiplier = 1;
+// Foundry tower bonuses are additive shares of each tower's base stats.
+global.foundry_tower_damage_base_bonus = 0;
+global.foundry_tower_radius_base_bonus = 0;
 global.player_tainted_ground_healing_active = false;
 global.player_death_explosion_active = false;
 global.day_cycle_enabled = true;
@@ -718,7 +721,7 @@ early_upgrade_choice_apply = function(_choice)
 	}
 	else if (early_upgrade_popup_set == DAYBREAK_UPGRADE_SET.DAY_THREE)
 	{
-		if (_choice == DAY_THREE_UPGRADE_CHOICE.TRIPLE_TOWER_RADIUS)
+		if (_choice == DAY_THREE_UPGRADE_CHOICE.DOUBLE_TOWER_RADIUS)
 		{
 			global.player_tower_radius_multiplier = BALANCE_DAY_THREE_TOWER_RADIUS_MULTIPLIER;
 
@@ -744,7 +747,8 @@ early_upgrade_choice_apply = function(_choice)
 
 			with (o_magic_tower)
 			{
-				shoot_radius = base_shoot_radius * global.player_tower_radius_multiplier;
+				shoot_radius = base_shoot_radius
+					* (global.player_tower_radius_multiplier + global.foundry_tower_radius_base_bonus);
 			}
 		}
 		else if (_choice == DAY_THREE_UPGRADE_CHOICE.TAINTED_GROUND_HEALING)
@@ -1019,7 +1023,7 @@ early_upgrade_popup_draw = function()
 				_description += "\nFIRST AID MEAT: " + string(_first_aid_after);
 			}
 		}
-		else if (_choice == DAY_THREE_UPGRADE_CHOICE.TRIPLE_TOWER_RADIUS)
+		else if (_choice == DAY_THREE_UPGRADE_CHOICE.DOUBLE_TOWER_RADIUS)
 		{
 			_title = "TOWER DOMINION";
 			_description = "Multiply the effect radius of every player tower by "
@@ -3452,6 +3456,7 @@ target_selection_projectile_type = PROJECTILE_TYPE.DAMAGE;
 target_selection_radius = BALANCE_PROJECTILE_EFFECT_RADIUS;
 target_selection_alpha = 0.35;
 target_selection_outline_alpha = 0.85;
+cannon_projectile_night_slots = []; // Fixed number-key assignments captured at the start of each night.
 
 // Building shell previews use the future structure's gameplay radius when it has one.
 building_shell_preview_radius_get = function(_building_payload)
@@ -3586,7 +3591,7 @@ cannon_projectile_type_can_stack_in_hud = function(_projectile_type)
 		&& _projectile_type != PROJECTILE_TYPE.BUILDING_SHELL;
 };
 
-cannon_projectile_display_slots_get = function(_max_display_count)
+cannon_projectile_live_slots_get = function(_max_display_count)
 {
 	var _slots = array_create(0);
 
@@ -3596,6 +3601,7 @@ cannon_projectile_display_slots_get = function(_max_display_count)
 	}
 
 	var _projectile_queue_count = array_length(global.cannon_projectile_queue);
+	var _payload_queue_count = array_length(global.cannon_projectile_payload_queue);
 
 	for (var _queue_index = 0; _queue_index < _projectile_queue_count; ++_queue_index)
 	{
@@ -3633,12 +3639,113 @@ cannon_projectile_display_slots_get = function(_max_display_count)
 		}
 		else if (array_length(_slots) < _max_display_count)
 		{
+			var _projectile_payload = noone;
+
+			if (_queue_index < _payload_queue_count)
+			{
+				_projectile_payload = global.cannon_projectile_payload_queue[_queue_index];
+			}
+
 			array_push(_slots, {
 				projectile_type: _projectile_type,
 				queue_index: _queue_index,
 				consume_queue_index: _queue_index,
-				count: 1
+				count: 1,
+				payload: _projectile_payload
 			});
+		}
+	}
+
+	return _slots;
+};
+
+cannon_projectile_night_slots_capture = function()
+{
+	var _live_slots = cannon_projectile_live_slots_get(9);
+	var _live_slot_count = array_length(_live_slots);
+	cannon_projectile_night_slots = [];
+
+	// Store slot identity separately from mutable queue indexes.
+	for (var _slot_index = 0; _slot_index < _live_slot_count; ++_slot_index)
+	{
+		var _slot = _live_slots[_slot_index];
+		array_push(cannon_projectile_night_slots, {
+			projectile_type: _slot.projectile_type,
+			payload: _slot.payload
+		});
+	}
+};
+
+cannon_projectile_display_slots_get = function(_max_display_count)
+{
+	var _live_slots = cannon_projectile_live_slots_get(_max_display_count);
+
+	if (global.day_phase != DAY_PHASE.NIGHT || array_length(cannon_projectile_night_slots) <= 0)
+	{
+		return _live_slots;
+	}
+
+	var _slots = [];
+	var _live_slot_count = array_length(_live_slots);
+	var _live_slot_was_used = array_create(_live_slot_count, false);
+	var _fixed_slot_count = min(_max_display_count, array_length(cannon_projectile_night_slots));
+
+	// Rebuild current queue data in the fixed order captured when the night began.
+	for (var _fixed_index = 0; _fixed_index < _fixed_slot_count; ++_fixed_index)
+	{
+		var _fixed_slot = cannon_projectile_night_slots[_fixed_index];
+		var _matching_live_index = -1;
+		var _can_stack = cannon_projectile_type_can_stack_in_hud(_fixed_slot.projectile_type);
+
+		for (var _live_index = 0; _live_index < _live_slot_count; ++_live_index)
+		{
+			if (_live_slot_was_used[_live_index])
+			{
+				continue;
+			}
+
+			var _live_slot = _live_slots[_live_index];
+			var _slot_matches = _live_slot.projectile_type == _fixed_slot.projectile_type
+				&& (_can_stack || _live_slot.payload == _fixed_slot.payload);
+
+			if (_slot_matches)
+			{
+				_matching_live_index = _live_index;
+				break;
+			}
+		}
+
+		if (_matching_live_index >= 0)
+		{
+			array_push(_slots, _live_slots[_matching_live_index]);
+			_live_slot_was_used[_matching_live_index] = true;
+		}
+		else
+		{
+			array_push(_slots, {
+				projectile_type: _fixed_slot.projectile_type,
+				queue_index: -1,
+				consume_queue_index: -1,
+				count: 0,
+				payload: _fixed_slot.payload
+			});
+		}
+	}
+
+	// New projectile types may use free digits without moving the fixed slots.
+	var _slot_count = array_length(_slots);
+
+	for (var _remaining_index = 0; _remaining_index < _live_slot_count; ++_remaining_index)
+	{
+		if (_slot_count >= _max_display_count)
+		{
+			break;
+		}
+
+		if (!_live_slot_was_used[_remaining_index])
+		{
+			array_push(_slots, _live_slots[_remaining_index]);
+			_slot_count++;
 		}
 	}
 
@@ -11217,6 +11324,7 @@ start_night_phase = function()
 	boss_griffith_night_active = boss_griffith_pending_next_night;
 
 	start_cultists_loading_into_cannon();
+	cannon_projectile_night_slots_capture();
 	summoned_combat_units_prepare_for_cultist_projectiles();
 
 	with (o_garnizon)

@@ -1829,29 +1829,36 @@ if (variable_global_exists("cannon_projectile_queue")
 		draw_set_color(COLOR_HUD_TEXT);
 		var _projectile_name = projectile_names[_projectile_type];
 
-		if (_projectile_type == PROJECTILE_TYPE.CULTIST
-			&& variable_global_exists("cannon_projectile_payload_queue")
-			&& _projectile_index < array_length(global.cannon_projectile_payload_queue))
+		if (_projectile_type == PROJECTILE_TYPE.CULTIST)
 		{
-			var _cultist_payload = global.cannon_projectile_payload_queue[_projectile_index];
-
-			if (instance_exists(_cultist_payload)
-				&& variable_instance_exists(_cultist_payload, "squad")
-				&& is_struct(_cultist_payload.squad)
-				&& _cultist_payload.squad.name != "")
+			if (!_projectile_is_available)
 			{
-				var _projectile_squad_name = squad_name_display_get(_cultist_payload.squad.name);
-				_projectile_name = string_copy(_projectile_squad_name, 1, 10);
+				_projectile_name = "";
 			}
-			else if (instance_exists(_cultist_payload)
-				&& variable_instance_exists(_cultist_payload, "cultist_name")
-				&& _cultist_payload.cultist_name != "")
+			else if (variable_global_exists("cannon_projectile_payload_queue")
+				&& _projectile_index < array_length(global.cannon_projectile_payload_queue))
 			{
-				_projectile_name = string_copy(_cultist_payload.cultist_name, 1, 10);
+				var _cultist_payload = global.cannon_projectile_payload_queue[_projectile_index];
+
+				if (instance_exists(_cultist_payload)
+					&& variable_instance_exists(_cultist_payload, "squad")
+					&& is_struct(_cultist_payload.squad)
+					&& _cultist_payload.squad.name != "")
+				{
+					var _projectile_squad_name = squad_name_display_get(_cultist_payload.squad.name);
+					_projectile_name = string_copy(_projectile_squad_name, 1, 10);
+				}
+				else if (instance_exists(_cultist_payload)
+					&& variable_instance_exists(_cultist_payload, "cultist_name")
+					&& _cultist_payload.cultist_name != "")
+				{
+					_projectile_name = string_copy(_cultist_payload.cultist_name, 1, 10);
+				}
 			}
 		}
 		else if (_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL
 			&& variable_global_exists("cannon_projectile_payload_queue")
+			&& _projectile_index >= 0
 			&& _projectile_index < array_length(global.cannon_projectile_payload_queue))
 		{
 			var _building_payload = global.cannon_projectile_payload_queue[_projectile_index];
