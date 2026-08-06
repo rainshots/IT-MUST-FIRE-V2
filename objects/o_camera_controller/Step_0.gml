@@ -8,6 +8,17 @@ if (instance_exists(game_controller))
 	}
 }
 
+// Assign Duties keeps its composed city view fixed while gameplay continues underneath it.
+if (jobs_view_active)
+{
+	if (!camera_jobs_view_apply())
+	{
+		camera_jobs_view_close();
+	}
+
+	exit;
+}
+
 // Blocking focus windows and tutorial popups stop camera movement.
 var _tutorial_popup_active = variable_global_exists("tutorial_popup_active") && global.tutorial_popup_active;
 

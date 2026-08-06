@@ -1,5 +1,5 @@
 /// @description Balance constants used across gameplay systems.
-#macro BALANCE_CHEATS_ENABLED true//false
+#macro BALANCE_CHEATS_ENABLED false//false
 #macro BALANCE_PLAY_MUSIC false// true
 #macro BALANCE_TUTORIAL_HINTS_ENABLED true //
 #macro BALANCE_TUTORIAL_SQUAD_DRAG_HINT_DELAY 10

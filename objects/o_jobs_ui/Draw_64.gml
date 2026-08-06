@@ -274,12 +274,6 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 	var _gui_width = display_get_gui_width();
 	var _gui_height = display_get_gui_height();
 
-	// Darken the game behind the jobs window.
-	draw_set_alpha(0.65);
-	draw_set_color(c_black);
-	draw_rectangle(0, 0, _gui_width, _gui_height, false);
-	draw_set_alpha(1);
-
 	// Main panel and available-cultist pool.
 	draw_set_color(COLOR_JOBS_WINDOW_BACKGROUND);
 	draw_rectangle(
@@ -360,8 +354,8 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 
 		if (sprite_exists(_source_sprite))
 		{
-			var _source_available_width = 64 * _layout.scale;
-			var _source_available_height = 96 * _layout.scale;
+			var _source_available_width = jobs_source_icon_width * _layout.scale;
+			var _source_available_height = jobs_source_icon_height * _layout.scale;
 			var _source_sprite_width = max(1, sprite_get_width(_source_sprite));
 			var _source_sprite_height = max(1, sprite_get_height(_source_sprite));
 			var _source_scale = min(
@@ -370,8 +364,8 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			);
 			var _source_width = _source_sprite_width * _source_scale;
 			var _source_height = _source_sprite_height * _source_scale;
-			var _source_area_center_x = _layout.panel_x
-				+ ((_event_rect.x - _layout.panel_x) * 0.5);
+			var _source_area_center_x = _event_rect.x
+				+ ((jobs_source_icon_offset_x + (jobs_source_icon_width * 0.5)) * _layout.scale);
 			var _source_x = _source_area_center_x - (_source_width * 0.5);
 			var _source_y = _event_rect.y + ((_event_rect.height - _source_height) * 0.5);
 
@@ -679,7 +673,7 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 
 		for (var _slot_index = 0; _slot_index < _slot_count; ++_slot_index)
 		{
-			var _slot_rect = jobs_event_slot_rect_get(_event_index, _slot_index);
+			var _slot_rect = jobs_event_slot_rect_get(_event_index, _slot_index, _slot_count);
 			var _slot_x = _slot_rect.x;
 			var _slot_y = _slot_rect.y;
 			draw_set_color(COLOR_JOBS_SLOT_BORDER);
@@ -728,7 +722,7 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 					draw_set_color(COLOR_STATUS_NEGATIVE_RED);
 					draw_text(
 						_plus_center_x,
-						_slot_y + _slot_rect.height + (22 * _layout.scale),
+						_slot_y + _slot_rect.height + (jobs_slot_hp_cost_offset_y * _layout.scale),
 						_empty_slot_hp_cost_text
 					);
 					draw_set_halign(fa_left);
@@ -750,7 +744,9 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 				var _reroll_color = _reroll_enabled
 					? COLOR_JOBS_EVENT_ACTION
 					: COLOR_JOBS_SLOT_BORDER;
-				var _reroll_sprite_scale = _layout.scale * _reroll_visual_scale;
+				var _reroll_sprite_scale = _layout.scale
+					* jobs_reroll_icon_scale
+					* _reroll_visual_scale;
 
 				draw_set_alpha(_reroll_enabled ? 1 : 0.35);
 				draw_sprite_ext(
@@ -771,7 +767,7 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 				draw_set_color(_reroll_color);
 				draw_text(
 					_reroll_rect.x + (_reroll_rect.width * 0.5),
-					_event_rect.y + (jobs_event_action_label_y * _layout.scale),
+					_event_rect.y + (jobs_reroll_action_label_y * _layout.scale),
 					"Reroll (" + string(global.day_event_rerolls_remaining) + ")"
 				);
 			}
@@ -784,7 +780,9 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 				var _pin_key = jobs_event_action_key_get(_event, _pin_action);
 				var _pin_hovered = jobs_hovered_event_action_key == _pin_key;
 				var _pin_visual_scale = _pin_hovered ? 1.08 : 1;
-				var _pin_sprite_scale = _layout.scale * _pin_visual_scale;
+				var _pin_sprite_scale = _layout.scale
+					* jobs_pin_icon_scale
+					* _pin_visual_scale;
 				var _pin_label = _pin_action == "unpin"
 					? "Unpin"
 					: "Pin (" + string(global.day_event_pins_remaining) + ")";
@@ -806,7 +804,7 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 				draw_set_color(COLOR_JOBS_EVENT_ACTION);
 				draw_text(
 					_pin_rect.x + (_pin_rect.width * 0.5),
-					_event_rect.y + (jobs_event_action_label_y * _layout.scale),
+					_event_rect.y + (jobs_pin_action_label_y * _layout.scale),
 					_pin_label
 				);
 			}
@@ -934,10 +932,10 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 		draw_set_valign(fa_top);
 		draw_set_font(jobs_hp_font);
 		var _cultist_text_x = _cultist_rect.x + (_cultist_rect.width * 0.5);
-		var _cultist_name_y = _cultist_rect.y + _cultist_rect.height - (2 * _layout.scale);
-		var _cultist_hp_y = _cultist_rect.y + _cultist_rect.height + (10 * _layout.scale);
+		var _cultist_name_y = _cultist_rect.y - (8 * _layout.scale);
+		var _cultist_hp_y = _cultist_rect.y + _cultist_rect.height + (4 * _layout.scale);
 
-		// Place the cultist name directly above the lowered HP value.
+		// Match the Figma worker stack: name above the portrait, HP and event cost below it.
 		draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
 		draw_text(_cultist_text_x, _cultist_name_y, _cultist.cultist_name);
 		draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
@@ -965,7 +963,7 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			if (_preview_slot_index >= 0)
 			{
 				var _hp_preview = jobs_event_cultist_hp_preview_get(_preview_event, _preview_slot_index, _cultist);
-				var _change_y = _cultist_rect.y + _cultist_rect.height + (22 * _layout.scale);
+				var _change_y = _cultist_rect.y + _cultist_rect.height + (13 * _layout.scale);
 
 				if (_hp_preview.hp_loss > 0)
 				{
@@ -1130,62 +1128,6 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 	);
 	draw_line(_layout.close_x + (10 * _layout.scale), _layout.close_y + (10 * _layout.scale), _layout.close_x + _layout.close_size - (10 * _layout.scale), _layout.close_y + _layout.close_size - (10 * _layout.scale));
 	draw_line(_layout.close_x + _layout.close_size - (10 * _layout.scale), _layout.close_y + (10 * _layout.scale), _layout.close_x + (10 * _layout.scale), _layout.close_y + _layout.close_size - (10 * _layout.scale));
-
-	// Keep the complete Jobs guide visible through every opening on the first day.
-	if (jobs_first_day_hints_are_visible())
-	{
-		var _hint_design_origin_x = (_gui_width - (jobs_design_width * _layout.scale)) * 0.5;
-		var _hint_text_count = array_length(jobs_first_day_hint_texts);
-
-		draw_set_valign(fa_top);
-		draw_set_font(jobs_show_font);
-		draw_set_color(COLOR_JOBS_EVENT_ACTION);
-
-		for (var _hint_text_index = 0; _hint_text_index < _hint_text_count; ++_hint_text_index)
-		{
-			var _hint_text = jobs_first_day_hint_texts[_hint_text_index];
-			var _hint_text_x = _hint_design_origin_x + (_hint_text.x * _layout.scale);
-			var _hint_text_y = _hint_text.y * _layout.scale;
-
-			draw_set_halign(_hint_text.alignment);
-			draw_text_transformed(
-				_hint_text_x,
-				_hint_text_y,
-				_hint_text.text,
-				_layout.scale,
-				_layout.scale,
-				0
-			);
-		}
-
-		if (sprite_exists(s_attack_arrow))
-		{
-			var _hint_arrow_count = array_length(jobs_first_day_hint_arrows);
-			var _hint_arrow_scale = jobs_first_day_hint_arrow_scale * _layout.scale;
-
-			for (var _hint_arrow_index = 0;
-				_hint_arrow_index < _hint_arrow_count;
-				++_hint_arrow_index)
-			{
-				var _hint_arrow = jobs_first_day_hint_arrows[_hint_arrow_index];
-				var _hint_arrow_x = _hint_design_origin_x
-					+ (_hint_arrow.tip_x * _layout.scale);
-				var _hint_arrow_y = _hint_arrow.tip_y * _layout.scale;
-
-				draw_sprite_ext(
-					s_attack_arrow,
-					0,
-					_hint_arrow_x,
-					_hint_arrow_y,
-					_hint_arrow_scale,
-					_hint_arrow_scale,
-					_hint_arrow.angle,
-					c_white,
-					BALANCE_ATTACK_ARROW_ALPHA
-				);
-			}
-		}
-	}
 
 	// Result-unit hover uses the same stat card and matchup information as world units.
 	if (_hovered_result_unit_object != noone && instance_exists(o_game_controller))
