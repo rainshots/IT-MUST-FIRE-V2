@@ -401,6 +401,15 @@ if (object_index == o_workshop)
 // Shell Factory converts resources into random special cannon projectiles.
 if (object_index == o_shell_factory)
 {
+	if (variable_global_exists("cannon_blood_shell_mode_enabled")
+		&& global.cannon_blood_shell_mode_enabled)
+	{
+		// Reusable blood shells no longer require stockpile production.
+		shell_factory_progress = 0;
+		shell_factory_has_paid_cost = false;
+		exit;
+	}
+
 	if (!shell_factory_has_paid_cost
 		&& global.resources[RESOURCES.SOULS] >= BALANCE_SHELL_FACTORY_SOUL_COST
 		&& global.resources[RESOURCES.IRON] >= BALANCE_SHELL_FACTORY_IRON_COST)

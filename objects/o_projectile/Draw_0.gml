@@ -33,6 +33,10 @@ else if (projectile_type == PROJECTILE_TYPE.SKELETONS)
 {
 	_projectile_color = COLOR_PROJECTILE_SKELETONS;
 }
+else if (projectile_type == PROJECTILE_TYPE.UNIT_SHELL)
+{
+	_projectile_color = COLOR_PROJECTILE_UNIT_SHELL;
+}
 else if (projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
 {
 	_projectile_color = COLOR_PROJECTILE_BUILDING_SHELL;

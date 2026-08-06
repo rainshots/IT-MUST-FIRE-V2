@@ -29,6 +29,40 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			_projectile_payload = global.cannon_projectile_payload_queue[_target_projectile_queue_index];
 		}
 
+		// Validate the independent shell cooldown before paying for the volley.
+		if (is_struct(_projectile_payload)
+			&& variable_struct_exists(_projectile_payload, "cooldown_timer")
+			&& _projectile_payload.cooldown_timer > 0)
+		{
+			target_exists = false;
+			exit;
+		}
+
+		// Pay once for the selected reusable shell before creating its projectile volley.
+		var _blood_cost = 0;
+
+		if (is_struct(_projectile_payload)
+			&& variable_struct_exists(_projectile_payload, "blood_cost"))
+		{
+			_blood_cost = max(0, _projectile_payload.blood_cost);
+		}
+
+		if (_blood_cost > global.cannon_blood)
+		{
+			target_exists = false;
+			exit;
+		}
+
+		global.cannon_blood = max(0, global.cannon_blood - _blood_cost);
+
+		// Start this shell's cooldown only after the shot has been accepted.
+		if (is_struct(_projectile_payload)
+			&& variable_struct_exists(_projectile_payload, "cooldown_seconds")
+			&& variable_struct_exists(_projectile_payload, "cooldown_timer"))
+		{
+			_projectile_payload.cooldown_timer = _projectile_payload.cooldown_seconds * room_speed;
+		}
+
 		if (target_projectile_type == PROJECTILE_TYPE.CULTIST)
 		{
 			for (var _cultist_queue_index = 0; _cultist_queue_index < _projectile_queue_count; ++_cultist_queue_index)
@@ -62,7 +96,8 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 		if (target_projectile_type == PROJECTILE_TYPE.RALLY
 			|| target_projectile_type == PROJECTILE_TYPE.CULTIST
 			|| target_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL
-			|| target_projectile_type == PROJECTILE_TYPE.DOOM_BELL)
+			|| target_projectile_type == PROJECTILE_TYPE.DOOM_BELL
+			|| target_projectile_type == PROJECTILE_TYPE.UNIT_SHELL)
 		{
 			_fired_projectile_count = 1;
 		}
@@ -87,7 +122,8 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			if (target_projectile_type == PROJECTILE_TYPE.RALLY
 				|| target_projectile_type == PROJECTILE_TYPE.CULTIST
 				|| target_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL
-				|| target_projectile_type == PROJECTILE_TYPE.DOOM_BELL)
+				|| target_projectile_type == PROJECTILE_TYPE.DOOM_BELL
+				|| target_projectile_type == PROJECTILE_TYPE.UNIT_SHELL)
 			{
 				_spread_target_x = target_x;
 				_spread_target_y = target_y;
@@ -108,6 +144,7 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			_projectile.effect_radius = projectile_effect_radius;
 			_projectile.cultist_payload = _projectile_payload;
 			_projectile.building_payload = _projectile_payload;
+			_projectile.unit_shell_payload = _projectile_payload;
 			_projectile.source_instance = id;
 			_projectile.damage_faction = UNIT_FACTION.FRIENDLY;
 			_projectile.ignore_pause = global.pause;
@@ -166,6 +203,10 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			{
 				_projectile.effect_radius = BALANCE_PROJECTILE_SKELETON_RADIUS;
 				_projectile.summon_count = cannon_projectile_skeleton_count_get();
+			}
+			else if (target_projectile_type == PROJECTILE_TYPE.UNIT_SHELL)
+			{
+				_projectile.effect_radius = BALANCE_PROJECTILE_SKELETON_RADIUS;
 			}
 		}
 

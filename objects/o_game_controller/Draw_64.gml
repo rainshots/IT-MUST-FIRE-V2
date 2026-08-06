@@ -505,6 +505,10 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 	{
 		_target_color = COLOR_PROJECTILE_SKELETONS;
 	}
+	else if (target_selection_projectile_type == PROJECTILE_TYPE.UNIT_SHELL)
+	{
+		_target_color = COLOR_PROJECTILE_UNIT_SHELL;
+	}
 	else if (target_selection_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
 	{
 		_target_color = COLOR_PROJECTILE_BUILDING_SHELL;

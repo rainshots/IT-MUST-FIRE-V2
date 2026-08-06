@@ -31,7 +31,10 @@ if (_regular_hud_is_visible)
 	var _sidebar_x = _sidebar_gui_width - _sidebar_width;
 
 	// Draw squad cards in type order, followed by the available empty slots.
-	if (variable_global_exists("squads") && variable_global_exists("squad_limits"))
+	if (variable_global_exists("squads")
+		&& variable_global_exists("squad_limits")
+		&& (!variable_global_exists("cannon_blood_shell_mode_enabled")
+			|| !global.cannon_blood_shell_mode_enabled))
 	{
 		var _squad_card_width = 112 * _sidebar_scale;
 		var _squad_card_height = 145 * _sidebar_scale;
@@ -1535,6 +1538,46 @@ if (variable_global_exists("cannon_projectile_queue")
 	var _projectile_total_width = (projectile_slot_width * _projectile_display_count)
 		+ (projectile_slot_gap * max(0, _projectile_display_count - 1));
 	var _projectile_start_x = (_gui_width - _projectile_total_width) * 0.5;
+
+	// Blood is the shared night resource for every reusable combat shell.
+	if (_combat_projectiles_are_active
+		&& variable_global_exists("cannon_blood")
+		&& variable_global_exists("cannon_blood_max"))
+	{
+		var _blood_panel_x = _projectile_start_x - blood_panel_gap - blood_panel_width;
+		var _blood_panel_y = _projectile_base_y + 14;
+		var _blood_text = "BLOOD: "
+			+ string_format(global.cannon_blood, 1, 1)
+			+ "/"
+			+ string_format(global.cannon_blood_max, 1, 0);
+
+		draw_set_alpha(0.84);
+		draw_set_color(COLOR_HUD_BACKGROUND);
+		draw_rectangle(
+			_blood_panel_x,
+			_blood_panel_y,
+			_blood_panel_x + blood_panel_width,
+			_blood_panel_y + blood_panel_height,
+			false
+		);
+		draw_set_alpha(1);
+		draw_set_color(COLOR_HUD_BLOOD);
+		draw_rectangle(
+			_blood_panel_x,
+			_blood_panel_y,
+			_blood_panel_x + blood_panel_width,
+			_blood_panel_y + blood_panel_height,
+			true
+		);
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_middle);
+		draw_text(
+			_blood_panel_x + (blood_panel_width * 0.5),
+			_blood_panel_y + (blood_panel_height * 0.5),
+			_blood_text
+		);
+	}
+
 	var _hovered_projectile_index = -1;
 	var _projectile_payload_data = array_create(_projectile_queue_count, noone);
 	var _deploy_preview_units = array_create(0);
@@ -1652,7 +1695,28 @@ if (variable_global_exists("cannon_projectile_queue")
 		var _projectile_index = _projectile_slot.queue_index;
 		var _projectile_type = _projectile_slot.projectile_type;
 		var _projectile_stack_count = _projectile_slot.count;
-		var _projectile_is_available = _projectile_index >= 0 && _projectile_stack_count > 0;
+		var _projectile_blood_cost = 0;
+		var _projectile_cooldown_remaining = 0;
+
+		if (instance_exists(_projectile_game_controller)
+			&& variable_instance_exists(_projectile_game_controller, "cannon_shell_blood_cost_get"))
+		{
+			_projectile_blood_cost = _projectile_game_controller.cannon_shell_blood_cost_get(_projectile_index);
+		}
+
+		if (instance_exists(_projectile_game_controller)
+			&& variable_instance_exists(_projectile_game_controller, "cannon_shell_cooldown_remaining_get"))
+		{
+			_projectile_cooldown_remaining = _projectile_game_controller.cannon_shell_cooldown_remaining_get(_projectile_index);
+		}
+
+		var _projectile_can_be_afforded = !variable_global_exists("cannon_blood")
+			|| global.cannon_blood >= _projectile_blood_cost;
+		var _projectile_cooldown_is_ready = _projectile_cooldown_remaining <= 0;
+		var _projectile_is_available = _projectile_index >= 0
+			&& _projectile_stack_count > 0
+			&& _projectile_can_be_afforded
+			&& _projectile_cooldown_is_ready;
 
 		var _slot_x = _projectile_start_x + ((projectile_slot_width + projectile_slot_gap) * _projectile_display_index);
 		var _slot_y = _projectile_base_y;
@@ -1711,6 +1775,18 @@ if (variable_global_exists("cannon_projectile_queue")
 		else if (_projectile_type == PROJECTILE_TYPE.SKELETONS)
 		{
 			_projectile_color = COLOR_PROJECTILE_SKELETONS;
+		}
+		else if (_projectile_type == PROJECTILE_TYPE.UNIT_SHELL)
+		{
+			_projectile_color = COLOR_PROJECTILE_UNIT_SHELL;
+
+			if (variable_global_exists("cannon_projectile_payload_queue")
+				&& _projectile_index >= 0
+				&& _projectile_index < array_length(global.cannon_projectile_payload_queue))
+			{
+				var _unit_shell_payload = global.cannon_projectile_payload_queue[_projectile_index];
+				_projectile_squad_unit_sprite = projectile_squad_unit_sprite_get(_unit_shell_payload);
+			}
 		}
 		else if (_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
 		{
@@ -1812,8 +1888,9 @@ if (variable_global_exists("cannon_projectile_queue")
 
 		// Rechargeable shells always show their current count, including zero while recharging.
 		var _projectile_count_is_visible = _projectile_stack_count > 1
-			|| _projectile_type == PROJECTILE_TYPE.BOMB
-			|| _projectile_type == PROJECTILE_TYPE.HEAL;
+			|| (_projectile_blood_cost <= 0
+				&& (_projectile_type == PROJECTILE_TYPE.BOMB
+					|| _projectile_type == PROJECTILE_TYPE.HEAL));
 
 		if (_projectile_count_is_visible)
 		{
@@ -1826,8 +1903,36 @@ if (variable_global_exists("cannon_projectile_queue")
 			draw_text(_slot_x + _slot_width - 15, _slot_y + 14, string(_projectile_stack_count));
 		}
 
+		// A reusable shell shows the whole seconds remaining until it can fire again.
+		if (!_projectile_cooldown_is_ready)
+		{
+			var _cooldown_text = string(ceil(_projectile_cooldown_remaining)) + "s";
+
+			draw_set_halign(fa_center);
+			draw_set_valign(fa_middle);
+			draw_set_alpha(0.92);
+			draw_set_color(COLOR_HUD_BACKGROUND);
+			draw_circle(_slot_x + _slot_width - 16, _slot_y + 15, 14, false);
+			draw_set_alpha(1);
+			draw_set_color(COLOR_HUD_TEXT);
+			draw_text(_slot_x + _slot_width - 16, _slot_y + 15, _cooldown_text);
+		}
+
 		draw_set_color(COLOR_HUD_TEXT);
 		var _projectile_name = projectile_names[_projectile_type];
+
+		if (variable_global_exists("cannon_projectile_payload_queue")
+			&& _projectile_index >= 0
+			&& _projectile_index < array_length(global.cannon_projectile_payload_queue))
+		{
+			var _name_payload = global.cannon_projectile_payload_queue[_projectile_index];
+
+			if (is_struct(_name_payload)
+				&& variable_struct_exists(_name_payload, "display_name"))
+			{
+				_projectile_name = string_copy(_name_payload.display_name, 1, 13);
+			}
+		}
 
 		if (_projectile_type == PROJECTILE_TYPE.CULTIST
 			&& variable_global_exists("cannon_projectile_payload_queue")
@@ -1864,6 +1969,16 @@ if (variable_global_exists("cannon_projectile_queue")
 		}
 
 		draw_text(_slot_x + (_slot_width * 0.5), _slot_y + projectile_name_offset_y, _projectile_name);
+
+		if (_projectile_blood_cost > 0)
+		{
+			draw_set_color(_projectile_can_be_afforded ? COLOR_HUD_BLOOD : COLOR_HUD_PROJECTILE_DESCRIPTION);
+			draw_text(
+				_slot_x + (_slot_width * 0.5),
+				_slot_y - 9,
+				string(_projectile_blood_cost) + " BLOOD"
+			);
+		}
 
 		// Draw the current night recharge progress below rechargeable shells.
 		if (_combat_projectiles_are_active
@@ -2089,6 +2204,37 @@ if (variable_global_exists("cannon_projectile_queue")
 			draw_set_alpha(_description_draw_alpha);
 			draw_set_color(COLOR_HUD_TEXT);
 			var _description_name = projectile_names[_description_type];
+			var _description_text = projectile_descriptions[_description_type];
+
+			if (variable_global_exists("cannon_projectile_payload_queue")
+				&& _description_queue_index >= 0
+				&& _description_queue_index < array_length(global.cannon_projectile_payload_queue))
+			{
+				var _reusable_shell_payload = global.cannon_projectile_payload_queue[_description_queue_index];
+
+				if (is_struct(_reusable_shell_payload)
+					&& variable_struct_exists(_reusable_shell_payload, "display_name"))
+				{
+					_description_name = _reusable_shell_payload.display_name;
+				}
+
+				if (_description_type == PROJECTILE_TYPE.UNIT_SHELL
+					&& is_struct(_reusable_shell_payload)
+					&& variable_struct_exists(_reusable_shell_payload, "unit_count"))
+				{
+					_description_text = "Launches "
+						+ string(_reusable_shell_payload.unit_count)
+						+ " temporary units. This shell remains available after firing.";
+				}
+
+				if (is_struct(_reusable_shell_payload)
+					&& variable_struct_exists(_reusable_shell_payload, "cooldown_seconds"))
+				{
+					_description_text += " Cooldown: "
+						+ string(_reusable_shell_payload.cooldown_seconds)
+						+ " seconds.";
+				}
+			}
 
 			if (_description_type == PROJECTILE_TYPE.CULTIST
 				&& variable_global_exists("cannon_projectile_payload_queue")
@@ -2131,7 +2277,7 @@ if (variable_global_exists("cannon_projectile_queue")
 			draw_text_ext(
 				_description_x + 10,
 				_description_y + 28,
-				projectile_descriptions[_description_type],
+				_description_text,
 				projectile_description_line_separation,
 				projectile_description_width - 20
 			);
@@ -2141,7 +2287,10 @@ if (variable_global_exists("cannon_projectile_queue")
 }
 
 // Draw squad-card help and the RMB information window above the rest of the HUD.
-if (_regular_hud_is_visible && variable_global_exists("squads"))
+if (_regular_hud_is_visible
+	&& variable_global_exists("squads")
+	&& (!variable_global_exists("cannon_blood_shell_mode_enabled")
+		|| !global.cannon_blood_shell_mode_enabled))
 {
 	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
 	{

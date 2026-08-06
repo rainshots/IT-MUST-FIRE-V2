@@ -44,6 +44,16 @@ if (phase_banner_timer > 0)
 	phase_banner_timer--;
 }
 
+// Blood regenerates continuously during active night gameplay.
+if (!global.pause && global.day_phase == DAY_PHASE.NIGHT)
+{
+	var _blood_regen_per_step = global.cannon_blood_regen_per_second / max(1, room_speed);
+	global.cannon_blood = min(global.cannon_blood + _blood_regen_per_step, global.cannon_blood_max);
+}
+
+// Reusable shell cooldowns count down independently during the night.
+cannon_shell_cooldowns_update();
+
 // Night effect layers come online over a few seconds after night starts.
 if (night_effect_transition_active)
 {
@@ -1680,8 +1690,9 @@ if (_can_select_cannon_projectile)
 			var _digit_slot = _projectile_display_slots[_digit_index];
 			var _digit_projectile_type = _digit_slot.projectile_type;
 
-			if (global.day_phase == DAY_PHASE.NIGHT
-				|| _digit_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
+			if ((global.day_phase == DAY_PHASE.NIGHT
+					|| _digit_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
+				&& cannon_shell_can_fire(_digit_slot.consume_queue_index))
 			{
 				_selected_projectile_index = _digit_slot.consume_queue_index;
 			}
@@ -1752,7 +1763,16 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && mouse_check_button_p
 
 		target_selection_radius = projectile_target_selection_radius_get(target_selection_projectile_type);
 		var _target_can_be_confirmed = true;
-		var _target_consumes_projectile_queue = true;
+		var _target_shell_payload = cannon_shell_payload_get(_selected_projectile_index);
+		var _target_is_reusable = is_struct(_target_shell_payload)
+			&& variable_struct_exists(_target_shell_payload, "is_reusable")
+			&& _target_shell_payload.is_reusable;
+		var _target_consumes_projectile_queue = !_target_is_reusable;
+
+		if (!cannon_shell_can_fire(_selected_projectile_index))
+		{
+			_target_can_be_confirmed = false;
+		}
 
 		if (target_selection_projectile_type == PROJECTILE_TYPE.CULTIST
 			&& !world_position_is_revealed_by_fog(_target_world_x, _target_world_y))

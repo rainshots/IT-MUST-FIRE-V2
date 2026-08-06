@@ -836,9 +836,19 @@ projectile_description_width = 330;
 projectile_description_height = 58;
 projectile_description_gap = 8;
 projectile_description_line_separation = 16;
+blood_panel_width = 132;
+blood_panel_height = 36;
+blood_panel_gap = 14;
 
 projectile_squad_unit_sprite_get = function(_payload)
 {
+	if (is_struct(_payload)
+		&& variable_struct_exists(_payload, "unit_object")
+		&& object_exists(_payload.unit_object))
+	{
+		return object_get_sprite(_payload.unit_object);
+	}
+
 	if (!instance_exists(_payload))
 	{
 		return noone;
@@ -887,6 +897,7 @@ projectile_names[PROJECTILE_TYPE.SKELETONS] = "SKELETONS";
 projectile_names[PROJECTILE_TYPE.BUILDING_SHELL] = "STRUCTURE";
 projectile_names[PROJECTILE_TYPE.CLEANSE] = "CLEANSE";
 projectile_names[PROJECTILE_TYPE.DOOM_BELL] = "DOOM BELL";
+projectile_names[PROJECTILE_TYPE.UNIT_SHELL] = "UNIT SHELL";
 
 projectile_descriptions = array_create(PROJECTILE_TYPE.COUNT, "");
 projectile_descriptions[PROJECTILE_TYPE.DAMAGE] = "Damages units and buildings inside the impact area.";
@@ -904,3 +915,4 @@ projectile_descriptions[PROJECTILE_TYPE.DOOM_BELL] = "Deals "
 	+ " damage and taints the ground inside a "
 	+ string(BALANCE_PROJECTILE_DOOM_BELL_RADIUS)
 	+ " pixel radius.";
+projectile_descriptions[PROJECTILE_TYPE.UNIT_SHELL] = "Launches the configured group of temporary units into battle.";

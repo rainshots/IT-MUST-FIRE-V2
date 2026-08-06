@@ -480,6 +480,45 @@ if (_flight_progress >= 1)
 			}
 		}
 	}
+	else if (projectile_type == PROJECTILE_TYPE.UNIT_SHELL)
+	{
+		if (is_struct(unit_shell_payload)
+			&& variable_struct_exists(unit_shell_payload, "unit_object")
+			&& variable_struct_exists(unit_shell_payload, "unit_count")
+			&& object_exists(unit_shell_payload.unit_object))
+		{
+			var _shell_unit_count = max(1, floor(unit_shell_payload.unit_count));
+
+			for (var _shell_unit_index = 0; _shell_unit_index < _shell_unit_count; ++_shell_unit_index)
+			{
+				var _shell_spawn_direction = random(360);
+				var _shell_spawn_distance = sqrt(random(1)) * effect_radius;
+				var _shell_unit_x = target_x + lengthdir_x(_shell_spawn_distance, _shell_spawn_direction);
+				var _shell_unit_y = target_y + lengthdir_y(_shell_spawn_distance, _shell_spawn_direction);
+				var _shell_unit = instance_create_layer(
+					_shell_unit_x,
+					_shell_unit_y,
+					particle_layer_name,
+					unit_shell_payload.unit_object
+				);
+
+				if (!instance_exists(_shell_unit))
+				{
+					continue;
+				}
+
+				// Spawned units are temporary and retain their source shell for individual upgrades.
+				_shell_unit.projectile_skeleton_dies_at_morning = true;
+				_shell_unit.source_unit_shell = unit_shell_payload;
+				_shell_unit.regroup_is_active = false;
+				_shell_unit.rally_is_active = false;
+				_shell_unit.target_instance = noone;
+				_shell_unit.alert_target = noone;
+				squad_unit_permanent_bonuses_apply(unit_shell_payload, _shell_unit);
+				foundry_unit_permanent_bonuses_apply(_shell_unit);
+			}
+		}
+	}
 	else if (projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
 	{
 		if (is_struct(building_payload)
@@ -530,6 +569,7 @@ if (_flight_progress >= 1)
 		&& projectile_type != PROJECTILE_TYPE.HEAL
 		&& projectile_type != PROJECTILE_TYPE.BOMB
 		&& projectile_type != PROJECTILE_TYPE.SKELETONS
+		&& projectile_type != PROJECTILE_TYPE.UNIT_SHELL
 		&& projectile_type != PROJECTILE_TYPE.BUILDING_SHELL
 		&& projectile_type != PROJECTILE_TYPE.CLEANSE
 		&& projectile_type != PROJECTILE_TYPE.ARTILLERY

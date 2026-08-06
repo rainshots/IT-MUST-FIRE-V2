@@ -7,6 +7,7 @@ projectile_type = PROJECTILE_TYPE.DAMAGE;
 cultist_payload = noone;
 cultist_deploy_units = [];
 building_payload = noone;
+unit_shell_payload = noone;
 source_instance = noone;
 artillery_direct_target = noone;
 heal_volley_id = -1; // Prevent overlapping shells from the same healing volley from healing twice.

@@ -176,8 +176,10 @@ warlock_skeleton_explosion_damage = 0;
 warlock_skeleton_respawn_chance = 0;
 warlock_skeleton_dies_at_morning = false;
 
-// Skeleton projectile summons last only until the next morning.
+// Unit projectile summons last only until the next morning.
 projectile_skeleton_dies_at_morning = false;
+// Reusable shell payload identifies which individual shell supplied this unit.
+source_unit_shell = noone;
 
 // Building work assignment lets valid friendly units stay at production buildings.
 assigned_building = noone;

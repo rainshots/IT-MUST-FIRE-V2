@@ -1,5 +1,7 @@
 // Open or close squad information from the roster cards before throttled HUD updates.
-if (global.focus_window != FOCUS_WINDOW.NOONE)
+if (global.focus_window != FOCUS_WINDOW.NOONE
+	|| (variable_global_exists("cannon_blood_shell_mode_enabled")
+		&& global.cannon_blood_shell_mode_enabled))
 {
 	squad_info_squad = noone;
 }

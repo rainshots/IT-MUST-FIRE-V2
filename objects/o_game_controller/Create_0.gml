@@ -1601,6 +1601,11 @@ global.cannon_projectile_queue = [];
 global.cannon_projectile_payload_queue = [];
 global.cannon_selected_projectile_index = 0;
 global.cannon_projectile_queue_max = BALANCE_CANNON_PROJECTILE_QUEUE_MAX;
+// Blood replaces limited combat ammunition during the night.
+global.cannon_blood_shell_mode_enabled = true;
+global.cannon_blood = 0;
+global.cannon_blood_max = BALANCE_CANNON_BLOOD_MAX;
+global.cannon_blood_regen_per_second = BALANCE_CANNON_BLOOD_REGEN_PER_SECOND;
 global.cannon_projectile_gain_time = BALANCE_CANNON_PROJECTILE_GAIN_TIME;
 global.cannon_projectile_gain_timer = 0;
 global.cannon_projectile_gain_enabled = false;
@@ -3527,6 +3532,193 @@ building_shell_preview_color_get = function(_building_payload)
 	return COLOR_PROJECTILE_BUILDING_SHELL;
 };
 
+cannon_shell_payload_create = function(_shell_id, _display_name, _blood_cost, _cooldown_seconds)
+{
+	return {
+		shell_id: _shell_id,
+		display_name: _display_name,
+		blood_cost: max(0, _blood_cost),
+		cooldown_seconds: max(0, _cooldown_seconds),
+		cooldown_timer: 0,
+		is_reusable: true,
+		properties: {}
+	};
+};
+
+cannon_unit_shell_payload_create = function(_shell_id, _display_name, _unit_object, _unit_count, _blood_cost, _cooldown_seconds)
+{
+	var _payload = cannon_shell_payload_create(_shell_id, _display_name, _blood_cost, _cooldown_seconds);
+	_payload.unit_object = _unit_object;
+	_payload.unit_count = max(1, floor(_unit_count));
+	return _payload;
+};
+
+cannon_shell_payload_get = function(_queue_index)
+{
+	if (_queue_index < 0 || _queue_index >= array_length(global.cannon_projectile_payload_queue))
+	{
+		return noone;
+	}
+
+	return global.cannon_projectile_payload_queue[_queue_index];
+};
+
+cannon_shell_blood_cost_get = function(_queue_index)
+{
+	var _payload = cannon_shell_payload_get(_queue_index);
+
+	if (!is_struct(_payload) || !variable_struct_exists(_payload, "blood_cost"))
+	{
+		return 0;
+	}
+
+	return max(0, _payload.blood_cost);
+};
+
+cannon_shell_can_fire = function(_queue_index)
+{
+	var _payload = cannon_shell_payload_get(_queue_index);
+	var _cooldown_is_ready = !is_struct(_payload)
+		|| !variable_struct_exists(_payload, "cooldown_timer")
+		|| _payload.cooldown_timer <= 0;
+
+	return _cooldown_is_ready
+		&& global.cannon_blood >= cannon_shell_blood_cost_get(_queue_index);
+};
+
+cannon_shell_cooldown_remaining_get = function(_queue_index)
+{
+	var _payload = cannon_shell_payload_get(_queue_index);
+
+	if (!is_struct(_payload) || !variable_struct_exists(_payload, "cooldown_timer"))
+	{
+		return 0;
+	}
+
+	return max(0, _payload.cooldown_timer / max(1, room_speed));
+};
+
+cannon_shell_cooldowns_reset = function()
+{
+	var _payload_count = array_length(global.cannon_projectile_payload_queue);
+
+	for (var _payload_index = 0; _payload_index < _payload_count; ++_payload_index)
+	{
+		var _payload = global.cannon_projectile_payload_queue[_payload_index];
+
+		if (is_struct(_payload) && variable_struct_exists(_payload, "cooldown_timer"))
+		{
+			_payload.cooldown_timer = 0;
+		}
+	}
+};
+
+cannon_shell_cooldowns_update = function()
+{
+	if (global.pause || global.day_phase != DAY_PHASE.NIGHT)
+	{
+		return;
+	}
+
+	var _payload_count = array_length(global.cannon_projectile_payload_queue);
+
+	for (var _payload_index = 0; _payload_index < _payload_count; ++_payload_index)
+	{
+		var _payload = global.cannon_projectile_payload_queue[_payload_index];
+
+		if (is_struct(_payload)
+			&& variable_struct_exists(_payload, "cooldown_timer")
+			&& _payload.cooldown_timer > 0)
+		{
+			_payload.cooldown_timer = max(0, _payload.cooldown_timer - 1);
+		}
+	}
+};
+
+cannon_blood_shells_initialize = function()
+{
+	var _payloads = [
+		cannon_unit_shell_payload_create(
+			"bonelet_shell_1",
+			"BONELETS",
+			o_skeleton_bonelet,
+			BALANCE_CANNON_BONELET_SHELL_UNIT_COUNT,
+			BALANCE_CANNON_BONELET_SHELL_BLOOD_COST,
+			BALANCE_CANNON_BONELET_SHELL_COOLDOWN
+		),
+		cannon_unit_shell_payload_create(
+			"bone_warrior_shell_1",
+			"BONE WARRIORS",
+			o_skeleton_warrior,
+			BALANCE_CANNON_BONE_WARRIOR_SHELL_UNIT_COUNT,
+			BALANCE_CANNON_BONE_WARRIOR_SHELL_BLOOD_COST,
+			BALANCE_CANNON_BONE_WARRIOR_SHELL_COOLDOWN
+		),
+		cannon_unit_shell_payload_create(
+			"bone_archer_shell_1",
+			"BONE ARCHERS",
+			o_skeleton_archer,
+			BALANCE_CANNON_BONE_ARCHER_SHELL_UNIT_COUNT,
+			BALANCE_CANNON_BONE_ARCHER_SHELL_BLOOD_COST,
+			BALANCE_CANNON_BONE_ARCHER_SHELL_COOLDOWN
+		),
+		cannon_unit_shell_payload_create(
+			"bone_mage_shell_1",
+			"BONE MAGES",
+			o_skeleton_mage,
+			BALANCE_CANNON_BONE_MAGE_SHELL_UNIT_COUNT,
+			BALANCE_CANNON_BONE_MAGE_SHELL_BLOOD_COST,
+			BALANCE_CANNON_BONE_MAGE_SHELL_COOLDOWN
+		),
+		cannon_unit_shell_payload_create(
+			"bone_healer_shell_1",
+			"BONE HEALERS",
+			o_skeleton_healer,
+			BALANCE_CANNON_BONE_HEALER_SHELL_UNIT_COUNT,
+			BALANCE_CANNON_BONE_HEALER_SHELL_BLOOD_COST,
+			BALANCE_CANNON_BONE_HEALER_SHELL_COOLDOWN
+		),
+		cannon_shell_payload_create(
+			"taint_compost",
+			"TAINT COMPOST",
+			BALANCE_CANNON_TAINT_COMPOST_BLOOD_COST,
+			BALANCE_CANNON_TAINT_COMPOST_COOLDOWN
+		),
+		cannon_shell_payload_create(
+			"first_aid",
+			"FIRST AID",
+			BALANCE_CANNON_FIRST_AID_BLOOD_COST,
+			BALANCE_CANNON_FIRST_AID_COOLDOWN
+		),
+		cannon_shell_payload_create(
+			"hellcow",
+			"HELLCOW",
+			BALANCE_CANNON_HELLCOW_BLOOD_COST,
+			BALANCE_CANNON_HELLCOW_COOLDOWN
+		),
+		cannon_shell_payload_create(
+			"holy_bell",
+			"HOLY BELL",
+			BALANCE_CANNON_HOLY_BELL_BLOOD_COST,
+			BALANCE_CANNON_HOLY_BELL_COOLDOWN
+		)
+	];
+
+	global.cannon_projectile_queue = [
+		PROJECTILE_TYPE.UNIT_SHELL,
+		PROJECTILE_TYPE.UNIT_SHELL,
+		PROJECTILE_TYPE.UNIT_SHELL,
+		PROJECTILE_TYPE.UNIT_SHELL,
+		PROJECTILE_TYPE.UNIT_SHELL,
+		PROJECTILE_TYPE.CORRUPTION,
+		PROJECTILE_TYPE.HEAL,
+		PROJECTILE_TYPE.BOMB,
+		PROJECTILE_TYPE.DOOM_BELL
+	];
+	global.cannon_projectile_payload_queue = _payloads;
+	global.cannon_selected_projectile_index = 0;
+};
+
 projectile_target_selection_radius_get = function(_projectile_type)
 {
 	if (_projectile_type == PROJECTILE_TYPE.CORRUPTION)
@@ -3572,6 +3764,11 @@ projectile_target_selection_radius_get = function(_projectile_type)
 		return BALANCE_PROJECTILE_SKELETON_RADIUS;
 	}
 
+	if (_projectile_type == PROJECTILE_TYPE.UNIT_SHELL)
+	{
+		return BALANCE_PROJECTILE_SKELETON_RADIUS;
+	}
+
 	if (_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
 	{
 		return BALANCE_PROJECTILE_EFFECT_RADIUS;
@@ -3583,6 +3780,7 @@ projectile_target_selection_radius_get = function(_projectile_type)
 cannon_projectile_type_can_stack_in_hud = function(_projectile_type)
 {
 	return _projectile_type != PROJECTILE_TYPE.CULTIST
+		&& _projectile_type != PROJECTILE_TYPE.UNIT_SHELL
 		&& _projectile_type != PROJECTILE_TYPE.BUILDING_SHELL;
 };
 
@@ -3600,7 +3798,17 @@ cannon_projectile_display_slots_get = function(_max_display_count)
 	for (var _queue_index = 0; _queue_index < _projectile_queue_count; ++_queue_index)
 	{
 		var _projectile_type = global.cannon_projectile_queue[_queue_index];
+		var _projectile_payload = cannon_shell_payload_get(_queue_index);
 		var _display_index = -1;
+		var _is_reusable_combat_shell = is_struct(_projectile_payload)
+			&& variable_struct_exists(_projectile_payload, "is_reusable")
+			&& _projectile_payload.is_reusable;
+
+		// Daytime keeps the combat row out of the way of consumable structure shells.
+		if (global.day_phase == DAY_PHASE.DAY && _is_reusable_combat_shell)
+		{
+			continue;
+		}
 
 		// Ignore legacy corpse-fed Taint entries from old runtime state.
 		if (_projectile_type == PROJECTILE_TYPE.FEAST)
@@ -6436,6 +6644,16 @@ cannon_projectile_queue_add = function(_projectile_type, _payload = noone)
 		return false;
 	}
 
+	// Reusable blood shells already occupy permanent slots and must not gain stockpile copies.
+	if (global.cannon_blood_shell_mode_enabled
+		&& (_projectile_type == PROJECTILE_TYPE.CORRUPTION
+			|| _projectile_type == PROJECTILE_TYPE.HEAL
+			|| _projectile_type == PROJECTILE_TYPE.BOMB
+			|| _projectile_type == PROJECTILE_TYPE.DOOM_BELL))
+	{
+		return false;
+	}
+
 	if (array_length(global.cannon_projectile_queue) >= global.cannon_projectile_queue_max)
 	{
 		return false;
@@ -6508,6 +6726,11 @@ cannon_morning_projectile_target_count_get = function(_projectile_type)
 
 cannon_night_shell_recharge_progress_get = function(_projectile_type)
 {
+	if (global.cannon_blood_shell_mode_enabled)
+	{
+		return 0;
+	}
+
 	if (global.day_phase != DAY_PHASE.NIGHT
 		|| (_projectile_type != PROJECTILE_TYPE.BOMB && _projectile_type != PROJECTILE_TYPE.HEAL))
 	{
@@ -6528,6 +6751,11 @@ cannon_night_shell_recharge_progress_get = function(_projectile_type)
 
 cannon_night_shell_recharge_update = function()
 {
+	if (global.cannon_blood_shell_mode_enabled)
+	{
+		return;
+	}
+
 	var _projectile_types = [PROJECTILE_TYPE.BOMB, PROJECTILE_TYPE.HEAL];
 	var _projectile_type_count = array_length(_projectile_types);
 
@@ -6566,6 +6794,11 @@ cannon_night_shell_recharge_update = function()
 
 cannon_morning_projectiles_refill = function()
 {
+	if (global.cannon_blood_shell_mode_enabled)
+	{
+		return;
+	}
+
 	var _projectile_types = [
 		PROJECTILE_TYPE.BOMB,
 		PROJECTILE_TYPE.CORRUPTION,
@@ -7781,6 +8014,11 @@ queue_cultist_projectile = function(_cultist)
 
 start_cultists_loading_into_cannon = function()
 {
+	if (global.cannon_blood_shell_mode_enabled)
+	{
+		return;
+	}
+
 	clear_cannon_projectile_queues(false);
 
 	for (var _squad_index = 0; _squad_index < array_length(global.squads); ++_squad_index)
@@ -7839,7 +8077,10 @@ start_cultists_loading_into_cannon = function()
 
 update_cultists_loading_into_cannon = function()
 {
-	if (global.pause || global.day_phase != DAY_PHASE.NIGHT || !instance_exists(o_cannon))
+	if (global.cannon_blood_shell_mode_enabled
+		|| global.pause
+		|| global.day_phase != DAY_PHASE.NIGHT
+		|| !instance_exists(o_cannon))
 	{
 		return;
 	}
@@ -11128,6 +11369,8 @@ start_night_phase = function()
 	cannon_corpse_workers_drop_all();
 	var _is_full_moon_night = full_moon_night_is_scheduled(night_attack_night_index);
 	global.day_phase = DAY_PHASE.NIGHT;
+	global.cannon_blood = min(BALANCE_CANNON_BLOOD_START, global.cannon_blood_max);
+	cannon_shell_cooldowns_reset();
 	night_fast_forward_set(false);
 	global.full_moon_night_active = _is_full_moon_night;
 	global.day_timer = global.night_duration * global.game_speed_normal;
@@ -11635,6 +11878,13 @@ cultist_levelup_apply_selected = function()
 
 	return _applied_any_reward;
 };
+
+// Reusable combat shells replace the legacy limited night ammunition stockpile.
+global.squad_limits[SQUAD_TYPE.UNDEAD] = 0;
+global.squad_limits[SQUAD_TYPE.DEMON] = 0;
+cannon_blood_shells_initialize();
+global.cannon_projectile_queue_max = BALANCE_CANNON_PROJECTILE_QUEUE_MAX
+	+ array_length(global.cannon_projectile_queue);
 
 // The first daytime preview is available immediately when the room starts.
 night_attack_plan_create();
