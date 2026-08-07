@@ -656,6 +656,12 @@ if (_flight_progress >= 1)
 				continue;
 			}
 
+			// A fired squad defends the projectile impact position until the player moves it.
+			if (variable_instance_exists(_deploy_unit, "squad") && is_struct(_deploy_unit.squad))
+			{
+				squad_defense_position_set(_deploy_unit.squad, target_x, target_y);
+			}
+
 			var _deploy_direction = 360 * (_deploy_index / max(1, _deploy_unit_count));
 			var _deploy_ring = (_deploy_index mod 3) / 2;
 			var _deploy_distance = BALANCE_CULTIST_PROJECTILE_SUMMON_DEPLOY_RADIUS * lerp(0.35, 1, _deploy_ring);
@@ -693,6 +699,7 @@ if (_flight_progress >= 1)
 
 		if (_is_regular_squad_unit)
 		{
+			squad_defense_position_set(_cultist.squad, target_x, target_y);
 			_cultist.x = target_x;
 			_cultist.y = target_y;
 			_cultist.drag_drop_x = target_x;

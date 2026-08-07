@@ -6,10 +6,59 @@ function squad_constructor(_squad_type, _primary_unit_object, _unit_count) const
 	primary_unit_object = _primary_unit_object;
 	unit_objects = array_create(max(1, floor(_unit_count)), _primary_unit_object);
 	units = [];
-	properties = {};
+	properties = {
+		defense_x: 0,
+		defense_y: 0,
+		defense_is_set: false,
+		defense_committed_target: noone,
+		defense_commitment_timer: 0
+	};
 	name = "";
 	total_max_hp = 0;
 };
+
+function squad_defense_position_set(_squad, _target_x, _target_y)
+{
+	if (!is_struct(_squad) || _squad.squad_type == SQUAD_TYPE.ARCHDEMON)
+	{
+		return false;
+	}
+
+	// The defense point stays fixed while the visible marker follows the moving squad.
+	_squad.properties.defense_x = _target_x;
+	_squad.properties.defense_y = _target_y;
+	_squad.properties.defense_is_set = true;
+	return true;
+}
+
+function squad_defense_target_commit(_squad, _target)
+{
+	if (!is_struct(_squad)
+		|| _squad.squad_type == SQUAD_TYPE.ARCHDEMON
+		|| !instance_exists(_target))
+	{
+		return false;
+	}
+
+	var _existing_target = variable_struct_exists(_squad.properties, "defense_committed_target")
+		? _squad.properties.defense_committed_target
+		: noone;
+	var _existing_timer = variable_struct_exists(_squad.properties, "defense_commitment_timer")
+		? _squad.properties.defense_commitment_timer
+		: 0;
+
+	// Finish one committed threat before switching the whole squad to another.
+	if (_existing_timer > 0
+		&& instance_exists(_existing_target)
+		&& _existing_target != _target)
+	{
+		return false;
+	}
+
+	_squad.properties.defense_committed_target = _target;
+	_squad.properties.defense_commitment_timer = BALANCE_SQUAD_DEFENSE_COMMITMENT_TIME * room_speed;
+	return true;
+}
 
 function squad_type_limit_get(_squad_type)
 {
@@ -496,6 +545,20 @@ function squad_night_markers_update()
 
 		if (_squad.squad_type != SQUAD_TYPE.ARCHDEMON)
 		{
+			// Shared combat commitment is updated once per squad instead of once per member.
+			if (variable_struct_exists(_squad.properties, "defense_commitment_timer")
+				&& _squad.properties.defense_commitment_timer > 0
+				&& variable_struct_exists(_squad.properties, "defense_committed_target")
+				&& instance_exists(_squad.properties.defense_committed_target))
+			{
+				_squad.properties.defense_commitment_timer--;
+			}
+			else
+			{
+				_squad.properties.defense_committed_target = noone;
+				_squad.properties.defense_commitment_timer = 0;
+			}
+
 			squad_marker_position_update(_squad);
 		}
 	}
@@ -641,6 +704,11 @@ function squad_drag_end(_squad, _apply_stun = true)
 	}
 
 	_squad.properties.marker_is_dragged = false;
+	squad_defense_position_set(
+		_squad,
+		_squad.properties.marker_x,
+		_squad.properties.marker_y
+	);
 
 	for (var _unit_index = 0; _unit_index < array_length(_squad.units); ++_unit_index)
 	{

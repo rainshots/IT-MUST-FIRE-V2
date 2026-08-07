@@ -319,6 +319,7 @@ var _is_friendly_unit = (unit_faction == UNIT_FACTION.FRIENDLY);
 var _friendly_follow_target = noone;
 var _is_cultist_demon_unit = variable_instance_exists(id, "demon_type")
 	&& demon_type != DEMON_TYPE.NONE;
+var _previous_target_instance = target_instance;
 var _had_target = instance_exists(target_instance);
 var _current_target_is_valid = target_can_be_attacked(target_instance);
 
@@ -327,20 +328,58 @@ update_separation_push();
 
 var _special_behavior_handled = unit_special_behavior_update();
 var _has_forced_target = target_can_be_attacked(forced_attack_target);
+var _squad_defense_is_active = friendly_squad_defense_is_active();
+var _squad_committed_target = noone;
+var _squad_defense_must_return = false;
 var _should_search_target = false;
+
+if (_squad_defense_is_active
+	&& variable_struct_exists(squad.properties, "defense_commitment_timer")
+	&& squad.properties.defense_commitment_timer > 0
+	&& variable_struct_exists(squad.properties, "defense_committed_target")
+	&& target_can_be_attacked(squad.properties.defense_committed_target)
+	&& friendly_squad_defense_target_is_allowed(squad.properties.defense_committed_target, true))
+{
+	_squad_committed_target = squad.properties.defense_committed_target;
+}
+
+// A squad outside its chase boundary must return before acquiring another target.
+if (_squad_defense_is_active && !_has_forced_target)
+{
+	var _defense_distance_x = x - squad.properties.defense_x;
+	var _defense_distance_y = y - squad.properties.defense_y;
+	var _defense_distance_squared = (_defense_distance_x * _defense_distance_x)
+		+ (_defense_distance_y * _defense_distance_y);
+	var _defense_chase_radius = instance_exists(_squad_committed_target)
+		? BALANCE_SQUAD_DEFENSE_COMMITTED_CHASE_RADIUS
+		: BALANCE_SQUAD_DEFENSE_CHASE_RADIUS;
+	var _chase_radius_squared = _defense_chase_radius * _defense_chase_radius;
+	_squad_defense_must_return = _defense_distance_squared > _chase_radius_squared;
+}
 
 target_search_update_timer++;
 
 if (target_search_update_timer >= target_search_update_interval
 	|| (_had_target && !_current_target_is_valid)
 	|| _has_forced_target
-	|| instance_exists(alert_target))
+	|| instance_exists(alert_target)
+	|| (instance_exists(_squad_committed_target) && target_instance != _squad_committed_target))
 {
 	_should_search_target = true;
 	target_search_update_timer = 0;
 }
 
 if (!_current_target_is_valid)
+{
+	target_instance = noone;
+}
+
+var _squad_target_exceeded_chase = instance_exists(target_instance)
+	&& !friendly_squad_defense_target_is_allowed(target_instance, true);
+
+if (_squad_defense_is_active
+	&& !_has_forced_target
+	&& (_squad_target_exceeded_chase || _squad_defense_must_return))
 {
 	target_instance = noone;
 }
@@ -405,7 +444,10 @@ else if (!_special_behavior_handled && _should_search_target && _is_enemy_unit)
 		target_instance = instance_find(o_cannon, 0);
 	}
 }
-else if (!_special_behavior_handled && _should_search_target && _is_friendly_unit)
+else if (!_special_behavior_handled
+	&& _should_search_target
+	&& _is_friendly_unit
+	&& !_squad_defense_must_return)
 {
 	if (instance_exists(alert_target))
 	{
@@ -420,7 +462,11 @@ else if (!_special_behavior_handled && _should_search_target && _is_friendly_uni
 		}
 	}
 
-	if (_is_cultist_demon_unit && target_can_be_attacked(manual_structure_target))
+	if (instance_exists(_squad_committed_target))
+	{
+		target_instance = _squad_committed_target;
+	}
+	else if (_is_cultist_demon_unit && target_can_be_attacked(manual_structure_target))
 	{
 		target_instance = manual_structure_target;
 	}
@@ -440,17 +486,26 @@ else if (!_special_behavior_handled && _should_search_target && _is_friendly_uni
 	else if (!_is_cultist_demon_unit)
 	{
 		var _priority_target = noone;
+		var _cannon_attacker = _squad_defense_is_active
+			? find_nearest_cannon_attacker()
+			: noone;
+		var _cannon_attacker_is_valid = instance_exists(_cannon_attacker)
+			&& friendly_squad_defense_target_is_allowed(_cannon_attacker, false);
 
-		if (!instance_exists(alert_target))
+		if (_cannon_attacker_is_valid)
+		{
+			target_instance = _cannon_attacker;
+		}
+		else if (!instance_exists(alert_target))
 		{
 			_priority_target = friendly_priority_target_find(vision_radius);
 		}
 
-		if (instance_exists(_priority_target))
+		if (!_cannon_attacker_is_valid && instance_exists(_priority_target))
 		{
 			target_instance = _priority_target;
 		}
-		else
+		else if (!_cannon_attacker_is_valid)
 		{
 			var _nearest_enemy_unit = find_nearest_enemy_unit_target(vision_radius);
 
@@ -500,6 +555,17 @@ else if (!_special_behavior_handled && _should_search_target && _is_friendly_uni
 		{
 			target_instance = _cannon;
 		}
+	}
+}
+
+// New targets must be inside the engagement zone; current targets get a wider chase zone.
+if (_squad_defense_is_active && !_has_forced_target && instance_exists(target_instance))
+{
+	var _allow_existing_chase = target_instance == _previous_target_instance;
+
+	if (!friendly_squad_defense_target_is_allowed(target_instance, _allow_existing_chase))
+	{
+		target_instance = noone;
 	}
 }
 
@@ -581,6 +647,34 @@ if (!_special_behavior_handled && instance_exists(target_instance))
 		{
 			move_towards_target(target_instance);
 		}
+	}
+}
+else if (!_special_behavior_handled && _is_friendly_unit && _squad_defense_is_active)
+{
+	// The squad holds a soft area so return movement does not fight unit separation.
+	var _defense_unit_count = max(1, array_length(squad.units));
+	var _defense_idle_radius = BALANCE_SQUAD_DEFENSE_IDLE_RADIUS_BASE
+		+ (sqrt(_defense_unit_count) * BALANCE_SQUAD_DEFENSE_IDLE_RADIUS_PER_SQRT_UNIT);
+	var _defense_return_radius = _defense_idle_radius + BALANCE_SQUAD_DEFENSE_RETURN_RADIUS_PADDING;
+	var _defense_return_distance = point_distance(
+		x,
+		y,
+		squad.properties.defense_x,
+		squad.properties.defense_y
+	);
+
+	if (defense_return_is_active && _defense_return_distance <= _defense_idle_radius)
+	{
+		defense_return_is_active = false;
+	}
+	else if (!defense_return_is_active && _defense_return_distance > _defense_return_radius)
+	{
+		defense_return_is_active = true;
+	}
+
+	if (defense_return_is_active)
+	{
+		move_towards_world_point(squad.properties.defense_x, squad.properties.defense_y);
 	}
 }
 else if (!_special_behavior_handled && _is_friendly_unit && instance_exists(_friendly_follow_target))
