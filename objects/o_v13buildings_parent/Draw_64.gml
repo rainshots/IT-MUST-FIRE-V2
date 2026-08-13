@@ -367,6 +367,7 @@ if (_is_hovered)
 			_pin_action = "unpin";
 		}
 		else if (global.day_event_pins_remaining > 0
+			&& !day_event_has_funded_activation(_current_event)
 			&& !day_event_pin_source_is_active(_current_event.source_building))
 		{
 			_pin_action = "pin";
@@ -380,7 +381,7 @@ if (_is_hovered)
 		draw_set_valign(fa_top);
 		draw_set_color(COLOR_JOBS_EVENT_ACTION);
 
-		if (_reroll_remaining > 0)
+		if (_reroll_remaining > 0 && day_event_reroll_is_available(_current_event))
 		{
 			draw_set_halign(fa_left);
 			draw_text(

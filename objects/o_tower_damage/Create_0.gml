@@ -22,8 +22,14 @@ base_damage = BALANCE_TOWER_DAMAGE_AMOUNT;
 var _tower_radius_multiplier = variable_global_exists("player_tower_radius_multiplier")
 	? global.player_tower_radius_multiplier
 	: 1;
-shoot_radius = base_shoot_radius * _tower_radius_multiplier;
-damage = base_damage;
+var _foundry_radius_bonus = variable_global_exists("foundry_tower_radius_base_bonus")
+	? global.foundry_tower_radius_base_bonus
+	: 0;
+var _foundry_damage_bonus = variable_global_exists("foundry_tower_damage_base_bonus")
+	? global.foundry_tower_damage_base_bonus
+	: 0;
+shoot_radius = base_shoot_radius * (_tower_radius_multiplier + _foundry_radius_bonus);
+damage = base_damage * (1 + _foundry_damage_bonus);
 reload_time = BALANCE_TOWER_DAMAGE_RELOAD_TIME * room_speed;
 reload_timer = 0;
 target_instance = noone;
@@ -61,10 +67,20 @@ map_building_upgrade_effect_apply = function(_upgrade_index)
 	var _radius_multiplier = variable_global_exists("player_tower_radius_multiplier")
 		? global.player_tower_radius_multiplier
 		: 1;
+	var _foundry_radius_bonus = variable_global_exists("foundry_tower_radius_base_bonus")
+		? global.foundry_tower_radius_base_bonus
+		: 0;
+	var _foundry_damage_bonus = variable_global_exists("foundry_tower_damage_base_bonus")
+		? global.foundry_tower_damage_base_bonus
+		: 0;
 	shoot_radius = base_shoot_radius
-		* (1 + (building_upgrade_levels[0] * BALANCE_TOWER_DAMAGE_RADIUS_UPGRADE_BONUS))
-		* _radius_multiplier;
-	damage = base_damage * (1 + (building_upgrade_levels[1] * BALANCE_TOWER_DAMAGE_DAMAGE_UPGRADE_BONUS));
+		* (((1 + (building_upgrade_levels[0] * BALANCE_TOWER_DAMAGE_RADIUS_UPGRADE_BONUS))
+			* _radius_multiplier)
+			+ _foundry_radius_bonus);
+	damage = base_damage
+		* (1
+			+ _foundry_damage_bonus
+			+ (building_upgrade_levels[1] * BALANCE_TOWER_DAMAGE_DAMAGE_UPGRADE_BONUS));
 };
 
 tower_damage_projectile_create = function(_target_x, _target_y)

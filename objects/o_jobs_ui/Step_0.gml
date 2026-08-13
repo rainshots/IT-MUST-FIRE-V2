@@ -8,6 +8,23 @@ var _hovered_empty_slot_key_now = "";
 var _hovered_event_action_key_now = "";
 jobs_hovered_cultist = noone;
 
+// Tutorial popups block Assign Duties input while they are visible above the window.
+if (variable_global_exists("tutorial_popup_active") && global.tutorial_popup_active)
+{
+	exit;
+}
+
+// Tab toggles Assign Duties through the same open and close paths as its buttons.
+if (keyboard_check_pressed(vk_tab) && jobs_window_toggle())
+{
+	if (variable_global_exists("ui_confirm_sound_play"))
+	{
+		global.ui_confirm_sound_play();
+	}
+
+	exit;
+}
+
 // Consume the mouse press that closed an overlapping modal window.
 if (jobs_input_blocked_until_mouse_release)
 {
@@ -211,6 +228,7 @@ for (var _event_index = 0; _event_index < array_length(global.day_events); ++_ev
 	var _reroll_rect = jobs_event_action_rect_get(_event_index, "reroll");
 
 	if (global.day_event_rerolls_remaining > 0
+		&& day_event_reroll_is_available(_event)
 		&& point_in_rectangle(
 			_mouse_x,
 			_mouse_y,
@@ -220,6 +238,7 @@ for (var _event_index = 0; _event_index < array_length(global.day_events); ++_ev
 			_reroll_rect.y + _reroll_rect.height
 		))
 	{
+		day_event_reroll_preview_get(_event);
 		_hovered_event_action_key_now = jobs_event_action_key_get(_event, "reroll");
 		break;
 	}
@@ -289,7 +308,12 @@ for (var _cultist_index = array_length(global.event_cultists) - 1; _cultist_inde
 	var _cultist = global.event_cultists[_cultist_index];
 	var _cultist_rect = jobs_cultist_rect_get(_cultist);
 	var _cultist_is_in_scroll_list = instance_exists(_cultist) && is_struct(_cultist.assigned_event);
-	var _cultist_can_be_hovered = !_cultist_is_in_scroll_list || _mouse_is_over_event_viewport;
+	var _cultist_is_conscious = instance_exists(_cultist)
+		&& variable_instance_exists(_cultist, "hp")
+		&& _cultist.hp > 0
+		&& (!variable_instance_exists(_cultist, "is_unconscious") || !_cultist.is_unconscious);
+	var _cultist_can_be_hovered = _cultist_is_conscious
+		&& (!_cultist_is_in_scroll_list || _mouse_is_over_event_viewport);
 
 	if (_cultist_can_be_hovered
 		&& is_struct(_cultist_rect)
@@ -375,14 +399,15 @@ if (mouse_check_button_pressed(mb_left))
 
 		var _reroll_rect = jobs_event_action_rect_get(_event_index, "reroll");
 
-		if (point_in_rectangle(
-			_mouse_x,
-			_mouse_y,
-			_reroll_rect.x,
-			_reroll_rect.y,
-			_reroll_rect.x + _reroll_rect.width,
-			_reroll_rect.y + _reroll_rect.height
-		))
+		if (day_event_reroll_is_available(_event)
+			&& point_in_rectangle(
+				_mouse_x,
+				_mouse_y,
+				_reroll_rect.x,
+				_reroll_rect.y,
+				_reroll_rect.x + _reroll_rect.width,
+				_reroll_rect.y + _reroll_rect.height
+			))
 		{
 			jobs_squad_selector_event = noone;
 
@@ -612,7 +637,12 @@ if (mouse_check_button_pressed(mb_left))
 		var _cultist = global.event_cultists[_cultist_index];
 		var _cultist_rect = jobs_cultist_rect_get(_cultist);
 		var _cultist_is_in_scroll_list = instance_exists(_cultist) && is_struct(_cultist.assigned_event);
-		var _cultist_can_be_clicked = !_cultist_is_in_scroll_list || _mouse_is_over_event_viewport;
+		var _cultist_is_conscious = instance_exists(_cultist)
+			&& variable_instance_exists(_cultist, "hp")
+			&& _cultist.hp > 0
+			&& (!variable_instance_exists(_cultist, "is_unconscious") || !_cultist.is_unconscious);
+		var _cultist_can_be_clicked = _cultist_is_conscious
+			&& (!_cultist_is_in_scroll_list || _mouse_is_over_event_viewport);
 
 		if (_cultist_can_be_clicked
 			&& is_struct(_cultist_rect)
@@ -682,6 +712,12 @@ if (instance_exists(jobs_dragged_cultist) && mouse_check_button_released(mb_left
 			}
 			else if (instance_exists(_target_cultist))
 			{
+				if (variable_struct_exists(_target_event, "cultist_is_eligible_check")
+					&& !_target_event.cultist_is_eligible_check(jobs_dragged_cultist))
+				{
+					continue;
+				}
+
 				// The displaced cultist takes the dragged cultist's former slot or returns to the pool.
 				if (is_struct(jobs_drag_origin_event) && jobs_drag_origin_slot_index >= 0)
 				{

@@ -1,28 +1,36 @@
 // Draw Jobs above gameplay indicators while keeping tutorial popups in front.
 depth = DEPTH_JOBS_UI;
 
-// Jobs window follows the 1920x1080 Figma composition and scales to the GUI.
+// Jobs window follows the right-docked 1920x1080 Figma composition and scales to the GUI.
 jobs_design_width = 1920;
 jobs_design_height = 1080;
-jobs_panel_width = 1112;
-jobs_panel_height = 898;
-jobs_content_offset_x = 206;
-jobs_pool_width = 700;
-jobs_pool_height = 86;
+jobs_panel_width = 821;
+jobs_content_offset_x = 212;
+jobs_pool_y = 44;
+jobs_pool_width = 456;
+jobs_pool_height = 85;
+jobs_pool_cultist_start_x = 107;
+jobs_pool_cultist_y = 10;
+jobs_event_y = 147;
+jobs_event_width = 458;
 jobs_event_height = 132;
 jobs_event_gap = 6;
 // Reminder shown after the final event card in the scrollable list.
 jobs_event_footer_gap = 18;
 jobs_event_footer_height = 34;
 jobs_event_footer_text = "Don't forget that you can build buildings and towers. They require a Cultist, but do not cost HP.";
-jobs_icon_width = 38;
+jobs_icon_width = 44;
 jobs_icon_height = 60;
-jobs_icon_gap = 18;
-jobs_event_slot_start_x = 435;
-jobs_event_slot_step = 58;
-jobs_result_unit_icon_center_x = 401;
+jobs_icon_gap = 8;
+jobs_event_slot_y = 22;
+jobs_event_slot_step = 52;
+jobs_slot_hp_cost_offset_y = 10;
+jobs_result_unit_icon_center_x = 400;
 jobs_result_unit_icon_center_y = 58;
-jobs_result_unit_icon_size = 54;
+jobs_result_unit_icon_size = 68;
+jobs_source_icon_offset_x = 525;
+jobs_source_icon_width = 74;
+jobs_source_icon_height = 70;
 // Specialization Jobs place three selectable result portraits before worker slots.
 jobs_unit_choice_icon_start_x = 264;
 jobs_unit_choice_icon_y = 35;
@@ -58,15 +66,20 @@ jobs_squad_selector_event = noone;
 jobs_squad_selector_width = 150;
 jobs_squad_selector_height = 28;
 jobs_squad_selector_option_height = 30;
-jobs_event_action_width = 72;
-jobs_event_action_height = 100;
-jobs_event_action_y = 8;
-jobs_reroll_action_x = 722;
-jobs_pin_action_x = 800;
-jobs_reroll_action_icon_y = 45;
-jobs_pin_action_icon_y = 50;
-jobs_event_action_label_y = 80;
+jobs_event_action_width = 54;
+jobs_event_action_height = 54;
+jobs_reroll_action_x = 462;
+jobs_pin_action_x = 462;
+jobs_reroll_action_y = 0;
+jobs_pin_action_y = 55;
+jobs_reroll_action_icon_y = 19;
+jobs_pin_action_icon_y = 79;
+jobs_reroll_action_label_y = 40;
+jobs_pin_action_label_y = 96;
+jobs_reroll_icon_scale = 0.625;
+jobs_pin_icon_scale = 0.52;
 jobs_hovered_event_action_key = "";
+jobs_camera_visual_zoom = 0.5;
 jobs_show_button_width = 313;
 jobs_show_button_height = 80;
 jobs_show_button_right_margin = 53;
@@ -78,54 +91,59 @@ jobs_assignment_hint_arrow_tip_offset_x = 19;
 jobs_assignment_hint_arrow_tip_offset_y = 68;
 jobs_assignment_hint_arrow_scale = 0.5;
 jobs_assignment_hint_arrow_angle = 45;
-// First-day Jobs guidance follows the 1920x1080 Figma annotation positions.
-jobs_first_day_hint_texts = [
+// First-day Assign Duties onboarding follows the annotated 1920x1080 Figma composition.
+jobs_onboarding_design_panel_x = 1099;
+jobs_onboarding_arrow_scale = 0.5;
+jobs_onboarding_text_line_height = 22;
+jobs_onboarding_hints = [
 	{
-		text: "Unassigned cultists",
-		x: 216.92,
-		y: 112.77,
-		alignment: fa_left
+		text: "Unassigned Cultists",
+		text_x: 953,
+		text_y: 69,
+		text_width: 228,
+		arrow_x: 1274,
+		arrow_y: 93,
+		arrow_angle: 0
 	},
 	{
-		text: "Each building\ngives one random\njob per day",
-		x: 121.92,
-		y: 230.77,
-		alignment: fa_left
+		text: "Each building gives one random Job per day.",
+		text_x: 839,
+		text_y: 164,
+		text_width: 228,
+		arrow_x: 1155,
+		arrow_y: 194,
+		arrow_angle: 0
 	},
 	{
-		text: "You can either drag and drop cultists on job' cultist slots or click on the\ncultist slots (LMB to add a cultist, RMB to remove it)",
-		x: 999.42,
-		y: 827.77,
-		alignment: fa_center
+		text: "If the required number of Cultists is assigned to the Job, it will be completed tomorrow morning.",
+		text_x: 1123,
+		text_y: 620,
+		text_width: 250,
+		arrow_x: 1179,
+		arrow_y: 505,
+		arrow_angle: 90
 	},
 	{
-		text: "If the required number of\ncultists is assigned to the job, it\nwill be completed tomorrow\nmorning.",
-		x: 1199.92,
-		y: 516.77,
-		alignment: fa_left
-	},
-	{
-		text: "You can reroll 1 job\nper day.",
-		x: 1622.92,
-		y: 225.77,
-		alignment: fa_left
-	},
-	{
-		text: "You can pin 1 job per\nday, so tomorrow it\nwill be the same.",
-		x: 1621.92,
-		y: 337.77,
-		alignment: fa_left
+		text: "You can pin 1 Job per day, so it will remain available tomorrow.\nYou can also reroll 1 Job per day.\nSome Jobs cannot be rerolled or pinned.",
+		text_x: 1625,
+		text_y: 620,
+		text_width: 250,
+		arrow_x: 1807,
+		arrow_y: 505,
+		arrow_angle: 90
 	}
 ];
-// Arrow coordinates are their sprite-tip positions after applying the Figma rotations.
-jobs_first_day_hint_arrow_scale = 0.496;
-jobs_first_day_hint_arrows = [
-	{ tip_x: 626.07, tip_y: 142.23, angle: 0 },
-	{ tip_x: 460.07, tip_y: 272.23, angle: 0 },
-	{ tip_x: 1141.34, tip_y: 405.50, angle: 120 },
-	{ tip_x: 1494.91, tip_y: 259.23, angle: 180 },
-	{ tip_x: 1494.91, tip_y: 385.23, angle: 180 }
-];
+// Second-day Cannon Satisfaction introduction follows the annotated Figma composition.
+jobs_cannon_satisfaction_hint_text = "The Cannon is possessed, moody, and bored. "
+	+ "Fulfill its demands to raise Satisfaction and earn unholy bonuses. "
+	+ "Ignore it and the whole cult suffers.";
+jobs_cannon_satisfaction_hint_text_x = 752;
+jobs_cannon_satisfaction_hint_text_y = 151;
+jobs_cannon_satisfaction_hint_text_width = 322;
+jobs_cannon_satisfaction_hint_text_line_height = 30;
+jobs_cannon_satisfaction_hint_arrow_x = 1184;
+jobs_cannon_satisfaction_hint_arrow_y = 211;
+jobs_cannon_satisfaction_hint_arrow_scale = 0.5;
 jobs_end_day_button_width = 353;
 jobs_end_day_button_height = 88;
 jobs_end_day_button_bottom_margin = 65;
@@ -148,6 +166,7 @@ jobs_hp_font = font_add("Arial", 8, true, false, 32, 1279);
 jobs_show_font = font_add("Arial", 25, true, false, 32, 1279);
 jobs_action_font = font_add("Arial", 12, false, false, 32, 1279);
 jobs_world_action_font = font_add("Arial", 13, true, false, 32, 1279);
+jobs_onboarding_font = font_add("Arial", 20, true, false, 32, 1279);
 
 jobs_layout_get = function()
 {
@@ -155,9 +174,9 @@ jobs_layout_get = function()
 	var _gui_height = display_get_gui_height();
 	var _scale = min(_gui_width / jobs_design_width, _gui_height / jobs_design_height);
 	var _panel_width = jobs_panel_width * _scale;
-	var _panel_height = jobs_panel_height * _scale;
-	var _panel_x = (_gui_width - _panel_width) * 0.5;
-	var _panel_y = 69 * _scale;
+	var _panel_height = _gui_height;
+	var _panel_x = _gui_width - _panel_width;
+	var _panel_y = 0;
 	var _content_x = _panel_x + (jobs_content_offset_x * _scale);
 
 	return {
@@ -167,12 +186,12 @@ jobs_layout_get = function()
 		panel_width: _panel_width,
 		panel_height: _panel_height,
 		pool_x: _content_x,
-		pool_y: _panel_y + (36 * _scale),
+		pool_y: _panel_y + (jobs_pool_y * _scale),
 		pool_width: jobs_pool_width * _scale,
 		pool_height: jobs_pool_height * _scale,
 		event_x: _content_x,
-		event_y: _panel_y + (140 * _scale),
-		event_width: jobs_pool_width * _scale,
+		event_y: _panel_y + (jobs_event_y * _scale),
+		event_width: jobs_event_width * _scale,
 		event_height: jobs_event_height * _scale,
 		close_x: _panel_x + _panel_width - (64 * _scale),
 		close_y: _panel_y + (10 * _scale),
@@ -187,10 +206,13 @@ jobs_event_action_rect_get = function(_event_index, _action)
 	var _action_x = _action == "reroll"
 		? jobs_reroll_action_x
 		: jobs_pin_action_x;
+	var _action_y = _action == "reroll"
+		? jobs_reroll_action_y
+		: jobs_pin_action_y;
 
 	return {
 		x: _event_rect.x + (_action_x * _layout.scale),
-		y: _event_rect.y + (jobs_event_action_y * _layout.scale),
+		y: _event_rect.y + (_action_y * _layout.scale),
 		width: jobs_event_action_width * _layout.scale,
 		height: jobs_event_action_height * _layout.scale
 	};
@@ -204,12 +226,21 @@ jobs_event_action_key_get = function(_event, _action)
 		return "";
 	}
 
-	return _action + ":" + _event.event_id;
+	var _action_key = _action + ":" + _event.event_id;
+
+	if (variable_struct_exists(_event, "source_building")
+		&& instance_exists(_event.source_building))
+	{
+		_action_key += ":" + string(_event.source_building.id);
+	}
+
+	return _action_key;
 };
 
 jobs_event_pin_action_get = function(_event)
 {
-	if (!day_event_building_action_is_available(_event))
+	if (!day_event_building_action_is_available(_event)
+		|| (variable_struct_exists(_event, "can_pin") && !_event.can_pin))
 	{
 		return "";
 	}
@@ -220,6 +251,7 @@ jobs_event_pin_action_get = function(_event)
 	}
 
 	return global.day_event_pins_remaining > 0
+		&& !day_event_has_funded_activation(_event)
 		&& !day_event_pin_source_is_active(_event.source_building)
 		? "pin"
 		: "";
@@ -300,13 +332,6 @@ jobs_end_day_button_text_get = function()
 jobs_end_day_is_actionable = function()
 {
 	return !jobs_first_archdemon_assignment_is_missing();
-};
-
-jobs_first_day_hints_are_visible = function()
-{
-	return jobs_window_opened_once
-		&& global.day_phase == DAY_PHASE.DAY
-		&& day_event_current_day_get() == 1;
 };
 
 jobs_end_day_confirmation_layout_get = function()
@@ -467,16 +492,22 @@ jobs_event_rect_get = function(_event_index)
 	};
 };
 
-jobs_event_slot_rect_get = function(_event_index, _slot_index)
+jobs_event_slot_rect_get = function(_event_index, _slot_index, _slot_count = -1)
 {
 	var _layout = jobs_layout_get();
 	var _event_rect = jobs_event_rect_get(_event_index);
 
+	if (_slot_count < 0)
+	{
+		var _event = global.day_events[_event_index];
+		_slot_count = _event.cultist_cost * _event.activation_limit;
+	}
+
+	var _slot_distance = (_slot_count - _slot_index) * jobs_event_slot_step * _layout.scale;
+
 	return {
-		x: _event_rect.x
-			+ (jobs_event_slot_start_x * _layout.scale)
-			+ (_slot_index * jobs_event_slot_step * _layout.scale),
-		y: _event_rect.y + (18 * _layout.scale),
+		x: _event_rect.x - _slot_distance,
+		y: _event_rect.y + (jobs_event_slot_y * _layout.scale),
 		width: jobs_icon_width * _layout.scale,
 		height: jobs_icon_height * _layout.scale
 	};
@@ -713,7 +744,7 @@ jobs_event_cultist_hp_preview_get = function(_event, _slot_index, _cultist)
 			hp_change: 0,
 			hp_loss: 0,
 			hp_gain: 0,
-			dies: false
+			loses_consciousness: false
 		};
 	}
 
@@ -851,11 +882,16 @@ jobs_event_cultist_hp_preview_get = function(_event, _slot_index, _cultist)
 		}
 	}
 
+	// Sulking adds the same visible HP cost to every funded event slot.
+	var _sulking_hp_cost = cannon_satisfaction_event_hp_cost_get();
+	_hp_loss += _sulking_hp_cost;
+	_lethal_hp_loss += _sulking_hp_cost;
+
 	return {
 		hp_change: _hp_gain - _hp_loss,
 		hp_loss: _hp_loss,
 		hp_gain: _hp_gain,
-		dies: _cultist.hp - _lethal_hp_loss <= 0
+		loses_consciousness: _cultist.hp - _lethal_hp_loss <= 0
 	};
 };
 
@@ -900,9 +936,9 @@ jobs_event_viewport_get = function()
 	var _bottom_padding = 12 * _layout.scale;
 
 	return {
-		x: _layout.event_x,
+		x: _layout.panel_x,
 		y: _layout.event_y,
-		width: _layout.event_width,
+		width: _layout.panel_width,
 		height: _layout.panel_y + _layout.panel_height - _layout.event_y - _bottom_padding
 	};
 };
@@ -1003,15 +1039,7 @@ jobs_cultist_rect_get = function(_cultist)
 			{
 				if (_event.assigned_cultists[_slot_index] == _cultist)
 				{
-					var _event_rect = jobs_event_rect_get(_event_index);
-					return {
-						x: _event_rect.x
-							+ (jobs_event_slot_start_x * _layout.scale)
-							+ (_slot_index * jobs_event_slot_step * _layout.scale),
-						y: _event_rect.y + (18 * _layout.scale),
-						width: _icon_width,
-						height: _icon_height
-					};
+					return jobs_event_slot_rect_get(_event_index, _slot_index);
 				}
 			}
 		}
@@ -1031,8 +1059,10 @@ jobs_cultist_rect_get = function(_cultist)
 		if (_pool_cultist == _cultist)
 		{
 			return {
-				x: _layout.pool_x + (215 * _layout.scale) + (_pool_index * _icon_step),
-				y: _layout.pool_y + (5 * _layout.scale),
+				x: _layout.pool_x
+					+ (jobs_pool_cultist_start_x * _layout.scale)
+					+ (_pool_index * _icon_step),
+				y: _layout.pool_y + (jobs_pool_cultist_y * _layout.scale),
 				width: _icon_width,
 				height: _icon_height
 			};
@@ -1060,8 +1090,25 @@ jobs_window_open = function()
 	jobs_squad_selector_event = noone;
 	jobs_scroll_offset = 0;
 	jobs_window_opened_once = true;
-	global.pause = true;
 	global.focus_window = FOCUS_WINDOW.JOBS;
+
+	// Frame the Cannon in the center of the unobstructed left side without pausing simulation.
+	if (instance_exists(o_camera_controller) && instance_exists(o_cannon))
+	{
+		var _camera_controller = instance_find(o_camera_controller, 0);
+
+		if (variable_instance_exists(_camera_controller, "camera_jobs_view_open"))
+		{
+			var _layout = jobs_layout_get();
+			var _panel_width_share = _layout.panel_width / max(1, display_get_gui_width());
+			_camera_controller.camera_jobs_view_open(
+				instance_find(o_cannon, 0),
+				_panel_width_share,
+				jobs_camera_visual_zoom
+			);
+		}
+	}
+
 	return true;
 };
 
@@ -1075,9 +1122,29 @@ jobs_window_close = function()
 	jobs_hovered_event_action_key = "";
 	jobs_squad_selector_event = noone;
 
+	if (instance_exists(o_camera_controller))
+	{
+		var _camera_controller = instance_find(o_camera_controller, 0);
+
+		if (variable_instance_exists(_camera_controller, "camera_jobs_view_close"))
+		{
+			_camera_controller.camera_jobs_view_close();
+		}
+	}
+
 	if (global.focus_window == FOCUS_WINDOW.JOBS)
 	{
 		global.focus_window = FOCUS_WINDOW.NOONE;
-		global.pause = false;
 	}
+};
+
+jobs_window_toggle = function()
+{
+	if (global.focus_window == FOCUS_WINDOW.JOBS)
+	{
+		jobs_window_close();
+		return true;
+	}
+
+	return jobs_window_open();
 };

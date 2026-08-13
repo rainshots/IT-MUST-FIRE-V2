@@ -1,1 +1,2 @@
-// Game controller draws tutorial popups last so they sit above every UI window.
+// The tutorial controller's frontmost depth keeps popups above every other GUI window.
+tutorial_draw();

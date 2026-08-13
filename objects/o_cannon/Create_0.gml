@@ -111,6 +111,9 @@ volley_launch_delay_min = BALANCE_CANNON_VOLLEY_LAUNCH_DELAY_MIN;
 volley_launch_delay_max = BALANCE_CANNON_VOLLEY_LAUNCH_DELAY_MAX;
 projectile_spawn_offset_y = -20;
 projectile_layer_name = "Instances";
+// At maximum Satisfaction the cannon fires a free basic shot every twenty combat seconds.
+satisfaction_auto_fire_time = BALANCE_CANNON_SATISFACTION_AUTO_FIRE_TIME * room_speed;
+satisfaction_auto_fire_timer = satisfaction_auto_fire_time;
 agony_radial_bomb_count = BALANCE_CANNON_AGONY_RADIAL_BOMB_COUNT;
 agony_radial_bomb_radius = BALANCE_CANNON_AGONY_RADIAL_BOMB_RADIUS;
 agony_radial_bomb_jitter = BALANCE_CANNON_AGONY_RADIAL_BOMB_JITTER;
@@ -198,6 +201,78 @@ cannon_alive_enemy_targets_get = function()
 	}
 
 	return _targets;
+};
+
+cannon_satisfaction_auto_fire = function(_target)
+{
+	if (!instance_exists(_target))
+	{
+		return false;
+	}
+
+	var _projectile = cannon_agony_projectile_create(
+		_target.x,
+		_target.y,
+		PROJECTILE_TYPE.DAMAGE,
+		0
+	);
+
+	if (!instance_exists(_projectile))
+	{
+		return false;
+	}
+
+	global.sound_play_random(global.cannon_shot_sounds);
+
+	if (instance_exists(o_camera_controller))
+	{
+		var _camera_controller = instance_find(o_camera_controller, 0);
+		_camera_controller.camera_shake_start(
+			BALANCE_CANNON_SHOT_SHAKE_TIME,
+			BALANCE_CANNON_SHOT_SHAKE_STRENGTH
+		);
+	}
+
+	return true;
+};
+
+cannon_satisfaction_auto_fire_update = function()
+{
+	if (cannon_satisfaction_level_get() != CANNON_SATISFACTION_LEVEL.IT_MUST_FIRE)
+	{
+		satisfaction_auto_fire_timer = satisfaction_auto_fire_time;
+		return false;
+	}
+
+	if (global.pause || global.day_phase != DAY_PHASE.NIGHT || hp <= 0)
+	{
+		return false;
+	}
+
+	satisfaction_auto_fire_timer = max(satisfaction_auto_fire_timer - 1, 0);
+
+	if (satisfaction_auto_fire_timer > 0)
+	{
+		return false;
+	}
+
+	var _enemy_targets = cannon_alive_enemy_targets_get();
+	var _enemy_count = array_length(_enemy_targets);
+
+	if (_enemy_count <= 0)
+	{
+		return false;
+	}
+
+	var _target = _enemy_targets[irandom(_enemy_count - 1)];
+
+	if (!cannon_satisfaction_auto_fire(_target))
+	{
+		return false;
+	}
+
+	satisfaction_auto_fire_timer = satisfaction_auto_fire_time;
+	return true;
 };
 
 cannon_agony_radial_bomb_volley_fire = function()

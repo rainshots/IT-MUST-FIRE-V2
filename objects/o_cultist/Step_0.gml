@@ -1,8 +1,16 @@
-// Cultists die as soon as any source reduces their HP to zero.
+// Non-positive HP leaves the Cultist unconscious instead of removing the instance.
 if (hp <= 0)
 {
-	day_event_cultist_death_remove(id);
+	day_event_cultist_unconscious_enter(id);
+	day_event_cultist_assignment_release(id);
 	exit;
+}
+
+// Positive HP immediately restores the normal state, including on a recovery morning.
+if (is_unconscious)
+{
+	is_unconscious = false;
+	unconscious_mornings = 0;
 }
 
 // Pause and a missing home anchor stop regular cultist movement.

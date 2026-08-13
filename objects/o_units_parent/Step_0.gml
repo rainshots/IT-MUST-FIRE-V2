@@ -513,6 +513,23 @@ if (!_special_behavior_handled && instance_exists(target_instance) && !target_ca
 	target_instance = noone;
 }
 
+// Idle squad members follow a teammate who is already engaging an enemy.
+var _squad_combat_guide = noone;
+
+if (!_special_behavior_handled
+	&& _is_friendly_unit
+	&& !squad_unit_is_in_combat(id)
+	&& is_struct(squad))
+{
+	_squad_combat_guide = squad_combat_guide_get(squad, id);
+
+	if (instance_exists(_squad_combat_guide))
+	{
+		target_instance = noone;
+		_friendly_follow_target = _squad_combat_guide;
+	}
+}
+
 // Enemies should only keep attacking the wall while no player units are visible.
 if (!_special_behavior_handled
 	&& _is_enemy_unit
@@ -586,8 +603,11 @@ if (!_special_behavior_handled && instance_exists(target_instance))
 else if (!_special_behavior_handled && _is_friendly_unit && instance_exists(_friendly_follow_target))
 {
 	var _follow_distance = point_distance(x, y, _friendly_follow_target.x, _friendly_follow_target.y);
+	var _follow_arrive_radius = _friendly_follow_target == _squad_combat_guide
+		? BALANCE_SQUAD_COMBAT_ASSIST_ARRIVE_RADIUS
+		: regroup_arrive_radius;
 
-	if (_follow_distance > regroup_arrive_radius)
+	if (_follow_distance > _follow_arrive_radius)
 	{
 		move_towards_world_point(_friendly_follow_target.x, _friendly_follow_target.y);
 	}

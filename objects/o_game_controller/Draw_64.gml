@@ -1703,15 +1703,6 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION)
 	draw_set_color(c_white);
 	draw_set_alpha(1);
 
-	// Draw tutorial popup above the cultist selection window before this branch exits.
-	if (instance_exists(o_tutorial_controller))
-	{
-		with (o_tutorial_controller)
-		{
-			tutorial_draw();
-		}
-	}
-
 	if (!global.blood_moon_reward_popup_active)
 	{
 		exit;
@@ -2362,15 +2353,6 @@ if (global.focus_window == FOCUS_WINDOW.CULTIST_LEVEL_UP)
 	draw_set_color(c_white);
 	draw_set_alpha(1);
 
-	// Draw tutorial popup above the level-up window before this branch exits.
-	if (instance_exists(o_tutorial_controller))
-	{
-		with (o_tutorial_controller)
-		{
-			tutorial_draw();
-		}
-	}
-
 	if (!global.blood_moon_reward_popup_active)
 	{
 		exit;
@@ -2841,15 +2823,6 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 	draw_set_valign(fa_top);
 	draw_set_color(c_white);
 	draw_set_alpha(1);
-
-	// Draw tutorial popup above the construction window before this branch exits.
-	if (instance_exists(o_tutorial_controller))
-	{
-		with (o_tutorial_controller)
-		{
-			tutorial_draw();
-		}
-	}
 
 	if (!global.blood_moon_reward_popup_active)
 	{
@@ -4067,15 +4040,6 @@ if (instance_exists(o_warlock) && instance_exists(o_camera_controller))
 	draw_set_color(c_white);
 }
 
-// Draw tutorial popup above every regular game controller GUI layer.
-if (instance_exists(o_tutorial_controller))
-{
-	with (o_tutorial_controller)
-	{
-		tutorial_draw();
-	}
-}
-
 // Draw pause windows only while the pause menu is open.
 if (pause_menu_open)
 {
@@ -4215,14 +4179,6 @@ if (pause_menu_open)
 	draw_text(_close_button_x + (button_width * 0.5), _close_button_y + (button_height * 0.5), "BACK");
 	}
 
-	// Draw tutorial popup above the pause menu too.
-	if (instance_exists(o_tutorial_controller))
-	{
-		with (o_tutorial_controller)
-		{
-			tutorial_draw();
-		}
-	}
 }
 
 // Restore default draw state.

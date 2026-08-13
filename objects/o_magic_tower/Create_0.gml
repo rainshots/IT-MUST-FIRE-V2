@@ -19,8 +19,15 @@ base_shoot_radius = BALANCE_MAGIC_TOWER_RADIUS;
 var _tower_radius_multiplier = variable_global_exists("player_tower_radius_multiplier")
 	? global.player_tower_radius_multiplier
 	: 1;
-shoot_radius = base_shoot_radius * _tower_radius_multiplier;
-magic_damage = BALANCE_MAGIC_TOWER_DAMAGE_AMOUNT;
+var _foundry_radius_bonus = variable_global_exists("foundry_tower_radius_base_bonus")
+	? global.foundry_tower_radius_base_bonus
+	: 0;
+var _foundry_damage_bonus = variable_global_exists("foundry_tower_damage_base_bonus")
+	? global.foundry_tower_damage_base_bonus
+	: 0;
+base_magic_damage = BALANCE_MAGIC_TOWER_DAMAGE_AMOUNT;
+shoot_radius = base_shoot_radius * (_tower_radius_multiplier + _foundry_radius_bonus);
+magic_damage = base_magic_damage * (1 + _foundry_damage_bonus);
 reload_time = BALANCE_MAGIC_TOWER_RELOAD_TIME * room_speed;
 reload_timer = 0;
 target_instance = noone;

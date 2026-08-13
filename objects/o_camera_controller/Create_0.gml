@@ -45,6 +45,16 @@ maximum_zoom_level = 3;
 zoom_step = 0.2;
 zoom_smoothing = 0.18;
 
+// Assign Duties temporarily owns the camera without pausing world simulation.
+jobs_view_active = false;
+jobs_view_target = noone;
+jobs_view_panel_width_share = 0;
+jobs_view_visual_zoom = 0.5;
+jobs_view_previous_x = x;
+jobs_view_previous_y = y;
+jobs_view_previous_zoom_level = zoom_level;
+jobs_view_previous_target_zoom_level = target_zoom_level;
+
 // Current camera view size.
 view_width = base_view_width * zoom_level;
 view_height = base_view_height * zoom_level;
@@ -139,6 +149,90 @@ camera_view_position_clamp_to_room = function(_view_x, _view_y)
 		clamp(_view_x, 0, _maximum_view_x),
 		clamp(_view_y, 0, _maximum_view_y)
 	];
+};
+
+camera_jobs_view_apply = function()
+{
+	if (!jobs_view_active || !instance_exists(jobs_view_target))
+	{
+		return false;
+	}
+
+	// The requested visual zoom uses the conventional scale: 0.5 displays twice the world area.
+	zoom_level = 1 / max(0.01, jobs_view_visual_zoom);
+	target_zoom_level = zoom_level;
+	view_width = base_view_width * zoom_level;
+	view_height = base_view_height * zoom_level;
+	half_view_width = view_width * 0.5;
+	half_view_height = view_height * 0.5;
+
+	var _gui_width = max(1, display_get_gui_width());
+	var _free_gui_width = _gui_width * (1 - jobs_view_panel_width_share);
+	var _target_screen_share_x = (_free_gui_width * 0.5) / _gui_width;
+	var _view_x = jobs_view_target.x - (view_width * _target_screen_share_x);
+	var _view_y = jobs_view_target.y - (view_height * 0.5);
+	var _view_position = camera_view_position_clamp_to_room(_view_x, _view_y);
+	_view_x = _view_position[0];
+	_view_y = _view_position[1];
+
+	x = _view_x + half_view_width;
+	y = _view_y + half_view_height;
+	velocity_x = 0;
+	velocity_y = 0;
+	camera_set_view_size(camera_id, view_width, view_height);
+	camera_set_view_pos(camera_id, round(_view_x), round(_view_y));
+	return true;
+};
+
+camera_jobs_view_open = function(_target, _panel_width_share, _visual_zoom = 0.5)
+{
+	if (!instance_exists(_target))
+	{
+		return false;
+	}
+
+	if (!jobs_view_active)
+	{
+		jobs_view_previous_x = x;
+		jobs_view_previous_y = y;
+		jobs_view_previous_zoom_level = zoom_level;
+		jobs_view_previous_target_zoom_level = target_zoom_level;
+	}
+
+	jobs_view_target = _target;
+	jobs_view_panel_width_share = clamp(_panel_width_share, 0, 0.9);
+	jobs_view_visual_zoom = max(0.01, _visual_zoom);
+	jobs_view_active = true;
+	return camera_jobs_view_apply();
+};
+
+camera_jobs_view_close = function()
+{
+	if (!jobs_view_active)
+	{
+		return false;
+	}
+
+	jobs_view_active = false;
+	jobs_view_target = noone;
+	zoom_level = jobs_view_previous_zoom_level;
+	target_zoom_level = jobs_view_previous_target_zoom_level;
+	view_width = base_view_width * zoom_level;
+	view_height = base_view_height * zoom_level;
+	half_view_width = view_width * 0.5;
+	half_view_height = view_height * 0.5;
+	x = jobs_view_previous_x;
+	y = jobs_view_previous_y;
+	camera_center_clamp_to_room();
+	velocity_x = 0;
+	velocity_y = 0;
+
+	var _view_x = x - half_view_width;
+	var _view_y = y - half_view_height;
+	var _view_position = camera_view_position_clamp_to_room(_view_x, _view_y);
+	camera_set_view_size(camera_id, view_width, view_height);
+	camera_set_view_pos(camera_id, round(_view_position[0]), round(_view_position[1]));
+	return true;
 };
 
 camera_center_clamp_to_room();

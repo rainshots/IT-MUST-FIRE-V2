@@ -1,7 +1,7 @@
 /// @description Creates one reusable action executed as part of a day event.
 /// @param {String} _action_type Stable action identifier used by UI and save data.
 /// @param {Function} _execute_callback Callback receiving the event and assigned cultists.
-/// @param {Struct} _data Action-specific configuration.
+/// @param {Struct} _data Action-specific configuration. Set affects_unconscious_cultists to true for healing exceptions.
 function event_action_constructor(_action_type, _execute_callback, _data = {}) constructor
 {
 	action_type = _action_type;

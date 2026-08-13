@@ -265,3 +265,6 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 		}
 	}
 }
+
+// Maximum Satisfaction periodically produces a free shot during combat.
+cannon_satisfaction_auto_fire_update();

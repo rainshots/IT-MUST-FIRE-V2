@@ -10,6 +10,13 @@ if (!variable_global_exists("resources"))
 	exit;
 }
 
+// Draw the Cannon Satisfaction details before the regular HUD visibility check.
+if (global.focus_window == FOCUS_WINDOW.CANNON_SATISFACTION)
+{
+	cannon_satisfaction_window_draw();
+	exit;
+}
+
 // Hide regular HUD while modal windows are visible, but keep projectile choices during aiming.
 var _tutorial_popup_blocks_hud = variable_global_exists("tutorial_popup_active") && global.tutorial_popup_active;
 var _projectile_queue_stays_visible = global.focus_window == FOCUS_WINDOW.TARGET_SELECTION
@@ -62,16 +69,7 @@ if (_regular_hud_is_visible)
 				var _card_center_x = _card_x + (_squad_card_width * 0.5);
 				var _hp_values = squad_total_hp_get(_squad);
 				var _hp_progress = clamp(_hp_values[0] / _hp_values[1], 0, 1);
-				var _primary_unit = noone;
-
-				for (var _unit_index = 0; _unit_index < array_length(_squad.units); ++_unit_index)
-				{
-					if (instance_exists(_squad.units[_unit_index]))
-					{
-						_primary_unit = _squad.units[_unit_index];
-						break;
-					}
-				}
+				var _squad_sprite = squad_icon_sprite_get(_squad);
 
 				draw_set_alpha(1);
 				draw_set_color(COLOR_SQUAD_CARD_BACKGROUND);
@@ -83,9 +81,8 @@ if (_regular_hud_is_visible)
 				draw_set_color(COLOR_SQUAD_CARD_TYPE);
 				draw_text_transformed(_card_center_x, _squad_type_y, _type_name, 0.55 * _sidebar_scale, 0.55 * _sidebar_scale, 0);
 
-				if (instance_exists(_primary_unit))
+				if (sprite_exists(_squad_sprite))
 				{
-					var _squad_sprite = _primary_unit.sprite_index;
 					var _sprite_size = max(1, max(sprite_get_width(_squad_sprite), sprite_get_height(_squad_sprite)));
 					var _sprite_scale = (82 * _sidebar_scale) / _sprite_size;
 					var _sprite_y = _squad_card_y + (78 * _sidebar_scale);
@@ -1449,52 +1446,7 @@ if (variable_global_exists("cannon_projectile_queue")
 	if (instance_exists(o_game_controller))
 	{
 		_projectile_game_controller = instance_find(o_game_controller, 0);
-
-		if (variable_instance_exists(_projectile_game_controller, "cannon_projectile_display_slots_get"))
-		{
-			_projectile_display_slots = _projectile_game_controller.cannon_projectile_display_slots_get(9);
-		}
-	}
-
-	// Keep an empty rechargeable shell visible while its next charge is being restored.
-	if (_combat_projectiles_are_active
-		&& instance_exists(_projectile_game_controller)
-		&& variable_instance_exists(_projectile_game_controller, "cannon_morning_projectile_target_count_get")
-		&& variable_instance_exists(_projectile_game_controller, "cannon_projectile_queue_type_count_get"))
-	{
-		var _recharge_projectile_types = [PROJECTILE_TYPE.BOMB, PROJECTILE_TYPE.HEAL];
-		var _recharge_projectile_type_count = array_length(_recharge_projectile_types);
-
-		for (var _recharge_type_index = 0; _recharge_type_index < _recharge_projectile_type_count; ++_recharge_type_index)
-		{
-			var _recharge_projectile_type = _recharge_projectile_types[_recharge_type_index];
-			var _recharge_target_count = _projectile_game_controller.cannon_morning_projectile_target_count_get(_recharge_projectile_type);
-			var _recharge_current_count = _projectile_game_controller.cannon_projectile_queue_type_count_get(_recharge_projectile_type);
-			var _recharge_slot_exists = false;
-			var _recharge_display_count = array_length(_projectile_display_slots);
-
-			for (var _recharge_slot_index = 0; _recharge_slot_index < _recharge_display_count; ++_recharge_slot_index)
-			{
-				if (_projectile_display_slots[_recharge_slot_index].projectile_type == _recharge_projectile_type)
-				{
-					_recharge_slot_exists = true;
-					break;
-				}
-			}
-
-			if (!_recharge_slot_exists
-				&& _recharge_target_count > 0
-				&& _recharge_current_count < _recharge_target_count
-				&& array_length(_projectile_display_slots) < 9)
-			{
-				array_push(_projectile_display_slots, {
-					projectile_type: _recharge_projectile_type,
-					queue_index: -1,
-					consume_queue_index: -1,
-					count: 0
-				});
-			}
-		}
+		_projectile_display_slots = projectile_display_slots_get(_projectile_game_controller, 9);
 	}
 
 	var _projectile_display_count = array_length(_projectile_display_slots);
@@ -1594,6 +1546,52 @@ if (variable_global_exists("cannon_projectile_queue")
 	if (_selected_projectile_index < _projectile_queue_count)
 	{
 		_selected_projectile_type = global.cannon_projectile_queue[_selected_projectile_index];
+	}
+
+	// Matchup guidance is shown only for selected shells that deploy combat units.
+	var _selected_projectile_matchups = {
+		strong_against: [],
+		weak_against: []
+	};
+	var _selected_projectile_matchup_row_count = 0;
+	var _selected_projectile_matchup_height = 0;
+
+	if (_combat_projectiles_are_active
+		&& instance_exists(_projectile_game_controller)
+		&& variable_instance_exists(_projectile_game_controller, "combat_unit_matchup_get"))
+	{
+		var _selected_projectile_payload = noone;
+
+		if (variable_global_exists("cannon_projectile_payload_queue")
+			&& _selected_projectile_index >= 0
+			&& _selected_projectile_index < array_length(global.cannon_projectile_payload_queue))
+		{
+			_selected_projectile_payload = global.cannon_projectile_payload_queue[_selected_projectile_index];
+		}
+
+		var _selected_projectile_unit_object = projectile_matchup_unit_object_get(
+			_selected_projectile_type,
+			_selected_projectile_payload
+		);
+
+		if (_selected_projectile_unit_object != noone)
+		{
+			_selected_projectile_matchups = _projectile_game_controller.combat_unit_matchup_get(
+				_selected_projectile_unit_object
+			);
+			var _selected_strong_count = array_length(_selected_projectile_matchups.strong_against);
+			var _selected_weak_count = array_length(_selected_projectile_matchups.weak_against);
+			_selected_projectile_matchup_row_count = (_selected_strong_count > 0 ? 1 : 0)
+				+ (_selected_weak_count > 0 ? 1 : 0);
+
+			if (_selected_projectile_matchup_row_count > 0)
+			{
+				_selected_projectile_matchup_height = (projectile_matchup_icon_radius * 2)
+					+ (projectile_matchup_row_gap * (_selected_projectile_matchup_row_count - 1))
+					+ projectile_matchup_card_gap
+					+ projectile_current_scale_padding;
+			}
+		}
 	}
 
 	// Build compact cultist projectile payload previews from the current queue.
@@ -1816,6 +1814,37 @@ if (variable_global_exists("cannon_projectile_queue")
 			_circle_radius = projectile_current_circle_radius;
 		}
 
+		// Center green and red matchup rows above the selected unit shell.
+		if (_is_current_projectile && _selected_projectile_matchup_row_count > 0)
+		{
+			var _matchup_center_x = _slot_x + (_slot_width * 0.5);
+			var _matchup_center_y = _slot_y
+				- projectile_matchup_card_gap
+				- projectile_matchup_icon_radius
+				- (projectile_matchup_row_gap * (_selected_projectile_matchup_row_count - 1));
+
+			if (array_length(_selected_projectile_matchups.strong_against) > 0)
+			{
+				projectile_matchup_row_draw(
+					_selected_projectile_matchups.strong_against,
+					_matchup_center_x,
+					_matchup_center_y,
+					COLOR_PROJECTILE_SUMMON
+				);
+				_matchup_center_y += projectile_matchup_row_gap;
+			}
+
+			if (array_length(_selected_projectile_matchups.weak_against) > 0)
+			{
+				projectile_matchup_row_draw(
+					_selected_projectile_matchups.weak_against,
+					_matchup_center_x,
+					_matchup_center_y,
+					COLOR_STATUS_NEGATIVE_RED
+				);
+			}
+		}
+
 		if (_projectile_mouse_x >= _slot_x && _projectile_mouse_x <= _slot_x + _slot_width
 			&& _projectile_mouse_y >= _slot_y && _projectile_mouse_y <= _slot_y + _slot_height)
 		{
@@ -1934,29 +1963,36 @@ if (variable_global_exists("cannon_projectile_queue")
 			}
 		}
 
-		if (_projectile_type == PROJECTILE_TYPE.CULTIST
-			&& variable_global_exists("cannon_projectile_payload_queue")
-			&& _projectile_index < array_length(global.cannon_projectile_payload_queue))
+		if (_projectile_type == PROJECTILE_TYPE.CULTIST)
 		{
-			var _cultist_payload = global.cannon_projectile_payload_queue[_projectile_index];
-
-			if (instance_exists(_cultist_payload)
-				&& variable_instance_exists(_cultist_payload, "squad")
-				&& is_struct(_cultist_payload.squad)
-				&& _cultist_payload.squad.name != "")
+			if (!_projectile_is_available)
 			{
-				var _projectile_squad_name = squad_name_display_get(_cultist_payload.squad.name);
-				_projectile_name = string_copy(_projectile_squad_name, 1, 10);
+				_projectile_name = "";
 			}
-			else if (instance_exists(_cultist_payload)
-				&& variable_instance_exists(_cultist_payload, "cultist_name")
-				&& _cultist_payload.cultist_name != "")
+			else if (variable_global_exists("cannon_projectile_payload_queue")
+				&& _projectile_index < array_length(global.cannon_projectile_payload_queue))
 			{
-				_projectile_name = string_copy(_cultist_payload.cultist_name, 1, 10);
+				var _cultist_payload = global.cannon_projectile_payload_queue[_projectile_index];
+
+				if (instance_exists(_cultist_payload)
+					&& variable_instance_exists(_cultist_payload, "squad")
+					&& is_struct(_cultist_payload.squad)
+					&& _cultist_payload.squad.name != "")
+				{
+					var _projectile_squad_name = squad_name_display_get(_cultist_payload.squad.name);
+					_projectile_name = string_copy(_projectile_squad_name, 1, 10);
+				}
+				else if (instance_exists(_cultist_payload)
+					&& variable_instance_exists(_cultist_payload, "cultist_name")
+					&& _cultist_payload.cultist_name != "")
+				{
+					_projectile_name = string_copy(_cultist_payload.cultist_name, 1, 10);
+				}
 			}
 		}
 		else if (_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL
 			&& variable_global_exists("cannon_projectile_payload_queue")
+			&& _projectile_index >= 0
 			&& _projectile_index < array_length(global.cannon_projectile_payload_queue))
 		{
 			var _building_payload = global.cannon_projectile_payload_queue[_projectile_index];
@@ -2171,7 +2207,10 @@ if (variable_global_exists("cannon_projectile_queue")
 		}
 
 		var _description_x = (_gui_width - projectile_description_width) * 0.5;
-		var _description_y = _projectile_base_y - projectile_description_height - projectile_description_gap;
+		var _description_y = _projectile_base_y
+			- projectile_description_height
+			- projectile_description_gap
+			- _selected_projectile_matchup_height;
 
 		if (_draw_cultist_payload_card && instance_exists(o_game_controller))
 		{
@@ -2179,7 +2218,13 @@ if (variable_global_exists("cannon_projectile_queue")
 			var _card_height = 570;
 			var _card_margin = 18;
 			var _card_x = min(_projectile_mouse_x + 18, _gui_width - _card_width - _card_margin);
-			var _card_y = max(_card_margin, _projectile_base_y - _card_height - projectile_description_gap);
+			var _card_y = max(
+				_card_margin,
+				_projectile_base_y
+					- _card_height
+					- projectile_description_gap
+					- _selected_projectile_matchup_height
+			);
 			var _game_controller = instance_find(o_game_controller, 0);
 
 			if (variable_instance_exists(_game_controller, "cultist_stats_card_draw"))
@@ -2607,3 +2652,10 @@ draw_set_halign(fa_left);
 draw_set_valign(fa_top);
 draw_set_color(c_white);
 draw_set_alpha(1);
+
+// Keep the world meter visible during normal play and while selecting a target.
+if (global.focus_window == FOCUS_WINDOW.NOONE
+	|| global.focus_window == FOCUS_WINDOW.TARGET_SELECTION)
+{
+	cannon_satisfaction_world_ui_draw();
+}
