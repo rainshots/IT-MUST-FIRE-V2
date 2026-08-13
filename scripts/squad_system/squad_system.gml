@@ -6,63 +6,75 @@ function squad_constructor(_squad_type, _primary_unit_object, _unit_count) const
 	primary_unit_object = _primary_unit_object;
 	unit_objects = array_create(max(1, floor(_unit_count)), _primary_unit_object);
 	units = [];
-	properties = {
-		defense_x: 0,
-		defense_y: 0,
-		defense_is_set: false,
-		defense_committed_target: noone,
-		defense_commitment_timer: 0
-	};
+	properties = {};
 	name = "";
 	total_max_hp = 0;
 };
 
-function squad_defense_position_set(_squad, _target_x, _target_y)
-{
-	if (!is_struct(_squad) || _squad.squad_type == SQUAD_TYPE.ARCHDEMON)
-	{
-		return false;
-	}
-
-	// The defense point stays fixed while the visible marker follows the moving squad.
-	_squad.properties.defense_x = _target_x;
-	_squad.properties.defense_y = _target_y;
-	_squad.properties.defense_is_set = true;
-	return true;
-}
-
-function squad_defense_target_commit(_squad, _target)
-{
-	if (!is_struct(_squad)
-		|| _squad.squad_type == SQUAD_TYPE.ARCHDEMON
-		|| !instance_exists(_target))
-	{
-		return false;
-	}
-
-	var _existing_target = variable_struct_exists(_squad.properties, "defense_committed_target")
-		? _squad.properties.defense_committed_target
-		: noone;
-	var _existing_timer = variable_struct_exists(_squad.properties, "defense_commitment_timer")
-		? _squad.properties.defense_commitment_timer
-		: 0;
-
-	// Finish one committed threat before switching the whole squad to another.
-	if (_existing_timer > 0
-		&& instance_exists(_existing_target)
-		&& _existing_target != _target)
-	{
-		return false;
-	}
-
-	_squad.properties.defense_committed_target = _target;
-	_squad.properties.defense_commitment_timer = BALANCE_SQUAD_DEFENSE_COMMITMENT_TIME * room_speed;
-	return true;
-}
-
 function squad_type_limit_get(_squad_type)
 {
 	return global.squad_limits[_squad_type];
+}
+
+function squad_icon_sprite_current_get(_squad)
+{
+	if (!is_struct(_squad))
+	{
+		return noone;
+	}
+
+	// The first surviving member represents the squad while its composition may change.
+	for (var _unit_index = 0; _unit_index < array_length(_squad.units); ++_unit_index)
+	{
+		var _unit = _squad.units[_unit_index];
+
+		if (instance_exists(_unit) && sprite_exists(_unit.sprite_index))
+		{
+			return _unit.sprite_index;
+		}
+	}
+
+	return noone;
+}
+
+function squad_icon_sprite_get(_squad)
+{
+	if (!is_struct(_squad))
+	{
+		return noone;
+	}
+
+	// Night combat uses one frozen icon in both the roster and world marker.
+	if (global.day_phase == DAY_PHASE.NIGHT)
+	{
+		if (!variable_struct_exists(_squad.properties, "night_icon_sprite"))
+		{
+			_squad.properties.night_icon_sprite = squad_icon_sprite_current_get(_squad);
+		}
+
+		return _squad.properties.night_icon_sprite;
+	}
+
+	return squad_icon_sprite_current_get(_squad);
+}
+
+function squad_night_icon_sprites_capture()
+{
+	if (!variable_global_exists("squads"))
+	{
+		return;
+	}
+
+	// Refresh every snapshot once after the final night-start roster is prepared.
+	for (var _squad_index = 0; _squad_index < array_length(global.squads); ++_squad_index)
+	{
+		var _squad = global.squads[_squad_index];
+
+		if (is_struct(_squad))
+		{
+			_squad.properties.night_icon_sprite = squad_icon_sprite_current_get(_squad);
+		}
+	}
 }
 
 function squad_type_count_get(_squad_type)
@@ -532,6 +544,93 @@ function squad_marker_position_update(_squad)
 	return true;
 }
 
+function squad_unit_is_in_combat(_unit)
+{
+	if (!instance_exists(_unit)
+		|| !variable_instance_exists(_unit, "hp")
+		|| _unit.hp <= 0
+		|| !_unit.visible
+		|| !variable_instance_exists(_unit, "target_instance")
+		|| !variable_instance_exists(_unit, "target_can_be_attacked"))
+	{
+		return false;
+	}
+
+	var _target = _unit.target_instance;
+
+	// Moving toward the friendly cannon is guard movement, not combat.
+	return _unit.target_can_be_attacked(_target)
+		&& _target.object_index != o_cannon;
+}
+
+function squad_combat_guide_update(_squad)
+{
+	if (!is_struct(_squad))
+	{
+		return noone;
+	}
+
+	var _current_guide = variable_struct_exists(_squad.properties, "combat_guide_unit")
+		? _squad.properties.combat_guide_unit
+		: noone;
+
+	// Keep the current guide stable while it remains engaged.
+	if (squad_unit_is_in_combat(_current_guide))
+	{
+		return _current_guide;
+	}
+
+	_squad.properties.combat_guide_unit = noone;
+
+	for (var _unit_index = 0; _unit_index < array_length(_squad.units); ++_unit_index)
+	{
+		var _unit = _squad.units[_unit_index];
+
+		if (squad_unit_is_in_combat(_unit))
+		{
+			_squad.properties.combat_guide_unit = _unit;
+			return _unit;
+		}
+	}
+
+	return noone;
+}
+
+function squad_combat_guides_update()
+{
+	if (global.pause
+		|| global.day_phase != DAY_PHASE.NIGHT
+		|| !variable_global_exists("squads"))
+	{
+		return;
+	}
+
+	// Resolve one stable engaged guide per squad once per gameplay frame.
+	for (var _squad_index = 0; _squad_index < array_length(global.squads); ++_squad_index)
+	{
+		squad_combat_guide_update(global.squads[_squad_index]);
+	}
+}
+
+function squad_combat_guide_get(_squad, _requesting_unit)
+{
+	if (global.day_phase != DAY_PHASE.NIGHT
+		|| !is_struct(_squad)
+		|| !variable_struct_exists(_squad.properties, "combat_guide_unit"))
+	{
+		return noone;
+	}
+
+	var _guide = _squad.properties.combat_guide_unit;
+
+	if (_guide == _requesting_unit || !squad_unit_is_in_combat(_guide))
+	{
+		return noone;
+	}
+
+	return _guide;
+}
+
 function squad_night_markers_update()
 {
 	if (global.day_phase != DAY_PHASE.NIGHT)
@@ -545,20 +644,6 @@ function squad_night_markers_update()
 
 		if (_squad.squad_type != SQUAD_TYPE.ARCHDEMON)
 		{
-			// Shared combat commitment is updated once per squad instead of once per member.
-			if (variable_struct_exists(_squad.properties, "defense_commitment_timer")
-				&& _squad.properties.defense_commitment_timer > 0
-				&& variable_struct_exists(_squad.properties, "defense_committed_target")
-				&& instance_exists(_squad.properties.defense_committed_target))
-			{
-				_squad.properties.defense_commitment_timer--;
-			}
-			else
-			{
-				_squad.properties.defense_committed_target = noone;
-				_squad.properties.defense_commitment_timer = 0;
-			}
-
 			squad_marker_position_update(_squad);
 		}
 	}
@@ -704,11 +789,6 @@ function squad_drag_end(_squad, _apply_stun = true)
 	}
 
 	_squad.properties.marker_is_dragged = false;
-	squad_defense_position_set(
-		_squad,
-		_squad.properties.marker_x,
-		_squad.properties.marker_y
-	);
 
 	for (var _unit_index = 0; _unit_index < array_length(_squad.units); ++_unit_index)
 	{
@@ -785,20 +865,10 @@ function squad_night_markers_draw_gui()
 		draw_line(_left + 14, _body_bottom, _marker_x, _bottom);
 		draw_line(_marker_x, _bottom, _right - 14, _body_bottom);
 
-		var _primary_unit = noone;
+		var _sprite = squad_icon_sprite_get(_squad);
 
-		for (var _unit_index = 0; _unit_index < array_length(_squad.units); ++_unit_index)
+		if (sprite_exists(_sprite))
 		{
-			if (instance_exists(_squad.units[_unit_index]))
-			{
-				_primary_unit = _squad.units[_unit_index];
-				break;
-			}
-		}
-
-		if (instance_exists(_primary_unit) && sprite_exists(_primary_unit.sprite_index))
-		{
-			var _sprite = _primary_unit.sprite_index;
 			var _sprite_width = max(1, sprite_get_width(_sprite));
 			var _sprite_height = max(1, sprite_get_height(_sprite));
 			var _sprite_scale = min(BALANCE_SQUAD_MARKER_ICON_WIDTH / _sprite_width, BALANCE_SQUAD_MARKER_ICON_HEIGHT / _sprite_height);

@@ -1192,6 +1192,62 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 		}
 	}
 
+	// Introduce the possessed cannon when its first demand appears at the top of day two.
+	var _first_event_is_cannon_demand = array_length(global.day_events) > 0
+		&& is_struct(global.day_events[0])
+		&& variable_struct_exists(global.day_events[0], "is_cannon_demand")
+		&& global.day_events[0].is_cannon_demand;
+	var _show_cannon_satisfaction_hint = day_event_current_day_get()
+		== BALANCE_CANNON_SATISFACTION_UNLOCK_DAY
+		&& _first_event_is_cannon_demand
+		&& (!variable_global_exists("tutorial_hints_enabled") || global.tutorial_hints_enabled);
+
+	if (_show_cannon_satisfaction_hint)
+	{
+		var _cannon_hint_design_offset_x = _layout.panel_x
+			- (jobs_onboarding_design_panel_x * _layout.scale);
+		var _cannon_hint_text_x = _cannon_hint_design_offset_x
+			+ (jobs_cannon_satisfaction_hint_text_x * _layout.scale);
+		var _cannon_hint_text_y = jobs_cannon_satisfaction_hint_text_y * _layout.scale;
+
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_color(COLOR_JOBS_EVENT_ACTION);
+		draw_set_alpha(1);
+		draw_set_font(jobs_show_font);
+		draw_text_ext_transformed(
+			_cannon_hint_text_x,
+			_cannon_hint_text_y,
+			jobs_cannon_satisfaction_hint_text,
+			jobs_cannon_satisfaction_hint_text_line_height,
+			jobs_cannon_satisfaction_hint_text_width,
+			_layout.scale,
+			_layout.scale,
+			0
+		);
+
+		if (sprite_exists(s_attack_arrow))
+		{
+			var _cannon_hint_arrow_x = _cannon_hint_design_offset_x
+				+ (jobs_cannon_satisfaction_hint_arrow_x * _layout.scale);
+			var _cannon_hint_arrow_y = jobs_cannon_satisfaction_hint_arrow_y * _layout.scale;
+			var _cannon_hint_arrow_scale = jobs_cannon_satisfaction_hint_arrow_scale
+				* _layout.scale;
+
+			draw_sprite_ext(
+				s_attack_arrow,
+				0,
+				_cannon_hint_arrow_x,
+				_cannon_hint_arrow_y,
+				_cannon_hint_arrow_scale,
+				_cannon_hint_arrow_scale,
+				0,
+				c_white,
+				BALANCE_ATTACK_ARROW_ALPHA
+			);
+		}
+	}
+
 }
 
 // Restore default draw state.
@@ -1203,4 +1259,10 @@ draw_set_alpha(1);
 if (variable_global_exists("ui_font") && font_exists(global.ui_font))
 {
 	draw_set_font(global.ui_font);
+}
+
+// The cannon's world meter remains above the Assign Duties panel as requested.
+if (global.focus_window == FOCUS_WINDOW.JOBS)
+{
+	cannon_satisfaction_world_ui_draw();
 }

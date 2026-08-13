@@ -40,8 +40,7 @@ friendly_priority_target_find = function(_max_distance)
 		{
 			var _target = instance_find(_preferred_object, _target_index);
 
-			if (!target_can_be_attacked(_target)
-				|| !friendly_squad_defense_target_is_allowed(_target, false))
+			if (!target_can_be_attacked(_target))
 			{
 				continue;
 			}

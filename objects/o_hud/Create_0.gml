@@ -836,8 +836,154 @@ projectile_description_width = 330;
 projectile_description_height = 58;
 projectile_description_gap = 8;
 projectile_description_line_separation = 16;
+projectile_matchup_icon_radius = 18;
+projectile_matchup_icon_gap = 42;
+projectile_matchup_row_gap = 42;
+projectile_matchup_card_gap = 10;
+projectile_matchup_sprite_size = 28;
+projectile_matchup_background_alpha = 0.9;
 
-projectile_squad_unit_sprite_get = function(_payload)
+projectile_display_slots_get = function(_game_controller, _max_display_count = 9)
+{
+	var _display_slots = [];
+
+	if (!instance_exists(_game_controller)
+		|| !variable_instance_exists(_game_controller, "cannon_projectile_display_slots_get"))
+	{
+		return _display_slots;
+	}
+
+	_display_slots = _game_controller.cannon_projectile_display_slots_get(_max_display_count);
+
+	if (!variable_global_exists("day_phase")
+		|| global.day_phase != DAY_PHASE.NIGHT
+		|| !variable_instance_exists(_game_controller, "cannon_morning_projectile_target_count_get")
+		|| !variable_instance_exists(_game_controller, "cannon_projectile_queue_type_count_get"))
+	{
+		return _display_slots;
+	}
+
+	// Keep rechargeable shell slots visible while their next charge is being restored.
+	var _recharge_projectile_types = [PROJECTILE_TYPE.BOMB, PROJECTILE_TYPE.HEAL];
+	var _recharge_projectile_type_count = array_length(_recharge_projectile_types);
+
+	for (var _recharge_type_index = 0; _recharge_type_index < _recharge_projectile_type_count; ++_recharge_type_index)
+	{
+		var _recharge_projectile_type = _recharge_projectile_types[_recharge_type_index];
+		var _recharge_target_count = _game_controller.cannon_morning_projectile_target_count_get(_recharge_projectile_type);
+		var _recharge_current_count = _game_controller.cannon_projectile_queue_type_count_get(_recharge_projectile_type);
+		var _recharge_slot_exists = false;
+		var _display_count = array_length(_display_slots);
+
+		for (var _display_index = 0; _display_index < _display_count; ++_display_index)
+		{
+			if (_display_slots[_display_index].projectile_type == _recharge_projectile_type)
+			{
+				_recharge_slot_exists = true;
+				break;
+			}
+		}
+
+		if (!_recharge_slot_exists
+			&& _recharge_target_count > 0
+			&& _recharge_current_count < _recharge_target_count
+			&& array_length(_display_slots) < _max_display_count)
+		{
+			array_push(_display_slots, {
+				projectile_type: _recharge_projectile_type,
+				queue_index: -1,
+				consume_queue_index: -1,
+				count: 0
+			});
+		}
+	}
+
+	return _display_slots;
+};
+
+projectile_slot_at_gui_position = function(_mouse_x, _mouse_y, _game_controller)
+{
+	var _display_slots = projectile_display_slots_get(_game_controller, 9);
+	var _display_count = array_length(_display_slots);
+
+	if (_display_count <= 0)
+	{
+		return noone;
+	}
+
+	// Reproduce the night HUD slot layout for input hit testing.
+	var _gui_width = display_get_gui_width();
+	var _gui_height = display_get_gui_height();
+	var _base_y = _gui_height - projectile_queue_margin_bottom - projectile_slot_height - projectile_name_offset_y;
+	var _has_building_shell = false;
+
+	for (var _slot_check_index = 0; _slot_check_index < _display_count; ++_slot_check_index)
+	{
+		if (_display_slots[_slot_check_index].projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
+		{
+			_has_building_shell = true;
+			break;
+		}
+	}
+
+	if (_has_building_shell)
+	{
+		_base_y -= projectile_building_shell_row_offset_y;
+	}
+
+	var _total_width = (projectile_slot_width * _display_count)
+		+ (projectile_slot_gap * max(0, _display_count - 1));
+	var _start_x = (_gui_width - _total_width) * 0.5;
+	var _projectile_queue_count = array_length(global.cannon_projectile_queue);
+	var _selected_projectile_index = clamp(
+		global.cannon_selected_projectile_index,
+		0,
+		max(0, _projectile_queue_count)
+	);
+	var _selected_projectile_type = PROJECTILE_TYPE.DAMAGE;
+
+	if (_selected_projectile_index < _projectile_queue_count)
+	{
+		_selected_projectile_type = global.cannon_projectile_queue[_selected_projectile_index];
+	}
+
+	for (var _display_index = 0; _display_index < _display_count; ++_display_index)
+	{
+		var _slot = _display_slots[_display_index];
+		var _slot_x = _start_x + ((projectile_slot_width + projectile_slot_gap) * _display_index);
+		var _slot_y = _base_y;
+		var _slot_width = projectile_slot_width;
+		var _slot_height = projectile_slot_background_height;
+		var _is_current_projectile = _slot.queue_index == _selected_projectile_index
+			|| (_slot.count > 1
+				&& _selected_projectile_type == _slot.projectile_type
+				&& _slot.projectile_type != PROJECTILE_TYPE.CULTIST
+				&& _slot.projectile_type != PROJECTILE_TYPE.BUILDING_SHELL);
+
+		if (_slot.projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
+		{
+			_slot_y += projectile_building_shell_row_offset_y;
+		}
+
+		if (_is_current_projectile)
+		{
+			_slot_x -= projectile_current_scale_padding;
+			_slot_y -= projectile_current_scale_padding;
+			_slot_width += projectile_current_scale_padding * 2;
+			_slot_height += projectile_current_scale_padding * 2;
+		}
+
+		if (_mouse_x >= _slot_x && _mouse_x <= _slot_x + _slot_width
+			&& _mouse_y >= _slot_y && _mouse_y <= _slot_y + _slot_height)
+		{
+			return _slot;
+		}
+	}
+
+	return noone;
+};
+
+projectile_squad_unit_object_get = function(_payload)
 {
 	if (!instance_exists(_payload))
 	{
@@ -855,7 +1001,7 @@ projectile_squad_unit_sprite_get = function(_payload)
 
 		if (_demon_object != noone && object_exists(_demon_object))
 		{
-			return object_get_sprite(_demon_object);
+			return _demon_object;
 		}
 	}
 
@@ -868,8 +1014,97 @@ projectile_squad_unit_sprite_get = function(_payload)
 
 		if (_primary_unit_object != noone && object_exists(_primary_unit_object))
 		{
-			return object_get_sprite(_primary_unit_object);
+			return _primary_unit_object;
 		}
+	}
+
+	return noone;
+};
+
+projectile_matchup_unit_object_get = function(_projectile_type, _payload)
+{
+	if (_projectile_type == PROJECTILE_TYPE.CULTIST)
+	{
+		return projectile_squad_unit_object_get(_payload);
+	}
+
+	if (_projectile_type == PROJECTILE_TYPE.SKELETONS)
+	{
+		return object_exists(o_skeleton) ? o_skeleton : noone;
+	}
+
+	return noone;
+};
+
+projectile_matchup_row_draw = function(_unit_objects, _center_x, _center_y, _background_color)
+{
+	var _unit_count = array_length(_unit_objects);
+
+	if (_unit_count <= 0)
+	{
+		return false;
+	}
+
+	var _row_width = projectile_matchup_icon_gap * max(0, _unit_count - 1);
+	var _start_x = _center_x - (_row_width * 0.5);
+
+	for (var _unit_index = 0; _unit_index < _unit_count; ++_unit_index)
+	{
+		var _unit_object = _unit_objects[_unit_index];
+		var _unit_sprite = object_exists(_unit_object) ? object_get_sprite(_unit_object) : -1;
+		var _icon_x = _start_x + (_unit_index * projectile_matchup_icon_gap);
+
+		draw_set_alpha(projectile_matchup_background_alpha);
+		draw_set_color(_background_color);
+		draw_circle(_icon_x, _center_y, projectile_matchup_icon_radius, false);
+		draw_set_alpha(1);
+		draw_set_color(c_white);
+		draw_circle(_icon_x, _center_y, projectile_matchup_icon_radius, true);
+
+		if (sprite_exists(_unit_sprite))
+		{
+			var _sprite_width = max(1, sprite_get_width(_unit_sprite));
+			var _sprite_height = max(1, sprite_get_height(_unit_sprite));
+			var _sprite_scale = min(
+				projectile_matchup_sprite_size / _sprite_width,
+				projectile_matchup_sprite_size / _sprite_height
+			);
+			var _draw_x = _icon_x
+				+ ((sprite_get_xoffset(_unit_sprite) - (_sprite_width * 0.5)) * _sprite_scale);
+			var _draw_y = _center_y
+				+ ((sprite_get_yoffset(_unit_sprite) - (_sprite_height * 0.5)) * _sprite_scale);
+
+			draw_sprite_ext(
+				_unit_sprite,
+				0,
+				_draw_x,
+				_draw_y,
+				_sprite_scale,
+				_sprite_scale,
+				0,
+				c_white,
+				1
+			);
+		}
+	}
+
+	draw_set_alpha(1);
+	draw_set_color(c_white);
+	return true;
+};
+
+projectile_squad_unit_sprite_get = function(_payload)
+{
+	var _unit_object = projectile_squad_unit_object_get(_payload);
+
+	if (_unit_object != noone && object_exists(_unit_object))
+	{
+		return object_get_sprite(_unit_object);
+	}
+
+	if (!instance_exists(_payload))
+	{
+		return noone;
 	}
 
 	return sprite_exists(_payload.sprite_index) ? _payload.sprite_index : noone;

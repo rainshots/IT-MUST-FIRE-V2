@@ -554,6 +554,337 @@ function day_event_cultist_hp_cost_apply(_assigned_cultists, _hp_cost)
 	}
 }
 
+function day_event_cannon_demand_reward_apply(_reward)
+{
+	cannon_satisfaction_add(max(0, _reward));
+	return true;
+}
+
+function day_event_cannon_broken_toy_cultist_is_eligible(_cultist)
+{
+	return instance_exists(_cultist)
+		&& variable_instance_exists(_cultist, "hp")
+		&& variable_instance_exists(_cultist, "max_hp")
+		&& _cultist.hp > 0
+		&& _cultist.hp < _cultist.max_hp * BALANCE_CANNON_DEMAND_BROKEN_TOY_MAX_HP_SHARE;
+}
+
+function day_event_cannon_broken_toy_is_available()
+{
+	if (!variable_global_exists("event_cultists") || !is_array(global.event_cultists))
+	{
+		return false;
+	}
+
+	// The demand can only appear when the player has a valid Cultist for it.
+	var _cultist_count = array_length(global.event_cultists);
+
+	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+	{
+		var _cultist = global.event_cultists[_cultist_index];
+
+		if (day_event_cannon_broken_toy_cultist_is_eligible(_cultist))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+function day_event_cannon_broken_toy_execute(_event, _assigned_cultists, _data)
+{
+	if (array_length(_assigned_cultists) <= 0)
+	{
+		return false;
+	}
+
+	var _cultist = _assigned_cultists[0];
+
+	if (!instance_exists(_cultist))
+	{
+		return false;
+	}
+
+	day_event_cultist_heal_apply(_cultist, _cultist.max_hp);
+	return day_event_cannon_demand_reward_apply(_data.reward);
+}
+
+function day_event_cannon_let_me_choose_execute(_event, _assigned_cultists, _data)
+{
+	if (array_length(_assigned_cultists) < 2)
+	{
+		return false;
+	}
+
+	var _healed_index = irandom(1);
+	var _damaged_index = 1 - _healed_index;
+	var _healed_cultist = _assigned_cultists[_healed_index];
+	var _damaged_cultist = _assigned_cultists[_damaged_index];
+
+	if (instance_exists(_healed_cultist))
+	{
+		day_event_cultist_heal_apply(_healed_cultist, _data.heal_amount);
+	}
+
+	if (instance_exists(_damaged_cultist))
+	{
+		day_event_cultist_damage_apply(_damaged_cultist, _data.damage_amount, false);
+	}
+
+	return day_event_cannon_demand_reward_apply(_data.reward);
+}
+
+function day_event_cannon_pick_favorite_execute(_event, _assigned_cultists, _data)
+{
+	var _cultist_count = array_length(_assigned_cultists);
+
+	if (_cultist_count < 3)
+	{
+		return false;
+	}
+
+	var _favorite_index = irandom(_cultist_count - 1);
+
+	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+	{
+		var _cultist = _assigned_cultists[_cultist_index];
+
+		if (!instance_exists(_cultist))
+		{
+			continue;
+		}
+
+		if (_cultist_index == _favorite_index)
+		{
+			day_event_cultist_heal_apply(_cultist, _data.heal_amount);
+		}
+		else
+		{
+			day_event_cultist_damage_apply(_cultist, _data.damage_amount, false);
+		}
+	}
+
+	return day_event_cannon_demand_reward_apply(_data.reward);
+}
+
+function day_event_cannon_tiny_bite_execute(_event, _assigned_cultists, _data)
+{
+	if (array_length(_assigned_cultists) <= 0)
+	{
+		return false;
+	}
+
+	var _cultist = _assigned_cultists[0];
+	var _damage = irandom_range(_data.damage_min, _data.damage_max);
+
+	if (instance_exists(_cultist))
+	{
+		day_event_cultist_damage_apply(_cultist, _damage, false);
+	}
+
+	return day_event_cannon_demand_reward_apply(_data.reward);
+}
+
+function day_event_cannon_fixed_damage_execute(_event, _assigned_cultists, _data)
+{
+	day_event_cultist_hp_cost_apply(_assigned_cultists, _data.hp_cost);
+	return day_event_cannon_demand_reward_apply(_data.reward);
+}
+
+function day_event_cannon_polish_teeth_execute(_event, _assigned_cultists, _data)
+{
+	return day_event_cannon_demand_reward_apply(_data.reward);
+}
+
+function day_event_cannon_demand_create(_demand_index)
+{
+	if (!instance_exists(o_cannon))
+	{
+		return noone;
+	}
+
+	var _cannon = instance_find(o_cannon, 0);
+	var _event = noone;
+
+	switch (_demand_index)
+	{
+		case 0:
+			_event = new day_event_constructor(
+				"cannon_demand_broken_toy",
+				"A Broken Toy",
+				"Bring me a broken one. I know how to fix toys. Requires 1 Cultist below 40% HP and fully restores his HP.\nReward: +10 Cannon Satisfaction. Ignored: -10.",
+				1,
+				1,
+				[
+					new event_action_constructor(
+						"cannon_broken_toy",
+						day_event_cannon_broken_toy_execute,
+						{ reward: BALANCE_CANNON_DEMAND_BROKEN_TOY_REWARD }
+					)
+				]
+			);
+			_event.ignored_satisfaction_penalty = BALANCE_CANNON_DEMAND_BROKEN_TOY_IGNORED_PENALTY;
+			_event.cultist_is_eligible = day_event_cannon_broken_toy_cultist_is_eligible;
+			break;
+
+		case 1:
+			_event = new day_event_constructor(
+				"cannon_demand_let_me_choose",
+				"Let Me Choose",
+				"Bring me two. One gets better (+30 HP). One gets worse (-15 HP). I choose.\nReward: +25 Cannon Satisfaction. Ignored: -15.",
+				2,
+				1,
+				[
+					new event_action_constructor(
+						"cannon_let_me_choose",
+						day_event_cannon_let_me_choose_execute,
+						{
+							reward: BALANCE_CANNON_DEMAND_LET_ME_CHOOSE_REWARD,
+							heal_amount: BALANCE_CANNON_DEMAND_LET_ME_CHOOSE_HEAL,
+							damage_amount: BALANCE_CANNON_DEMAND_LET_ME_CHOOSE_DAMAGE
+						}
+					)
+				]
+			);
+			_event.ignored_satisfaction_penalty = BALANCE_CANNON_DEMAND_LET_ME_CHOOSE_IGNORED_PENALTY;
+			break;
+
+		case 2:
+			_event = new day_event_constructor(
+				"cannon_demand_pick_favorite",
+				"Pick a Favorite",
+				"Bring me three. One becomes my favorite (+100 HP). The others pay for it (-10 HP).\nReward: +50 Cannon Satisfaction. Ignored: -10.",
+				3,
+				1,
+				[
+					new event_action_constructor(
+						"cannon_pick_favorite",
+						day_event_cannon_pick_favorite_execute,
+						{
+							reward: BALANCE_CANNON_DEMAND_PICK_FAVORITE_REWARD,
+							heal_amount: BALANCE_CANNON_DEMAND_PICK_FAVORITE_HEAL,
+							damage_amount: BALANCE_CANNON_DEMAND_PICK_FAVORITE_DAMAGE
+						}
+					)
+				]
+			);
+			_event.ignored_satisfaction_penalty = BALANCE_CANNON_DEMAND_PICK_FAVORITE_IGNORED_PENALTY;
+			break;
+
+		case 3:
+			_event = new day_event_constructor(
+				"cannon_demand_tiny_bite",
+				"A Tiny Bite",
+				"Give me one. I only want a little taste. The Cultist loses between 5 and 30 HP.\nReward: +20 Cannon Satisfaction. Ignored: -15.",
+				1,
+				1,
+				[
+					new event_action_constructor(
+						"cannon_tiny_bite",
+						day_event_cannon_tiny_bite_execute,
+						{
+							reward: BALANCE_CANNON_DEMAND_TINY_BITE_REWARD,
+							damage_min: BALANCE_CANNON_DEMAND_TINY_BITE_DAMAGE_MIN,
+							damage_max: BALANCE_CANNON_DEMAND_TINY_BITE_DAMAGE_MAX
+						}
+					)
+				]
+			);
+			_event.ignored_satisfaction_penalty = BALANCE_CANNON_DEMAND_TINY_BITE_IGNORED_PENALTY;
+			break;
+
+		case 4:
+			_event = new day_event_constructor(
+				"cannon_demand_very_happy",
+				"Make Me Very, Very Happy",
+				"Give me one. When I'm done, I promise I'll be very, very happy. The Cultist loses 30 HP.\nReward: +30 Cannon Satisfaction. Ignored: -20.",
+				1,
+				1,
+				[
+					new event_action_constructor(
+						"cannon_very_happy",
+						day_event_cannon_fixed_damage_execute,
+						{
+							reward: BALANCE_CANNON_DEMAND_VERY_HAPPY_REWARD,
+							hp_cost: BALANCE_CANNON_DEMAND_VERY_HAPPY_DAMAGE
+						}
+					)
+				]
+			);
+			_event.ignored_satisfaction_penalty = BALANCE_CANNON_DEMAND_VERY_HAPPY_IGNORED_PENALTY;
+			break;
+
+		default:
+			_event = new day_event_constructor(
+				"cannon_demand_polish_teeth",
+				"Polish My Teeth",
+				"Clean my barrel. I want to look pretty when I kill them. Requires 1 Cultist and costs no HP.\nReward: +10 Cannon Satisfaction. Ignored: -30.",
+				1,
+				1,
+				[
+					new event_action_constructor(
+						"cannon_polish_teeth",
+						day_event_cannon_polish_teeth_execute,
+						{ reward: BALANCE_CANNON_DEMAND_POLISH_TEETH_REWARD }
+					)
+				]
+			);
+			_event.ignored_satisfaction_penalty = BALANCE_CANNON_DEMAND_POLISH_TEETH_IGNORED_PENALTY;
+			break;
+	}
+
+	_event.source_building = _cannon;
+	_event.source_sprite = s_cannon_face;
+	_event.is_cannon_demand = true;
+	_event.reroll_is_available = false;
+	_event.can_pin = false;
+
+	return _event;
+}
+
+function day_event_cannon_demand_add()
+{
+	var _current_day = day_event_current_day_get();
+	var _days_since_unlock = _current_day - BALANCE_CANNON_SATISFACTION_UNLOCK_DAY;
+	var _demand_interval = max(1, BALANCE_CANNON_DEMAND_DAY_INTERVAL);
+	var _demand_is_scheduled = _days_since_unlock >= 0
+		&& _days_since_unlock mod _demand_interval == 0;
+
+	if (!_demand_is_scheduled)
+	{
+		return false;
+	}
+
+	// Build the random pool from demands whose requirements can currently be met.
+	var _demand_count = 6;
+	var _broken_toy_demand_index = 0;
+	var _broken_toy_is_available = day_event_cannon_broken_toy_is_available();
+	var _available_demand_indices = [];
+
+	for (var _demand_index = 0; _demand_index < _demand_count; ++_demand_index)
+	{
+		if (_demand_index == _broken_toy_demand_index
+			&& !_broken_toy_is_available)
+		{
+			continue;
+		}
+
+		array_push(_available_demand_indices, _demand_index);
+	}
+
+	if (array_length(_available_demand_indices) <= 0)
+	{
+		return false;
+	}
+
+	var _available_demand_count = array_length(_available_demand_indices);
+	var _selected_demand_index = _available_demand_indices[irandom(_available_demand_count - 1)];
+	var _demand = day_event_cannon_demand_create(_selected_demand_index);
+
+	return day_event_add_first(_demand);
+}
+
 function day_event_random_cultist_cost_get(
 	_group_cultist_count = BALANCE_GRAVEYARD_EVENT_GROUP_CULTIST_COUNT,
 	_group_hp_cost = BALANCE_GRAVEYARD_EVENT_GROUP_HP_COST,
@@ -3093,6 +3424,7 @@ function day_event_pin_is_event(_event)
 function day_event_pin_set(_event)
 {
 	if (!day_event_building_action_is_available(_event)
+		|| (variable_struct_exists(_event, "can_pin") && !_event.can_pin)
 		|| day_event_has_funded_activation(_event)
 		|| global.day_event_pins_remaining <= 0
 		|| day_event_pin_is_event(_event)
@@ -3969,6 +4301,7 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 	if (_apply_daily_limit)
 	{
 		day_event_building_daily_events_limit_apply(_additional_event_count);
+		day_event_cannon_demand_add();
 	}
 
 	if (_apply_additional_bonus && global.ritual_extra_building_event_active)
@@ -4122,6 +4455,15 @@ function day_event_finish_day()
 			var _event_activation_count = _event.execute();
 			_executed_activation_count += _event_activation_count;
 
+			// An unfunded Cannon demand is ignored and immediately lowers Satisfaction.
+			if (_event_activation_count <= 0
+				&& variable_struct_exists(_event, "is_cannon_demand")
+				&& _event.is_cannon_demand
+				&& variable_struct_exists(_event, "ignored_satisfaction_penalty"))
+			{
+				cannon_satisfaction_add(-max(0, _event.ignored_satisfaction_penalty));
+			}
+
 			if (_event_activation_count > 0)
 			{
 				var _event_name = variable_struct_exists(_event, "title")
@@ -4171,7 +4513,15 @@ function day_event_new_day_reset()
 	// Preserve today's final choices, including rerolls, before removing the cards.
 	day_event_previous_building_selections_store();
 	global.building_construction_count_today = 0;
-	global.day_event_rerolls_remaining = BALANCE_DAY_EVENT_DAILY_REROLL_COUNT;
+
+	// The possessed cannon grows bored overnight when Satisfaction exceeds 100.
+	if (cannon_satisfaction_get() > BALANCE_CANNON_SATISFACTION_IT_MUST_FIRE_MIN)
+	{
+		cannon_satisfaction_add(-BALANCE_CANNON_SATISFACTION_HIGH_DAILY_DECAY);
+	}
+
+	global.day_event_rerolls_remaining = BALANCE_DAY_EVENT_DAILY_REROLL_COUNT
+		+ cannon_satisfaction_daily_reroll_bonus_get();
 	global.day_event_pins_remaining = BALANCE_DAY_EVENT_DAILY_PIN_COUNT;
 
 	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)

@@ -133,6 +133,17 @@ jobs_onboarding_hints = [
 		arrow_angle: 90
 	}
 ];
+// Second-day Cannon Satisfaction introduction follows the annotated Figma composition.
+jobs_cannon_satisfaction_hint_text = "The Cannon is possessed, moody, and bored. "
+	+ "Fulfill its demands to raise Satisfaction and earn unholy bonuses. "
+	+ "Ignore it and the whole cult suffers.";
+jobs_cannon_satisfaction_hint_text_x = 752;
+jobs_cannon_satisfaction_hint_text_y = 151;
+jobs_cannon_satisfaction_hint_text_width = 322;
+jobs_cannon_satisfaction_hint_text_line_height = 30;
+jobs_cannon_satisfaction_hint_arrow_x = 1184;
+jobs_cannon_satisfaction_hint_arrow_y = 211;
+jobs_cannon_satisfaction_hint_arrow_scale = 0.5;
 jobs_end_day_button_width = 353;
 jobs_end_day_button_height = 88;
 jobs_end_day_button_bottom_margin = 65;
@@ -228,7 +239,8 @@ jobs_event_action_key_get = function(_event, _action)
 
 jobs_event_pin_action_get = function(_event)
 {
-	if (!day_event_building_action_is_available(_event))
+	if (!day_event_building_action_is_available(_event)
+		|| (variable_struct_exists(_event, "can_pin") && !_event.can_pin))
 	{
 		return "";
 	}
@@ -870,6 +882,11 @@ jobs_event_cultist_hp_preview_get = function(_event, _slot_index, _cultist)
 		}
 	}
 
+	// Sulking adds the same visible HP cost to every funded event slot.
+	var _sulking_hp_cost = cannon_satisfaction_event_hp_cost_get();
+	_hp_loss += _sulking_hp_cost;
+	_lethal_hp_loss += _sulking_hp_cost;
+
 	return {
 		hp_change: _hp_gain - _hp_loss,
 		hp_loss: _hp_loss,
@@ -1119,4 +1136,15 @@ jobs_window_close = function()
 	{
 		global.focus_window = FOCUS_WINDOW.NOONE;
 	}
+};
+
+jobs_window_toggle = function()
+{
+	if (global.focus_window == FOCUS_WINDOW.JOBS)
+	{
+		jobs_window_close();
+		return true;
+	}
+
+	return jobs_window_open();
 };

@@ -14,6 +14,17 @@ if (variable_global_exists("tutorial_popup_active") && global.tutorial_popup_act
 	exit;
 }
 
+// Tab toggles Assign Duties through the same open and close paths as its buttons.
+if (keyboard_check_pressed(vk_tab) && jobs_window_toggle())
+{
+	if (variable_global_exists("ui_confirm_sound_play"))
+	{
+		global.ui_confirm_sound_play();
+	}
+
+	exit;
+}
+
 // Consume the mouse press that closed an overlapping modal window.
 if (jobs_input_blocked_until_mouse_release)
 {
@@ -701,6 +712,12 @@ if (instance_exists(jobs_dragged_cultist) && mouse_check_button_released(mb_left
 			}
 			else if (instance_exists(_target_cultist))
 			{
+				if (variable_struct_exists(_target_event, "cultist_is_eligible_check")
+					&& !_target_event.cultist_is_eligible_check(jobs_dragged_cultist))
+				{
+					continue;
+				}
+
 				// The displaced cultist takes the dragged cultist's former slot or returns to the pool.
 				if (is_struct(jobs_drag_origin_event) && jobs_drag_origin_slot_index >= 0)
 				{

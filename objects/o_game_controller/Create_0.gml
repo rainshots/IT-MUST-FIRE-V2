@@ -27,10 +27,10 @@ night_attack_balance_by_day = [
 	{ difficulty_budget: 235, enemy_hp_multiplier: 1.34, enemy_damage_multiplier: 1.45 }, // Day 7.
 	{ difficulty_budget: 364, enemy_hp_multiplier: 1.38, enemy_damage_multiplier: 1 }, // Day 8: Full Moon.
 	{ difficulty_budget: 230, enemy_hp_multiplier: 1.72, enemy_damage_multiplier: 1.72 }, // Day 9.
-	{ difficulty_budget: 230, enemy_hp_multiplier: 1.92, enemy_damage_multiplier: 1.95 }, // Day 10.
-	{ difficulty_budget: 429, enemy_hp_multiplier: 2.22, enemy_damage_multiplier: 2.20 }, // Day 11: Full Moon.
-	{ difficulty_budget: 230, enemy_hp_multiplier: 2.42, enemy_damage_multiplier: 2.30 }, // Day 12.
-	{ difficulty_budget: 132, enemy_hp_multiplier: 2.7, enemy_damage_multiplier: 2.55 }, // Day 13: Crusader horde boss.
+	{ difficulty_budget: 230, enemy_hp_multiplier: 1, enemy_damage_multiplier: 2.15 }, // Day 10.
+	{ difficulty_budget: 429, enemy_hp_multiplier: 2.35, enemy_damage_multiplier: 2.35 }, // Day 11: Full Moon.
+	{ difficulty_budget: 230, enemy_hp_multiplier: 2.55, enemy_damage_multiplier: 2.45 }, // Day 12.
+	{ difficulty_budget: 132, enemy_hp_multiplier: 2.7, enemy_damage_multiplier: 2.75 }, // Day 13: Crusader horde boss.
 	{ difficulty_budget: 250, enemy_hp_multiplier: 2.9, enemy_damage_multiplier: 2.7 }  // Day 14 and later.
 ];
 
@@ -71,6 +71,8 @@ global.squad_limits = [BALANCE_SQUAD_ARCHDEMON_LIMIT, BALANCE_SQUAD_UNDEAD_LIMIT
 // Archdemons keep the existing combat and cannon lifecycle; regular cultists belong to day events.
 global.event_cultists = array_create(0);
 global.cultist_limit = BALANCE_STARTING_CULTIST_LIMIT;
+// The possessed cannon's mood is shared by Jobs, shell recharge, and HUD systems.
+global.cannon_satisfaction = BALANCE_CANNON_SATISFACTION_START;
 // Creating a regular building event immediately consumes its daily allowance.
 global.building_construction_count_today = 0;
 global.blood_bath_infernal_regeneration_uses = 0;
@@ -116,6 +118,8 @@ global.world_event_squad_selector_building = noone;
 global.world_event_squad_selector_event = noone;
 global.world_event_squad_selector_close_pending = false;
 global.world_event_squad_selector_preserve_hover = false;
+cannon_satisfaction_window_previous_pause_state = false;
+cannon_satisfaction_cursor_is_hidden = false;
 
 if (!instance_exists(o_jobs_ui))
 {
@@ -2109,6 +2113,11 @@ ui_hover_candidate_get = function(_mouse_x, _mouse_y)
 		if (instance_exists(_levelup_cultist))
 		{
 			return "cultist_levelup_" + string(_levelup_cultist);
+		}
+
+		if (cannon_satisfaction_hovered_get())
+		{
+			return "cannon_satisfaction_info";
 		}
 
 		if (global.pause)
@@ -5215,6 +5224,81 @@ open_building_events_window = function(_building)
 	return true;
 };
 
+open_cannon_satisfaction_window = function()
+{
+	if (day_event_current_day_get() < BALANCE_CANNON_SATISFACTION_UNLOCK_DAY
+		|| !instance_exists(o_cannon)
+		|| global.focus_window != FOCUS_WINDOW.NOONE)
+	{
+		return false;
+	}
+
+	cannon_satisfaction_window_previous_pause_state = global.pause;
+	global.pause = true;
+	global.focus_window = FOCUS_WINDOW.CANNON_SATISFACTION;
+	global.ui_confirm_sound_play();
+	ui_click_sound_blocked = true;
+
+	return true;
+};
+
+cannon_satisfaction_hovered_get = function()
+{
+	var _tutorial_blocks_hover = variable_global_exists("tutorial_popup_active")
+		&& global.tutorial_popup_active;
+	var _cultist_is_dragged = variable_global_exists("dragged_cultist")
+		&& instance_exists(global.dragged_cultist);
+	var _artifact_is_dragged = variable_global_exists("dragged_artifact")
+		&& instance_exists(global.dragged_artifact);
+	var _squad_is_dragged = variable_global_exists("dragged_squad")
+		&& is_struct(global.dragged_squad);
+
+	if (day_event_current_day_get() < BALANCE_CANNON_SATISFACTION_UNLOCK_DAY
+		|| global.focus_window != FOCUS_WINDOW.NOONE
+		|| global.pause
+		|| _tutorial_blocks_hover
+		|| _cultist_is_dragged
+		|| _artifact_is_dragged
+		|| _squad_is_dragged
+		|| !instance_exists(o_cannon)
+		|| !instance_exists(o_camera_controller))
+	{
+		return false;
+	}
+
+	var _cannon = instance_find(o_cannon, 0);
+	var _camera_controller = instance_find(o_camera_controller, 0);
+	var _camera_x = camera_get_view_x(_camera_controller.camera_id);
+	var _camera_y = camera_get_view_y(_camera_controller.camera_id);
+	var _camera_width = max(1, camera_get_view_width(_camera_controller.camera_id));
+	var _camera_height = max(1, camera_get_view_height(_camera_controller.camera_id));
+	var _gui_width = max(1, display_get_gui_width());
+	var _gui_height = max(1, display_get_gui_height());
+	var _mouse_gui_x = device_mouse_x_to_gui(0);
+	var _mouse_gui_y = device_mouse_y_to_gui(0);
+	var _mouse_world_x = _camera_x + ((_mouse_gui_x / _gui_width) * _camera_width);
+	var _mouse_world_y = _camera_y + ((_mouse_gui_y / _gui_height) * _camera_height);
+
+	return _mouse_world_x >= _cannon.bbox_left
+		&& _mouse_world_x <= _cannon.bbox_right
+		&& _mouse_world_y >= _cannon.bbox_top
+		&& _mouse_world_y <= _cannon.bbox_bottom;
+};
+
+close_cannon_satisfaction_window = function()
+{
+	if (global.focus_window != FOCUS_WINDOW.CANNON_SATISFACTION)
+	{
+		return false;
+	}
+
+	global.pause = cannon_satisfaction_window_previous_pause_state;
+	player_pause_active = cannon_satisfaction_window_previous_pause_state;
+	global.focus_window = FOCUS_WINDOW.NOONE;
+
+	return true;
+};
+
 close_building_window = function()
 {
 	building_window_slot = noone;
@@ -6631,7 +6715,11 @@ cannon_night_shell_recharge_progress_get = function(_projectile_type)
 		return 0;
 	}
 
-	var _recharge_interval = max(1, BALANCE_CANNON_NIGHT_SHELL_RECHARGE_TIME * room_speed);
+	var _recharge_speed_multiplier = cannon_satisfaction_shell_recharge_multiplier_get();
+	var _recharge_interval = max(
+		1,
+		(BALANCE_CANNON_NIGHT_SHELL_RECHARGE_TIME * room_speed) / _recharge_speed_multiplier
+	);
 	return clamp(cannon_night_shell_recharge_timers[_projectile_type] / _recharge_interval, 0, 1);
 };
 
@@ -6660,7 +6748,11 @@ cannon_night_shell_recharge_update = function()
 			continue;
 		}
 
-		var _recharge_interval = max(1, BALANCE_CANNON_NIGHT_SHELL_RECHARGE_TIME * room_speed);
+		var _recharge_speed_multiplier = cannon_satisfaction_shell_recharge_multiplier_get();
+		var _recharge_interval = max(
+			1,
+			(BALANCE_CANNON_NIGHT_SHELL_RECHARGE_TIME * room_speed) / _recharge_speed_multiplier
+		);
 		var _recharge_timer = cannon_night_shell_recharge_timers[_projectile_type];
 		_recharge_timer = min(_recharge_timer + 1, _recharge_interval);
 		cannon_night_shell_recharge_timers[_projectile_type] = _recharge_timer;
@@ -11376,6 +11468,9 @@ start_night_phase = function()
 			boss_griffith_spawn_for_night();
 		}
 	}
+
+	// Keep squad icons stable for the complete combat phase.
+	squad_night_icon_sprites_capture();
 
 	// Store the final player combat roster after all night-start health changes.
 	balance_player_hp_night_snapshot_store();

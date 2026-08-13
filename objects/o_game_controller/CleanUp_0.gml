@@ -1,4 +1,10 @@
 // Do not leave an empty balance file when a cheat session ends before its first completed day.
+if (variable_instance_exists(id, "cannon_satisfaction_cursor_is_hidden")
+	&& cannon_satisfaction_cursor_is_hidden)
+{
+	window_set_cursor(cr_default);
+}
+
 if (variable_instance_exists(id, "balance_log_file_path")
 	&& variable_instance_exists(id, "balance_log_has_content")
 	&& balance_log_file_path != ""

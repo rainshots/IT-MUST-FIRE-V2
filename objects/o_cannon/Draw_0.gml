@@ -10,6 +10,44 @@ draw_set_alpha(_cannon_alpha);
 draw_self();
 draw_set_alpha(1);
 
+// Match the building hover highlight when the Satisfaction window can be opened.
+var _satisfaction_info_is_hovered = false;
+
+if (instance_exists(o_game_controller))
+{
+	var _game_controller = instance_find(o_game_controller, 0);
+
+	if (variable_instance_exists(_game_controller, "cannon_satisfaction_hovered_get"))
+	{
+		_satisfaction_info_is_hovered = _game_controller.cannon_satisfaction_hovered_get();
+	}
+}
+
+if (_satisfaction_info_is_hovered)
+{
+	var _highlight_padding = 8;
+
+	draw_set_alpha(0.24);
+	draw_set_color(COLOR_HUD_IRON);
+	draw_rectangle(
+		bbox_left - _highlight_padding,
+		bbox_top - _highlight_padding,
+		bbox_right + _highlight_padding,
+		bbox_bottom + _highlight_padding,
+		false
+	);
+
+	draw_set_alpha(1);
+	draw_set_color(c_white);
+	draw_rectangle(
+		bbox_left - _highlight_padding,
+		bbox_top - _highlight_padding,
+		bbox_right + _highlight_padding,
+		bbox_bottom + _highlight_padding,
+		true
+	);
+}
+
 // Highlight the cannon when a dragged unit can be assigned here.
 if (variable_global_exists("cultist_assignment_preview_building")
 	&& global.cultist_assignment_preview_building == id)

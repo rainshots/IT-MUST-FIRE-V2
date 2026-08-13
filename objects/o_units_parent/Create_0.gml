@@ -57,7 +57,6 @@ cultist_projectile_deploy_waiting = false;
 // Squad membership persists through the squad system and can be replaced after transformations.
 squad = noone;
 squad_unit_index = -1;
-defense_return_is_active = false;
 
 // Regroup movement sends newly spawned friendly summons toward the cannon day area.
 regroup_is_active = false;
@@ -1161,14 +1160,6 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 			target_search_update_timer = target_search_update_interval;
 		}
 
-		// Incoming attacks commit the whole defending squad to the shared threat.
-		if (_source_is_hostile
-			&& friendly_squad_defense_is_active()
-			&& target_can_be_attacked(_source_instance))
-		{
-			squad_defense_target_commit(squad, _source_instance);
-		}
-
 		// Share the attacker with nearby idle allies of the damaged unit.
 		if (_source_is_hostile && target_can_be_attacked(_source_instance))
 		{
@@ -1843,56 +1834,6 @@ friendly_priority_target_find = function(_max_distance)
 	return noone;
 };
 
-friendly_squad_defense_is_active = function()
-{
-	if (unit_faction != UNIT_FACTION.FRIENDLY
-		|| global.day_phase != DAY_PHASE.NIGHT
-		|| !is_struct(squad)
-		|| squad.squad_type == SQUAD_TYPE.ARCHDEMON
-		|| rally_is_active
-		|| regroup_is_active)
-	{
-		return false;
-	}
-
-	return variable_struct_exists(squad.properties, "defense_is_set")
-		&& squad.properties.defense_is_set
-		&& variable_struct_exists(squad.properties, "defense_x")
-		&& variable_struct_exists(squad.properties, "defense_y");
-};
-
-friendly_squad_defense_target_is_allowed = function(_target, _allow_existing_chase = false)
-{
-	if (!friendly_squad_defense_is_active())
-	{
-		return true;
-	}
-
-	if (!instance_exists(_target))
-	{
-		return false;
-	}
-
-	var _target_is_committed = variable_struct_exists(squad.properties, "defense_commitment_timer")
-		&& squad.properties.defense_commitment_timer > 0
-		&& variable_struct_exists(squad.properties, "defense_committed_target")
-		&& _target == squad.properties.defense_committed_target;
-	var _allowed_radius = BALANCE_SQUAD_DEFENSE_ENGAGE_RADIUS;
-
-	if (_allow_existing_chase)
-	{
-		_allowed_radius = _target_is_committed
-			? BALANCE_SQUAD_DEFENSE_COMMITTED_CHASE_RADIUS
-			: BALANCE_SQUAD_DEFENSE_CHASE_RADIUS;
-	}
-
-	var _distance_x = _target.x - squad.properties.defense_x;
-	var _distance_y = _target.y - squad.properties.defense_y;
-	var _distance_squared = (_distance_x * _distance_x) + (_distance_y * _distance_y);
-
-	return _distance_squared <= _allowed_radius * _allowed_radius;
-};
-
 find_nearest_target = function(_object_index, _max_distance)
 {
 	var _nearest_target = noone;
@@ -1904,10 +1845,7 @@ find_nearest_target = function(_object_index, _max_distance)
 	{
 		var _target = instance_find(_object_index, _target_index);
 
-		var _allow_existing_chase = _target == target_instance;
-
-		if (!target_can_be_attacked(_target)
-			|| !friendly_squad_defense_target_is_allowed(_target, _allow_existing_chase))
+		if (!target_can_be_attacked(_target))
 		{
 			continue;
 		}
@@ -1951,9 +1889,7 @@ find_nearest_enemy_unit_target = function(_max_distance)
 	{
 		var _enemy = instance_find(o_enemy_units, _enemy_index);
 
-		if (_enemy != target_instance
-			|| !target_can_be_attacked(_enemy)
-			|| !friendly_squad_defense_target_is_allowed(_enemy, true))
+		if (_enemy != target_instance || !target_can_be_attacked(_enemy))
 		{
 			continue;
 		}
@@ -1978,9 +1914,7 @@ find_nearest_enemy_unit_target = function(_max_distance)
 	{
 		var _enemy = instance_find(o_enemy_units, _enemy_index);
 
-		if (_enemy == _nearest_target
-			|| !target_can_be_attacked(_enemy)
-			|| !friendly_squad_defense_target_is_allowed(_enemy, false))
+		if (_enemy == _nearest_target || !target_can_be_attacked(_enemy))
 		{
 			continue;
 		}
@@ -2697,12 +2631,6 @@ attack_target = function(_target)
 		if (instance_exists(_target))
 		{
 			start_attack_lunge(_target);
-
-			// A target that was actually hit may be finished without an abrupt leash retreat.
-			if (friendly_squad_defense_is_active())
-			{
-				squad_defense_target_commit(squad, _target);
-			}
 		}
 
 		// Corpse Armor hurts melee attackers while the shield is active.

@@ -1,6 +1,15 @@
 // Keep game surfaces aligned before any tutorial popup can block gameplay input.
 resources_clamp_to_max();
 
+// Replace the pointer with the Cannon Satisfaction label only while the cannon is hovered.
+var _cannon_satisfaction_is_hovered = cannon_satisfaction_hovered_get();
+
+if (_cannon_satisfaction_is_hovered != cannon_satisfaction_cursor_is_hidden)
+{
+	window_set_cursor(_cannon_satisfaction_is_hovered ? cr_none : cr_default);
+	cannon_satisfaction_cursor_is_hidden = _cannon_satisfaction_is_hovered;
+}
+
 var _window_width = window_get_width();
 var _window_height = window_get_height();
 
@@ -371,7 +380,8 @@ if (!global.pause
 // Delay the full moon tutorial until the player has unobstructed daytime control.
 full_moon_hint_delay_update();
 
-// Keep every night squad marker centered between its surviving units.
+// Keep squad combat signals and world markers synchronized with surviving units.
+squad_combat_guides_update();
 squad_night_markers_update();
 
 // World event squad selectors block gameplay input while their dropdown is open.
@@ -389,6 +399,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("archdem
 	var _camera_height = camera_get_view_height(_camera_controller.camera_id);
 	var _mouse_world_x = _camera_x + ((_mouse_gui_x / camera_view_width) * _camera_width);
 	var _mouse_world_y = _camera_y + ((_mouse_gui_y / camera_view_height) * _camera_height);
+	var _squad_roster_card_clicked = false;
 	var _cultist_status_card_clicked = false;
 	var _minimap_camera_clicked = false;
 	var _artifact_clicked = false;
@@ -442,6 +453,41 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("archdem
 		}
 	}
 
+	// Clicking a roster card centers the camera on the squad's surviving members.
+	if (!instance_exists(global.dragged_cultist)
+		&& !instance_exists(global.dragged_artifact)
+		&& !is_struct(global.dragged_squad)
+		&& mouse_check_button_pressed(mb_left)
+		&& instance_exists(o_hud))
+	{
+		var _squad_hud = instance_find(o_hud, 0);
+
+		if (variable_instance_exists(_squad_hud, "hud_squad_at_gui_position"))
+		{
+			var _roster_squad = _squad_hud.hud_squad_at_gui_position(_mouse_gui_x, _mouse_gui_y);
+
+			if (is_struct(_roster_squad) && squad_marker_position_update(_roster_squad))
+			{
+				if (variable_instance_exists(_camera_controller, "camera_center_on_position"))
+				{
+					_camera_controller.camera_center_on_position(
+						_roster_squad.properties.marker_x,
+						_roster_squad.properties.marker_y
+					);
+				}
+				else
+				{
+					_camera_controller.x = _roster_squad.properties.marker_x;
+					_camera_controller.y = _roster_squad.properties.marker_y;
+					_camera_controller.velocity_x = 0;
+					_camera_controller.velocity_y = 0;
+				}
+
+				_squad_roster_card_clicked = true;
+			}
+		}
+	}
+
 	// Night squad markers move every surviving member toward one shared cursor target.
 	if (global.day_phase == DAY_PHASE.NIGHT)
 	{
@@ -462,7 +508,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("archdem
 				global.sound_play_random(global.release_worker_sounds);
 			}
 		}
-		else if (mouse_check_button_pressed(mb_left))
+		else if (!_squad_roster_card_clicked && mouse_check_button_pressed(mb_left))
 		{
 			var _picked_squad = squad_marker_find_at_position(_mouse_world_x, _mouse_world_y);
 
@@ -474,7 +520,8 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("archdem
 		}
 	}
 
-	if (!_squad_marker_input_handled
+	if (!_squad_roster_card_clicked
+		&& !_squad_marker_input_handled
 		&& mouse_check_button_pressed(mb_left)
 		&& instance_exists(o_artifact))
 	{
@@ -512,6 +559,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("archdem
 	if (!instance_exists(global.dragged_cultist)
 		&& !instance_exists(global.dragged_artifact)
 		&& !is_struct(global.dragged_squad)
+		&& !_squad_roster_card_clicked
 		&& mouse_check_button_pressed(mb_left)
 		&& instance_exists(o_hud))
 	{
@@ -543,6 +591,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("archdem
 	if (!instance_exists(global.dragged_cultist)
 		&& !instance_exists(global.dragged_artifact)
 		&& !is_struct(global.dragged_squad)
+		&& !_squad_roster_card_clicked
 		&& mouse_check_button(mb_left)
 		&& instance_exists(o_hud))
 	{
@@ -708,6 +757,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("archdem
 		}
 	}
 	else if (mouse_check_button_pressed(mb_left)
+		&& !_squad_roster_card_clicked
 		&& !_squad_marker_input_handled
 		&& !_artifact_clicked
 		&& !_cultist_status_card_clicked
@@ -826,19 +876,37 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("archdem
 		}
 		else
 		{
-			var _building_slot = find_building_slot_at_position(_mouse_world_x, _mouse_world_y);
+			var _cannon_clicked = false;
 
-			if (instance_exists(_building_slot))
+			if (instance_exists(o_cannon))
 			{
-				open_building_window(_building_slot);
+				var _cannon = instance_find(o_cannon, 0);
+				_cannon_clicked = _mouse_world_x >= _cannon.bbox_left
+					&& _mouse_world_x <= _cannon.bbox_right
+					&& _mouse_world_y >= _cannon.bbox_top
+					&& _mouse_world_y <= _cannon.bbox_bottom;
+			}
+
+			if (_cannon_clicked)
+			{
+				open_cannon_satisfaction_window();
 			}
 			else
 			{
-				var _events_building = find_building_events_at_position(_mouse_world_x, _mouse_world_y);
+				var _building_slot = find_building_slot_at_position(_mouse_world_x, _mouse_world_y);
 
-				if (instance_exists(_events_building))
+				if (instance_exists(_building_slot))
 				{
-					open_building_events_window(_events_building);
+					open_building_window(_building_slot);
+				}
+				else
+				{
+					var _events_building = find_building_events_at_position(_mouse_world_x, _mouse_world_y);
+
+					if (instance_exists(_events_building))
+					{
+						open_building_events_window(_events_building);
+					}
 				}
 			}
 		}
@@ -1151,6 +1219,10 @@ if (keyboard_check_pressed(vk_escape))
 	{
 		close_building_events_window();
 	}
+	else if (global.focus_window == FOCUS_WINDOW.CANNON_SATISFACTION)
+	{
+		close_cannon_satisfaction_window();
+	}
 	else if (global.focus_window == FOCUS_WINDOW.CURSED_POINT_STRUCTURE_SELECTION)
 	{
 		if (variable_global_exists("cursed_point_structure_selection_source")
@@ -1422,6 +1494,27 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_EVENTS)
 	}
 }
 
+// The Cannon Satisfaction catalog is informational; only its close button is interactive.
+if (global.focus_window == FOCUS_WINDOW.CANNON_SATISFACTION
+	&& mouse_check_button_pressed(mb_left))
+{
+	var _satisfaction_window_rect = cannon_satisfaction_window_rect_get();
+	var _satisfaction_mouse_x = device_mouse_x_to_gui(0);
+	var _satisfaction_mouse_y = device_mouse_y_to_gui(0);
+
+	if (point_in_rectangle(
+		_satisfaction_mouse_x,
+		_satisfaction_mouse_y,
+		_satisfaction_window_rect.close_x,
+		_satisfaction_window_rect.close_y,
+		_satisfaction_window_rect.close_x + _satisfaction_window_rect.close_size,
+		_satisfaction_window_rect.close_y + _satisfaction_window_rect.close_size
+	))
+	{
+		close_cannon_satisfaction_window();
+	}
+}
+
 // Handle cultist demon selection window.
 if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION && mouse_check_button_pressed(mb_left))
 {
@@ -1658,9 +1751,47 @@ var _can_select_cannon_projectile = (global.day_phase == DAY_PHASE.NIGHT
 		|| global.day_phase == DAY_PHASE.DAY)
 	&& (global.focus_window == FOCUS_WINDOW.NOONE
 		|| (global.cannon_projectile_cheat_enabled && global.focus_window == FOCUS_WINDOW.TARGET_SELECTION));
+var _projectile_selection_click_index = -1;
+var _projectile_selection_click_used = false;
+
+// Night projectile slots use the same selection path as their number hotkeys.
+if (global.day_phase == DAY_PHASE.NIGHT
+	&& (global.focus_window == FOCUS_WINDOW.NOONE
+		|| global.focus_window == FOCUS_WINDOW.TARGET_SELECTION)
+	&& mouse_check_button_pressed(mb_left)
+	&& instance_exists(o_hud))
+{
+	var _projectile_hud = instance_find(o_hud, 0);
+
+	if (variable_instance_exists(_projectile_hud, "projectile_slot_at_gui_position"))
+	{
+		var _projectile_mouse_x = device_mouse_x_to_gui(0);
+		var _projectile_mouse_y = device_mouse_y_to_gui(0);
+		var _clicked_projectile_slot = _projectile_hud.projectile_slot_at_gui_position(
+			_projectile_mouse_x,
+			_projectile_mouse_y,
+			id
+		);
+
+		if (is_struct(_clicked_projectile_slot))
+		{
+			_projectile_selection_click_used = true;
+
+			if (_clicked_projectile_slot.queue_index >= 0 && _clicked_projectile_slot.count > 0)
+			{
+				_projectile_selection_click_index = _clicked_projectile_slot.consume_queue_index;
+
+				if (variable_global_exists("ui_confirm_sound_play"))
+				{
+					global.ui_confirm_sound_play();
+				}
+			}
+		}
+	}
+}
 
 // Start or update target selection mode from hotkeys when a usable projectile is ready.
-if (_can_select_cannon_projectile)
+if (_can_select_cannon_projectile || _projectile_selection_click_index >= 0)
 {
 	var _projectile_queue_count = array_length(global.cannon_projectile_queue);
 	var _projectile_display_slots = cannon_projectile_display_slots_get(9);
@@ -1678,7 +1809,8 @@ if (_can_select_cannon_projectile)
 
 	for (var _digit_index = 0; _digit_index < _max_digit_count; ++_digit_index)
 	{
-		if (keyboard_check_pressed(ord(string(_digit_index + 1))))
+		if (_can_select_cannon_projectile
+			&& keyboard_check_pressed(ord(string(_digit_index + 1))))
 		{
 			var _digit_slot = _projectile_display_slots[_digit_index];
 			var _digit_projectile_type = _digit_slot.projectile_type;
@@ -1691,6 +1823,11 @@ if (_can_select_cannon_projectile)
 
 			break;
 		}
+	}
+
+	if (_projectile_selection_click_index >= 0)
+	{
+		_selected_projectile_index = _projectile_selection_click_index;
 	}
 
 	if (_selected_projectile_index >= 0)
@@ -1710,7 +1847,9 @@ if (_can_select_cannon_projectile)
 }
 
 // Confirm target selection with left mouse button.
-if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && mouse_check_button_pressed(mb_left))
+if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION
+	&& mouse_check_button_pressed(mb_left)
+	&& !_projectile_selection_click_used)
 {
 	if (global.day_phase != DAY_PHASE.NIGHT
 		&& target_selection_projectile_type != PROJECTILE_TYPE.BUILDING_SHELL)

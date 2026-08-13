@@ -17,6 +17,33 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 	activation_count = 0;
 	is_resolved = false;
 
+	cultist_can_assign = function(_cultist, _ignore_capacity = false)
+	{
+		if (!instance_exists(_cultist)
+			|| !variable_instance_exists(_cultist, "is_available")
+			|| !_cultist.is_available()
+			|| is_resolved
+			|| (!_ignore_capacity
+				&& array_length(assigned_cultists) >= cultist_cost * activation_limit))
+		{
+			return false;
+		}
+
+		if (!cultist_is_eligible_check(_cultist))
+		{
+			return false;
+		}
+
+		return true;
+	};
+
+	cultist_is_eligible_check = function(_cultist)
+	{
+		return !variable_struct_exists(self, "cultist_is_eligible")
+			|| !is_callable(cultist_is_eligible)
+			|| cultist_is_eligible(_cultist);
+	};
+
 	activation_ready_count_get = function()
 	{
 		if (variable_struct_exists(self, "requires_squad_selection")
@@ -33,11 +60,7 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 
 	cultist_assign = function(_cultist)
 	{
-		if (!instance_exists(_cultist)
-			|| !variable_instance_exists(_cultist, "is_available")
-			|| !_cultist.is_available()
-			|| is_resolved
-			|| array_length(assigned_cultists) >= cultist_cost * activation_limit)
+		if (!cultist_can_assign(_cultist))
 		{
 			return false;
 		}
@@ -93,6 +116,7 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 			var _activation_cultists = array_create(cultist_cost);
 			array_copy(_activation_cultists, 0, assigned_cultists, _first_cultist_index, cultist_cost);
 			var _action_count = array_length(actions);
+			var _additional_hp_cost = cannon_satisfaction_event_hp_cost_get();
 
 			for (var _action_index = 0; _action_index < _action_count; ++_action_index)
 			{
@@ -102,6 +126,12 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 				{
 					_action.execute(self, _activation_cultists);
 				}
+			}
+
+			// Sulking makes every funded event hurt each assigned Cultist a little more.
+			if (_additional_hp_cost > 0)
+			{
+				day_event_cultist_hp_cost_apply(_activation_cultists, _additional_hp_cost);
 			}
 
 			activation_count++;
