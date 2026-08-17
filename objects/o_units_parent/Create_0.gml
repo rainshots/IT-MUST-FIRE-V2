@@ -1620,20 +1620,11 @@ is_demon_form_unit = function()
 		&& object_index != o_archdemon;
 };
 
-is_summoned_unit = function()
-{
-	return variable_instance_exists(id, "summon_nights_remaining")
-		|| (variable_instance_exists(id, "squad")
-			&& is_struct(squad)
-			&& squad.squad_type != SQUAD_TYPE.ARCHDEMON);
-};
-
 is_wall_blocked_friendly_unit = function()
 {
-	return is_demon_form_unit()
-		|| (object_index != o_goblin
-			&& (debug_combat_spawned
-				|| (is_summoned_unit() && global.day_phase == DAY_PHASE.NIGHT)));
+	// Every friendly combat unit stays outside the settlement; Goblins remain inside as workers.
+	return unit_faction == UNIT_FACTION.FRIENDLY
+		&& object_index != o_goblin;
 };
 
 is_blocked_by_cannon_wall = function()

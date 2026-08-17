@@ -4643,34 +4643,22 @@ cannon_corrupted_ground_damage_update = function()
 	}
 };
 
-// Cannon wall helpers keep demon-form cultists outside the cannon safe zone.
+// Cannon wall helpers keep combat units outside the settlement safe zone.
 cannon_wall_is_active = function()
 {
 	return global.day_phase == DAY_PHASE.NIGHT && instance_exists(o_cannon);
 };
 
-unit_is_demon_form = function(_unit)
-{
-	return instance_exists(_unit)
-		&& variable_instance_exists(_unit, "demon_type")
-		&& _unit.demon_type != DEMON_TYPE.NONE
-		&& _unit.object_index != o_archdemon;
-};
-
 unit_is_blocked_by_cannon_wall = function(_unit)
 {
-	if (!instance_exists(_unit))
+	if (!instance_exists(_unit)
+		|| !variable_instance_exists(_unit, "unit_faction"))
 	{
 		return false;
 	}
 
-	var _is_summoned_night_unit = global.day_phase == DAY_PHASE.NIGHT
-		&& (variable_instance_exists(_unit, "summon_nights_remaining")
-			|| (variable_instance_exists(_unit, "squad")
-				&& is_struct(_unit.squad)
-				&& _unit.squad.squad_type != SQUAD_TYPE.ARCHDEMON));
-
-	return unit_is_demon_form(_unit) || _is_summoned_night_unit;
+	return _unit.unit_faction == UNIT_FACTION.FRIENDLY
+		&& _unit.object_index != o_goblin;
 };
 
 cannon_wall_position_clamp = function(_world_x, _world_y)
