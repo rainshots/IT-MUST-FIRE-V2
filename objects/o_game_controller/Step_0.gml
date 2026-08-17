@@ -1760,7 +1760,7 @@ if (global.day_phase != DAY_PHASE.NIGHT
 var _can_select_cannon_projectile = (global.day_phase == DAY_PHASE.NIGHT
 		|| global.day_phase == DAY_PHASE.DAY)
 	&& (global.focus_window == FOCUS_WINDOW.NOONE
-		|| (global.cannon_projectile_cheat_enabled && global.focus_window == FOCUS_WINDOW.TARGET_SELECTION));
+		|| global.focus_window == FOCUS_WINDOW.TARGET_SELECTION);
 var _projectile_selection_click_index = -1;
 var _projectile_selection_click_used = false;
 

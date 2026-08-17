@@ -512,6 +512,7 @@ if (_flight_progress >= 1)
 				_shell_unit.source_unit_shell = unit_shell_payload;
 				_shell_unit.regroup_is_active = false;
 				_shell_unit.rally_is_active = false;
+				_shell_unit.friendly_guard_cannon_enabled = false;
 				_shell_unit.target_instance = noone;
 				_shell_unit.alert_target = noone;
 				squad_unit_permanent_bonuses_apply(unit_shell_payload, _shell_unit);
