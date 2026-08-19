@@ -176,7 +176,7 @@ warlock_demonic_infusion_update = function()
 		demonic_infusion_radius = BALANCE_WARLOCK_DEMONIC_INFUSION_RADIUS_LEVEL_2;
 	}
 
-	demonic_infusion_heal_timer--;
+	demonic_infusion_heal_timer -= gameplay_time_scale;
 
 	if (demonic_infusion_heal_timer <= 0)
 	{
@@ -346,8 +346,9 @@ warlock_soul_engine_souls_update = function()
 		}
 
 		var _direction = point_direction(_soul.x, _soul.y, x, y);
-		_soul.x += lengthdir_x(BALANCE_WARLOCK_SOUL_ENGINE_SOUL_SPEED, _direction);
-		_soul.y += lengthdir_y(BALANCE_WARLOCK_SOUL_ENGINE_SOUL_SPEED, _direction);
+		var _soul_move_speed = BALANCE_WARLOCK_SOUL_ENGINE_SOUL_SPEED * gameplay_time_scale;
+		_soul.x += lengthdir_x(_soul_move_speed, _direction);
+		_soul.y += lengthdir_y(_soul_move_speed, _direction);
 		soul_engine_souls[_write_index] = _soul;
 		_write_index++;
 	}
@@ -415,8 +416,9 @@ warlock_soul_engine_skulls_update = function()
 		}
 
 		var _direction = point_direction(_skull.x, _skull.y, _skull.target.x, _skull.target.y);
-		_skull.x += lengthdir_x(BALANCE_WARLOCK_SOUL_ENGINE_SKULL_SPEED, _direction);
-		_skull.y += lengthdir_y(BALANCE_WARLOCK_SOUL_ENGINE_SKULL_SPEED, _direction);
+		var _skull_move_speed = BALANCE_WARLOCK_SOUL_ENGINE_SKULL_SPEED * gameplay_time_scale;
+		_skull.x += lengthdir_x(_skull_move_speed, _direction);
+		_skull.y += lengthdir_y(_skull_move_speed, _direction);
 		soul_engine_skulls[_write_index] = _skull;
 		_write_index++;
 	}
@@ -500,18 +502,18 @@ warlock_familiar_update = function()
 		var _familiar = familiar_data[_familiar_index];
 		var _angle_offset = 360 / max(1, _target_count);
 
-		_familiar.angle += BALANCE_WARLOCK_FAMILIAR_ORBIT_SPEED;
+		_familiar.angle += BALANCE_WARLOCK_FAMILIAR_ORBIT_SPEED * gameplay_time_scale;
 		_familiar.x = x + lengthdir_x(BALANCE_WARLOCK_FAMILIAR_ORBIT_RADIUS, _familiar.angle + (_angle_offset * _familiar_index));
 		_familiar.y = y + lengthdir_y(BALANCE_WARLOCK_FAMILIAR_ORBIT_RADIUS * 0.65, _familiar.angle + (_angle_offset * _familiar_index));
 
 		if (_familiar.attack_timer > 0)
 		{
-			_familiar.attack_timer--;
+			_familiar.attack_timer -= gameplay_time_scale;
 		}
 
 		if (_familiar.attack_line_timer > 0)
 		{
-			_familiar.attack_line_timer--;
+			_familiar.attack_line_timer -= gameplay_time_scale;
 		}
 
 		if (_familiar.attack_timer <= 0)
@@ -816,7 +818,7 @@ warlock_soul_chain_groups_update = function()
 		var _living_count = 0;
 		var _members = _chain.members;
 
-		_chain.timer--;
+		_chain.timer -= gameplay_time_scale;
 
 		for (var _member_index = 0; _member_index < array_length(_members); ++_member_index)
 		{

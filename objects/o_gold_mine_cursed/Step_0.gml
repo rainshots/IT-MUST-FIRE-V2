@@ -16,7 +16,8 @@ if (global.day_phase != DAY_PHASE.DAY)
 	exit;
 }
 
-day_reward_timer--;
+var _time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
+day_reward_timer -= _time_scale;
 
 if (day_reward_timer <= 0)
 {

@@ -12,6 +12,7 @@ y_sort_enabled = true;
 
 // Base unit movement and target search settings.
 move_speed = 1.2;
+gameplay_time_scale = 1; // Updated from the global simulation scale every Step.
 target_detection_radius = BALANCE_UNIT_VISION_RADIUS;
 vision_radius = BALANCE_UNIT_VISION_RADIUS;
 cannon_guard_radius = 460;
@@ -299,7 +300,7 @@ support_effects_update = function()
 	for (var _effect_index = array_length(support_buff_effects) - 1; _effect_index >= 0; --_effect_index)
 	{
 		var _buff = support_buff_effects[_effect_index];
-		_buff.timer--;
+		_buff.timer -= gameplay_time_scale;
 
 		if (_buff.timer > 0)
 		{
@@ -315,8 +316,8 @@ support_effects_update = function()
 	for (var _effect_index = array_length(support_heal_effects) - 1; _effect_index >= 0; --_effect_index)
 	{
 		var _heal = support_heal_effects[_effect_index];
-		_heal.timer--;
-		_heal.tick_timer--;
+		_heal.timer -= gameplay_time_scale;
+		_heal.tick_timer -= gameplay_time_scale;
 
 		if (_heal.tick_timer <= 0)
 		{
@@ -453,7 +454,7 @@ ground_cell_saint_amount_get = function(_world_x, _world_y)
 
 unit_is_on_tainted_ground = function()
 {
-	tainted_ground_check_timer++;
+	tainted_ground_check_timer += gameplay_time_scale;
 
 	if (tainted_ground_check_timer < tainted_ground_check_interval)
 	{
@@ -504,7 +505,7 @@ enemy_saint_ground_heal_update = function()
 		return;
 	}
 
-	saint_ground_heal_timer++;
+	saint_ground_heal_timer += gameplay_time_scale;
 
 	if (saint_ground_heal_timer < saint_ground_heal_interval)
 	{
@@ -538,7 +539,7 @@ friendly_tainted_ground_heal_update = function()
 		return;
 	}
 
-	tainted_ground_heal_timer++;
+	tainted_ground_heal_timer += gameplay_time_scale;
 
 	if (tainted_ground_heal_timer < tainted_ground_heal_interval)
 	{
@@ -780,7 +781,7 @@ unit_move_speed_multiplier_get = function()
 
 unit_is_hidden_by_fog = function()
 {
-	fog_hidden_check_timer++;
+	fog_hidden_check_timer += gameplay_time_scale;
 
 	if (fog_hidden_check_timer < fog_hidden_check_interval)
 	{
@@ -917,7 +918,7 @@ status_effect_particles_update = function()
 			continue;
 		}
 
-		status_effect_particle_timers[_status_type]--;
+		status_effect_particle_timers[_status_type] -= gameplay_time_scale;
 
 		if (status_effect_particle_timers[_status_type] > 0)
 		{
@@ -943,7 +944,7 @@ status_effect_bleed_tick = function()
 		return;
 	}
 
-	status_effect_tick_timers[STATUS_EFFECT.BLEED]--;
+	status_effect_tick_timers[STATUS_EFFECT.BLEED] -= gameplay_time_scale;
 
 	if (status_effect_tick_timers[STATUS_EFFECT.BLEED] > 0)
 	{
@@ -973,7 +974,7 @@ status_effect_update = function()
 			continue;
 		}
 
-		status_effect_timers[_status_type]--;
+		status_effect_timers[_status_type] -= gameplay_time_scale;
 
 		if (status_effect_timers[_status_type] <= 0)
 		{
@@ -1032,7 +1033,7 @@ soul_chain_update = function()
 		return;
 	}
 
-	soul_chain_timer--;
+	soul_chain_timer -= gameplay_time_scale;
 
 	if (soul_chain_timer <= 0)
 	{
@@ -1567,7 +1568,7 @@ knockout_update = function()
 	visual_attack_offset_y = 0;
 	image_angle = 90;
 
-	knockout_timer--;
+	knockout_timer -= gameplay_time_scale;
 
 	if (knockout_timer <= 0)
 	{
@@ -1727,7 +1728,7 @@ panic_flee_update = function()
 		return false;
 	}
 
-	panic_flee_timer--;
+	panic_flee_timer -= gameplay_time_scale;
 
 	if (!target_can_be_attacked(panic_flee_source))
 	{
@@ -1737,7 +1738,10 @@ panic_flee_update = function()
 	}
 
 	var _flee_direction = point_direction(panic_flee_source.x, panic_flee_source.y, x, y);
-	var _current_move_speed = move_speed * unit_move_speed_multiplier_get() * panic_flee_speed_multiplier;
+	var _current_move_speed = move_speed
+		* unit_move_speed_multiplier_get()
+		* panic_flee_speed_multiplier
+		* gameplay_time_scale;
 
 	if (point_distance(x, y, panic_flee_source.x, panic_flee_source.y) <= 0)
 	{
@@ -1782,7 +1786,10 @@ forced_retreat_update = function()
 	}
 
 	var _retreat_distance = point_distance(x, y, forced_retreat_target_x, forced_retreat_target_y);
-	var _current_move_speed = move_speed * unit_move_speed_multiplier_get() * forced_retreat_speed_multiplier;
+	var _current_move_speed = move_speed
+		* unit_move_speed_multiplier_get()
+		* forced_retreat_speed_multiplier
+		* gameplay_time_scale;
 
 	if (_retreat_distance <= max(_current_move_speed, 8))
 	{
@@ -2269,7 +2276,7 @@ move_towards_target = function(_target)
 	if (instance_exists(_target))
 	{
 		var _target_direction = point_direction(x, y, _target.x, _target.y);
-		var _current_move_speed = move_speed * unit_move_speed_multiplier_get();
+		var _current_move_speed = move_speed * unit_move_speed_multiplier_get() * gameplay_time_scale;
 
 		is_walking = true;
 		face_world_x(_target.x);
@@ -2281,7 +2288,7 @@ move_towards_target = function(_target)
 move_towards_world_point = function(_target_x, _target_y)
 {
 	var _target_direction = point_direction(x, y, _target_x, _target_y);
-	var _current_move_speed = move_speed * unit_move_speed_multiplier_get();
+	var _current_move_speed = move_speed * unit_move_speed_multiplier_get() * gameplay_time_scale;
 
 	is_walking = true;
 	face_world_x(_target_x);
@@ -2343,7 +2350,7 @@ update_walk_sway = function()
 		return;
 	}
 
-	walk_sway_timer += 1 / max(1, room_speed);
+	walk_sway_timer += gameplay_time_scale / max(1, room_speed);
 
 	if (walk_sway_timer >= walk_sway_half_time)
 	{
@@ -2375,7 +2382,7 @@ update_attack_lunge = function()
 	}
 
 	var _return_time = max(1, reload_time * attack_lunge_return_time_multiplier);
-	var _return_amount = attack_lunge_distance / _return_time;
+	var _return_amount = (attack_lunge_distance / _return_time) * gameplay_time_scale;
 	var _offset_distance = point_distance(0, 0, visual_attack_offset_x, visual_attack_offset_y);
 
 	if (_offset_distance <= 0)
@@ -2443,12 +2450,14 @@ rally_group_start_returning = function()
 
 update_separation_push = function()
 {
-	separation_update_timer++;
+	separation_update_timer += gameplay_time_scale;
 
-	if (separation_update_timer mod separation_update_interval != 0)
+	if (separation_update_timer < separation_update_interval)
 	{
 		return;
 	}
+
+	separation_update_timer -= separation_update_interval;
 
 	var _separation_object = o_units_parent;
 
@@ -2505,8 +2514,8 @@ apply_separation_push = function()
 		_separation_multiplier *= combat_separation_multiplier;
 	}
 
-	x += separation_push_x * _separation_multiplier;
-	y += separation_push_y * _separation_multiplier;
+	x += separation_push_x * _separation_multiplier * gameplay_time_scale;
+	y += separation_push_y * _separation_multiplier * gameplay_time_scale;
 };
 
 physical_damage_after_armor = function(_raw_damage, _target)
@@ -2559,7 +2568,7 @@ attack_target = function(_target)
 
 	if (reload_timer > 0)
 	{
-		reload_timer--;
+		reload_timer -= gameplay_time_scale;
 		return;
 	}
 

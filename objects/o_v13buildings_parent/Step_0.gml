@@ -3,10 +3,11 @@ missing_work_resource = noone;
 missing_work_resource_name = "";
 missing_work_resource_amount = 0;
 missing_work_resource_color = c_white;
+var _time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
 
 if (building_warning_timer > 0)
 {
-	building_warning_timer = max(0, building_warning_timer - 1);
+	building_warning_timer = max(0, building_warning_timer - _time_scale);
 }
 
 if (global.pause || !building_accepts_workers)
@@ -36,7 +37,8 @@ array_resize(worker_cultists, _valid_worker_count);
 if (object_index == o_ritual_circle)
 {
 	var _daily_exp_limit = ritual_circle_daily_exp_limit_get();
-	var _daily_exp_restore = BALANCE_RITUAL_CIRCLE_DAILY_EXP_RESTORE_PER_SECOND / max(1, room_speed);
+	var _daily_exp_restore = (BALANCE_RITUAL_CIRCLE_DAILY_EXP_RESTORE_PER_SECOND / max(1, room_speed))
+		* _time_scale;
 	ritual_circle_daily_exp_remaining = min(
 		ritual_circle_daily_exp_remaining + _daily_exp_restore,
 		_daily_exp_limit
@@ -91,7 +93,7 @@ if (production_secondary_effect_upgrade_index != noone
 			}
 
 			var _upgrade_heal_hp_before_heal = _heal_worker.hp;
-			_heal_worker.hp = min(_heal_worker.hp + _heal_step, _heal_worker.max_hp);
+			_heal_worker.hp = min(_heal_worker.hp + (_heal_step * _time_scale), _heal_worker.max_hp);
 			heal_feedback_create(_heal_worker, _heal_worker.hp - _upgrade_heal_hp_before_heal);
 		}
 	}
@@ -104,13 +106,13 @@ if (production_secondary_effect_upgrade_index != noone
 			&& _cannon.hp < _cannon.max_hp)
 		{
 			var _repair_step = (BALANCE_WORKSHOP_IRON_REPAIR_AMOUNT * production_speed_multiplier * BALANCE_RESOURCE_BUILDING_SECONDARY_EFFECT_MULTIPLIER) / max(1, BALANCE_WORKSHOP_REPAIR_TIME * room_speed);
-			_cannon.hp = min(_cannon.hp + _repair_step, _cannon.max_hp);
+			_cannon.hp = min(_cannon.hp + (_repair_step * _time_scale), _cannon.max_hp);
 		}
 	}
 	else if (object_index == o_souls_well)
 	{
 		var _summon_step = (production_speed_multiplier * BALANCE_RESOURCE_BUILDING_SECONDARY_EFFECT_MULTIPLIER) / max(1, BALANCE_GRAVEYARD_SKELETON_PRODUCTION_TIME * room_speed);
-		secondary_effect_progress += _summon_step;
+		secondary_effect_progress += _summon_step * _time_scale;
 
 		if (secondary_effect_progress >= 1)
 		{
@@ -175,7 +177,8 @@ if (object_index == o_meat_bath)
 		exit;
 	}
 
-	var _heal_step = (BALANCE_MEAT_BATH_FLESH_HEAL_AMOUNT * production_speed_multiplier) / max(1, BALANCE_MEAT_BATH_HEAL_TIME * room_speed);
+	var _heal_step = ((BALANCE_MEAT_BATH_FLESH_HEAL_AMOUNT * production_speed_multiplier) / max(1, BALANCE_MEAT_BATH_HEAL_TIME * room_speed))
+		* _time_scale;
 
 	for (var _heal_worker_index = 0; _heal_worker_index < _valid_worker_count; ++_heal_worker_index)
 	{
@@ -250,7 +253,8 @@ if (object_index == o_ritual_circle)
 		_ritual_exp_multiplier = BALANCE_RITUAL_CIRCLE_EXP_UPGRADE_MULTIPLIER;
 	}
 
-	var _exp_step = (ritual_circle_exp_pool_amount * production_speed_multiplier * _ritual_exp_multiplier) / max(1, BALANCE_RITUAL_CIRCLE_EXP_TIME * room_speed);
+	var _exp_step = ((ritual_circle_exp_pool_amount * production_speed_multiplier * _ritual_exp_multiplier) / max(1, BALANCE_RITUAL_CIRCLE_EXP_TIME * room_speed))
+		* _time_scale;
 
 	// Ritual Circle restores stamina even when its daily XP reserve is empty.
 	for (var _stamina_worker_index = 0; _stamina_worker_index < _valid_worker_count; ++_stamina_worker_index)
@@ -269,7 +273,8 @@ if (object_index == o_ritual_circle)
 			_stamina_max = _stamina_worker.stamina_max;
 		}
 
-		var _stamina_restore_step = (_stamina_max * production_speed_multiplier) / max(1, BALANCE_RITUAL_CIRCLE_STAMINA_RESTORE_TIME * room_speed);
+		var _stamina_restore_step = ((_stamina_max * production_speed_multiplier) / max(1, BALANCE_RITUAL_CIRCLE_STAMINA_RESTORE_TIME * room_speed))
+			* _time_scale;
 		_stamina_worker.stamina_amount = min(_stamina_worker.stamina_amount + _stamina_restore_step, _stamina_max);
 	}
 
@@ -387,7 +392,7 @@ if (object_index == o_workshop)
 	}
 
 	var _repair_step = (BALANCE_WORKSHOP_IRON_REPAIR_AMOUNT * production_speed_multiplier) / max(1, BALANCE_WORKSHOP_REPAIR_TIME * room_speed);
-	_repair_step *= _repair_amount_multiplier;
+	_repair_step *= _repair_amount_multiplier * _time_scale;
 
 	var _missing_hp = _repair_target.max_hp - _repair_target.hp;
 	var _repair_amount = min(_repair_step, min(workshop_repair_pool, _missing_hp));
@@ -436,7 +441,7 @@ if (object_index == o_shell_factory)
 	}
 
 	var _shell_factory_step = production_speed_multiplier / max(1, BALANCE_SHELL_FACTORY_PRODUCTION_TIME * room_speed);
-	shell_factory_progress += _shell_factory_step;
+	shell_factory_progress += _shell_factory_step * _time_scale;
 
 	if (shell_factory_progress >= 1)
 	{
@@ -465,7 +470,7 @@ if (object_index == o_foundry)
 	}
 
 	var _foundry_step = production_speed_multiplier / max(1, foundry_shell_duration * room_speed);
-	foundry_shell_progress += _foundry_step;
+	foundry_shell_progress += _foundry_step * _time_scale;
 
 	if (foundry_shell_progress >= 1)
 	{
@@ -515,7 +520,7 @@ if (summon_unit_object != noone)
 	}
 
 	var _summon_step = production_speed_multiplier / max(1, summon_duration * room_speed);
-	summon_progress += _summon_step;
+	summon_progress += _summon_step * _time_scale;
 
 	if (summon_progress >= 1)
 	{
@@ -620,7 +625,7 @@ if (_resource_capacity <= 0)
 
 // Use current room_speed so production duration stays stable if speed changes.
 var _production_step = production_speed_multiplier / max(1, production_duration * room_speed);
-production_progress += _production_step;
+production_progress += _production_step * _time_scale;
 
 if (production_progress >= 1)
 {

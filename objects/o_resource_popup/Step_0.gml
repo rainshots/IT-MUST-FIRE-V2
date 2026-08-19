@@ -5,8 +5,9 @@ if (global.pause)
 }
 
 // Move upward and fade out over lifetime.
-life_timer++;
-y += move_speed_y;
+var _time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
+life_timer += _time_scale;
+y += move_speed_y * _time_scale;
 
 var _life_progress = clamp(life_timer / life_time, 0, 1);
 current_alpha = lerp(start_alpha, 0, _life_progress);

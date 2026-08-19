@@ -703,7 +703,9 @@ tower_capture_update = function()
 		return;
 	}
 
-	capture_check_timer++;
+	capture_check_timer += variable_global_exists("gameplay_time_scale")
+		? global.gameplay_time_scale
+		: 1;
 
 	if (capture_check_timer < capture_check_interval)
 	{

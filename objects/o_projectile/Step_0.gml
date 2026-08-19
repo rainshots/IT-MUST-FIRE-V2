@@ -13,14 +13,26 @@ if (global.pause && !ignore_pause)
 	exit;
 }
 
-// Delay launch so volley projectiles land with slight timing differences.
-if (launch_delay_timer > 0)
+// Projectiles follow scaled gameplay time while the game continues rendering at 60 FPS.
+gameplay_time_scale = variable_global_exists("gameplay_time_scale")
+	? global.gameplay_time_scale
+	: 1;
+
+// A landed Hellcow owns its brief brace, charge, push, and final explosion here.
+if (projectile_type == PROJECTILE_TYPE.BOMB && hellcow_charge_active)
 {
-	launch_delay_timer--;
+	hellcow_charge_update();
 	exit;
 }
 
-flight_timer++;
+// Delay launch so volley projectiles land with slight timing differences.
+if (launch_delay_timer > 0)
+{
+	launch_delay_timer -= gameplay_time_scale;
+	exit;
+}
+
+flight_timer += gameplay_time_scale;
 
 var _flight_progress = clamp(flight_timer / flight_time, 0, 1);
 var _arc_offset = -sin(_flight_progress * pi) * arc_height;
@@ -74,7 +86,14 @@ if (_flight_progress >= 1)
 		instance_create_layer(_smoke_x, _smoke_y, particle_layer_name, o_particle_smoke);
 	}
 
-	// Doom Bell combines its ground corruption with a later damage effect.
+	// The impact cracks the shell; the cow then braces before beginning its directed charge.
+	if (projectile_type == PROJECTILE_TYPE.BOMB)
+	{
+		hellcow_charge_start();
+		exit;
+	}
+
+	// Doom Bell corrupts the ground before stunning enemies in its impact area.
 	if (projectile_type == PROJECTILE_TYPE.DOOM_BELL)
 	{
 		corrupt_circle(
@@ -418,45 +437,15 @@ if (_flight_progress >= 1)
 
 		ds_priority_destroy(_artillery_targets);
 	}
-	else if (projectile_type == PROJECTILE_TYPE.BOMB
-		|| projectile_type == PROJECTILE_TYPE.DOOM_BELL)
+	else if (projectile_type == PROJECTILE_TYPE.DOOM_BELL)
 	{
-		with (all)
+		with (o_enemy_units)
 		{
-			var _is_valid_target = (
-				id != other.id
-				&& id != other.source_instance
-				&& object_index != o_projectile
-				&& object_index != o_particle_smoke
-				&& object_index != o_particle_explosion
-				&& object_index != o_camera_controller
-				&& object_index != o_game_controller
-			);
-
-			if (_is_valid_target
-				&& !other.projectile_target_is_allied(id)
+			if (hp > 0
 				&& point_distance(x, y, other.target_x, other.target_y) <= other.effect_radius
-				&& variable_instance_exists(id, "hp"))
+				&& variable_instance_exists(id, "stun_apply"))
 			{
-				if (variable_instance_exists(id, "unit_damage_receive"))
-				{
-					unit_damage_receive(
-						other.damage_amount,
-						other.damage_faction,
-						false,
-						true,
-						other.source_instance
-					);
-				}
-				else
-				{
-					hp = max(hp - other.damage_amount, 0);
-
-					if (variable_instance_exists(id, "unit_faction"))
-					{
-						damage_popup_create(x, y, other.damage_amount, unit_faction);
-					}
-				}
+				stun_apply(BALANCE_PROJECTILE_DOOM_BELL_STUN_TIME);
 			}
 		}
 	}

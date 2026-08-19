@@ -4,7 +4,8 @@ if (global.pause)
 	exit;
 }
 
-corruption_check_timer++;
+var _time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
+corruption_check_timer += _time_scale;
 
 if (corruption_check_timer < corruption_check_interval)
 {

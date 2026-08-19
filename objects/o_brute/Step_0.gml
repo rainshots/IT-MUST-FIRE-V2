@@ -6,9 +6,11 @@ if (global.pause || hp <= 0)
 	exit;
 }
 
+var _time_scale = gameplay_time_scale;
+
 if (attack_aoe_circle_timer > 0)
 {
-	attack_aoe_circle_timer--;
+	attack_aoe_circle_timer -= _time_scale;
 }
 
 if (is_being_dragged || is_stunned)
@@ -21,14 +23,14 @@ brute_hook_update();
 
 if (grave_slam_circle_timer > 0)
 {
-	grave_slam_circle_timer--;
+	grave_slam_circle_timer -= _time_scale;
 }
 
 // Level 4 Grave Slam spike visuals fade out independently.
 for (var _spike_index = array_length(grave_slam_spike_visuals) - 1; _spike_index >= 0; --_spike_index)
 {
 	var _spike = grave_slam_spike_visuals[_spike_index];
-	_spike.timer--;
+	_spike.timer -= _time_scale;
 
 	if (_spike.timer <= 0)
 	{
@@ -42,13 +44,13 @@ for (var _spike_index = array_length(grave_slam_spike_visuals) - 1; _spike_index
 
 if (meat_explosion_circle_timer > 0)
 {
-	meat_explosion_circle_timer--;
+	meat_explosion_circle_timer -= _time_scale;
 }
 
 // Rotten Aura constantly leaks magic damage into nearby enemies.
 if (has_brute_rotten_aura && BALANCE_BRUTE_ROTTEN_AURA_ENABLED)
 {
-	rotten_aura_tick_timer--;
+	rotten_aura_tick_timer -= _time_scale;
 
 	if (rotten_aura_tick_timer <= 0)
 	{
@@ -106,12 +108,12 @@ if (has_brute_rotten_aura)
 // Use only the active ability this Brute currently owns.
 if (grave_slam_timer > 0)
 {
-	grave_slam_timer--;
+	grave_slam_timer -= _time_scale;
 }
 
 if (grave_slam_retry_timer > 0)
 {
-	grave_slam_retry_timer--;
+	grave_slam_retry_timer -= _time_scale;
 }
 
 if (cultist_active_ability_has(id, DEMON_ABILITY.BRUTE_GRAVE_SLAM)
@@ -130,12 +132,12 @@ if (cultist_active_ability_has(id, DEMON_ABILITY.BRUTE_GRAVE_SLAM)
 
 if (butcher_chains_timer > 0)
 {
-	butcher_chains_timer--;
+	butcher_chains_timer -= _time_scale;
 }
 
 if (butcher_chains_retry_timer > 0)
 {
-	butcher_chains_retry_timer--;
+	butcher_chains_retry_timer -= _time_scale;
 }
 
 if (cultist_active_ability_has(id, DEMON_ABILITY.BRUTE_BUTCHER_CHAINS)
@@ -155,12 +157,12 @@ if (cultist_active_ability_has(id, DEMON_ABILITY.BRUTE_BUTCHER_CHAINS)
 
 if (corpse_armor_ability_timer > 0)
 {
-	corpse_armor_ability_timer--;
+	corpse_armor_ability_timer -= _time_scale;
 }
 
 if (corpse_armor_retry_timer > 0)
 {
-	corpse_armor_retry_timer--;
+	corpse_armor_retry_timer -= _time_scale;
 }
 
 if (cultist_active_ability_has(id, DEMON_ABILITY.BRUTE_CORPSE_ARMOR)

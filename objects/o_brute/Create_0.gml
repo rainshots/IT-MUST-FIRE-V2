@@ -163,7 +163,7 @@ brute_heal_particles_create = function()
 
 brute_rotten_aura_particles_update = function()
 {
-	rotten_aura_particle_timer--;
+	rotten_aura_particle_timer -= gameplay_time_scale;
 
 	if (!BALANCE_BRUTE_ROTTEN_AURA_ENABLED
 		|| rotten_aura_particle_timer > 0
@@ -738,12 +738,13 @@ brute_chain_visuals_update = function()
 			}
 
 			var _target_distance = point_distance(_chain.tip_x, _chain.tip_y, _chain.target_x, _chain.target_y);
-			var _flight_distance = min(BALANCE_BRUTE_BUTCHER_CHAINS_LINE_SPEED, _target_distance);
+			var _flight_speed = BALANCE_BRUTE_BUTCHER_CHAINS_LINE_SPEED * gameplay_time_scale;
+			var _flight_distance = min(_flight_speed, _target_distance);
 			var _flight_direction = point_direction(_chain.tip_x, _chain.tip_y, _chain.target_x, _chain.target_y);
 			_chain.tip_x += lengthdir_x(_flight_distance, _flight_direction);
 			_chain.tip_y += lengthdir_y(_flight_distance, _flight_direction);
 
-			if (_target_distance <= BALANCE_BRUTE_BUTCHER_CHAINS_LINE_SPEED)
+			if (_target_distance <= _flight_speed)
 			{
 				if (target_can_be_attacked(_chain.target))
 				{
@@ -771,12 +772,13 @@ brute_chain_visuals_update = function()
 		else
 		{
 			var _return_distance_to_brute = point_distance(_chain.tip_x, _chain.tip_y, x, y);
-			var _return_distance = min(BALANCE_BRUTE_BUTCHER_CHAINS_LINE_RETURN_SPEED, _return_distance_to_brute);
+			var _return_speed = BALANCE_BRUTE_BUTCHER_CHAINS_LINE_RETURN_SPEED * gameplay_time_scale;
+			var _return_distance = min(_return_speed, _return_distance_to_brute);
 			var _return_direction = point_direction(_chain.tip_x, _chain.tip_y, x, y);
 			_chain.tip_x += lengthdir_x(_return_distance, _return_direction);
 			_chain.tip_y += lengthdir_y(_return_distance, _return_direction);
 
-			if (_return_distance_to_brute <= BALANCE_BRUTE_BUTCHER_CHAINS_LINE_RETURN_SPEED)
+			if (_return_distance_to_brute <= _return_speed)
 			{
 				continue;
 			}
@@ -831,7 +833,8 @@ brute_hook_update = function()
 		}
 
 		var _pull_direction = point_direction(_target.x, _target.y, x, y);
-		var _pull_distance = min(BALANCE_BRUTE_BUTCHER_CHAINS_PULL_SPEED, _distance_to_brute);
+		var _pull_speed = BALANCE_BRUTE_BUTCHER_CHAINS_PULL_SPEED * gameplay_time_scale;
+		var _pull_distance = min(_pull_speed, _distance_to_brute);
 		_target.x += lengthdir_x(_pull_distance, _pull_direction);
 		_target.y += lengthdir_y(_pull_distance, _pull_direction);
 		hook_targets[_write_index] = _target;
@@ -1001,7 +1004,7 @@ brute_corpse_eater_update = function()
 
 	if (corpse_eater_cooldown_timer > 0)
 	{
-		corpse_eater_cooldown_timer--;
+		corpse_eater_cooldown_timer -= gameplay_time_scale;
 	}
 
 	if (corpse_eater_cooldown_timer > 0 || hp >= max_hp)

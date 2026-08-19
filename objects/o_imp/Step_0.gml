@@ -15,6 +15,9 @@ if (global.pause || hp <= 0)
 	exit;
 }
 
+gameplay_time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
+var _time_scale = gameplay_time_scale;
+
 imp_ability_damage_meter_update();
 
 if (is_being_dragged
@@ -26,13 +29,13 @@ if (is_being_dragged
 // Active ability timers continue while the Imp can act.
 if (leap_visual_timer > 0)
 {
-	leap_visual_timer--;
+	leap_visual_timer -= _time_scale;
 }
 
 for (var _leap_segment_index = array_length(leap_visual_segments) - 1; _leap_segment_index >= 0; --_leap_segment_index)
 {
 	var _leap_segment = leap_visual_segments[_leap_segment_index];
-	_leap_segment.timer--;
+	_leap_segment.timer -= _time_scale;
 
 	if (_leap_segment.timer <= 0)
 	{
@@ -46,27 +49,27 @@ for (var _leap_segment_index = array_length(leap_visual_segments) - 1; _leap_seg
 
 if (demon_leap_timer > 0)
 {
-	demon_leap_timer--;
+	demon_leap_timer -= _time_scale;
 }
 
 if (demon_leap_retry_timer > 0)
 {
-	demon_leap_retry_timer--;
+	demon_leap_retry_timer -= _time_scale;
 }
 
 if (crimson_guillotine_timer > 0)
 {
-	crimson_guillotine_timer--;
+	crimson_guillotine_timer -= _time_scale;
 }
 
 if (crimson_guillotine_retry_timer > 0)
 {
-	crimson_guillotine_retry_timer--;
+	crimson_guillotine_retry_timer -= _time_scale;
 }
 
 if (crimson_guillotine_strike_timer > 0)
 {
-	crimson_guillotine_strike_timer--;
+	crimson_guillotine_strike_timer -= _time_scale;
 
 	if (crimson_guillotine_strike_timer <= 0)
 	{
@@ -81,17 +84,17 @@ if (crimson_guillotine_strike_timer > 0)
 
 if (bloody_clone_timer > 0)
 {
-	bloody_clone_timer--;
+	bloody_clone_timer -= _time_scale;
 }
 
 if (bloody_clone_retry_timer > 0)
 {
-	bloody_clone_retry_timer--;
+	bloody_clone_retry_timer -= _time_scale;
 }
 
 if (blood_hunger_frenzy_timer > 0)
 {
-	blood_hunger_frenzy_timer--;
+	blood_hunger_frenzy_timer -= _time_scale;
 }
 
 // Blood Hunger stacks expire independently.
@@ -99,14 +102,14 @@ for (var _stack_index = 0; _stack_index < array_length(blood_frenzy_stack_timers
 {
 	if (blood_frenzy_stack_timers[_stack_index] > 0)
 	{
-		blood_frenzy_stack_timers[_stack_index]--;
+		blood_frenzy_stack_timers[_stack_index] -= _time_scale;
 	}
 }
 
 // Active Blood Hunger emits red smoke across the Imp body.
 if (imp_blood_frenzy_stack_count_get() > 0)
 {
-	blood_frenzy_particle_timer--;
+	blood_frenzy_particle_timer -= _time_scale;
 
 	if (blood_frenzy_particle_timer <= 0)
 	{
@@ -124,7 +127,7 @@ imp_blood_blades_update();
 
 if (frenzy_echo_visual_timer > 0)
 {
-	frenzy_echo_visual_timer--;
+	frenzy_echo_visual_timer -= _time_scale;
 }
 
 if (demon_leap_is_active)

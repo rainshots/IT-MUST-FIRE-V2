@@ -3100,7 +3100,7 @@ function day_event_building_catalog_get(_building_object)
 				_entry("First Aid Meat shells production", "Permanently increase the morning First Aid Meat shell stockpile limit by 1. Requires 1 Cultist, who loses 20 HP."),
 				_entry("Hellcow shells production", "Permanently increase the morning Hellcow shell stockpile limit by 1. Requires 1 Cultist, who loses 20 HP."),
 				_entry("Taint Compost shells production", "Permanently increase the morning Taint Compost shell stockpile limit by 1. Requires 1 Cultist, who loses 20 HP."),
-				_entry("Produce Doom Bell Shell", "Produce 1 powerful Doom Bell shell that damages enemies and taints ground. Requires 2 Cultists. Each loses 25 HP.", 2),
+				_entry("Produce Doom Bell Shell", "Produce 1 powerful Doom Bell shell that stuns enemies for 4 seconds and taints ground. Requires 2 Cultists. Each loses 25 HP.", 2),
 				_entry("Hellcow's diet change", "Permanently increase Hellcow shell damage by 25%. Maximum 4 activations."),
 				_entry("Tight tamping of meat", "Permanently increase First Aid Meat healing and effect radius by 25%. Maximum 4 activations.")
 			];
@@ -3823,7 +3823,7 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 					_shell_factory,
 					"shell_factory_doom_bell_shell",
 					"Produce Doom Bell Shell",
-					"Produce 1 Doom Bell shell that explodes on impact, dealing heavy damage and tainting the ground.\nRequires 2 Cultists. Each loses 25 HP.",
+					"Produce 1 Doom Bell shell that stuns enemies for 4 seconds and taints the ground. It deals no damage.\nRequires 2 Cultists. Each loses 25 HP.",
 					PROJECTILE_TYPE.DOOM_BELL,
 					BALANCE_SHELL_FACTORY_DOOM_BELL_SHELL_COUNT,
 					BALANCE_SHELL_FACTORY_DOOM_BELL_CULTIST_COUNT,

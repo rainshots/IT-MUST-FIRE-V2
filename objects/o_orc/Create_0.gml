@@ -53,7 +53,9 @@ orc_move_towards = function(_target_x, _target_y)
 		return true;
 	}
 
-	var _move_distance = min(move_speed, _distance);
+	var _time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
+	var _scaled_move_speed = move_speed * _time_scale;
+	var _move_distance = min(_scaled_move_speed, _distance);
 	var _move_direction = point_direction(x, y, _target_x, _target_y);
 
 	face_world_x(_target_x);
@@ -63,5 +65,5 @@ orc_move_towards = function(_target_x, _target_y)
 	drag_drop_y = y;
 	is_walking = true;
 
-	return _distance <= move_speed;
+	return _distance <= _scaled_move_speed;
 };

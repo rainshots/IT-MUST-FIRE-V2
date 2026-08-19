@@ -13,6 +13,7 @@ global.edge_scroll_enabled = true;
 global.edge_scroll_speed = 0.5;
 global.camera_speed = 0.5;
 global.game_speed_normal = BALANCE_GAME_SPEED_NORMAL;
+global.gameplay_time_scale = 1;
 game_set_speed(global.game_speed_normal, gamespeed_fps);
 
 
@@ -37,11 +38,24 @@ night_attack_balance_by_day = [
 // Q toggles quadruple simulation speed during the night.
 night_fast_forward_active = false;
 night_fast_forward_multiplier = 4;
+
+// Targeting and fast-forward scale gameplay while rendering, input, and camera remain at 60 FPS.
+gameplay_time_scale_update = function()
+{
+	var _gameplay_time_scale = night_fast_forward_active ? night_fast_forward_multiplier : 1;
+
+	if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION)
+	{
+		_gameplay_time_scale = BALANCE_CANNON_TARGET_SELECTION_TIME_SCALE;
+	}
+
+	global.gameplay_time_scale = _gameplay_time_scale;
+};
+
 night_fast_forward_set = function(_active)
 {
 	night_fast_forward_active = _active && global.day_phase == DAY_PHASE.NIGHT;
-	var _speed_multiplier = night_fast_forward_active ? night_fast_forward_multiplier : 1;
-	game_set_speed(global.game_speed_normal * _speed_multiplier, gamespeed_fps);
+	gameplay_time_scale_update();
 };
 
 // Global day cycle uses fixed day and night timers.
@@ -1601,6 +1615,7 @@ global.cannon_target_exists = false;
 global.cannon_target_x = 0;
 global.cannon_target_y = 0;
 global.cannon_target_projectile_type = PROJECTILE_TYPE.DAMAGE;
+global.cannon_target_direction = 0;
 global.cannon_target_version = 0;
 global.cannon_target_consumes_projectile_queue = true;
 global.cannon_target_projectile_queue_index = 0;
@@ -2212,7 +2227,7 @@ resources_clamp_to_max = function()
 
 player_building_ground_state_update = function()
 {
-	player_building_ground_check_timer++;
+	player_building_ground_check_timer += global.gameplay_time_scale;
 
 	if (player_building_ground_check_timer < player_building_ground_check_interval)
 	{
@@ -3472,6 +3487,11 @@ target_selection_projectile_type = PROJECTILE_TYPE.DAMAGE;
 target_selection_radius = BALANCE_PROJECTILE_EFFECT_RADIUS;
 target_selection_alpha = 0.35;
 target_selection_outline_alpha = 0.85;
+hellcow_aim_is_dragging = false;
+hellcow_aim_start_x = 0;
+hellcow_aim_start_y = 0;
+hellcow_aim_direction = 0;
+hellcow_aim_drag_distance = 0;
 cannon_projectile_night_slots = []; // Fixed number-key assignments captured at the start of each night.
 
 // Building shell previews use the future structure's gameplay radius when it has one.
@@ -3655,7 +3675,10 @@ cannon_shell_cooldowns_update = function()
 				_cooldown_step = cannon_satisfaction_shell_recharge_multiplier_get();
 			}
 
-			_payload.cooldown_timer = max(0, _payload.cooldown_timer - _cooldown_step);
+			_payload.cooldown_timer = max(
+				0,
+				_payload.cooldown_timer - (_cooldown_step * global.gameplay_time_scale)
+			);
 		}
 	}
 };
@@ -4582,7 +4605,7 @@ cannon_corrupted_ground_damage_update = function()
 		return;
 	}
 
-	cannon_corrupted_ground_damage_timer--;
+	cannon_corrupted_ground_damage_timer -= global.gameplay_time_scale;
 
 	if (cannon_corrupted_ground_damage_timer > 0)
 	{
@@ -5065,7 +5088,7 @@ worker_whip_unit_update = function(_unit)
 		return;
 	}
 
-	_unit.whip_timer--;
+	_unit.whip_timer -= global.gameplay_time_scale;
 
 	if (_unit.whip_timer <= 0)
 	{
@@ -6667,7 +6690,7 @@ worker_idle_wander_update = function(_worker, _allow_cannon_assignment = false)
 			_worker.is_walking = false;
 		}
 
-		_worker.idle_wander_wait_timer--;
+		_worker.idle_wander_wait_timer -= global.gameplay_time_scale;
 
 		if (_worker.idle_wander_wait_timer <= 0)
 		{
@@ -6691,7 +6714,7 @@ worker_idle_wander_update = function(_worker, _allow_cannon_assignment = false)
 		_move_speed *= _worker.whip_work_multiplier;
 	}
 
-	_move_speed *= BALANCE_IDLE_WORKER_WANDER_SPEED_MULTIPLIER;
+	_move_speed *= BALANCE_IDLE_WORKER_WANDER_SPEED_MULTIPLIER * global.gameplay_time_scale;
 
 	var _move_distance = min(_move_speed, _distance);
 	var _move_direction = point_direction(_worker.x, _worker.y, _worker.idle_wander_target_x, _worker.idle_wander_target_y);
@@ -6736,7 +6759,8 @@ day_worker_stamina_spend = function(_worker, _drain_multiplier = 1)
 
 	var _stamina_delta = -BALANCE_CULTIST_STAMINA_DRAIN_PER_SECOND
 		* _drain_multiplier
-		/ max(1, room_speed);
+		/ max(1, room_speed)
+		* global.gameplay_time_scale;
 
 	var _stamina_max = BALANCE_CULTIST_STAMINA_MAX;
 
@@ -6979,7 +7003,7 @@ cannon_night_shell_recharge_update = function()
 			(BALANCE_CANNON_NIGHT_SHELL_RECHARGE_TIME * room_speed) / _recharge_speed_multiplier
 		);
 		var _recharge_timer = cannon_night_shell_recharge_timers[_projectile_type];
-		_recharge_timer = min(_recharge_timer + 1, _recharge_interval);
+		_recharge_timer = min(_recharge_timer + global.gameplay_time_scale, _recharge_interval);
 		cannon_night_shell_recharge_timers[_projectile_type] = _recharge_timer;
 
 		if (_recharge_timer >= _recharge_interval
@@ -7089,6 +7113,7 @@ cannon_worker_move_towards = function(_worker, _target_x, _target_y)
 		_move_speed *= BALANCE_CULTIST_STAMINA_EMPTY_EFFICIENCY;
 	}
 
+	_move_speed *= global.gameplay_time_scale;
 	var _move_distance = min(_move_speed, _distance);
 	var _move_direction = point_direction(_worker.x, _worker.y, _target_x, _target_y);
 
@@ -8313,7 +8338,8 @@ update_cultists_loading_into_cannon = function()
 			continue;
 		}
 
-		var _move_distance = min(BALANCE_CULTIST_CANNON_LOAD_SPEED, _distance_to_cannon);
+		var _move_speed = BALANCE_CULTIST_CANNON_LOAD_SPEED * global.gameplay_time_scale;
+		var _move_distance = min(_move_speed, _distance_to_cannon);
 		var _move_direction = point_direction(_cultist.x, _cultist.y, _cannon.x, _cannon.y);
 
 		_cultist.x += lengthdir_x(_move_distance, _move_direction);
@@ -11284,8 +11310,11 @@ night_attack_spawning_update = function()
 
 		if (_direction_data.wave_timer > 0)
 		{
-			_direction_data.wave_timer--;
-			_direction_data.spawn_timer = max(_direction_data.spawn_timer - 1, 0);
+			_direction_data.wave_timer -= global.gameplay_time_scale;
+			_direction_data.spawn_timer = max(
+				_direction_data.spawn_timer - global.gameplay_time_scale,
+				0
+			);
 			night_attack_directions[_direction_index] = _direction_data;
 			continue;
 		}
@@ -11298,7 +11327,7 @@ night_attack_spawning_update = function()
 
 		if (_direction_data.spawn_timer > 0)
 		{
-			_direction_data.spawn_timer--;
+			_direction_data.spawn_timer -= global.gameplay_time_scale;
 			night_attack_directions[_direction_index] = _direction_data;
 			continue;
 		}

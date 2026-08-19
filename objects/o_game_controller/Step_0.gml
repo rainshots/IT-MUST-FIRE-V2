@@ -56,7 +56,8 @@ if (phase_banner_timer > 0)
 // Blood regenerates continuously during active night gameplay.
 if (!global.pause && global.day_phase == DAY_PHASE.NIGHT)
 {
-	var _blood_regen_per_step = global.cannon_blood_regen_per_second / max(1, room_speed);
+	var _blood_regen_per_step = (global.cannon_blood_regen_per_second / max(1, room_speed))
+		* global.gameplay_time_scale;
 	global.cannon_blood = min(global.cannon_blood + _blood_regen_per_step, global.cannon_blood_max);
 }
 
@@ -341,7 +342,8 @@ if (global.cheats_enabled
 
 // Space toggles gameplay pause without opening a blocking focus window.
 if (keyboard_check_pressed(vk_space)
-	&& global.focus_window == FOCUS_WINDOW.NOONE
+	&& (global.focus_window == FOCUS_WINDOW.NOONE
+		|| global.focus_window == FOCUS_WINDOW.TARGET_SELECTION)
 	&& !pause_menu_open
 	&& !instance_exists(global.dragged_cultist)
 	&& !instance_exists(global.dragged_artifact))
@@ -1204,11 +1206,22 @@ if (global.cheats_enabled)
 	}
 }
 
+// Right mouse button provides a second, quick way to cancel cannon targeting.
+if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION
+	&& mouse_check_button_pressed(mb_right))
+{
+	hellcow_aim_is_dragging = false;
+	hellcow_aim_drag_distance = 0;
+	global.focus_window = FOCUS_WINDOW.NOONE;
+}
+
 // Resolve Escape by the current focused window.
 if (keyboard_check_pressed(vk_escape))
 {
 	if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION)
 	{
+		hellcow_aim_is_dragging = false;
+		hellcow_aim_drag_distance = 0;
 		global.focus_window = FOCUS_WINDOW.NOONE;
 	}
 	else if (global.focus_window == FOCUS_WINDOW.CULTIST_DEMON_SELECTION
@@ -1294,13 +1307,16 @@ if (!global.pause && global.day_cycle_enabled)
 
 	if (global.day_phase == DAY_PHASE.NIGHT)
 	{
-		global.day_timer = max(global.day_timer - 1, 0);
+		var _gameplay_time_scale = variable_global_exists("gameplay_time_scale")
+			? global.gameplay_time_scale
+			: 1;
+		global.day_timer = max(global.day_timer - _gameplay_time_scale, 0);
 
 		if (!_blood_moon_is_active
 			&& !boss_griffith_night_active
 			&& !night_force_end_active)
 		{
-			night_force_end_timer = max(night_force_end_timer - 1, 0);
+			night_force_end_timer = max(night_force_end_timer - _gameplay_time_scale, 0);
 
 			if (night_force_end_timer <= 0)
 			{
@@ -1674,7 +1690,7 @@ if (!global.pause
 
 	if (_projectile_queue_count < global.cannon_projectile_queue_max)
 	{
-		global.cannon_projectile_gain_timer++;
+		global.cannon_projectile_gain_timer += global.gameplay_time_scale;
 
 		if (global.cannon_projectile_gain_timer >= _projectile_gain_interval)
 		{
@@ -1754,6 +1770,8 @@ if (global.day_phase != DAY_PHASE.NIGHT
 	&& global.focus_window == FOCUS_WINDOW.TARGET_SELECTION
 	&& target_selection_projectile_type != PROJECTILE_TYPE.BUILDING_SHELL)
 {
+	hellcow_aim_is_dragging = false;
+	hellcow_aim_drag_distance = 0;
 	global.focus_window = FOCUS_WINDOW.NOONE;
 }
 
@@ -1855,14 +1873,81 @@ if (_can_select_cannon_projectile || _projectile_selection_click_index >= 0)
 		global.cannon_selected_projectile_index = _selected_projectile_index;
 		target_selection_projectile_type = _selected_projectile_type;
 		target_selection_radius = projectile_target_selection_radius_get(_selected_projectile_type);
+		hellcow_aim_is_dragging = false;
+		hellcow_aim_drag_distance = 0;
 		global.focus_window = FOCUS_WINDOW.TARGET_SELECTION;
 	}
 }
 
-// Confirm target selection with left mouse button.
-if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION
+// Hellcow uses one drag gesture: press to place it, drag to aim, and release to fire.
+var _hellcow_target_selection_active = global.focus_window == FOCUS_WINDOW.TARGET_SELECTION
+	&& target_selection_projectile_type == PROJECTILE_TYPE.BOMB;
+
+if (_hellcow_target_selection_active
 	&& mouse_check_button_pressed(mb_left)
-	&& !_projectile_selection_click_used)
+	&& !_projectile_selection_click_used
+	&& instance_exists(o_camera_controller))
+{
+	var _hellcow_camera_controller = instance_find(o_camera_controller, 0);
+	var _hellcow_mouse_x = device_mouse_x_to_gui(0);
+	var _hellcow_mouse_y = device_mouse_y_to_gui(0);
+	var _hellcow_camera_x = camera_get_view_x(_hellcow_camera_controller.camera_id);
+	var _hellcow_camera_y = camera_get_view_y(_hellcow_camera_controller.camera_id);
+	var _hellcow_camera_width = camera_get_view_width(_hellcow_camera_controller.camera_id);
+	var _hellcow_camera_height = camera_get_view_height(_hellcow_camera_controller.camera_id);
+
+	hellcow_aim_start_x = _hellcow_camera_x
+		+ ((_hellcow_mouse_x / camera_view_width) * _hellcow_camera_width);
+	hellcow_aim_start_y = _hellcow_camera_y
+		+ ((_hellcow_mouse_y / camera_view_height) * _hellcow_camera_height);
+	hellcow_aim_is_dragging = true;
+	hellcow_aim_drag_distance = 0;
+}
+
+if (_hellcow_target_selection_active
+	&& hellcow_aim_is_dragging
+	&& (mouse_check_button(mb_left) || mouse_check_button_released(mb_left))
+	&& instance_exists(o_camera_controller))
+{
+	var _hellcow_drag_camera = instance_find(o_camera_controller, 0);
+	var _hellcow_drag_mouse_x = device_mouse_x_to_gui(0);
+	var _hellcow_drag_mouse_y = device_mouse_y_to_gui(0);
+	var _hellcow_drag_camera_x = camera_get_view_x(_hellcow_drag_camera.camera_id);
+	var _hellcow_drag_camera_y = camera_get_view_y(_hellcow_drag_camera.camera_id);
+	var _hellcow_drag_camera_width = camera_get_view_width(_hellcow_drag_camera.camera_id);
+	var _hellcow_drag_camera_height = camera_get_view_height(_hellcow_drag_camera.camera_id);
+	var _hellcow_drag_world_x = _hellcow_drag_camera_x
+		+ ((_hellcow_drag_mouse_x / camera_view_width) * _hellcow_drag_camera_width);
+	var _hellcow_drag_world_y = _hellcow_drag_camera_y
+		+ ((_hellcow_drag_mouse_y / camera_view_height) * _hellcow_drag_camera_height);
+
+	hellcow_aim_drag_distance = point_distance(
+		hellcow_aim_start_x,
+		hellcow_aim_start_y,
+		_hellcow_drag_world_x,
+		_hellcow_drag_world_y
+	);
+
+	if (hellcow_aim_drag_distance > 0)
+	{
+		hellcow_aim_direction = point_direction(
+			hellcow_aim_start_x,
+			hellcow_aim_start_y,
+			_hellcow_drag_world_x,
+			_hellcow_drag_world_y
+		);
+	}
+}
+
+var _target_selection_should_confirm = global.focus_window == FOCUS_WINDOW.TARGET_SELECTION
+	&& !_projectile_selection_click_used
+	&& ((!_hellcow_target_selection_active && mouse_check_button_pressed(mb_left))
+		|| (_hellcow_target_selection_active
+			&& hellcow_aim_is_dragging
+			&& mouse_check_button_released(mb_left)));
+
+// Confirm ordinary targets on click and Hellcow targets on drag release.
+if (_target_selection_should_confirm)
 {
 	if (global.day_phase != DAY_PHASE.NIGHT
 		&& target_selection_projectile_type != PROJECTILE_TYPE.BUILDING_SHELL)
@@ -1884,6 +1969,13 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION
 		var _view_height = camera_get_view_height(_camera_controller.camera_id);
 		var _target_world_x = _camera_x + ((_mouse_x / camera_view_width) * _view_width);
 		var _target_world_y = _camera_y + ((_mouse_y / camera_view_height) * _view_height);
+
+		if (_hellcow_target_selection_active)
+		{
+			_target_world_x = hellcow_aim_start_x;
+			_target_world_y = hellcow_aim_start_y;
+		}
+
 		var _projectile_queue_count = array_length(global.cannon_projectile_queue);
 		var _selected_projectile_index = clamp(
 			global.cannon_selected_projectile_index,
@@ -1921,6 +2013,11 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION
 		{
 			_target_can_be_confirmed = false;
 		}
+		else if (_hellcow_target_selection_active
+			&& hellcow_aim_drag_distance < BALANCE_PROJECTILE_HELLCOW_AIM_MIN_DRAG)
+		{
+			_target_can_be_confirmed = false;
+		}
 
 		if (target_selection_projectile_type == PROJECTILE_TYPE.CULTIST
 			&& !world_position_is_revealed_by_fog(_target_world_x, _target_world_y))
@@ -1944,13 +2041,26 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION
 			global.cannon_target_x = _target_world_x;
 			global.cannon_target_y = _target_world_y;
 			global.cannon_target_projectile_type = target_selection_projectile_type;
+			global.cannon_target_direction = _hellcow_target_selection_active
+				? hellcow_aim_direction
+				: 0;
 			global.cannon_target_consumes_projectile_queue = _target_consumes_projectile_queue;
 			global.cannon_target_projectile_queue_index = _selected_projectile_index;
 			global.cannon_target_version++;
+			hellcow_aim_is_dragging = false;
+			hellcow_aim_drag_distance = 0;
 			global.focus_window = FOCUS_WINDOW.NOONE;
+		}
+		else if (_hellcow_target_selection_active)
+		{
+			hellcow_aim_is_dragging = false;
+			hellcow_aim_drag_distance = 0;
 		}
 	}
 }
+
+// Apply or restore the simulation scale after all cannon targeting input is resolved.
+gameplay_time_scale_update();
 
 // Handle pause menu buttons and settings sliders.
 if (pause_menu_open && (mouse_check_button_pressed(mb_left) || settings_open))

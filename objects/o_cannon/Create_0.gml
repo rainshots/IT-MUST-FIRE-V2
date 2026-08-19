@@ -97,6 +97,7 @@ target_exists = false;
 target_x = x;
 target_y = y;
 target_projectile_type = PROJECTILE_TYPE.DAMAGE;
+target_direction = 0;
 target_version = -1;
 
 // Cannon fades when a worker is hidden by the upper part of its sprite.
@@ -162,6 +163,7 @@ cannon_agony_projectile_create = function(_target_x, _target_y, _projectile_type
 	_projectile.target_x = _target_x;
 	_projectile.target_y = _target_y;
 	_projectile.projectile_type = _projectile_type;
+	_projectile.hellcow_charge_direction = point_direction(_projectile_x, _projectile_y, _target_x, _target_y);
 	_projectile.damage_faction = UNIT_FACTION.FRIENDLY;
 	_projectile.source_instance = id;
 	_projectile.ignore_pause = global.pause;
@@ -172,6 +174,7 @@ cannon_agony_projectile_create = function(_target_x, _target_y, _projectile_type
 	{
 		_projectile.effect_radius = BALANCE_PROJECTILE_HELLCOW_RADIUS;
 		_projectile.damage_amount = cannon_projectile_bomb_damage_get();
+		_projectile.projectile_sprite = s_cow;
 	}
 	else if (_projectile_type == PROJECTILE_TYPE.SKELETONS)
 	{
@@ -249,7 +252,8 @@ cannon_satisfaction_auto_fire_update = function()
 		return false;
 	}
 
-	satisfaction_auto_fire_timer = max(satisfaction_auto_fire_timer - 1, 0);
+	var _time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
+	satisfaction_auto_fire_timer = max(satisfaction_auto_fire_timer - _time_scale, 0);
 
 	if (satisfaction_auto_fire_timer > 0)
 	{

@@ -1146,13 +1146,17 @@ projectile_descriptions[PROJECTILE_TYPE.SUMMON] = "Summons friendly forces throu
 projectile_descriptions[PROJECTILE_TYPE.RALLY] = "Sends half of nearby friendly units to the impact point.";
 projectile_descriptions[PROJECTILE_TYPE.CULTIST] = "Launches a cultist into battle, dealing impact damage and spawning demon form.";
 projectile_descriptions[PROJECTILE_TYPE.HEAL] = "Restores " + string(BALANCE_PROJECTILE_HEAL_AMOUNT) + " health to all friendly units inside a " + string(BALANCE_PROJECTILE_HEAL_RADIUS) + " pixel base radius. Each unit can be healed only once per volley. Payload Mastery improves healing; Tight tamping of meat improves healing and radius.";
-projectile_descriptions[PROJECTILE_TYPE.BOMB] = "Deals " + string(BALANCE_PROJECTILE_HELLCOW_DAMAGE_AMOUNT) + " damage to enemy units inside a " + string(BALANCE_PROJECTILE_HELLCOW_RADIUS) + " pixel radius. Payload Mastery improves it.";
+projectile_descriptions[PROJECTILE_TYPE.BOMB] = "Hold and drag from the landing point to aim a "
+	+ string(BALANCE_PROJECTILE_HELLCOW_CORRIDOR_WIDTH)
+	+ "px-wide Hellcow charge. It pushes enemies along the arrow, then explodes for "
+	+ string(BALANCE_PROJECTILE_HELLCOW_DAMAGE_AMOUNT)
+	+ " damage. Payload Mastery improves the explosion.";
 projectile_descriptions[PROJECTILE_TYPE.SKELETONS] = "Summons " + string(BALANCE_PROJECTILE_SKELETON_COUNT) + " skeleton inside a " + string(BALANCE_PROJECTILE_SKELETON_RADIUS) + " pixel radius. Payload Mastery improves it.";
 projectile_descriptions[PROJECTILE_TYPE.BUILDING_SHELL] = "Builds its stored structure where it lands. Must be fired onto tainted ground.";
 projectile_descriptions[PROJECTILE_TYPE.CLEANSE] = "Enemy projectile that removes Taint where it lands.";
-projectile_descriptions[PROJECTILE_TYPE.DOOM_BELL] = "Deals "
-	+ string(BALANCE_PROJECTILE_DOOM_BELL_DAMAGE_AMOUNT)
-	+ " damage and taints the ground inside a "
+projectile_descriptions[PROJECTILE_TYPE.DOOM_BELL] = "Stuns enemies for "
+	+ string(BALANCE_PROJECTILE_DOOM_BELL_STUN_TIME)
+	+ " seconds and taints the ground inside a "
 	+ string(BALANCE_PROJECTILE_DOOM_BELL_RADIUS)
-	+ " pixel radius.";
+	+ " pixel radius. Deals no damage.";
 projectile_descriptions[PROJECTILE_TYPE.UNIT_SHELL] = "Launches the configured group of temporary units into battle.";

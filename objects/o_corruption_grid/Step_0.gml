@@ -4,11 +4,22 @@ if (global.pause)
 	exit;
 }
 
-passive_spread_update_timer++;
-saint_update_timer++;
+var _time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
+passive_spread_update_timer += _time_scale;
+saint_update_timer += _time_scale;
 
-var _should_update_passive_spread = passive_spread_update_timer mod passive_spread_update_interval == 0;
-var _should_update_saint = saint_update_timer mod saint_update_interval == 0;
+var _should_update_passive_spread = passive_spread_update_timer >= passive_spread_update_interval;
+var _should_update_saint = saint_update_timer >= saint_update_interval;
+
+if (_should_update_passive_spread)
+{
+	passive_spread_update_timer -= passive_spread_update_interval;
+}
+
+if (_should_update_saint)
+{
+	saint_update_timer -= saint_update_interval;
+}
 
 if (!_should_update_passive_spread && !_should_update_saint)
 {

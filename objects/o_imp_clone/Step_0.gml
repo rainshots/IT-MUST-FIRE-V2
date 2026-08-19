@@ -21,7 +21,8 @@ if (hp <= 0)
 imp_clone_owner_follow_update();
 
 // Bloody clones are temporary and fade near the end of their life.
-life_timer--;
+var _time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
+life_timer -= _time_scale;
 
 if (life_timer <= 0)
 {

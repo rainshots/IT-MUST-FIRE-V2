@@ -22,11 +22,13 @@ if (global.pause)
 	exit;
 }
 
+var _time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
+
 tower_capture_update();
 
 if (attack_feedback_timer > 0)
 {
-	attack_feedback_timer--;
+	attack_feedback_timer -= _time_scale;
 }
 
 if (!is_captured)
@@ -71,7 +73,7 @@ if (!instance_exists(target_instance))
 
 if (reload_timer > 0)
 {
-	reload_timer--;
+	reload_timer -= _time_scale;
 	exit;
 }
 

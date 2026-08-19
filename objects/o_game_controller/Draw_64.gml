@@ -457,6 +457,7 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 	var _mouse_world_y = _camera_y + ((_mouse_y / camera_view_height) * _camera_height);
 	var _cultist_target_is_revealed = true;
 	var _target_hint_text = "";
+	var _target_hint_color = COLOR_STATUS_NEGATIVE_RED;
 	var _radius_scale = camera_view_width / _camera_controller.view_width;
 	var _draw_radius = target_selection_radius * _radius_scale;
 	var _target_color = COLOR_PROJECTILE_DAMAGE;
@@ -500,6 +501,16 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 	else if (target_selection_projectile_type == PROJECTILE_TYPE.BOMB)
 	{
 		_target_color = COLOR_PROJECTILE_BOMB;
+		_target_hint_color = COLOR_PROJECTILE_BOMB;
+
+		if (!hellcow_aim_is_dragging)
+		{
+			_target_hint_text = "Hold and drag to set charge direction";
+		}
+		else if (hellcow_aim_drag_distance < BALANCE_PROJECTILE_HELLCOW_AIM_MIN_DRAG)
+		{
+			_target_hint_text = "Drag farther to fire";
+		}
 	}
 	else if (target_selection_projectile_type == PROJECTILE_TYPE.SKELETONS)
 	{
@@ -536,11 +547,234 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 		}
 	}
 
-	draw_set_color(_target_color);
-	draw_set_alpha(target_selection_alpha);
-	draw_circle(_mouse_x, _mouse_y, _draw_radius, false);
-	draw_set_alpha(target_selection_outline_alpha);
-	draw_circle(_mouse_x, _mouse_y, _draw_radius, true);
+	if (target_selection_projectile_type == PROJECTILE_TYPE.BOMB)
+	{
+		var _hellcow_start_world_x = _mouse_world_x;
+		var _hellcow_start_world_y = _mouse_world_y;
+		var _hellcow_direction = hellcow_aim_direction;
+
+		if (hellcow_aim_is_dragging)
+		{
+			_hellcow_start_world_x = hellcow_aim_start_x;
+			_hellcow_start_world_y = hellcow_aim_start_y;
+		}
+		else if (instance_exists(o_cannon))
+		{
+			var _hellcow_preview_cannon = instance_find(o_cannon, 0);
+			_hellcow_direction = point_direction(
+				_hellcow_preview_cannon.x,
+				_hellcow_preview_cannon.y,
+				_hellcow_start_world_x,
+				_hellcow_start_world_y
+			);
+		}
+
+		var _hellcow_start_x = ((_hellcow_start_world_x - _camera_x) / _camera_width) * camera_view_width;
+		var _hellcow_start_y = ((_hellcow_start_world_y - _camera_y) / _camera_height) * camera_view_height;
+		var _hellcow_corridor_length = BALANCE_PROJECTILE_HELLCOW_CHARGE_DISTANCE * _radius_scale;
+		var _hellcow_half_width = BALANCE_PROJECTILE_HELLCOW_CORRIDOR_WIDTH * 0.5 * _radius_scale;
+		var _hellcow_end_x = _hellcow_start_x + lengthdir_x(_hellcow_corridor_length, _hellcow_direction);
+		var _hellcow_end_y = _hellcow_start_y + lengthdir_y(_hellcow_corridor_length, _hellcow_direction);
+		var _hellcow_start_left_x = _hellcow_start_x + lengthdir_x(_hellcow_half_width, _hellcow_direction + 90);
+		var _hellcow_start_left_y = _hellcow_start_y + lengthdir_y(_hellcow_half_width, _hellcow_direction + 90);
+		var _hellcow_start_right_x = _hellcow_start_x + lengthdir_x(_hellcow_half_width, _hellcow_direction - 90);
+		var _hellcow_start_right_y = _hellcow_start_y + lengthdir_y(_hellcow_half_width, _hellcow_direction - 90);
+		var _hellcow_end_left_x = _hellcow_end_x + lengthdir_x(_hellcow_half_width, _hellcow_direction + 90);
+		var _hellcow_end_left_y = _hellcow_end_y + lengthdir_y(_hellcow_half_width, _hellcow_direction + 90);
+		var _hellcow_end_right_x = _hellcow_end_x + lengthdir_x(_hellcow_half_width, _hellcow_direction - 90);
+		var _hellcow_end_right_y = _hellcow_end_y + lengthdir_y(_hellcow_half_width, _hellcow_direction - 90);
+		var _hellcow_pulse_speed = 0.008;
+		var _hellcow_pulse = 0.72 + (sin(current_time * _hellcow_pulse_speed) * 0.18);
+
+		// The wide translucent corridor communicates every unit affected by the charge.
+		draw_set_color(_target_color);
+		draw_set_alpha(target_selection_alpha * _hellcow_pulse);
+		draw_triangle(
+			_hellcow_start_left_x,
+			_hellcow_start_left_y,
+			_hellcow_start_right_x,
+			_hellcow_start_right_y,
+			_hellcow_end_left_x,
+			_hellcow_end_left_y,
+			false
+		);
+		draw_triangle(
+			_hellcow_start_right_x,
+			_hellcow_start_right_y,
+			_hellcow_end_right_x,
+			_hellcow_end_right_y,
+			_hellcow_end_left_x,
+			_hellcow_end_left_y,
+			false
+		);
+
+		draw_set_alpha(target_selection_outline_alpha);
+		draw_line_width(_hellcow_start_left_x, _hellcow_start_left_y, _hellcow_end_left_x, _hellcow_end_left_y, 3);
+		draw_line_width(_hellcow_start_right_x, _hellcow_start_right_y, _hellcow_end_right_x, _hellcow_end_right_y, 3);
+		draw_line_width(_hellcow_start_left_x, _hellcow_start_left_y, _hellcow_start_right_x, _hellcow_start_right_y, 3);
+		draw_line_width(_hellcow_end_left_x, _hellcow_end_left_y, _hellcow_end_right_x, _hellcow_end_right_y, 3);
+
+		// A large center arrow reinforces that every displacement follows one direction.
+		var _hellcow_arrow_start_x = _hellcow_start_x + lengthdir_x(48 * _radius_scale, _hellcow_direction);
+		var _hellcow_arrow_start_y = _hellcow_start_y + lengthdir_y(48 * _radius_scale, _hellcow_direction);
+		var _hellcow_arrow_head_length = 52 * _radius_scale;
+		var _hellcow_arrow_head_width = 34 * _radius_scale;
+		var _hellcow_arrow_base_x = _hellcow_end_x + lengthdir_x(_hellcow_arrow_head_length, _hellcow_direction + 180);
+		var _hellcow_arrow_base_y = _hellcow_end_y + lengthdir_y(_hellcow_arrow_head_length, _hellcow_direction + 180);
+
+		draw_set_alpha(0.95);
+		draw_line_width(_hellcow_arrow_start_x, _hellcow_arrow_start_y, _hellcow_arrow_base_x, _hellcow_arrow_base_y, 8);
+		draw_triangle(
+			_hellcow_end_x,
+			_hellcow_end_y,
+			_hellcow_arrow_base_x + lengthdir_x(_hellcow_arrow_head_width, _hellcow_direction + 90),
+			_hellcow_arrow_base_y + lengthdir_y(_hellcow_arrow_head_width, _hellcow_direction + 90),
+			_hellcow_arrow_base_x + lengthdir_x(_hellcow_arrow_head_width, _hellcow_direction - 90),
+			_hellcow_arrow_base_y + lengthdir_y(_hellcow_arrow_head_width, _hellcow_direction - 90),
+			false
+		);
+
+		if (sprite_exists(s_cow))
+		{
+			draw_set_alpha(1);
+			draw_sprite_ext(
+				s_cow,
+				0,
+				_hellcow_start_x,
+				_hellcow_start_y,
+				0.5 * _radius_scale,
+				0.5 * _radius_scale,
+				_hellcow_direction,
+				c_white,
+				1
+			);
+		}
+
+		var _hellcow_direction_x = lengthdir_x(1, _hellcow_direction);
+		var _hellcow_direction_y = lengthdir_y(1, _hellcow_direction);
+		var _hellcow_side_x = -_hellcow_direction_y;
+		var _hellcow_side_y = _hellcow_direction_x;
+		var _hellcow_world_half_width = BALANCE_PROJECTILE_HELLCOW_CORRIDOR_WIDTH * 0.5;
+		var _hellcow_enemy_count = instance_number(o_enemy_units);
+
+		// Highlight affected enemies and show an approximate pushed silhouette.
+		for (var _hellcow_enemy_index = 0; _hellcow_enemy_index < _hellcow_enemy_count; ++_hellcow_enemy_index)
+		{
+			var _hellcow_enemy = instance_find(o_enemy_units, _hellcow_enemy_index);
+
+			if (!instance_exists(_hellcow_enemy)
+				|| (variable_instance_exists(_hellcow_enemy, "hp") && _hellcow_enemy.hp <= 0)
+				|| (variable_instance_exists(_hellcow_enemy, "cached_is_hidden_by_fog")
+					&& _hellcow_enemy.cached_is_hidden_by_fog))
+			{
+				continue;
+			}
+
+			var _hellcow_enemy_offset_x = _hellcow_enemy.x - _hellcow_start_world_x;
+			var _hellcow_enemy_offset_y = _hellcow_enemy.y - _hellcow_start_world_y;
+			var _hellcow_enemy_forward = (_hellcow_enemy_offset_x * _hellcow_direction_x)
+				+ (_hellcow_enemy_offset_y * _hellcow_direction_y);
+			var _hellcow_enemy_side = (_hellcow_enemy_offset_x * _hellcow_side_x)
+				+ (_hellcow_enemy_offset_y * _hellcow_side_y);
+
+			if (_hellcow_enemy_forward < 0
+				|| _hellcow_enemy_forward > BALANCE_PROJECTILE_HELLCOW_CHARGE_DISTANCE
+				|| abs(_hellcow_enemy_side) > _hellcow_world_half_width)
+			{
+				continue;
+			}
+
+			var _hellcow_enemy_x = ((_hellcow_enemy.x - _camera_x) / _camera_width) * camera_view_width;
+			var _hellcow_enemy_y = ((_hellcow_enemy.y - _camera_y) / _camera_height) * camera_view_height;
+			var _hellcow_preview_push = min(
+				BALANCE_PROJECTILE_HELLCOW_PREVIEW_PUSH_DISTANCE,
+				BALANCE_PROJECTILE_HELLCOW_CHARGE_DISTANCE - _hellcow_enemy_forward
+			);
+			var _hellcow_ghost_world_x = _hellcow_enemy.x + (_hellcow_direction_x * _hellcow_preview_push);
+			var _hellcow_ghost_world_y = _hellcow_enemy.y + (_hellcow_direction_y * _hellcow_preview_push);
+			var _hellcow_ghost_x = ((_hellcow_ghost_world_x - _camera_x) / _camera_width) * camera_view_width;
+			var _hellcow_ghost_y = ((_hellcow_ghost_world_y - _camera_y) / _camera_height) * camera_view_height;
+
+			if (sprite_exists(_hellcow_enemy.sprite_index))
+			{
+				draw_sprite_ext(
+					_hellcow_enemy.sprite_index,
+					_hellcow_enemy.image_index,
+					_hellcow_ghost_x,
+					_hellcow_ghost_y,
+					_hellcow_enemy.image_xscale * _radius_scale,
+					_hellcow_enemy.image_yscale * _radius_scale,
+					_hellcow_enemy.image_angle,
+					_target_color,
+					0.2
+				);
+			}
+
+			draw_set_color(_target_color);
+			draw_set_alpha(0.28 + (0.12 * _hellcow_pulse));
+			draw_circle(_hellcow_enemy_x, _hellcow_enemy_y, 22 * _radius_scale, false);
+			draw_set_alpha(0.95);
+			var _hellcow_enemy_arrow_end_x = _hellcow_enemy_x
+				+ lengthdir_x(30 * _radius_scale, _hellcow_direction);
+			var _hellcow_enemy_arrow_end_y = _hellcow_enemy_y
+				+ lengthdir_y(30 * _radius_scale, _hellcow_direction);
+			draw_line_width(
+				_hellcow_enemy_x,
+				_hellcow_enemy_y,
+				_hellcow_enemy_arrow_end_x,
+				_hellcow_enemy_arrow_end_y,
+				3
+			);
+			draw_triangle(
+				_hellcow_enemy_arrow_end_x,
+				_hellcow_enemy_arrow_end_y,
+				_hellcow_enemy_arrow_end_x + lengthdir_x(8 * _radius_scale, _hellcow_direction + 150),
+				_hellcow_enemy_arrow_end_y + lengthdir_y(8 * _radius_scale, _hellcow_direction + 150),
+				_hellcow_enemy_arrow_end_x + lengthdir_x(8 * _radius_scale, _hellcow_direction - 150),
+				_hellcow_enemy_arrow_end_y + lengthdir_y(8 * _radius_scale, _hellcow_direction - 150),
+				false
+			);
+		}
+
+		// Tainted ground inside the path pulses without promising exact unit trajectories.
+		var _hellcow_taint_step = 96;
+		var _hellcow_taint_side_step = BALANCE_PROJECTILE_HELLCOW_CORRIDOR_WIDTH * 0.32;
+
+		for (var _hellcow_taint_forward = _hellcow_taint_step;
+			_hellcow_taint_forward < BALANCE_PROJECTILE_HELLCOW_CHARGE_DISTANCE;
+			_hellcow_taint_forward += _hellcow_taint_step)
+		{
+			for (var _hellcow_taint_lane = -1; _hellcow_taint_lane <= 1; ++_hellcow_taint_lane)
+			{
+				var _hellcow_taint_world_x = _hellcow_start_world_x
+					+ (_hellcow_direction_x * _hellcow_taint_forward)
+					+ (_hellcow_side_x * _hellcow_taint_side_step * _hellcow_taint_lane);
+				var _hellcow_taint_world_y = _hellcow_start_world_y
+					+ (_hellcow_direction_y * _hellcow_taint_forward)
+					+ (_hellcow_side_y * _hellcow_taint_side_step * _hellcow_taint_lane);
+
+				if (!ground_cell_is_tainted_at_position(_hellcow_taint_world_x, _hellcow_taint_world_y))
+				{
+					continue;
+				}
+
+				var _hellcow_taint_x = ((_hellcow_taint_world_x - _camera_x) / _camera_width) * camera_view_width;
+				var _hellcow_taint_y = ((_hellcow_taint_world_y - _camera_y) / _camera_height) * camera_view_height;
+
+				draw_set_color(COLOR_PROJECTILE_CORRUPTION);
+				draw_set_alpha(0.24 * _hellcow_pulse);
+				draw_circle(_hellcow_taint_x, _hellcow_taint_y, 20 * _radius_scale, false);
+			}
+		}
+	}
+	else
+	{
+		draw_set_color(_target_color);
+		draw_set_alpha(target_selection_alpha);
+		draw_circle(_mouse_x, _mouse_y, _draw_radius, false);
+		draw_set_alpha(target_selection_outline_alpha);
+		draw_circle(_mouse_x, _mouse_y, _draw_radius, true);
+	}
 
 	if (target_selection_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
 	{
@@ -691,7 +925,7 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 		draw_set_color(COLOR_HUD_BACKGROUND);
 		draw_rectangle(_hint_x, _hint_y, _hint_x + _hint_width, _hint_y + _hint_height, false);
 		draw_set_alpha(1);
-		draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+		draw_set_color(_target_hint_color);
 		draw_rectangle(_hint_x, _hint_y, _hint_x + _hint_width, _hint_y + _hint_height, true);
 		draw_set_color(COLOR_HUD_TEXT);
 		draw_text(_hint_x + _hint_padding_x, _hint_y + _hint_padding_y, _hint_text);
@@ -3418,7 +3652,9 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 
 
 // Draw lightweight gameplay pause indicator without blocking hover info.
-if (player_pause_active && global.focus_window == FOCUS_WINDOW.NOONE)
+if (player_pause_active
+	&& (global.focus_window == FOCUS_WINDOW.NOONE
+		|| global.focus_window == FOCUS_WINDOW.TARGET_SELECTION))
 {
 	var _pause_margin = 10;
 	var _pause_label_width = 144;

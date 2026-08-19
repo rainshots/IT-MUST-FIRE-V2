@@ -6,6 +6,8 @@ if (global.pause)
 	exit;
 }
 
+var _time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
+
 // Destroyed holy towers stay on the map as inert ruins.
 if (is_destroyed)
 {
@@ -26,7 +28,7 @@ if (hp <= 0)
 // Update short attack feedback lifetime.
 if (attack_feedback_timer > 0)
 {
-	attack_feedback_timer--;
+	attack_feedback_timer -= _time_scale;
 }
 
 // Holy towers only attack during the night.
@@ -68,7 +70,7 @@ if (!instance_exists(target_instance))
 // Shoot the target when reload is ready.
 if (reload_timer > 0)
 {
-	reload_timer--;
+	reload_timer -= _time_scale;
 	exit;
 }
 
