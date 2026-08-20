@@ -165,7 +165,9 @@ jobs_button_font = font_add("Arial", 30, true, false, 32, 1279);
 jobs_hp_font = font_add("Arial", 8, true, false, 32, 1279);
 jobs_show_font = font_add("Arial", 25, true, false, 32, 1279);
 jobs_action_font = font_add("Arial", 12, false, false, 32, 1279);
-jobs_world_action_font = font_add("Arial", 13, true, false, 32, 1279);
+jobs_world_action_font = WORLD_EVENT_INTERFACE_ENABLED
+	? font_add("Arial", 13, true, false, 32, 1279)
+	: -1;
 jobs_onboarding_font = font_add("Arial", 20, true, false, 32, 1279);
 
 jobs_layout_get = function()

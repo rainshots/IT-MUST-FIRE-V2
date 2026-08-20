@@ -13,7 +13,7 @@ if (_balance_test_tick_is_blocked
 	exit;
 }
 
-support_buff_cooldown_timer--;
+support_buff_cooldown_timer -= gameplay_time_scale;
 
 if (support_buff_cooldown_timer <= 0)
 {

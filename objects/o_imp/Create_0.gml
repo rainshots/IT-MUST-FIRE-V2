@@ -202,7 +202,7 @@ imp_ability_damage_meter_update = function()
 		for (var _sample_index = array_length(_samples) - 1; _sample_index >= 0; --_sample_index)
 		{
 			var _sample = _samples[_sample_index];
-			_sample.timer--;
+			_sample.timer -= gameplay_time_scale;
 
 			if (_sample.timer <= 0)
 			{
@@ -823,15 +823,15 @@ imp_blood_blades_update = function()
 
 	if (blood_blades_speed_bonus_timer > 0)
 	{
-		blood_blades_speed_bonus_timer--;
+		blood_blades_speed_bonus_timer -= gameplay_time_scale;
 		_speed_multiplier += BALANCE_IMP_BLOOD_BLADES_SPEED_BONUS;
 	}
 
-	blood_blades_angle += BALANCE_IMP_BLOOD_BLADES_SPEED * _speed_multiplier;
+	blood_blades_angle += BALANCE_IMP_BLOOD_BLADES_SPEED * _speed_multiplier * gameplay_time_scale;
 
 	if (blood_blades_hit_timer > 0)
 	{
-		blood_blades_hit_timer--;
+		blood_blades_hit_timer -= gameplay_time_scale;
 		return;
 	}
 
@@ -914,8 +914,8 @@ imp_blood_pool_update = function()
 	for (var _pool_index = array_length(blood_pool_data) - 1; _pool_index >= 0; --_pool_index)
 	{
 		var _pool = blood_pool_data[_pool_index];
-		_pool.timer--;
-		_pool.tick_timer--;
+		_pool.timer -= gameplay_time_scale;
+		_pool.tick_timer -= gameplay_time_scale;
 
 		if (_pool.tick_timer <= 0)
 		{
@@ -1041,7 +1041,7 @@ imp_demon_leap_update = function()
 		return;
 	}
 
-	demon_leap_flight_timer--;
+	demon_leap_flight_timer -= gameplay_time_scale;
 	var _flight_progress = 1 - clamp(demon_leap_flight_timer / max(1, demon_leap_flight_duration), 0, 1);
 	var _arc_lift = sin(_flight_progress * pi) * BALANCE_IMP_DEMON_LEAP_ARC_HEIGHT;
 	x = lerp(demon_leap_flight_start_x, demon_leap_flight_end_x, _flight_progress);

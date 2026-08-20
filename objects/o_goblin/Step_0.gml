@@ -4,6 +4,9 @@ if (global.pause)
 	exit;
 }
 
+var _time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
+image_speed = _time_scale;
+
 // Destroy dead goblins without running combat AI.
 if (hp <= 0)
 {
@@ -94,17 +97,17 @@ if (hp <= 0)
 
 if (attack_feedback_timer > 0)
 {
-	attack_feedback_timer--;
+	attack_feedback_timer -= _time_scale;
 }
 
 if (soul_chain_death_flash_timer > 0)
 {
-	soul_chain_death_flash_timer--;
+	soul_chain_death_flash_timer -= _time_scale;
 }
 
 if (demonic_infusion_timer > 0)
 {
-	demonic_infusion_timer--;
+	demonic_infusion_timer -= _time_scale;
 
 	if (demonic_infusion_timer <= 0)
 	{

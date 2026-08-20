@@ -182,7 +182,9 @@ shrine_defender_spawner_update = function()
 		return;
 	}
 
-	defender_spawn_timer--;
+	defender_spawn_timer -= variable_global_exists("gameplay_time_scale")
+		? global.gameplay_time_scale
+		: 1;
 
 	if (defender_spawn_timer <= 0)
 	{

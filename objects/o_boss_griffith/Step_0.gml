@@ -1,4 +1,7 @@
 // Passive summoning continues while regular movement may be paused by leap movement.
+gameplay_time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
+var _time_scale = gameplay_time_scale;
+
 if (!global.pause)
 {
 	griffith_summon_update();
@@ -24,7 +27,7 @@ if (!global.pause && hp > 0)
 	for (var _segment_index = array_length(griffith_leap_visual_segments) - 1; _segment_index >= 0; --_segment_index)
 	{
 		var _segment = griffith_leap_visual_segments[_segment_index];
-		_segment.timer--;
+		_segment.timer -= _time_scale;
 
 		if (_segment.timer <= 0)
 		{
@@ -38,12 +41,12 @@ if (!global.pause && hp > 0)
 
 	if (griffith_leap_timer > 0)
 	{
-		griffith_leap_timer--;
+		griffith_leap_timer -= _time_scale;
 	}
 
 	if (griffith_leap_retry_timer > 0)
 	{
-		griffith_leap_retry_timer--;
+		griffith_leap_retry_timer -= _time_scale;
 	}
 
 	if (griffith_leap_is_active)

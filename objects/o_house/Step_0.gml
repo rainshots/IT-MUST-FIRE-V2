@@ -17,7 +17,8 @@ if (hp <= 0)
 	exit;
 }
 
-house_visibility_check_timer++;
+var _time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
+house_visibility_check_timer += _time_scale;
 
 if (house_visibility_check_timer < house_visibility_check_interval)
 {

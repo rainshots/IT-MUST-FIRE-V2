@@ -53,15 +53,32 @@ else if (projectile_type == PROJECTILE_TYPE.DOOM_BELL)
 // Factory shells use their authored sprites; other projectiles retain the round marker.
 if (projectile_sprite != noone)
 {
+	var _projectile_draw_angle = 0;
+	var _projectile_draw_xscale = projectile_sprite_scale;
+	var _projectile_draw_yscale = projectile_sprite_scale;
+
+	if (projectile_type == PROJECTILE_TYPE.BOMB)
+	{
+		_projectile_draw_angle = hellcow_charge_direction;
+
+		if (hellcow_charge_active && hellcow_brace_timer > 0)
+		{
+			var _brace_pulse = sin(hellcow_brace_timer * 0.8);
+			_projectile_draw_xscale *= 0.92 + (_brace_pulse * 0.04);
+			_projectile_draw_yscale *= 1.08 - (_brace_pulse * 0.04);
+			_projectile_draw_angle += _brace_pulse * 2;
+		}
+	}
+
 	draw_set_color(c_white);
 	draw_sprite_ext(
 		projectile_sprite,
 		0,
 		x,
 		y,
-		projectile_sprite_scale,
-		projectile_sprite_scale,
-		0,
+		_projectile_draw_xscale,
+		_projectile_draw_yscale,
+		_projectile_draw_angle,
 		c_white,
 		1
 	);

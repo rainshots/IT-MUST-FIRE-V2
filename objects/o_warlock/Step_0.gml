@@ -6,6 +6,8 @@ if (global.pause || hp <= 0)
 	exit;
 }
 
+var _time_scale = gameplay_time_scale;
+
 if (is_being_dragged || is_stunned)
 {
 	exit;
@@ -13,12 +15,12 @@ if (is_being_dragged || is_stunned)
 
 if (raise_lesser_demon_line_timer > 0)
 {
-	raise_lesser_demon_line_timer--;
+	raise_lesser_demon_line_timer -= _time_scale;
 }
 
 if (hex_totem_line_timer > 0)
 {
-	hex_totem_line_timer--;
+	hex_totem_line_timer -= _time_scale;
 }
 
 // Passive abilities update their lightweight visuals and effects.
@@ -32,12 +34,12 @@ warlock_soul_chain_groups_update();
 // Use only the active abilities this Warlock currently owns.
 if (raise_lesser_demon_timer > 0)
 {
-	raise_lesser_demon_timer--;
+	raise_lesser_demon_timer -= _time_scale;
 }
 
 if (raise_lesser_demon_retry_timer > 0)
 {
-	raise_lesser_demon_retry_timer--;
+	raise_lesser_demon_retry_timer -= _time_scale;
 }
 
 if (cultist_active_ability_has(id, DEMON_ABILITY.WARLOCK_RAISE_LESSER_DEMON)
@@ -56,12 +58,12 @@ if (cultist_active_ability_has(id, DEMON_ABILITY.WARLOCK_RAISE_LESSER_DEMON)
 
 if (soul_chain_cooldown_timer > 0)
 {
-	soul_chain_cooldown_timer--;
+	soul_chain_cooldown_timer -= _time_scale;
 }
 
 if (soul_chain_retry_timer > 0)
 {
-	soul_chain_retry_timer--;
+	soul_chain_retry_timer -= _time_scale;
 }
 
 if (cultist_active_ability_has(id, DEMON_ABILITY.WARLOCK_SOUL_CHAIN)
@@ -80,12 +82,12 @@ if (cultist_active_ability_has(id, DEMON_ABILITY.WARLOCK_SOUL_CHAIN)
 
 if (hex_totem_timer > 0)
 {
-	hex_totem_timer--;
+	hex_totem_timer -= _time_scale;
 }
 
 if (hex_totem_retry_timer > 0)
 {
-	hex_totem_retry_timer--;
+	hex_totem_retry_timer -= _time_scale;
 }
 
 if (cultist_active_ability_has(id, DEMON_ABILITY.WARLOCK_HEX_TOTEM)

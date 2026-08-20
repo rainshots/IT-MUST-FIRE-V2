@@ -9,7 +9,8 @@ if (global.pause)
 	exit;
 }
 
-spawn_timer--;
+var _time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
+spawn_timer -= _time_scale;
 
 if (spawn_timer > 0)
 {

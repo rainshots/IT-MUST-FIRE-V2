@@ -14,7 +14,8 @@ var _cell_x = clamp(floor(x / _corruption_grid.cell_size), 0, _corruption_grid.g
 var _cell_y = clamp(floor(y / _corruption_grid.cell_size), 0, _corruption_grid.grid_height - 1);
 var _current_cell_corruption = ds_grid_get(_corruption_grid.corruption_grid, _cell_x, _cell_y);
 var _current_cell_saint = 0;
-var _spread_corruption = spread_corruption_per_second / room_speed;
+var _time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
+var _spread_corruption = (spread_corruption_per_second / room_speed) * _time_scale;
 
 if (variable_instance_exists(_corruption_grid, "saint_grid"))
 {

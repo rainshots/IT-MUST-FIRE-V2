@@ -19,6 +19,9 @@ if (global.pause || !instance_exists(o_cannon))
 	exit;
 }
 
+var _time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
+image_speed = _time_scale;
+
 // The game controller owns the position while the cultist follows the cursor.
 if (is_being_dragged)
 {
@@ -43,8 +46,8 @@ if (global.day_phase == DAY_PHASE.NIGHT)
 		else
 		{
 			var _home_direction = point_direction(x, y, _home_x, _home_y);
-			x += lengthdir_x(move_speed, _home_direction);
-			y += lengthdir_y(move_speed, _home_direction);
+			x += lengthdir_x(move_speed * _time_scale, _home_direction);
+			y += lengthdir_y(move_speed * _time_scale, _home_direction);
 			image_xscale = abs(image_xscale) * (_home_x >= x ? 1 : -1);
 		}
 
@@ -78,7 +81,7 @@ if (is_struct(assigned_event) && instance_exists(o_game_controller))
 }
 
 var _cannon = instance_find(o_cannon, 0);
-wander_timer--;
+wander_timer -= _time_scale;
 
 if (wander_timer <= 0 || point_distance(x, y, wander_target_x, wander_target_y) <= move_speed)
 {
@@ -95,5 +98,5 @@ if (wander_timer <= 0 || point_distance(x, y, wander_target_x, wander_target_y) 
 }
 
 var _move_direction = point_direction(x, y, wander_target_x, wander_target_y);
-x += lengthdir_x(move_speed, _move_direction);
-y += lengthdir_y(move_speed, _move_direction);
+x += lengthdir_x(move_speed * _time_scale, _move_direction);
+y += lengthdir_y(move_speed * _time_scale, _move_direction);

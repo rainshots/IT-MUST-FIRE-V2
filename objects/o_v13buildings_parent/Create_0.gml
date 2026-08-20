@@ -1310,7 +1310,8 @@ building_worker_stamina_update = function()
 
 	var _stamina_delta = -BALANCE_CULTIST_STAMINA_DRAIN_PER_SECOND
 		* building_stamina_drain_multiplier_get()
-		/ max(1, room_speed);
+		/ max(1, room_speed)
+		* (variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1);
 
 	var _worker_count = array_length(worker_cultists);
 

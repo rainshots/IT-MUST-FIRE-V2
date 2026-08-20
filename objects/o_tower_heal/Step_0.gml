@@ -22,6 +22,8 @@ if (global.pause)
 	exit;
 }
 
+var _time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
+
 // Check whether the ground under the tower has fully corrupted.
 tower_capture_update();
 
@@ -45,7 +47,7 @@ if (!is_captured)
 	exit;
 }
 
-heal_tick_timer++;
+heal_tick_timer += _time_scale;
 
 if (heal_tick_timer < heal_tick_time)
 {

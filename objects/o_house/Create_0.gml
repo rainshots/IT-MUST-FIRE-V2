@@ -479,7 +479,9 @@ house_combat_spawn_update = function()
 		return;
 	}
 
-	house_combat_spawn_timer--;
+	house_combat_spawn_timer -= variable_global_exists("gameplay_time_scale")
+		? global.gameplay_time_scale
+		: 1;
 
 	if (house_combat_spawn_timer > 0)
 	{

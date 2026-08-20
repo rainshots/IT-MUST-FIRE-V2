@@ -5,7 +5,8 @@ if (global.pause)
 }
 
 // Update explosion progress.
-life_timer++;
+var _time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
+life_timer += _time_scale;
 
 var _life_progress = clamp(life_timer / life_time, 0, 1);
 

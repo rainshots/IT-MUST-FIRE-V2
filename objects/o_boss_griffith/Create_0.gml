@@ -87,7 +87,7 @@ griffith_spawn_knight = function(_spawn_x, _spawn_y)
 
 griffith_summon_update = function()
 {
-	griffith_summon_timer--;
+	griffith_summon_timer -= gameplay_time_scale;
 
 	if (griffith_summon_timer > 0)
 	{
@@ -229,7 +229,7 @@ attack_target = function(_target)
 
 	if (reload_timer > 0)
 	{
-		reload_timer--;
+		reload_timer -= gameplay_time_scale;
 		return;
 	}
 
@@ -366,7 +366,7 @@ griffith_leap_update = function()
 		return;
 	}
 
-	griffith_leap_flight_timer--;
+	griffith_leap_flight_timer -= gameplay_time_scale;
 	var _flight_progress = 1 - clamp(griffith_leap_flight_timer / max(1, griffith_leap_flight_duration), 0, 1);
 	var _arc_lift = sin(_flight_progress * pi) * BALANCE_BOSS_GRIFFITH_LEAP_ARC_HEIGHT;
 	x = lerp(griffith_leap_flight_start_x, griffith_leap_flight_end_x, _flight_progress);

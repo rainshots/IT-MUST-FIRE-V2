@@ -158,7 +158,7 @@ catapult_projectile_create = function(_target)
 
 catapult_behavior_update = function()
 {
-	catapult_target_search_timer++;
+	catapult_target_search_timer += gameplay_time_scale;
 
 	if (!catapult_target_is_in_attack_band(target_instance)
 		|| catapult_target_search_timer >= target_search_update_interval)
@@ -175,7 +175,7 @@ catapult_behavior_update = function()
 
 		if (reload_timer > 0)
 		{
-			reload_timer--;
+			reload_timer -= gameplay_time_scale;
 			return true;
 		}
 

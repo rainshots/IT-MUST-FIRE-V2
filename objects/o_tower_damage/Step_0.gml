@@ -22,6 +22,8 @@ if (global.pause)
 	exit;
 }
 
+var _time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
+
 // Check whether the ground under the tower has fully corrupted.
 tower_capture_update();
 
@@ -42,7 +44,7 @@ if (variable_instance_exists(id, "building_constructed_by_shell") && building_co
 
 if (attack_feedback_timer > 0)
 {
-	attack_feedback_timer--;
+	attack_feedback_timer -= _time_scale;
 }
 
 if (!is_captured)
@@ -86,7 +88,7 @@ if (!instance_exists(target_instance))
 // Shoot the target when reload is ready.
 if (reload_timer > 0)
 {
-	reload_timer--;
+	reload_timer -= _time_scale;
 	exit;
 }
 

@@ -1,7 +1,8 @@
 // Temporary summoned skeletons expire after their lifetime.
 if (variable_instance_exists(id, "life_timer"))
 {
-	life_timer--;
+	var _time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
+	life_timer -= _time_scale;
 
 	if (life_timer <= 0)
 	{

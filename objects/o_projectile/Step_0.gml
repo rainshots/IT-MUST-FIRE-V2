@@ -13,14 +13,26 @@ if (global.pause && !ignore_pause)
 	exit;
 }
 
-// Delay launch so volley projectiles land with slight timing differences.
-if (launch_delay_timer > 0)
+// Projectiles follow scaled gameplay time while the game continues rendering at 60 FPS.
+gameplay_time_scale = variable_global_exists("gameplay_time_scale")
+	? global.gameplay_time_scale
+	: 1;
+
+// A landed Hellcow owns its brief brace, charge, push, and final explosion here.
+if (projectile_type == PROJECTILE_TYPE.BOMB && hellcow_charge_active)
 {
-	launch_delay_timer--;
+	hellcow_charge_update();
 	exit;
 }
 
-flight_timer++;
+// Delay launch so volley projectiles land with slight timing differences.
+if (launch_delay_timer > 0)
+{
+	launch_delay_timer -= gameplay_time_scale;
+	exit;
+}
+
+flight_timer += gameplay_time_scale;
 
 var _flight_progress = clamp(flight_timer / flight_time, 0, 1);
 var _arc_offset = -sin(_flight_progress * pi) * arc_height;
@@ -72,6 +84,13 @@ if (_flight_progress >= 1)
 		var _smoke_y = target_y + lengthdir_y(_smoke_distance, _smoke_direction);
 
 		instance_create_layer(_smoke_x, _smoke_y, particle_layer_name, o_particle_smoke);
+	}
+
+	// The impact cracks the shell; the cow then braces before beginning its directed charge.
+	if (projectile_type == PROJECTILE_TYPE.BOMB)
+	{
+		hellcow_charge_start();
+		exit;
 	}
 
 	// Doom Bell combines its ground corruption with a later damage effect.
@@ -418,8 +437,7 @@ if (_flight_progress >= 1)
 
 		ds_priority_destroy(_artillery_targets);
 	}
-	else if (projectile_type == PROJECTILE_TYPE.BOMB
-		|| projectile_type == PROJECTILE_TYPE.DOOM_BELL)
+	else if (projectile_type == PROJECTILE_TYPE.DOOM_BELL)
 	{
 		with (all)
 		{

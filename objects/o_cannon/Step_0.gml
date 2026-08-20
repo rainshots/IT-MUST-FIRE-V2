@@ -5,6 +5,7 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 	target_x = global.cannon_target_x;
 	target_y = global.cannon_target_y;
 	target_projectile_type = global.cannon_target_projectile_type;
+	target_direction = global.cannon_target_direction;
 	target_version = global.cannon_target_version;
 
 	// Fire once at the freshly selected target, including player-paused target selection.
@@ -61,6 +62,7 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 
 		if (target_projectile_type == PROJECTILE_TYPE.RALLY
 			|| target_projectile_type == PROJECTILE_TYPE.CULTIST
+			|| target_projectile_type == PROJECTILE_TYPE.BOMB
 			|| target_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL
 			|| target_projectile_type == PROJECTILE_TYPE.DOOM_BELL)
 		{
@@ -86,6 +88,7 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 
 			if (target_projectile_type == PROJECTILE_TYPE.RALLY
 				|| target_projectile_type == PROJECTILE_TYPE.CULTIST
+				|| target_projectile_type == PROJECTILE_TYPE.BOMB
 				|| target_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL
 				|| target_projectile_type == PROJECTILE_TYPE.DOOM_BELL)
 			{
@@ -105,6 +108,7 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			_projectile.target_x = _spread_target_x;
 			_projectile.target_y = _spread_target_y;
 			_projectile.projectile_type = target_projectile_type;
+			_projectile.hellcow_charge_direction = target_direction;
 			_projectile.effect_radius = projectile_effect_radius;
 			_projectile.cultist_payload = _projectile_payload;
 			_projectile.building_payload = _projectile_payload;

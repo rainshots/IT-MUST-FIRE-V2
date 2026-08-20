@@ -1,3 +1,17 @@
+// Event information and actions currently live exclusively in Assign Duties.
+if (!WORLD_EVENT_INTERFACE_ENABLED)
+{
+	world_event_hover_active = false;
+
+	if (variable_global_exists("world_event_hover_building")
+		&& global.world_event_hover_building == id)
+	{
+		global.world_event_hover_building = noone;
+	}
+
+	exit;
+}
+
 if (variable_global_exists("blood_moon_reward_popup_active")
 	&& global.blood_moon_reward_popup_active)
 {

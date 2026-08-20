@@ -19,10 +19,12 @@ if (jobs_view_active)
 	exit;
 }
 
-// Blocking focus windows and tutorial popups stop camera movement.
+// Cannon target selection keeps camera controls available while other focus windows block them.
 var _tutorial_popup_active = variable_global_exists("tutorial_popup_active") && global.tutorial_popup_active;
+var _camera_input_allowed = global.focus_window == FOCUS_WINDOW.NOONE
+	|| global.focus_window == FOCUS_WINDOW.TARGET_SELECTION;
 
-if (global.pause && (global.focus_window != FOCUS_WINDOW.NOONE || _tutorial_popup_active))
+if (global.pause && (!_camera_input_allowed || _tutorial_popup_active))
 {
 	velocity_x = 0;
 	velocity_y = 0;
@@ -80,7 +82,7 @@ var _edge_input_y = 0;
 if (variable_global_exists("edge_scroll_enabled")
 	&& global.edge_scroll_enabled
 	&& window_has_focus()
-	&& global.focus_window == FOCUS_WINDOW.NOONE
+	&& _camera_input_allowed
 	&& !_tutorial_popup_active)
 {
 	var _mouse_x = device_mouse_x_to_gui(0);

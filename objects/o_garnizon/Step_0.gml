@@ -4,6 +4,8 @@ if (global.pause)
 	exit;
 }
 
+var _time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
+
 // V13 keeps legacy building wave logic disabled while the cultist prototype is rebuilt.
 if (variable_global_exists("legacy_building_logic_enabled") && !global.legacy_building_logic_enabled)
 {
@@ -39,7 +41,7 @@ if (hp < previous_hp)
 }
 
 previous_hp = hp;
-activation_check_timer++;
+activation_check_timer += _time_scale;
 
 if (!is_activated && activation_check_timer >= activation_check_interval)
 {
@@ -65,7 +67,7 @@ if (global.day_phase == DAY_PHASE.NIGHT)
 has_released_current_night = false;
 
 // Spawn one guard at a fixed interval for the next attack wave.
-spawn_timer--;
+	spawn_timer -= _time_scale;
 if (spawn_timer <= 0)
 {
 	spawn_guard_unit();

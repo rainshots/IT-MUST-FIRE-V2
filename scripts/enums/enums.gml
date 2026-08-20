@@ -1,5 +1,8 @@
 /// @description Project-wide enums and macros.
 
+// Keep event management inside Assign Duties until the optional world interface returns.
+#macro WORLD_EVENT_INTERFACE_ENABLED false
+
 enum PROJECTILE_TYPE
 {
 	DAMAGE,

@@ -40,9 +40,15 @@ if (global.pause)
 	exit;
 }
 
+// Gameplay time can slow independently from rendering, input, and camera movement.
+gameplay_time_scale = variable_global_exists("gameplay_time_scale")
+	? global.gameplay_time_scale
+	: 1;
+image_speed = gameplay_time_scale;
+
 if (damage_flash_timer > 0)
 {
-	damage_flash_timer--;
+	damage_flash_timer -= gameplay_time_scale;
 }
 
 // Visual attack offset returns even while the unit has no target this frame.
@@ -228,19 +234,19 @@ if (is_stunned)
 // Update short attack feedback lifetime.
 if (attack_feedback_timer > 0)
 {
-	attack_feedback_timer--;
+	attack_feedback_timer -= gameplay_time_scale;
 }
 
 // Soul Chain death effects leave a short visual pulse.
 if (soul_chain_death_flash_timer > 0)
 {
-	soul_chain_death_flash_timer--;
+	soul_chain_death_flash_timer -= gameplay_time_scale;
 }
 
 // Update temporary armor debuffs.
 if (armor_debuff_timer > 0)
 {
-	armor_debuff_timer--;
+	armor_debuff_timer -= gameplay_time_scale;
 
 	if (armor_debuff_timer <= 0)
 	{
@@ -251,13 +257,13 @@ if (armor_debuff_timer > 0)
 // Panic cooldown prevents the same unit from chain-fleeing every hit.
 if (panic_flee_cooldown_timer > 0)
 {
-	panic_flee_cooldown_timer--;
+	panic_flee_cooldown_timer -= gameplay_time_scale;
 }
 
 // Demonic Infusion is refreshed by nearby Warlocks.
 if (demonic_infusion_timer > 0)
 {
-	demonic_infusion_timer--;
+	demonic_infusion_timer -= gameplay_time_scale;
 
 	if (demonic_infusion_timer <= 0)
 	{
@@ -268,7 +274,7 @@ if (demonic_infusion_timer > 0)
 // Corpse Armor adds temporary armor and cleans up the bonus when it expires.
 if (corpse_armor_timer > 0)
 {
-	corpse_armor_timer--;
+	corpse_armor_timer -= gameplay_time_scale;
 
 	if (corpse_armor_timer <= 0)
 	{
@@ -281,7 +287,7 @@ if (corpse_armor_timer > 0)
 // Forget shared threat after a short time.
 if (alert_target_timer > 0)
 {
-	alert_target_timer--;
+	alert_target_timer -= gameplay_time_scale;
 
 	if (!instance_exists(alert_target))
 	{
@@ -297,7 +303,7 @@ else
 // Forced targets are used by taunts and pulls.
 if (forced_attack_target_timer > 0)
 {
-	forced_attack_target_timer--;
+	forced_attack_target_timer -= gameplay_time_scale;
 
 	if (!target_can_be_attacked(forced_attack_target))
 	{
@@ -329,7 +335,7 @@ var _special_behavior_handled = unit_special_behavior_update();
 var _has_forced_target = target_can_be_attacked(forced_attack_target);
 var _should_search_target = false;
 
-target_search_update_timer++;
+target_search_update_timer += gameplay_time_scale;
 
 if (target_search_update_timer >= target_search_update_interval
 	|| (_had_target && !_current_target_is_valid)
