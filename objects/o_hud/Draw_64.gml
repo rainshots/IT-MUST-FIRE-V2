@@ -1487,6 +1487,60 @@ if (variable_global_exists("cannon_projectile_queue")
 	var _projectile_total_width = (projectile_slot_width * _projectile_display_count)
 		+ (projectile_slot_gap * max(0, _projectile_display_count - 1));
 	var _projectile_start_x = (_gui_width - _projectile_total_width) * 0.5;
+	var _cannon_is_reloading = false;
+	var _cannon_reload_progress = 1;
+	var _cannon_reload_seconds = 0;
+	var _reload_ui_reserved_height = 0;
+
+	if (instance_exists(o_cannon))
+	{
+		var _reload_cannon = instance_find(o_cannon, 0);
+
+		if (variable_instance_exists(_reload_cannon, "cannon_reload_is_ready")
+			&& !_reload_cannon.cannon_reload_is_ready())
+		{
+			_cannon_is_reloading = true;
+			_cannon_reload_progress = _reload_cannon.cannon_reload_progress_get();
+			_cannon_reload_seconds = _reload_cannon.cannon_reload_remaining_seconds_get();
+			_reload_ui_reserved_height = projectile_recharge_reserved_height;
+		}
+	}
+
+	// Show one shared Cannon reload bar above every projectile choice.
+	if (_cannon_is_reloading && _projectile_display_count > 0)
+	{
+		var _reload_bar_width = min(projectile_recharge_bar_width, max(projectile_slot_width, _projectile_total_width));
+		var _reload_bar_x = (_gui_width - _reload_bar_width) * 0.5;
+		var _reload_bar_y = _projectile_base_y - projectile_recharge_bar_gap;
+		var _reload_label = "RELOADING " + string_format(_cannon_reload_seconds, 0, 1) + "s";
+
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_bottom);
+		draw_set_alpha(1);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text(_gui_width * 0.5, _reload_bar_y - projectile_recharge_label_gap, _reload_label);
+
+		draw_set_alpha(0.72);
+		draw_set_color(COLOR_HUD_BACKGROUND);
+		draw_rectangle(
+			_reload_bar_x,
+			_reload_bar_y,
+			_reload_bar_x + _reload_bar_width,
+			_reload_bar_y + projectile_recharge_bar_height,
+			false
+		);
+
+		draw_set_alpha(1);
+		draw_set_color(COLOR_HUD_PROJECTILE_SELECTED);
+		draw_rectangle(
+			_reload_bar_x,
+			_reload_bar_y,
+			_reload_bar_x + (_reload_bar_width * _cannon_reload_progress),
+			_reload_bar_y + projectile_recharge_bar_height,
+			false
+		);
+	}
+
 	var _hovered_projectile_index = -1;
 	var _projectile_payload_data = array_create(_projectile_queue_count, noone);
 	var _deploy_preview_units = array_create(0);
@@ -1715,13 +1769,20 @@ if (variable_global_exists("cannon_projectile_queue")
 			_projectile_color = COLOR_PROJECTILE_BUILDING_SHELL;
 		}
 
-		var _projectile_is_active = _combat_projectiles_are_active
-			|| _projectile_type == PROJECTILE_TYPE.BUILDING_SHELL;
+		var _projectile_is_active = instance_exists(_projectile_game_controller)
+			&& _projectile_game_controller.cannon_projectile_type_can_fire_in_current_phase(_projectile_type);
+		var _projectile_can_fire = _projectile_is_active
+			&& _projectile_is_available
+			&& !_cannon_is_reloading;
 		var _projectile_draw_alpha = _projectile_is_active ? 1 : projectile_day_alpha;
 
 		if (!_projectile_is_available)
 		{
 			_projectile_draw_alpha *= projectile_day_alpha;
+		}
+		else if (_cannon_is_reloading)
+		{
+			_projectile_draw_alpha *= 0.6;
 		}
 
 		if (_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
@@ -1745,7 +1806,8 @@ if (variable_global_exists("cannon_projectile_queue")
 			var _matchup_center_y = _slot_y
 				- projectile_matchup_card_gap
 				- projectile_matchup_icon_radius
-				- (projectile_matchup_row_gap * (_selected_projectile_matchup_row_count - 1));
+				- (projectile_matchup_row_gap * (_selected_projectile_matchup_row_count - 1))
+				- _reload_ui_reserved_height;
 
 			if (array_length(_selected_projectile_matchups.strong_against) > 0)
 			{
@@ -1839,10 +1901,9 @@ if (variable_global_exists("cannon_projectile_queue")
 			);
 		}
 
-		// Rechargeable shells always show their current count, including zero while recharging.
+		// Only stockpiled shells show a quantity; reusable shells are governed by Cannon reload.
 		var _projectile_count_is_visible = _projectile_stack_count > 1
-			|| _projectile_type == PROJECTILE_TYPE.BOMB
-			|| _projectile_type == PROJECTILE_TYPE.HEAL;
+			|| _projectile_type == PROJECTILE_TYPE.CORRUPTION;
 
 		if (_projectile_count_is_visible)
 		{
@@ -1900,47 +1961,6 @@ if (variable_global_exists("cannon_projectile_queue")
 		}
 
 		draw_text(_slot_x + (_slot_width * 0.5), _slot_y + projectile_name_offset_y, _projectile_name);
-
-		// Draw the current night recharge progress below rechargeable shells.
-		if (_combat_projectiles_are_active
-			&& instance_exists(_projectile_game_controller)
-			&& (_projectile_type == PROJECTILE_TYPE.BOMB || _projectile_type == PROJECTILE_TYPE.HEAL)
-			&& variable_instance_exists(_projectile_game_controller, "cannon_night_shell_recharge_progress_get"))
-		{
-			var _recharge_progress = _projectile_game_controller.cannon_night_shell_recharge_progress_get(_projectile_type);
-			var _recharge_maximum = _projectile_game_controller.cannon_morning_projectile_target_count_get(_projectile_type);
-			var _recharge_current = _projectile_game_controller.cannon_projectile_queue_type_count_get(_projectile_type);
-
-			if (_recharge_maximum > 0 && _recharge_current < _recharge_maximum)
-			{
-				var _recharge_bar_x = _slot_x + ((_slot_width - projectile_recharge_bar_width) * 0.5);
-				var _recharge_bar_y = _slot_y + projectile_recharge_bar_offset_y;
-				var _recharge_fill_width = projectile_recharge_bar_width * _recharge_progress;
-
-				draw_set_alpha(0.45);
-				draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
-				draw_rectangle(
-					_recharge_bar_x,
-					_recharge_bar_y,
-					_recharge_bar_x + projectile_recharge_bar_width,
-					_recharge_bar_y + projectile_recharge_bar_height,
-					false
-				);
-
-				if (_recharge_fill_width > 0)
-				{
-					draw_set_alpha(1);
-					draw_set_color(_projectile_color);
-					draw_rectangle(
-						_recharge_bar_x,
-						_recharge_bar_y,
-						_recharge_bar_x + _recharge_fill_width,
-						_recharge_bar_y + projectile_recharge_bar_height,
-						false
-					);
-				}
-			}
-		}
 
 		draw_set_alpha(_projectile_draw_alpha);
 		draw_set_color(COLOR_HUD_TEXT);
@@ -2041,7 +2061,7 @@ if (variable_global_exists("cannon_projectile_queue")
 			draw_set_valign(fa_middle);
 		}
 
-		if (_projectile_is_active && _projectile_is_available)
+		if (_projectile_can_fire)
 		{
 			var _key_prompt_text = projectile_key_prompt_prefix + string(_projectile_display_index + 1);
 
@@ -2075,8 +2095,8 @@ if (variable_global_exists("cannon_projectile_queue")
 
 		_description_type = _description_slot.projectile_type;
 
-		var _description_projectile_is_active = _combat_projectiles_are_active
-			|| _description_type == PROJECTILE_TYPE.BUILDING_SHELL;
+		var _description_projectile_is_active = instance_exists(_projectile_game_controller)
+			&& _projectile_game_controller.cannon_projectile_type_can_fire_in_current_phase(_description_type);
 		var _description_draw_alpha = _description_projectile_is_active ? 1 : projectile_day_alpha;
 
 		if (_hovered_projectile_index >= 0
@@ -2095,7 +2115,8 @@ if (variable_global_exists("cannon_projectile_queue")
 		var _description_y = _projectile_base_y
 			- projectile_description_height
 			- projectile_description_gap
-			- _selected_projectile_matchup_height;
+			- _selected_projectile_matchup_height
+			- _reload_ui_reserved_height;
 
 		if (_draw_cultist_payload_card && instance_exists(o_game_controller))
 		{
@@ -2109,6 +2130,7 @@ if (variable_global_exists("cannon_projectile_queue")
 					- _card_height
 					- projectile_description_gap
 					- _selected_projectile_matchup_height
+					- _reload_ui_reserved_height
 			);
 			var _game_controller = instance_find(o_game_controller, 0);
 

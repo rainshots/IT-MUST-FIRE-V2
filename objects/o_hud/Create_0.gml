@@ -822,9 +822,11 @@ projectile_current_circle_radius = 17;
 projectile_current_scale_padding = 5;
 projectile_name_offset_y = 40;
 projectile_payload_offset_y = 56;
-projectile_recharge_bar_offset_y = 55;
-projectile_recharge_bar_width = 62;
-projectile_recharge_bar_height = 5;
+projectile_recharge_bar_width = 280;
+projectile_recharge_bar_height = 8;
+projectile_recharge_bar_gap = 18;
+projectile_recharge_label_gap = 5;
+projectile_recharge_reserved_height = 42;
 projectile_payload_icon_size = 14;
 projectile_payload_icon_gap = 4;
 projectile_payload_count_gap = 2;
@@ -854,49 +856,6 @@ projectile_display_slots_get = function(_game_controller, _max_display_count = 9
 	}
 
 	_display_slots = _game_controller.cannon_projectile_display_slots_get(_max_display_count);
-
-	if (!variable_global_exists("day_phase")
-		|| global.day_phase != DAY_PHASE.NIGHT
-		|| !variable_instance_exists(_game_controller, "cannon_morning_projectile_target_count_get")
-		|| !variable_instance_exists(_game_controller, "cannon_projectile_queue_type_count_get"))
-	{
-		return _display_slots;
-	}
-
-	// Keep rechargeable shell slots visible while their next charge is being restored.
-	var _recharge_projectile_types = [PROJECTILE_TYPE.BOMB, PROJECTILE_TYPE.HEAL];
-	var _recharge_projectile_type_count = array_length(_recharge_projectile_types);
-
-	for (var _recharge_type_index = 0; _recharge_type_index < _recharge_projectile_type_count; ++_recharge_type_index)
-	{
-		var _recharge_projectile_type = _recharge_projectile_types[_recharge_type_index];
-		var _recharge_target_count = _game_controller.cannon_morning_projectile_target_count_get(_recharge_projectile_type);
-		var _recharge_current_count = _game_controller.cannon_projectile_queue_type_count_get(_recharge_projectile_type);
-		var _recharge_slot_exists = false;
-		var _display_count = array_length(_display_slots);
-
-		for (var _display_index = 0; _display_index < _display_count; ++_display_index)
-		{
-			if (_display_slots[_display_index].projectile_type == _recharge_projectile_type)
-			{
-				_recharge_slot_exists = true;
-				break;
-			}
-		}
-
-		if (!_recharge_slot_exists
-			&& _recharge_target_count > 0
-			&& _recharge_current_count < _recharge_target_count
-			&& array_length(_display_slots) < _max_display_count)
-		{
-			array_push(_display_slots, {
-				projectile_type: _recharge_projectile_type,
-				queue_index: -1,
-				consume_queue_index: -1,
-				count: 0
-			});
-		}
-	}
 
 	return _display_slots;
 };
@@ -1125,11 +1084,19 @@ projectile_names[PROJECTILE_TYPE.DOOM_BELL] = "DOOM BELL";
 
 projectile_descriptions = array_create(PROJECTILE_TYPE.COUNT, "");
 projectile_descriptions[PROJECTILE_TYPE.DAMAGE] = "Damages units and buildings inside the impact area.";
-projectile_descriptions[PROJECTILE_TYPE.CORRUPTION] = "Fires a wide volley that taints the ground. Its impact radius must touch existing Taint.";
+projectile_descriptions[PROJECTILE_TYPE.CORRUPTION] = "Day-only shell. Fires a wide volley that taints the ground and consumes one daily charge. Its impact radius must touch existing Taint.";
 projectile_descriptions[PROJECTILE_TYPE.SUMMON] = "Summons friendly forces through valid target reactions.";
 projectile_descriptions[PROJECTILE_TYPE.RALLY] = "Sends half of nearby friendly units to the impact point.";
 projectile_descriptions[PROJECTILE_TYPE.CULTIST] = "Launches a cultist into battle, dealing impact damage and spawning demon form.";
-projectile_descriptions[PROJECTILE_TYPE.HEAL] = "Restores " + string(BALANCE_PROJECTILE_HEAL_AMOUNT) + " health to all friendly units inside a " + string(BALANCE_PROJECTILE_HEAL_RADIUS) + " pixel base radius. Each unit can be healed only once per volley. Payload Mastery improves healing; Tight tamping of meat improves healing and radius.";
+projectile_descriptions[PROJECTILE_TYPE.HEAL] = "Remains on the ground for "
+	+ string(BALANCE_FIRST_AID_MEAT_LIFETIME)
+	+ " seconds. Every "
+	+ string(BALANCE_FIRST_AID_MEAT_HEAL_INTERVAL)
+	+ " second it restores "
+	+ string(BALANCE_FIRST_AID_MEAT_HEAL_AMOUNT)
+	+ " health to all friendly units inside a "
+	+ string(BALANCE_FIRST_AID_MEAT_HEAL_RADIUS)
+	+ " pixel base radius. Payload Mastery improves each pulse; Tight tamping of meat improves healing and radius.";
 projectile_descriptions[PROJECTILE_TYPE.BOMB] = "Hold and drag from the landing point to aim a "
 	+ string(BALANCE_PROJECTILE_HELLCOW_CORRIDOR_WIDTH)
 	+ "px-wide Hellcow charge. It pushes enemies along the arrow, then explodes for "
@@ -1138,8 +1105,8 @@ projectile_descriptions[PROJECTILE_TYPE.BOMB] = "Hold and drag from the landing 
 projectile_descriptions[PROJECTILE_TYPE.SKELETONS] = "Summons " + string(BALANCE_PROJECTILE_SKELETON_COUNT) + " skeleton inside a " + string(BALANCE_PROJECTILE_SKELETON_RADIUS) + " pixel radius. Payload Mastery improves it.";
 projectile_descriptions[PROJECTILE_TYPE.BUILDING_SHELL] = "Builds its stored structure where it lands. Must be fired onto tainted ground.";
 projectile_descriptions[PROJECTILE_TYPE.CLEANSE] = "Enemy projectile that removes Taint where it lands.";
-projectile_descriptions[PROJECTILE_TYPE.DOOM_BELL] = "Deals "
-	+ string(BALANCE_PROJECTILE_DOOM_BELL_DAMAGE_AMOUNT)
-	+ " damage and taints the ground inside a "
+projectile_descriptions[PROJECTILE_TYPE.DOOM_BELL] = "Stuns all enemies inside a "
 	+ string(BALANCE_PROJECTILE_DOOM_BELL_RADIUS)
-	+ " pixel radius.";
+	+ " pixel radius for "
+	+ string(BALANCE_PROJECTILE_DOOM_BELL_STUN_TIME)
+	+ " seconds. Deals no damage.";

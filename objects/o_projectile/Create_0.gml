@@ -9,7 +9,6 @@ cultist_deploy_units = [];
 building_payload = noone;
 source_instance = noone;
 artillery_direct_target = noone;
-heal_volley_id = -1; // Prevent overlapping shells from the same healing volley from healing twice.
 
 // Explosion and effect settings.
 effect_radius = BALANCE_PROJECTILE_EFFECT_RADIUS;
@@ -158,10 +157,12 @@ hellcow_enemies_push = function(_move_distance)
 
 			if (_is_inside_push_front)
 			{
-				// Keep caught enemies just ahead of the cow so the whole shove follows the aim arrow.
+				// Keep caught enemies ahead without allowing the charge to push them through terrain.
 				var _required_push = max(_move_distance, _front_reach - _forward_distance);
-				x += _direction_x * _required_push;
-				y += _direction_y * _required_push;
+				unit_forced_displacement_apply(
+					_direction_x * _required_push,
+					_direction_y * _required_push
+				);
 			}
 		}
 	}

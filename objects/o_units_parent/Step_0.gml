@@ -46,6 +46,11 @@ gameplay_time_scale = variable_global_exists("gameplay_time_scale")
 	: 1;
 image_speed = gameplay_time_scale;
 
+if (navigation_retry_timer > 0)
+{
+	navigation_retry_timer = max(0, navigation_retry_timer - gameplay_time_scale);
+}
+
 if (damage_flash_timer > 0)
 {
 	damage_flash_timer -= gameplay_time_scale;
@@ -83,6 +88,9 @@ if (cultist_projectile_deploy_assigned || cultist_projectile_deploy_waiting)
 	update_walk_sway();
 	exit;
 }
+
+// Periodic recovery catches invalid positions caused by legacy teleports or external effects.
+navigation_recovery_update();
 
 // Night-spawned tower reinforcements wait through the day and attack next night.
 if (global.day_phase == DAY_PHASE.DAY
@@ -316,6 +324,22 @@ else
 	forced_attack_target = noone;
 }
 
+// Enemy units remain passive throughout Unholy Night, even when fired upon.
+if (unit_faction == UNIT_FACTION.ENEMY
+	&& variable_global_exists("unholy_night_active")
+	&& global.unholy_night_active)
+{
+	target_instance = noone;
+	alert_target = noone;
+	forced_attack_target = noone;
+	is_attacking_target = false;
+	is_walking = false;
+	visual_attack_offset_x = 0;
+	visual_attack_offset_y = 0;
+	update_walk_sway();
+	exit;
+}
+
 // Choose target by faction.
 is_attacking_target = false;
 is_walking = false;
@@ -330,6 +354,9 @@ var _current_target_is_valid = target_can_be_attacked(target_instance);
 
 // Update lightweight separation vector before movement.
 update_separation_push();
+
+// March state is updated before any normal, panic, or retreat movement uses its multiplier.
+enemy_march_update();
 
 var _special_behavior_handled = unit_special_behavior_update();
 var _has_forced_target = target_can_be_attacked(forced_attack_target);
@@ -492,6 +519,30 @@ else if (!_special_behavior_handled && _should_search_target && _is_friendly_uni
 		}
 	}
 
+	// Inaccessible enemies are skipped; enemy walls are attacked only when no reachable enemy remains.
+	var _target_is_manual_structure = _is_cultist_demon_unit
+		&& target_instance == manual_structure_target;
+
+	if (!_has_forced_target && !_target_is_manual_structure)
+	{
+		if (instance_exists(target_instance)
+			&& target_instance.object_index != o_cannon
+			&& !navigation_target_prepare(target_instance, attack_radius))
+		{
+			target_instance = noone;
+		}
+
+		if (!instance_exists(target_instance))
+		{
+			target_instance = find_nearest_reachable_enemy_target(vision_radius);
+		}
+
+		if (!instance_exists(target_instance))
+		{
+			target_instance = find_nearest_reachable_enemy_wall(vision_radius);
+		}
+	}
+
 	if (!instance_exists(target_instance) && instance_exists(o_cannon))
 	{
 		var _cannon = instance_find(o_cannon, 0);
@@ -559,6 +610,14 @@ if (!_special_behavior_handled && instance_exists(target_instance))
 	var _use_attack_ring = false;
 	var _attack_move_x = target_instance.x;
 	var _attack_move_y = target_instance.y;
+	var _target_is_wall = variable_instance_exists(target_instance, "is_wall")
+		&& target_instance.is_wall;
+
+	if (_target_is_wall)
+	{
+		_target_distance = target_instance.wall_distance_to_point(x, y);
+		_direct_target_distance = _target_distance;
+	}
 
 	face_world_x(target_instance.x);
 
@@ -596,13 +655,15 @@ if (!_special_behavior_handled && instance_exists(target_instance))
 	}
 	else
 	{
-		if (_use_attack_ring)
+		if (_use_attack_ring
+			&& navigation_target_prepare(target_instance, _current_attack_radius)
+			&& !navigation_has_path)
 		{
 			move_towards_world_point(_attack_move_x, _attack_move_y);
 		}
 		else
 		{
-			move_towards_target(target_instance);
+			move_towards_target(target_instance, _current_attack_radius);
 		}
 	}
 }

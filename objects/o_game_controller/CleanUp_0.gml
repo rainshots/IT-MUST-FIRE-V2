@@ -14,6 +14,13 @@ if (variable_instance_exists(id, "balance_log_file_path")
 	file_delete(balance_log_file_path);
 }
 
+// Destroy the shared wall navigation grid created by the game controller.
+if (variable_instance_exists(id, "wall_navigation_grid") && wall_navigation_grid != noone)
+{
+	mp_grid_destroy(wall_navigation_grid);
+	wall_navigation_grid = noone;
+}
+
 // Destroy shared particle resources created by the game controller.
 if (variable_global_exists("particle_type_blood") && global.particle_type_blood != noone)
 {

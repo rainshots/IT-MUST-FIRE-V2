@@ -25,6 +25,26 @@ cached_follow_target = noone;
 alert_target = noone;
 alert_target_timer = 0;
 alert_target_time = BALANCE_UNIT_ALERT_TARGET_TIME * room_speed;
+
+// Wall navigation paths are rebuilt on target changes and retried slowly after failures.
+navigation_path = noone;
+navigation_target = noone;
+navigation_target_position_x = x;
+navigation_target_position_y = y;
+navigation_goal_x = x;
+navigation_goal_y = y;
+navigation_grid_version = -1;
+navigation_has_path = false;
+navigation_has_direct_route = false;
+navigation_path_failed = false;
+navigation_path_point_index = 0;
+navigation_retry_timer = 0;
+navigation_retry_interval = max(1, BALANCE_WALL_NAVIGATION_RETRY_TIME * room_speed);
+navigation_last_safe_x = x;
+navigation_last_safe_y = y;
+navigation_has_safe_position = false;
+navigation_recovery_check_interval = BALANCE_WALL_NAVIGATION_RECOVERY_CHECK_INTERVAL;
+navigation_recovery_check_timer = irandom(navigation_recovery_check_interval - 1);
 fog_hidden_check_interval = BALANCE_UNIT_FOG_HIDDEN_CHECK_INTERVAL;
 fog_hidden_check_timer = irandom(fog_hidden_check_interval - 1);
 cached_is_hidden_by_fog = false;
@@ -80,6 +100,13 @@ holy_tower_reinforcement_waits_for_night = false;
 foundry_permanent_bonuses_pending = true;
 // Cheat balance UI uses this snapshot marker to keep dead units in the nightly HP total.
 balance_player_hp_snapshot_id = 0;
+
+// Night attackers march quickly until they reach player defenses or take damage.
+enemy_march_current_multiplier = 1;
+enemy_march_combat_reached = false;
+enemy_march_fade_frame_count = max(1, BALANCE_ENEMY_MARCH_FADE_TIME * room_speed);
+enemy_march_defense_check_interval = BALANCE_ENEMY_MARCH_DEFENSE_CHECK_INTERVAL;
+enemy_march_defense_check_timer = irandom(enemy_march_defense_check_interval - 1);
 
 // Unit separation keeps units from stacking into one point.
 separation_radius = BALANCE_UNIT_SEPARATION_RADIUS;
@@ -138,7 +165,6 @@ demonic_infusion_timer = 0;
 demonic_infusion_reload_multiplier = 1;
 heal_feedback_pending_amount = 0;
 heal_feedback_next_popup_time = 0;
-last_heal_volley_id = -1;
 corpse_armor_bonus = 0;
 corpse_armor_timer = 0;
 corpse_armor_retaliation_damage = 0;
@@ -395,6 +421,18 @@ target_can_be_attacked = function(_target)
 	}
 
 	if (variable_instance_exists(_target, "is_attackable") && !_target.is_attackable)
+	{
+		return false;
+	}
+
+	// Mountains prevent combat units on opposite sides from seeing or attacking each other.
+	var _target_is_combat_unit = _target.object_index == o_archdemon
+		|| _target.object_index == o_units_parent
+		|| object_is_ancestor(_target.object_index, o_units_parent);
+
+	if (_target_is_combat_unit
+		&& instance_number(o_mountain) > 0
+		&& collision_line(x, y, _target.x, _target.y, o_mountain, false, true) != noone)
 	{
 		return false;
 	}
@@ -757,10 +795,8 @@ unit_move_speed_multiplier_get = function()
 		_move_multiplier *= imp_blood_frenzy_move_multiplier_get();
 	}
 
-	if (unit_faction == UNIT_FACTION.ENEMY && unit_is_hidden_by_fog())
-	{
-		_move_multiplier *= BALANCE_ENEMY_HIDDEN_MOVE_SPEED_MULTIPLIER;
-	}
+	// March speed is independent from fog visibility and fades before combat.
+	_move_multiplier *= enemy_march_current_multiplier;
 
 	if (global.day_phase == DAY_PHASE.NIGHT && unit_is_on_tainted_ground())
 	{
@@ -775,6 +811,118 @@ unit_move_speed_multiplier_get = function()
 	}
 
 	return _move_multiplier;
+};
+
+enemy_march_stop = function()
+{
+	enemy_march_combat_reached = true;
+};
+
+enemy_march_defense_is_near = function()
+{
+	var _defense_radius = BALANCE_ENEMY_MARCH_DEFENSE_RADIUS;
+
+	// Player combat units end marching before the enemy enters its normal detection radius.
+	if (instance_exists(find_nearest_player_unit_target(_defense_radius)))
+	{
+		return true;
+	}
+
+	// Constructed and captured player buildings also mark the start of combat space.
+	if (instance_exists(find_nearest_attackable_player_structure(_defense_radius)))
+	{
+		return true;
+	}
+
+	// Ally walls are defenses even when they were placed directly in the room editor.
+	if (instance_exists(o_wall_ally))
+	{
+		var _nearest_wall = instance_nearest(x, y, o_wall_ally);
+
+		if (instance_exists(_nearest_wall)
+			&& (!variable_instance_exists(_nearest_wall, "hp") || _nearest_wall.hp > 0))
+		{
+			var _wall_distance = point_distance(x, y, _nearest_wall.x, _nearest_wall.y);
+
+			if (variable_instance_exists(_nearest_wall, "wall_distance_to_point"))
+			{
+				_wall_distance = _nearest_wall.wall_distance_to_point(x, y);
+			}
+
+			if (_wall_distance <= _defense_radius)
+			{
+				return true;
+			}
+		}
+	}
+
+	// With no outer defense, slow down shortly before reaching the cannon wall.
+	if (instance_exists(o_cannon))
+	{
+		var _cannon = instance_find(o_cannon, 0);
+		var _cannon_approach_radius = cannon_wall_attack_radius_get()
+			+ BALANCE_ENEMY_MARCH_CANNON_APPROACH_PADDING;
+
+		if (point_distance(x, y, _cannon.x, _cannon.y) <= _cannon_approach_radius)
+		{
+			return true;
+		}
+	}
+
+	return false;
+};
+
+enemy_march_update = function()
+{
+	var _can_march = unit_faction == UNIT_FACTION.ENEMY
+		&& is_night_attack_unit
+		&& unit_can_attack_cannon
+		&& global.day_phase == DAY_PHASE.NIGHT
+		&& !forced_retreat_active
+		&& !enemy_march_combat_reached;
+
+	if (_can_march)
+	{
+		var _has_defense_target = instance_exists(target_instance)
+			&& target_instance.object_index != o_cannon;
+
+		if (_has_defense_target
+			|| instance_exists(alert_target)
+			|| target_can_be_attacked(forced_attack_target)
+			|| is_attacking_target)
+		{
+			enemy_march_stop();
+			_can_march = false;
+		}
+	}
+
+	if (_can_march)
+	{
+		enemy_march_defense_check_timer++;
+
+		if (enemy_march_defense_check_timer >= enemy_march_defense_check_interval)
+		{
+			enemy_march_defense_check_timer = 0;
+
+			if (enemy_march_defense_is_near())
+			{
+				enemy_march_stop();
+				_can_march = false;
+			}
+		}
+	}
+
+	if (_can_march)
+	{
+		enemy_march_current_multiplier = BALANCE_ENEMY_MARCH_MOVE_SPEED_MULTIPLIER;
+		return;
+	}
+
+	// Ease from march speed to normal combat speed over the configured duration.
+	var _fade_amount = (BALANCE_ENEMY_MARCH_MOVE_SPEED_MULTIPLIER - 1)
+		/ enemy_march_fade_frame_count
+		* gameplay_time_scale;
+	enemy_march_current_multiplier = max(1, enemy_march_current_multiplier - _fade_amount);
 };
 
 unit_is_hidden_by_fog = function()
@@ -1126,6 +1274,12 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 	var _applied_damage = min(_damage_amount, hp);
 	hp = max(hp - _damage_amount, 0);
 	damage_flash_timer = damage_flash_duration;
+
+	// Taking damage permanently ends the fast approach for this night attacker.
+	if (unit_faction == UNIT_FACTION.ENEMY && is_night_attack_unit)
+	{
+		enemy_march_stop();
+	}
 
 	if (variable_global_exists("day_phase")
 		&& global.day_phase == DAY_PHASE.NIGHT
@@ -1757,8 +1911,10 @@ panic_flee_update = function()
 
 	is_walking = true;
 	face_world_x(x + lengthdir_x(1, _flee_direction));
-	x += lengthdir_x(_current_move_speed, _flee_direction);
-	y += lengthdir_y(_current_move_speed, _flee_direction);
+	move_with_wall_collision(
+		lengthdir_x(_current_move_speed, _flee_direction),
+		lengthdir_y(_current_move_speed, _flee_direction)
+	);
 
 	return true;
 };
@@ -1809,8 +1965,10 @@ forced_retreat_update = function()
 
 	is_walking = true;
 	face_world_x(forced_retreat_target_x);
-	x += lengthdir_x(_move_distance, _retreat_direction);
-	y += lengthdir_y(_move_distance, _retreat_direction);
+	move_with_wall_collision(
+		lengthdir_x(_move_distance, _retreat_direction),
+		lengthdir_y(_move_distance, _retreat_direction)
+	);
 
 	return true;
 };
@@ -2278,29 +2436,924 @@ find_nearest_visible_cultist = function()
 	return _nearest_cultist;
 };
 
-move_towards_target = function(_target)
+move_with_wall_collision = function(_move_x, _move_y, _navigation_grid = noone)
 {
+	if (_move_x == 0 && _move_y == 0)
+	{
+		return false;
+	}
+
+	var _largest_move_component = max(abs(_move_x), abs(_move_y));
+	var _move_step_count = max(1, ceil(_largest_move_component / BALANCE_WALL_COLLISION_MOVE_STEP));
+	var _move_step_x = _move_x / _move_step_count;
+	var _move_step_y = _move_y / _move_step_count;
+	var _has_moved = false;
+
+	// Short substeps prevent knockback and accelerated movement from tunneling through walls.
+	for (var _move_step_index = 0; _move_step_index < _move_step_count; ++_move_step_index)
+	{
+		var _next_x = x + _move_step_x;
+		var _next_y = y + _move_step_y;
+		var _combined_position_is_blocked = _navigation_grid != noone
+			? navigation_grid_position_is_blocked(_navigation_grid, _next_x, _next_y)
+			: place_meeting(_next_x, _next_y, o_wall_parent);
+
+		if (!_combined_position_is_blocked)
+		{
+			x = _next_x;
+			y = _next_y;
+			_has_moved = true;
+			continue;
+		}
+
+		// Axis checks let units slide along a wall instead of vibrating against it.
+		var _horizontal_position_is_blocked = _navigation_grid != noone
+			? navigation_grid_position_is_blocked(_navigation_grid, _next_x, y)
+			: place_meeting(_next_x, y, o_wall_parent);
+
+		if (_move_step_x != 0
+			&& !_horizontal_position_is_blocked)
+		{
+			x = _next_x;
+			_has_moved = true;
+		}
+
+		var _vertical_position_is_blocked = _navigation_grid != noone
+			? navigation_grid_position_is_blocked(_navigation_grid, x, _next_y)
+			: place_meeting(x, _next_y, o_wall_parent);
+
+		if (_move_step_y != 0
+			&& !_vertical_position_is_blocked)
+		{
+			y = _next_y;
+			_has_moved = true;
+		}
+	}
+
+	return _has_moved;
+};
+
+navigation_path_resource_get = function()
+{
+	if (navigation_path == noone)
+	{
+		navigation_path = path_add();
+	}
+
+	return navigation_path;
+};
+
+navigation_path_state_clear = function()
+{
+	if (navigation_path != noone)
+	{
+		path_clear_points(navigation_path);
+	}
+
+	navigation_has_path = false;
+	navigation_has_direct_route = false;
+	navigation_path_failed = false;
+	navigation_path_point_index = 0;
+	navigation_retry_timer = 0;
+};
+
+navigation_target_distance_get = function(_target)
+{
+	if (!instance_exists(_target))
+	{
+		return infinity;
+	}
+
+	if (variable_instance_exists(_target, "is_wall")
+		&& _target.is_wall
+		&& variable_instance_exists(_target, "wall_distance_to_point"))
+	{
+		return _target.wall_distance_to_point(x, y);
+	}
+
+	return point_distance(x, y, _target.x, _target.y);
+};
+
+navigation_path_result_store = function(_target, _goal_x, _goal_y, _grid_version, _path_was_built, _has_direct_route = false)
+{
+	navigation_target = _target;
+	navigation_target_position_x = _goal_x;
+	navigation_target_position_y = _goal_y;
+
 	if (instance_exists(_target))
 	{
-		var _target_direction = point_direction(x, y, _target.x, _target.y);
-		var _current_move_speed = move_speed * unit_move_speed_multiplier_get() * gameplay_time_scale;
-
-		is_walking = true;
-		face_world_x(_target.x);
-		x += lengthdir_x(_current_move_speed, _target_direction);
-		y += lengthdir_y(_current_move_speed, _target_direction);
+		navigation_target_position_x = _target.x;
+		navigation_target_position_y = _target.y;
 	}
+
+	navigation_goal_x = _goal_x;
+	navigation_goal_y = _goal_y;
+	navigation_grid_version = _grid_version;
+	navigation_has_path = _path_was_built;
+	navigation_has_direct_route = _has_direct_route;
+	navigation_path_failed = !_path_was_built && !_has_direct_route;
+	navigation_path_point_index = 0;
+	navigation_retry_timer = navigation_path_failed ? navigation_retry_interval : 0;
+
+	return _path_was_built || _has_direct_route;
+};
+
+navigation_grid_get = function()
+{
+	if (!instance_exists(o_game_controller))
+	{
+		return noone;
+	}
+
+	var _game_controller = instance_find(o_game_controller, 0);
+
+	if (!variable_instance_exists(_game_controller, "wall_navigation_grid_get"))
+	{
+		return noone;
+	}
+
+	return _game_controller.wall_navigation_grid_get();
+};
+
+navigation_grid_position_is_blocked = function(_navigation_grid, _position_x, _position_y)
+{
+	var _cell_x = floor(_position_x / BALANCE_WALL_NAVIGATION_CELL_SIZE);
+	var _cell_y = floor(_position_y / BALANCE_WALL_NAVIGATION_CELL_SIZE);
+
+	return mp_grid_get_cell(_navigation_grid, _cell_x, _cell_y) == -1;
+};
+
+navigation_grid_line_is_clear = function(_navigation_grid, _start_x, _start_y, _goal_x, _goal_y)
+{
+	var _line_distance = point_distance(_start_x, _start_y, _goal_x, _goal_y);
+	var _sample_step = BALANCE_WALL_NAVIGATION_CELL_SIZE * BALANCE_WALL_NAVIGATION_LINE_SAMPLE_SCALE;
+	var _sample_count = max(1, ceil(_line_distance / _sample_step));
+
+	// Half-cell samples prevent a segment from skipping an occupied cell.
+	for (var _sample_index = 0; _sample_index <= _sample_count; ++_sample_index)
+	{
+		var _sample_progress = _sample_index / _sample_count;
+		var _sample_x = lerp(_start_x, _goal_x, _sample_progress);
+		var _sample_y = lerp(_start_y, _goal_y, _sample_progress);
+		if (navigation_grid_position_is_blocked(_navigation_grid, _sample_x, _sample_y))
+		{
+			return false;
+		}
+	}
+
+	return true;
+};
+
+navigation_grid_free_position_get = function(
+	_navigation_grid,
+	_position_x,
+	_position_y,
+	_require_clear_line,
+	_search_radius = BALANCE_WALL_NAVIGATION_FREE_CELL_SEARCH_RADIUS
+)
+{
+	var _cell_size = BALANCE_WALL_NAVIGATION_CELL_SIZE;
+	var _horizontal_cell_count = ceil(room_width / _cell_size);
+	var _vertical_cell_count = ceil(room_height / _cell_size);
+	var _origin_cell_x = clamp(floor(_position_x / _cell_size), 0, _horizontal_cell_count - 1);
+	var _origin_cell_y = clamp(floor(_position_y / _cell_size), 0, _vertical_cell_count - 1);
+
+	if (mp_grid_get_cell(_navigation_grid, _origin_cell_x, _origin_cell_y) == 0)
+	{
+		return [true, _position_x, _position_y];
+	}
+
+	var _best_x = _position_x;
+	var _best_y = _position_y;
+	var _best_distance_squared = infinity;
+	var _position_was_found = false;
+
+	// Search a bounded square around blocked start or goal cells.
+	for (var _radius = 1; _radius <= _search_radius; ++_radius)
+	{
+		for (var _offset_y = -_radius; _offset_y <= _radius; ++_offset_y)
+		{
+			for (var _offset_x = -_radius; _offset_x <= _radius; ++_offset_x)
+			{
+				if (abs(_offset_x) != _radius && abs(_offset_y) != _radius)
+				{
+					continue;
+				}
+
+				var _cell_x = _origin_cell_x + _offset_x;
+				var _cell_y = _origin_cell_y + _offset_y;
+
+				if (_cell_x < 0
+					|| _cell_x >= _horizontal_cell_count
+					|| _cell_y < 0
+					|| _cell_y >= _vertical_cell_count
+					|| mp_grid_get_cell(_navigation_grid, _cell_x, _cell_y) == -1)
+				{
+					continue;
+				}
+
+				var _candidate_x = min((_cell_x + 0.5) * _cell_size, room_width - 1);
+				var _candidate_y = min((_cell_y + 0.5) * _cell_size, room_height - 1);
+
+				if (_require_clear_line
+					&& collision_line(
+							_position_x,
+							_position_y,
+							_candidate_x,
+							_candidate_y,
+							o_wall_parent,
+							false,
+							true
+						) != noone)
+				{
+					continue;
+				}
+
+				var _distance_x = _candidate_x - _position_x;
+				var _distance_y = _candidate_y - _position_y;
+				var _distance_squared = (_distance_x * _distance_x) + (_distance_y * _distance_y);
+
+				if (_distance_squared < _best_distance_squared)
+				{
+					_best_x = _candidate_x;
+					_best_y = _candidate_y;
+					_best_distance_squared = _distance_squared;
+					_position_was_found = true;
+				}
+			}
+		}
+	}
+
+	return [_position_was_found, _best_x, _best_y];
+};
+
+navigation_grid_path_build = function(_navigation_grid, _path, _goal_x, _goal_y)
+{
+	var _start_position = navigation_grid_free_position_get(_navigation_grid, x, y, true);
+	var _goal_position = navigation_grid_free_position_get(_navigation_grid, _goal_x, _goal_y, false);
+
+	if (!_start_position[0] || !_goal_position[0])
+	{
+		path_clear_points(_path);
+		return [false, _goal_x, _goal_y];
+	}
+
+	path_clear_points(_path);
+	var _path_was_built = mp_grid_path(
+		_navigation_grid,
+		_path,
+		_start_position[1],
+		_start_position[2],
+		_goal_position[1],
+		_goal_position[2],
+		true
+	);
+
+	return [_path_was_built, _goal_position[1], _goal_position[2]];
+};
+
+navigation_position_is_safe = function(_navigation_grid, _position_x, _position_y)
+{
+	if (_navigation_grid != noone)
+	{
+		return !navigation_grid_position_is_blocked(_navigation_grid, _position_x, _position_y);
+	}
+
+	return !place_meeting(_position_x, _position_y, o_wall_parent);
+};
+
+navigation_last_safe_position_store = function(_navigation_grid)
+{
+	if (!navigation_position_is_safe(_navigation_grid, x, y))
+	{
+		return false;
+	}
+
+	navigation_last_safe_x = x;
+	navigation_last_safe_y = y;
+	navigation_has_safe_position = true;
+
+	return true;
+};
+
+navigation_recover_if_blocked = function(_navigation_grid = noone)
+{
+	if (_navigation_grid == noone)
+	{
+		_navigation_grid = navigation_grid_get();
+	}
+
+	if (_navigation_grid == noone)
+	{
+		return false;
+	}
+
+	if (navigation_last_safe_position_store(_navigation_grid))
+	{
+		return false;
+	}
+
+	var _recovery_position_found = false;
+	var _recovery_x = x;
+	var _recovery_y = y;
+	var _last_safe_max_distance = BALANCE_WALL_NAVIGATION_RECOVERY_SEARCH_RADIUS
+		* BALANCE_WALL_NAVIGATION_CELL_SIZE;
+
+	// Prefer the most recent position that was confirmed by both the grid and collision mask.
+	if (navigation_has_safe_position
+		&& point_distance(x, y, navigation_last_safe_x, navigation_last_safe_y) <= _last_safe_max_distance
+		&& navigation_position_is_safe(
+			_navigation_grid,
+			navigation_last_safe_x,
+			navigation_last_safe_y
+		))
+	{
+		_recovery_position_found = true;
+		_recovery_x = navigation_last_safe_x;
+		_recovery_y = navigation_last_safe_y;
+	}
+	else
+	{
+		var _nearest_free_position = navigation_grid_free_position_get(
+			_navigation_grid,
+			x,
+			y,
+			false,
+			BALANCE_WALL_NAVIGATION_RECOVERY_SEARCH_RADIUS
+		);
+
+		if (_nearest_free_position[0])
+		{
+			_recovery_position_found = true;
+			_recovery_x = _nearest_free_position[1];
+			_recovery_y = _nearest_free_position[2];
+		}
+	}
+
+	if (!_recovery_position_found)
+	{
+		return false;
+	}
+
+	// Recovery is an exceptional snap that restores a valid origin before normal AI resumes.
+	x = _recovery_x;
+	y = _recovery_y;
+	navigation_last_safe_x = x;
+	navigation_last_safe_y = y;
+	navigation_has_safe_position = true;
+	separation_push_x = 0;
+	separation_push_y = 0;
+	is_walking = false;
+	navigation_path_state_clear();
+	navigation_grid_version = -1;
+
+	return true;
+};
+
+navigation_recovery_update = function()
+{
+	if (forced_retreat_active || is_being_dragged)
+	{
+		return false;
+	}
+
+	navigation_recovery_check_timer += gameplay_time_scale;
+
+	if (navigation_recovery_check_timer < navigation_recovery_check_interval)
+	{
+		return false;
+	}
+
+	navigation_recovery_check_timer -= navigation_recovery_check_interval;
+
+	var _navigation_grid = navigation_grid_get();
+
+	if (_navigation_grid == noone)
+	{
+		return false;
+	}
+
+	if (navigation_last_safe_position_store(_navigation_grid))
+	{
+		return false;
+	}
+
+	return navigation_recover_if_blocked(_navigation_grid);
+};
+
+unit_forced_displacement_apply = function(_move_x, _move_y)
+{
+	if (_move_x == 0 && _move_y == 0)
+	{
+		return false;
+	}
+
+	var _navigation_grid = navigation_grid_get();
+
+	if (_navigation_grid != noone)
+	{
+		navigation_recover_if_blocked(_navigation_grid);
+		navigation_last_safe_position_store(_navigation_grid);
+	}
+
+	// Swept movement stops or slides at occupied cells instead of jumping through them.
+	var _has_moved = move_with_wall_collision(_move_x, _move_y, _navigation_grid);
+
+	if (_has_moved)
+	{
+		navigation_path_state_clear();
+		navigation_grid_version = -1;
+
+		if (_navigation_grid != noone)
+		{
+			navigation_last_safe_position_store(_navigation_grid);
+		}
+	}
+
+	// This fallback also repairs units displaced by legacy or future direct coordinate writes.
+	if (_navigation_grid != noone)
+	{
+		navigation_recover_if_blocked(_navigation_grid);
+	}
+
+	return _has_moved;
+};
+
+navigation_target_prepare = function(_target, _attack_radius)
+{
+	if (!target_can_be_attacked(_target))
+	{
+		return false;
+	}
+
+	// A target already in range does not require a movement route.
+	if (navigation_target_distance_get(_target) <= _attack_radius)
+	{
+		navigation_path_state_clear();
+		navigation_target = _target;
+		navigation_target_position_x = _target.x;
+		navigation_target_position_y = _target.y;
+		navigation_goal_x = _target.x;
+		navigation_goal_y = _target.y;
+		return true;
+	}
+
+	if (instance_number(o_wall_parent) <= 0)
+	{
+		navigation_path_state_clear();
+		navigation_target = _target;
+		navigation_target_position_x = _target.x;
+		navigation_target_position_y = _target.y;
+		navigation_goal_x = _target.x;
+		navigation_goal_y = _target.y;
+		return true;
+	}
+
+	if (!instance_exists(o_game_controller))
+	{
+		return false;
+	}
+
+	var _game_controller = instance_find(o_game_controller, 0);
+
+	if (!variable_instance_exists(_game_controller, "wall_navigation_grid_get"))
+	{
+		return false;
+	}
+
+	var _navigation_grid = _game_controller.wall_navigation_grid_get();
+	var _grid_version = _game_controller.wall_navigation_grid_version;
+	var _target_is_wall = variable_instance_exists(_target, "is_wall") && _target.is_wall;
+	var _same_target = navigation_target == _target;
+	var _target_move_distance = point_distance(
+		navigation_target_position_x,
+		navigation_target_position_y,
+		_target.x,
+		_target.y
+	);
+	var _cached_path_is_current = _same_target
+		&& navigation_grid_version == _grid_version
+		&& _target_move_distance <= BALANCE_WALL_NAVIGATION_REBUILD_DISTANCE;
+	var _failed_path_is_waiting = _same_target
+		&& navigation_grid_version == _grid_version
+		&& navigation_path_failed
+		&& navigation_retry_timer > 0;
+
+	if (_failed_path_is_waiting)
+	{
+		return false;
+	}
+
+	if (_cached_path_is_current
+		&& (navigation_has_path || navigation_has_direct_route))
+	{
+		return true;
+	}
+
+	// Direct movement is allowed only when the same MP grid used for paths is clear.
+	if (!_target_is_wall
+		&& navigation_grid_line_is_clear(_navigation_grid, x, y, _target.x, _target.y))
+	{
+		navigation_path_state_clear();
+		return navigation_path_result_store(
+			_target,
+			_target.x,
+			_target.y,
+			_grid_version,
+			false,
+			true
+		);
+	}
+
+	var _path = navigation_path_resource_get();
+
+	if (!_target_is_wall)
+	{
+		var _path_result = navigation_grid_path_build(_navigation_grid, _path, _target.x, _target.y);
+		return navigation_path_result_store(
+			_target,
+			_path_result[1],
+			_path_result[2],
+			_grid_version,
+			_path_result[0]
+		);
+	}
+
+	var _goal_candidates = _target.wall_navigation_goal_candidates_get(x, y, _attack_radius);
+	var _goal_candidate_count = array_length(_goal_candidates);
+	var _goal_candidate_checked = array_create(_goal_candidate_count, false);
+
+	// Try the closest wall side first, then the remaining sides if it is blocked by adjacent walls.
+	for (var _goal_attempt = 0; _goal_attempt < _goal_candidate_count; ++_goal_attempt)
+	{
+		var _nearest_goal_index = -1;
+		var _nearest_goal_distance = infinity;
+
+		for (var _goal_index = 0; _goal_index < _goal_candidate_count; ++_goal_index)
+		{
+			if (_goal_candidate_checked[_goal_index])
+			{
+				continue;
+			}
+
+			var _goal = _goal_candidates[_goal_index];
+			var _goal_distance = point_distance(x, y, _goal.x, _goal.y);
+
+			if (_goal_distance < _nearest_goal_distance)
+			{
+				_nearest_goal_index = _goal_index;
+				_nearest_goal_distance = _goal_distance;
+			}
+		}
+
+		if (_nearest_goal_index < 0)
+		{
+			break;
+		}
+
+		_goal_candidate_checked[_nearest_goal_index] = true;
+		var _selected_goal = _goal_candidates[_nearest_goal_index];
+		var _path_result = navigation_grid_path_build(
+			_navigation_grid,
+			_path,
+			_selected_goal.x,
+			_selected_goal.y
+		);
+
+		if (_path_result[0])
+		{
+			return navigation_path_result_store(
+				_target,
+				_path_result[1],
+				_path_result[2],
+				_grid_version,
+				true
+			);
+		}
+	}
+
+	path_clear_points(_path);
+	return navigation_path_result_store(_target, _target.x, _target.y, _grid_version, false);
+};
+
+navigation_world_point_prepare = function(_target_x, _target_y)
+{
+	if (instance_number(o_wall_parent) <= 0)
+	{
+		navigation_path_state_clear();
+		navigation_target = noone;
+		navigation_target_position_x = _target_x;
+		navigation_target_position_y = _target_y;
+		navigation_goal_x = _target_x;
+		navigation_goal_y = _target_y;
+		return true;
+	}
+
+	if (!instance_exists(o_game_controller))
+	{
+		return false;
+	}
+
+	var _game_controller = instance_find(o_game_controller, 0);
+
+	if (!variable_instance_exists(_game_controller, "wall_navigation_grid_get"))
+	{
+		return false;
+	}
+
+	var _navigation_grid = _game_controller.wall_navigation_grid_get();
+	var _grid_version = _game_controller.wall_navigation_grid_version;
+	var _target_move_distance = point_distance(
+		navigation_target_position_x,
+		navigation_target_position_y,
+		_target_x,
+		_target_y
+	);
+	var _same_target = navigation_target == noone
+		&& _target_move_distance <= BALANCE_WALL_NAVIGATION_REBUILD_DISTANCE;
+	var _cached_path_is_current = _same_target
+		&& navigation_grid_version == _grid_version;
+	var _failed_path_is_waiting = _cached_path_is_current
+		&& navigation_path_failed
+		&& navigation_retry_timer > 0;
+
+	if (_failed_path_is_waiting)
+	{
+		return false;
+	}
+
+	if (_cached_path_is_current
+		&& (navigation_has_path || navigation_has_direct_route))
+	{
+		return true;
+	}
+
+	// Point movement uses the exact same occupied-cell data as generated paths.
+	if (navigation_grid_line_is_clear(_navigation_grid, x, y, _target_x, _target_y))
+	{
+		navigation_path_state_clear();
+		return navigation_path_result_store(
+			noone,
+			_target_x,
+			_target_y,
+			_grid_version,
+			false,
+			true
+		);
+	}
+
+	var _path = navigation_path_resource_get();
+	var _path_result = navigation_grid_path_build(_navigation_grid, _path, _target_x, _target_y);
+
+	return navigation_path_result_store(
+		noone,
+		_path_result[1],
+		_path_result[2],
+		_grid_version,
+		_path_result[0]
+	);
+};
+
+navigation_path_move = function(_current_move_speed)
+{
+	if (!navigation_has_path || navigation_path == noone)
+	{
+		return false;
+	}
+
+	var _path_point_count = path_get_number(navigation_path);
+
+	// Skip path points already reached by this unit.
+	for (var _path_point_check = navigation_path_point_index; _path_point_check < _path_point_count; ++_path_point_check)
+	{
+		var _point_x = path_get_point_x(navigation_path, navigation_path_point_index);
+		var _point_y = path_get_point_y(navigation_path, navigation_path_point_index);
+		var _point_distance = point_distance(x, y, _point_x, _point_y);
+
+		if (_point_distance > max(BALANCE_WALL_NAVIGATION_POINT_ARRIVE_RADIUS, _current_move_speed))
+		{
+			break;
+		}
+
+		navigation_path_point_index++;
+	}
+
+	var _move_target_x = navigation_goal_x;
+	var _move_target_y = navigation_goal_y;
+
+	if (navigation_path_point_index < _path_point_count)
+	{
+		_move_target_x = path_get_point_x(navigation_path, navigation_path_point_index);
+		_move_target_y = path_get_point_y(navigation_path, navigation_path_point_index);
+	}
+
+	var _move_distance = point_distance(x, y, _move_target_x, _move_target_y);
+
+	if (_move_distance <= 0)
+	{
+		return false;
+	}
+
+	var _move_direction = point_direction(x, y, _move_target_x, _move_target_y);
+	var _move_amount = min(_current_move_speed, _move_distance);
+	var _navigation_grid = navigation_grid_get();
+	var _has_moved = move_with_wall_collision(
+		lengthdir_x(_move_amount, _move_direction),
+		lengthdir_y(_move_amount, _move_direction),
+		_navigation_grid
+	);
+
+	if (!_has_moved)
+	{
+		navigation_has_path = false;
+		navigation_path_failed = true;
+		navigation_retry_timer = navigation_retry_interval;
+	}
+
+	return _has_moved;
+};
+
+friendly_enemy_structure_can_be_targeted = function(_target)
+{
+	if (!target_can_be_attacked(_target)
+		|| (variable_instance_exists(_target, "is_wall") && _target.is_wall))
+	{
+		return false;
+	}
+
+	return _target.object_index == o_holy_tower
+		|| _target.object_index == o_shrine
+		|| _target.object_index == o_garnizon
+		|| _target.object_index == o_house;
+};
+
+find_nearest_reachable_enemy_target = function(_max_distance)
+{
+	var _candidate_queue = ds_priority_create();
+	var _maximum_distance_squared = _max_distance * _max_distance;
+	var _enemy_count = instance_number(o_enemy_units);
+
+	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	{
+		var _enemy = instance_find(o_enemy_units, _enemy_index);
+
+		if (!target_can_be_attacked(_enemy))
+		{
+			continue;
+		}
+
+		var _enemy_distance_x = _enemy.x - x;
+		var _enemy_distance_y = _enemy.y - y;
+		var _enemy_distance_squared = (_enemy_distance_x * _enemy_distance_x)
+			+ (_enemy_distance_y * _enemy_distance_y);
+
+		if (_enemy_distance_squared <= _maximum_distance_squared)
+		{
+			ds_priority_add(_candidate_queue, _enemy, _enemy_distance_squared);
+		}
+	}
+
+	var _structure_count = instance_number(o_map_objects_parent);
+
+	for (var _structure_index = 0; _structure_index < _structure_count; ++_structure_index)
+	{
+		var _structure = instance_find(o_map_objects_parent, _structure_index);
+
+		if (!friendly_enemy_structure_can_be_targeted(_structure))
+		{
+			continue;
+		}
+
+		var _structure_distance_x = _structure.x - x;
+		var _structure_distance_y = _structure.y - y;
+		var _structure_distance_squared = (_structure_distance_x * _structure_distance_x)
+			+ (_structure_distance_y * _structure_distance_y);
+
+		if (_structure_distance_squared <= _maximum_distance_squared)
+		{
+			ds_priority_add(_candidate_queue, _structure, _structure_distance_squared);
+		}
+	}
+
+	var _candidate_count = ds_priority_size(_candidate_queue);
+
+	for (var _candidate_index = 0; _candidate_index < _candidate_count; ++_candidate_index)
+	{
+		var _candidate = ds_priority_delete_min(_candidate_queue);
+
+		if (navigation_target_prepare(_candidate, attack_radius))
+		{
+			ds_priority_destroy(_candidate_queue);
+			return _candidate;
+		}
+	}
+
+	ds_priority_destroy(_candidate_queue);
+	return noone;
+};
+
+find_nearest_reachable_enemy_wall = function(_max_distance)
+{
+	var _candidate_queue = ds_priority_create();
+	var _maximum_distance_squared = _max_distance * _max_distance;
+	var _wall_count = instance_number(o_wall_enemy);
+
+	for (var _wall_index = 0; _wall_index < _wall_count; ++_wall_index)
+	{
+		var _wall = instance_find(o_wall_enemy, _wall_index);
+
+		if (!target_can_be_attacked(_wall))
+		{
+			continue;
+		}
+
+		var _wall_distance_x = _wall.x - x;
+		var _wall_distance_y = _wall.y - y;
+		var _wall_distance_squared = (_wall_distance_x * _wall_distance_x)
+			+ (_wall_distance_y * _wall_distance_y);
+
+		if (_wall_distance_squared <= _maximum_distance_squared)
+		{
+			ds_priority_add(_candidate_queue, _wall, _wall_distance_squared);
+		}
+	}
+
+	var _candidate_count = ds_priority_size(_candidate_queue);
+
+	for (var _candidate_index = 0; _candidate_index < _candidate_count; ++_candidate_index)
+	{
+		var _candidate = ds_priority_delete_min(_candidate_queue);
+
+		if (navigation_target_prepare(_candidate, attack_radius))
+		{
+			ds_priority_destroy(_candidate_queue);
+			return _candidate;
+		}
+	}
+
+	ds_priority_destroy(_candidate_queue);
+	return noone;
+};
+
+move_towards_target = function(_target, _navigation_arrive_radius = attack_radius)
+{
+	if (!instance_exists(_target) || !navigation_target_prepare(_target, _navigation_arrive_radius))
+	{
+		return;
+	}
+
+	var _current_move_speed = move_speed * unit_move_speed_multiplier_get() * gameplay_time_scale;
+	var _has_moved = false;
+
+	face_world_x(_target.x);
+
+	if (navigation_has_path)
+	{
+		_has_moved = navigation_path_move(_current_move_speed);
+	}
+	else
+	{
+		var _target_direction = point_direction(x, y, navigation_goal_x, navigation_goal_y);
+		var _navigation_grid = navigation_grid_get();
+		_has_moved = move_with_wall_collision(
+			lengthdir_x(_current_move_speed, _target_direction),
+			lengthdir_y(_current_move_speed, _target_direction),
+			_navigation_grid
+		);
+	}
+
+	is_walking = _has_moved;
 };
 
 move_towards_world_point = function(_target_x, _target_y)
 {
-	var _target_direction = point_direction(x, y, _target_x, _target_y);
-	var _current_move_speed = move_speed * unit_move_speed_multiplier_get() * gameplay_time_scale;
+	if (!navigation_world_point_prepare(_target_x, _target_y))
+	{
+		is_walking = false;
+		return;
+	}
 
-	is_walking = true;
+	var _current_move_speed = move_speed * unit_move_speed_multiplier_get() * gameplay_time_scale;
+	var _has_moved = false;
+
 	face_world_x(_target_x);
-	x += lengthdir_x(_current_move_speed, _target_direction);
-	y += lengthdir_y(_current_move_speed, _target_direction);
+
+	if (navigation_has_path)
+	{
+		_has_moved = navigation_path_move(_current_move_speed);
+	}
+	else
+	{
+		var _target_direction = point_direction(x, y, navigation_goal_x, navigation_goal_y);
+		var _navigation_grid = navigation_grid_get();
+		_has_moved = move_with_wall_collision(
+			lengthdir_x(_current_move_speed, _target_direction),
+			lengthdir_y(_current_move_speed, _target_direction),
+			_navigation_grid
+		);
+	}
+
+	is_walking = _has_moved;
 };
 
 attack_ring_should_use = function(_target, _attack_radius)
@@ -2309,6 +3362,7 @@ attack_ring_should_use = function(_target, _attack_radius)
 		|| !instance_exists(_target)
 		|| _target.object_index == o_cannon
 		|| _target == guard_target
+		|| (variable_instance_exists(_target, "is_wall") && _target.is_wall)
 		|| _attack_radius > BALANCE_UNIT_ATTACK_RING_MELEE_RADIUS_MAX)
 	{
 		return false;
@@ -2521,8 +3575,144 @@ apply_separation_push = function()
 		_separation_multiplier *= combat_separation_multiplier;
 	}
 
-	x += separation_push_x * _separation_multiplier * gameplay_time_scale;
-	y += separation_push_y * _separation_multiplier * gameplay_time_scale;
+	var _push_x = separation_push_x * _separation_multiplier * gameplay_time_scale;
+	var _push_y = separation_push_y * _separation_multiplier * gameplay_time_scale;
+
+	if (_push_x == 0 && _push_y == 0)
+	{
+		return;
+	}
+
+	var _route_target_x = navigation_goal_x;
+	var _route_target_y = navigation_goal_y;
+	var _has_navigation_route = is_walking && (navigation_has_path || navigation_has_direct_route);
+
+	if (_has_navigation_route
+		&& navigation_has_path
+		&& navigation_path != noone
+		&& navigation_path_point_index < path_get_number(navigation_path))
+	{
+		_route_target_x = path_get_point_x(navigation_path, navigation_path_point_index);
+		_route_target_y = path_get_point_y(navigation_path, navigation_path_point_index);
+	}
+
+	// Separation may move sideways, but it must never cancel progress along the route.
+	if (_has_navigation_route)
+	{
+		var _route_x = _route_target_x - x;
+		var _route_y = _route_target_y - y;
+		var _route_distance = point_distance(x, y, _route_target_x, _route_target_y);
+
+		if (_route_distance > 0)
+		{
+			var _forward_x = _route_x / _route_distance;
+			var _forward_y = _route_y / _route_distance;
+			var _forward_push = (_push_x * _forward_x) + (_push_y * _forward_y);
+
+			if (_forward_push < 0)
+			{
+				_push_x -= _forward_x * _forward_push;
+				_push_y -= _forward_y * _forward_push;
+			}
+		}
+	}
+
+	if (_push_x == 0 && _push_y == 0)
+	{
+		return;
+	}
+
+	var _navigation_grid = noone;
+	var _start_cell_x = floor(x / BALANCE_WALL_NAVIGATION_CELL_SIZE);
+	var _start_cell_y = floor(y / BALANCE_WALL_NAVIGATION_CELL_SIZE);
+
+	if (instance_number(o_wall_parent) > 0 && instance_exists(o_game_controller))
+	{
+		var _game_controller = instance_find(o_game_controller, 0);
+
+		if (variable_instance_exists(_game_controller, "wall_navigation_grid_get"))
+		{
+			_navigation_grid = _game_controller.wall_navigation_grid_get();
+		}
+	}
+
+	if (_navigation_grid != noone)
+	{
+		// Do not let crowd pressure trap a recovering unit deeper inside an occupied cell.
+		if (navigation_grid_position_is_blocked(_navigation_grid, x, y))
+		{
+			return;
+		}
+
+		var _combined_position_is_blocked = navigation_grid_position_is_blocked(
+			_navigation_grid,
+			x + _push_x,
+			y + _push_y
+		);
+
+		if (_combined_position_is_blocked)
+		{
+			var _horizontal_position_is_blocked = navigation_grid_position_is_blocked(
+				_navigation_grid,
+				x + _push_x,
+				y
+			);
+			var _vertical_position_is_blocked = navigation_grid_position_is_blocked(
+				_navigation_grid,
+				x,
+				y + _push_y
+			);
+
+			if (!_horizontal_position_is_blocked && !_vertical_position_is_blocked)
+			{
+				if (abs(_push_x) >= abs(_push_y))
+				{
+					_push_y = 0;
+				}
+				else
+				{
+					_push_x = 0;
+				}
+			}
+			else if (!_horizontal_position_is_blocked)
+			{
+				_push_y = 0;
+			}
+			else if (!_vertical_position_is_blocked)
+			{
+				_push_x = 0;
+			}
+			else
+			{
+				return;
+			}
+		}
+	}
+
+	var _separation_has_moved = move_with_wall_collision(_push_x, _push_y, _navigation_grid);
+
+	if (!_separation_has_moved || _navigation_grid == noone || !_has_navigation_route)
+	{
+		return;
+	}
+
+	var _end_cell_x = floor(x / BALANCE_WALL_NAVIGATION_CELL_SIZE);
+	var _end_cell_y = floor(y / BALANCE_WALL_NAVIGATION_CELL_SIZE);
+
+	if (_end_cell_x == _start_cell_x && _end_cell_y == _start_cell_y)
+	{
+		return;
+	}
+
+	// A cell-changing side push can invalidate the cached segment around a wall corner.
+	if (!navigation_grid_line_is_clear(_navigation_grid, x, y, _route_target_x, _route_target_y))
+	{
+		navigation_has_path = false;
+		navigation_has_direct_route = false;
+		navigation_path_failed = false;
+		navigation_grid_version = -1;
+		navigation_retry_timer = 0;
+	}
 };
 
 physical_damage_after_armor = function(_raw_damage, _target)

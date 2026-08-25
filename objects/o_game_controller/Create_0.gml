@@ -63,8 +63,10 @@ global.day_phase = DAY_PHASE.DAY;
 global.day_duration = BALANCE_DAY_DURATION;
 global.night_duration = BALANCE_NIGHT_DURATION;
 global.day_timer = global.day_duration * global.game_speed_normal;
+night_duration_current = global.night_duration;
 global.night_attack_unit_count = 0;
 global.full_moon_night_active = false;
+global.unholy_night_active = false;
 global.blood_moon_reward_popup_active = false;
 global.early_upgrade_popup_active = false;
 global.game_completion_popup_active = false;
@@ -715,11 +717,7 @@ early_upgrade_choice_apply = function(_choice)
 		}
 		else if (_choice == EARLY_UPGRADE_CHOICE.DOUBLE_SHELL_PRODUCTION)
 		{
-			var _projectile_types = [
-				PROJECTILE_TYPE.BOMB,
-				PROJECTILE_TYPE.CORRUPTION,
-				PROJECTILE_TYPE.HEAL
-			];
+			var _projectile_types = [PROJECTILE_TYPE.CORRUPTION];
 
 			// Snapshot the current production as a permanent flat daily bonus.
 			for (var _type_index = 0; _type_index < array_length(_projectile_types); ++_type_index)
@@ -946,9 +944,7 @@ early_upgrade_popup_draw = function()
 {
 	var _layout = early_upgrade_popup_layout_get();
 	var _eligible_squads = early_upgrade_selected_squad_refresh();
-	var _hellcow_after = cannon_morning_projectile_target_count_get(PROJECTILE_TYPE.BOMB) * 2;
 	var _taint_after = cannon_morning_projectile_target_count_get(PROJECTILE_TYPE.CORRUPTION) * 2;
-	var _first_aid_after = cannon_morning_projectile_target_count_get(PROJECTILE_TYPE.HEAL) * 2;
 	var _is_day_two_upgrade = early_upgrade_popup_set == DAYBREAK_UPGRADE_SET.DAY_TWO;
 	var _choice_count = _is_day_two_upgrade
 		? EARLY_UPGRADE_CHOICE.COUNT
@@ -1034,14 +1030,8 @@ early_upgrade_popup_draw = function()
 		else if (_is_day_two_upgrade)
 		{
 			_title = "DOUBLE PRODUCTION";
-			_description = "Double the current daily shell production. After upgrade:\nHELLCOW: "
-				+ string(_hellcow_after)
-				+ "\nTAINT: " + string(_taint_after);
-
-			if (_first_aid_after > 0)
-			{
-				_description += "\nFIRST AID MEAT: " + string(_first_aid_after);
-			}
+			_description = "Double the current daily Taint Compost production. After upgrade: "
+				+ string(_taint_after) + " shells per day.";
 		}
 		else if (_choice == DAY_THREE_UPGRADE_CHOICE.DOUBLE_TOWER_RADIUS)
 		{
@@ -1629,16 +1619,12 @@ global.cannon_projectile_queue_max = BALANCE_CANNON_PROJECTILE_QUEUE_MAX;
 global.cannon_projectile_gain_time = BALANCE_CANNON_PROJECTILE_GAIN_TIME;
 global.cannon_projectile_gain_timer = 0;
 global.cannon_projectile_gain_enabled = false;
-// Per-shell-type night recharge progress measured in frames.
-cannon_night_shell_recharge_timers = array_create(PROJECTILE_TYPE.COUNT, 0);
 global.cannon_projectile_drop_types = [
 	PROJECTILE_TYPE.DAMAGE,
 	PROJECTILE_TYPE.SUMMON,
 	PROJECTILE_TYPE.RALLY
 ];
 global.cannon_feast_bonus_projectile_types = [
-	PROJECTILE_TYPE.HEAL,
-	PROJECTILE_TYPE.BOMB,
 	PROJECTILE_TYPE.SKELETONS
 ];
 global.cannon_projectile_cheat_enabled = global.cheats_enabled;
@@ -2800,7 +2786,7 @@ building_choices = [
 		building_sprite: s_shell_factory,
 		building_name: "Shell Factory",
 		building_group: "Other",
-		building_description: "Produces special Cannon shells while staffed and can increase morning stockpile limits through events.",
+		building_description: "Produces squad shells while staffed; events can increase daily Taint Compost stock.",
 		iron_cost: BALANCE_BUILDING_IRON_COST
 	},
 	{
@@ -3590,7 +3576,7 @@ projectile_target_selection_radius_get = function(_projectile_type)
 		var _shell_factory_multiplier = 1
 			+ (global.shell_factory_first_aid_heal_upgrade_count * BALANCE_SHELL_FACTORY_UPGRADE_BONUS);
 
-		return BALANCE_PROJECTILE_HEAL_RADIUS * _shell_factory_multiplier;
+		return BALANCE_FIRST_AID_MEAT_HEAL_RADIUS * _shell_factory_multiplier;
 	}
 
 	if (_projectile_type == PROJECTILE_TYPE.BOMB)
@@ -3616,10 +3602,46 @@ projectile_target_selection_radius_get = function(_projectile_type)
 	return BALANCE_PROJECTILE_EFFECT_RADIUS;
 };
 
+cannon_projectile_type_is_reusable = function(_projectile_type)
+{
+	return _projectile_type == PROJECTILE_TYPE.BOMB
+		|| _projectile_type == PROJECTILE_TYPE.HEAL
+		|| _projectile_type == PROJECTILE_TYPE.DOOM_BELL;
+};
+
+cannon_projectile_type_can_fire_in_current_phase = function(_projectile_type)
+{
+	if (_projectile_type == PROJECTILE_TYPE.CORRUPTION)
+	{
+		return global.day_phase == DAY_PHASE.DAY;
+	}
+
+	if (_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
+	{
+		return true;
+	}
+
+	return global.day_phase == DAY_PHASE.NIGHT;
+};
+
+cannon_is_ready_to_fire = function()
+{
+	if (!instance_exists(o_cannon))
+	{
+		return false;
+	}
+
+	var _cannon = instance_find(o_cannon, 0);
+
+	return !variable_instance_exists(_cannon, "cannon_reload_is_ready")
+		|| _cannon.cannon_reload_is_ready();
+};
+
 cannon_projectile_type_can_stack_in_hud = function(_projectile_type)
 {
 	return _projectile_type != PROJECTILE_TYPE.CULTIST
-		&& _projectile_type != PROJECTILE_TYPE.BUILDING_SHELL;
+		&& _projectile_type != PROJECTILE_TYPE.BUILDING_SHELL
+		&& !cannon_projectile_type_is_reusable(_projectile_type);
 };
 
 cannon_projectile_live_slots_get = function(_max_display_count)
@@ -4277,6 +4299,8 @@ boss_griffith_pending_direction = 0;
 boss_griffith_force_next_night = false;
 boss_griffith_night_active = false;
 full_moon_night_interval = BALANCE_FULL_MOON_NIGHT_INTERVAL;
+// A completed Blood Moon queues one peaceful night for the following dusk.
+unholy_night_pending = false;
 night_force_end_timer = 0;
 night_force_end_active = false;
 night_attack_unit_pool = [
@@ -4298,6 +4322,146 @@ adaptive_last_night_cultist_knocked_out = false;
 adaptive_night_cultist_knocked_out = false;
 adaptive_last_night_delta = 0;
 cannon_corrupted_ground_damage_timer = 0;
+
+// The metaphorical Holy Cannon schedules warning strikes without a physical map instance.
+holy_cannon_fire_timer = 0;
+
+holy_cannon_squad_target_position_get = function(_squad)
+{
+	if (!is_struct(_squad))
+	{
+		return [false, 0, 0];
+	}
+
+	var _position_x = 0;
+	var _position_y = 0;
+	var _unit_count = 0;
+
+	for (var _unit_index = 0; _unit_index < array_length(_squad.units); ++_unit_index)
+	{
+		var _unit = _squad.units[_unit_index];
+
+		if (!instance_exists(_unit)
+			|| !_unit.visible
+			|| !variable_instance_exists(_unit, "hp")
+			|| _unit.hp <= 0
+			|| !variable_instance_exists(_unit, "unit_faction")
+			|| _unit.unit_faction != UNIT_FACTION.FRIENDLY)
+		{
+			continue;
+		}
+
+		_position_x += _unit.x;
+		_position_y += _unit.y;
+		_unit_count++;
+	}
+
+	if (_unit_count <= 0)
+	{
+		return [false, 0, 0];
+	}
+
+	return [true, _position_x / _unit_count, _position_y / _unit_count];
+};
+
+holy_cannon_random_target_position_get = function()
+{
+	var _eligible_positions = [];
+
+	if (!variable_global_exists("squads"))
+	{
+		return [false, 0, 0];
+	}
+
+	for (var _squad_index = 0; _squad_index < array_length(global.squads); ++_squad_index)
+	{
+		var _target_position = holy_cannon_squad_target_position_get(global.squads[_squad_index]);
+
+		if (_target_position[0])
+		{
+			array_push(_eligible_positions, _target_position);
+		}
+	}
+
+	var _eligible_count = array_length(_eligible_positions);
+
+	if (_eligible_count <= 0)
+	{
+		return [false, 0, 0];
+	}
+
+	return _eligible_positions[irandom(_eligible_count - 1)];
+};
+
+holy_cannon_strike_create = function()
+{
+	var _target_position = holy_cannon_random_target_position_get();
+
+	if (!_target_position[0])
+	{
+		return noone;
+	}
+
+	var _shell_type = irandom(HOLY_CANNON_SHELL_TYPE.COUNT - 1);
+	var _strike = instance_create_layer(
+		_target_position[1],
+		_target_position[2],
+		"Instances",
+		o_holy_cannon_strike
+	);
+
+	if (instance_exists(_strike))
+	{
+		_strike.holy_cannon_strike_configure(_shell_type);
+	}
+
+	return _strike;
+};
+
+holy_cannon_night_start = function()
+{
+	var _can_attack_this_night = night_attack_night_index >= BALANCE_HOLY_CANNON_START_NIGHT
+		&& !global.unholy_night_active;
+
+	holy_cannon_fire_timer = _can_attack_this_night
+		? BALANCE_HOLY_CANNON_FIRST_WARNING_TIME * room_speed
+		: 0;
+};
+
+holy_cannon_night_end = function()
+{
+	holy_cannon_fire_timer = 0;
+
+	with (o_holy_cannon_strike)
+	{
+		instance_destroy();
+	}
+};
+
+holy_cannon_update = function()
+{
+	if (global.pause
+		|| global.day_phase != DAY_PHASE.NIGHT
+		|| global.unholy_night_active
+		|| night_attack_night_index < BALANCE_HOLY_CANNON_START_NIGHT)
+	{
+		return;
+	}
+
+	var _time_scale = variable_global_exists("gameplay_time_scale")
+		? global.gameplay_time_scale
+		: 1;
+
+	holy_cannon_fire_timer = max(holy_cannon_fire_timer - _time_scale, 0);
+
+	if (holy_cannon_fire_timer > 0)
+	{
+		return;
+	}
+
+	holy_cannon_strike_create();
+	holy_cannon_fire_timer = BALANCE_HOLY_CANNON_FIRE_INTERVAL * room_speed;
+};
 
 // Fog visibility helper is used by abilities that require a revealed target point.
 world_position_is_revealed_by_fog = function(_world_x, _world_y)
@@ -6668,6 +6832,13 @@ cannon_projectile_queue_add = function(_projectile_type, _payload = noone)
 		return false;
 	}
 
+	// Reusable special shells occupy one permanent slot and never accumulate.
+	if (cannon_projectile_type_is_reusable(_projectile_type)
+		&& cannon_projectile_queue_type_count_get(_projectile_type) > 0)
+	{
+		return false;
+	}
+
 	if (array_length(global.cannon_projectile_queue) >= global.cannon_projectile_queue_max)
 	{
 		return false;
@@ -6699,21 +6870,13 @@ cannon_projectile_queue_type_count_get = function(_projectile_type)
 
 cannon_morning_projectile_target_count_get = function(_projectile_type)
 {
-	// Hellcow and Taint Compost have a daily baseline even without a Shell Factory.
-	var _target_count = 0;
+	// Taint Compost is the only special shell that keeps a daily stockpile.
+	if (_projectile_type != PROJECTILE_TYPE.CORRUPTION)
+	{
+		return 0;
+	}
 
-	if (_projectile_type == PROJECTILE_TYPE.BOMB)
-	{
-		_target_count = BALANCE_DEFAULT_MORNING_HELLCOW_LIMIT;
-	}
-	else if (_projectile_type == PROJECTILE_TYPE.HEAL)
-	{
-		_target_count = BALANCE_DEFAULT_MORNING_FIRST_AID_LIMIT;
-	}
-	else if (_projectile_type == PROJECTILE_TYPE.CORRUPTION)
-	{
-		_target_count = BALANCE_DEFAULT_MORNING_TAINT_COMPOST_LIMIT;
-	}
+	var _target_count = BALANCE_DEFAULT_MORNING_TAINT_COMPOST_LIMIT;
 
 	var _shell_factory_count = instance_number(o_shell_factory);
 
@@ -6738,104 +6901,58 @@ cannon_morning_projectile_target_count_get = function(_projectile_type)
 	return _target_count;
 };
 
-cannon_night_shell_recharge_progress_get = function(_projectile_type)
+cannon_reusable_projectiles_ensure = function()
 {
-	if (global.day_phase != DAY_PHASE.NIGHT
-		|| (_projectile_type != PROJECTILE_TYPE.BOMB && _projectile_type != PROJECTILE_TYPE.HEAL))
+	var _projectile_types = [];
+
+	if (BALANCE_CANNON_STARTING_HELLCOW_AVAILABLE)
 	{
-		return 0;
+		array_push(_projectile_types, PROJECTILE_TYPE.BOMB);
 	}
 
-	var _target_count = cannon_morning_projectile_target_count_get(_projectile_type);
-	var _current_count = cannon_projectile_queue_type_count_get(_projectile_type);
-
-	if (_target_count <= 0 || _current_count >= _target_count)
+	if (BALANCE_CANNON_STARTING_FIRST_AID_AVAILABLE)
 	{
-		return 0;
+		array_push(_projectile_types, PROJECTILE_TYPE.HEAL);
 	}
 
-	var _recharge_speed_multiplier = cannon_satisfaction_shell_recharge_multiplier_get();
-	var _recharge_interval = max(
-		1,
-		(BALANCE_CANNON_NIGHT_SHELL_RECHARGE_TIME * room_speed) / _recharge_speed_multiplier
-	);
-	return clamp(cannon_night_shell_recharge_timers[_projectile_type] / _recharge_interval, 0, 1);
-};
+	if (BALANCE_CANNON_STARTING_DOOM_BELL_AVAILABLE)
+	{
+		array_push(_projectile_types, PROJECTILE_TYPE.DOOM_BELL);
+	}
 
-cannon_night_shell_recharge_update = function()
-{
-	var _projectile_types = [PROJECTILE_TYPE.BOMB, PROJECTILE_TYPE.HEAL];
-	var _projectile_type_count = array_length(_projectile_types);
+	var _added_count = 0;
 
-	// Night recharge is independent for Hellcow and First Aid Meat shells.
-	for (var _type_index = 0; _type_index < _projectile_type_count; ++_type_index)
+	for (var _type_index = 0; _type_index < array_length(_projectile_types); ++_type_index)
 	{
 		var _projectile_type = _projectile_types[_type_index];
 
-		if (global.day_phase != DAY_PHASE.NIGHT)
-		{
-			cannon_night_shell_recharge_timers[_projectile_type] = 0;
-			continue;
-		}
-
-		var _target_count = cannon_morning_projectile_target_count_get(_projectile_type);
-		var _current_count = cannon_projectile_queue_type_count_get(_projectile_type);
-
-		if (_target_count <= 0 || _current_count >= _target_count)
-		{
-			cannon_night_shell_recharge_timers[_projectile_type] = 0;
-			continue;
-		}
-
-		var _recharge_speed_multiplier = cannon_satisfaction_shell_recharge_multiplier_get();
-		var _recharge_interval = max(
-			1,
-			(BALANCE_CANNON_NIGHT_SHELL_RECHARGE_TIME * room_speed) / _recharge_speed_multiplier
-		);
-		var _recharge_timer = cannon_night_shell_recharge_timers[_projectile_type];
-		_recharge_timer = min(_recharge_timer + global.gameplay_time_scale, _recharge_interval);
-		cannon_night_shell_recharge_timers[_projectile_type] = _recharge_timer;
-
-		if (_recharge_timer >= _recharge_interval
+		if (cannon_projectile_queue_type_count_get(_projectile_type) <= 0
 			&& cannon_projectile_queue_add(_projectile_type))
 		{
-			cannon_night_shell_recharge_timers[_projectile_type] = 0;
+			_added_count++;
 		}
 	}
+
+	return _added_count;
 };
 
 cannon_morning_projectiles_refill = function()
 {
-	var _projectile_types = [
-		PROJECTILE_TYPE.BOMB,
-		PROJECTILE_TYPE.CORRUPTION,
-		PROJECTILE_TYPE.HEAL
-	];
-	var _projectile_type_count = array_length(_projectile_types);
-	var _added_count = 0;
+	// Reusable shells are permanent choices; only Taint Compost is replenished by count.
+	var _added_count = cannon_reusable_projectiles_ensure();
+	var _projectile_type = PROJECTILE_TYPE.CORRUPTION;
+	var _target_count = cannon_morning_projectile_target_count_get(_projectile_type);
+	var _current_count = cannon_projectile_queue_type_count_get(_projectile_type);
+	var _missing_count = max(0, _target_count - _current_count);
 
-	// Morning refill supersedes any partial night recharge progress.
-	cannon_night_shell_recharge_timers[PROJECTILE_TYPE.BOMB] = 0;
-	cannon_night_shell_recharge_timers[PROJECTILE_TYPE.HEAL] = 0;
-
-	// Refill the default stockpile plus permanent bonuses earned by Shell Factories.
-	for (var _type_index = 0; _type_index < _projectile_type_count; ++_type_index)
+	for (var _missing_index = 0; _missing_index < _missing_count; ++_missing_index)
 	{
-		var _projectile_type = _projectile_types[_type_index];
-		var _target_count = cannon_morning_projectile_target_count_get(_projectile_type);
-
-		var _current_count = cannon_projectile_queue_type_count_get(_projectile_type);
-		var _missing_count = max(0, _target_count - _current_count);
-
-		for (var _missing_index = 0; _missing_index < _missing_count; ++_missing_index)
+		if (!cannon_projectile_queue_add(_projectile_type))
 		{
-			if (!cannon_projectile_queue_add(_projectile_type))
-			{
-				break;
-			}
-
-			_added_count++;
+			break;
 		}
+
+		_added_count++;
 	}
 
 	if (_added_count > 0)
@@ -10580,6 +10697,14 @@ night_attack_shrine_direction_roll = function(_shrine)
 
 night_attack_plan_create = function()
 {
+	// The day after a Blood Moon deliberately previews no incoming attack.
+	if (unholy_night_pending || global.unholy_night_active)
+	{
+		night_attack_directions = [];
+		night_attack_plan_exists = false;
+		return;
+	}
+
 	boss_griffith_prepare_next_night();
 
 	var _direction_count = max(1, BALANCE_NIGHT_ATTACK_DIRECTION_COUNT);
@@ -11058,7 +11183,10 @@ boss_crusader_horde_spawn_for_night = function()
 
 night_attack_spawning_update = function()
 {
-	if (global.pause || global.day_phase != DAY_PHASE.NIGHT || !night_attack_plan_exists)
+	if (global.pause
+		|| global.day_phase != DAY_PHASE.NIGHT
+		|| global.unholy_night_active
+		|| !night_attack_plan_exists)
 	{
 		return;
 	}
@@ -11372,15 +11500,29 @@ start_night_phase = function()
 	clear_dragged_unit();
 	cannon_corpse_workers_drop_all();
 	var _is_full_moon_night = full_moon_night_is_scheduled(night_attack_night_index);
+	var _is_unholy_night = unholy_night_pending;
+
 	global.day_phase = DAY_PHASE.NIGHT;
 	night_fast_forward_set(false);
 	global.full_moon_night_active = _is_full_moon_night;
-	global.day_timer = global.night_duration * global.game_speed_normal;
+	global.unholy_night_active = _is_unholy_night;
+	unholy_night_pending = false;
+	night_duration_current = _is_unholy_night
+		? BALANCE_UNHOLY_NIGHT_DURATION
+		: global.night_duration;
+	global.day_timer = night_duration_current * global.game_speed_normal;
 	global.night_attack_unit_count = 0;
-	night_force_end_timer = BALANCE_NIGHT_FORCE_END_TIME * room_speed;
+	night_force_end_timer = _is_unholy_night
+		? 0
+		: BALANCE_NIGHT_FORCE_END_TIME * room_speed;
 	night_force_end_active = false;
+	holy_cannon_night_start();
 	adaptive_night_cultist_knocked_out = false;
-	phase_banner_show(_is_full_moon_night ? "BLOOD MOON" : "NIGHT FALLS");
+	phase_banner_show(
+		_is_full_moon_night
+			? "BLOOD MOON"
+			: (_is_unholy_night ? "UNHOLY NIGHT" : "NIGHT FALLS")
+	);
 
 	night_effect_transition_start();
 	global.sound_play_random(global.night_start_sounds);
@@ -11453,13 +11595,13 @@ start_night_phase = function()
 		night_attack_plan_exists = false;
 	}
 
-	if (!night_attack_plan_exists)
+	if (!_is_unholy_night && !night_attack_plan_exists)
 	{
 		night_attack_plan_create();
 	}
 
 	// Boss nights have no forced time limit and end only after the army is defeated.
-	boss_griffith_night_active = boss_griffith_pending_next_night;
+	boss_griffith_night_active = !_is_unholy_night && boss_griffith_pending_next_night;
 
 	start_cultists_loading_into_cannon();
 	cannon_projectile_night_slots_capture();
@@ -11467,7 +11609,7 @@ start_night_phase = function()
 
 	with (o_garnizon)
 	{
-		if (is_activated)
+		if (!global.unholy_night_active && is_activated)
 		{
 			release_owned_units();
 		}
@@ -11479,7 +11621,8 @@ start_night_phase = function()
 	{
 		var _enemy = instance_find(o_enemy_units, _enemy_index);
 
-		if (instance_exists(_enemy)
+		if (!global.unholy_night_active
+			&& instance_exists(_enemy)
 			&& variable_instance_exists(_enemy, "owner_garnizon")
 			&& instance_exists(_enemy.owner_garnizon)
 			&& _enemy.owner_garnizon.is_activated)
@@ -11492,7 +11635,9 @@ start_night_phase = function()
 		}
 	}
 
-	var _existing_enemy_count = instance_number(o_enemy_units);
+	var _existing_enemy_count = global.unholy_night_active
+		? 0
+		: instance_number(o_enemy_units);
 
 	for (var _existing_enemy_index = 0; _existing_enemy_index < _existing_enemy_count; ++_existing_enemy_index)
 	{
@@ -11501,7 +11646,7 @@ start_night_phase = function()
 		enemy_night_balance_scale_apply(_existing_enemy);
 	}
 
-	if (boss_griffith_pending_next_night)
+	if (!global.unholy_night_active && boss_griffith_pending_next_night)
 	{
 		if (boss_crusader_horde_is_scheduled(night_attack_night_index))
 		{
@@ -11523,6 +11668,7 @@ start_night_phase = function()
 start_day_phase = function()
 {
 	clear_dragged_unit();
+	holy_cannon_night_end();
 
 	// Completing the thirteenth night ends the prototype before another day can begin.
 	if (night_attack_night_index == BALANCE_SURVIVAL_OBJECTIVE_DAYS
@@ -11536,6 +11682,7 @@ start_day_phase = function()
 	// Record the surviving player army before morning cleanup and recovery.
 	balance_log_night_hp_append();
 	var _previous_night_was_full_moon = global.full_moon_night_active;
+	var _previous_night_was_unholy = global.unholy_night_active;
 	var _blood_moon_reward_cultists = [];
 
 	with (o_lesser_gate)
@@ -11571,6 +11718,8 @@ start_day_phase = function()
 	night_fast_forward_set(false);
 	global.cannon_corpses_delivered_today = 0;
 	global.full_moon_night_active = false;
+	global.unholy_night_active = false;
+	unholy_night_pending = _previous_night_was_full_moon;
 	boss_griffith_night_active = false;
 	global.day_timer = global.day_duration * global.game_speed_normal;
 	global.night_attack_unit_count = 0;
@@ -11578,7 +11727,13 @@ start_day_phase = function()
 	night_force_end_active = false;
 	phase_banner_show("DAY BREAKS");
 	night_effect_layers_disable();
-	adaptive_difficulty_evaluate_night();
+
+	// A peaceful Unholy Night does not influence combat difficulty adjustment.
+	if (!_previous_night_was_unholy)
+	{
+		adaptive_difficulty_evaluate_night();
+	}
+
 	night_attack_night_index++;
 
 	if (full_moon_night_is_scheduled(night_attack_night_index))
@@ -11884,6 +12039,183 @@ cultist_levelup_apply_selected = function()
 	}
 
 	return _applied_any_reward;
+};
+
+// Shared wall navigation is rebuilt only when a wall is created or destroyed.
+wall_navigation_cell_size = BALANCE_WALL_NAVIGATION_CELL_SIZE;
+wall_navigation_grid = noone;
+wall_navigation_grid_version = 0;
+wall_navigation_grid_dirty = true;
+wall_navigation_debug_visible = false;
+wall_navigation_debug_blocked_alpha = 0.42;
+wall_navigation_debug_grid_alpha = 0.2;
+
+wall_navigation_grid_mark_dirty = function()
+{
+	wall_navigation_grid_dirty = true;
+};
+
+wall_navigation_grid_rebuild = function()
+{
+	if (wall_navigation_grid != noone)
+	{
+		mp_grid_destroy(wall_navigation_grid);
+	}
+
+	var _horizontal_cell_count = ceil(room_width / wall_navigation_cell_size);
+	var _vertical_cell_count = ceil(room_height / wall_navigation_cell_size);
+
+	wall_navigation_grid = mp_grid_create(
+		0,
+		0,
+		_horizontal_cell_count,
+		_vertical_cell_count,
+		wall_navigation_cell_size,
+		wall_navigation_cell_size
+	);
+
+	var _wall_count = instance_number(o_wall_parent);
+
+	// A small padding keeps unit sprites from clipping corners followed by center-point paths.
+	for (var _wall_index = 0; _wall_index < _wall_count; ++_wall_index)
+	{
+		var _wall = instance_find(o_wall_parent, _wall_index);
+
+		if (!instance_exists(_wall) || _wall.hp <= 0)
+		{
+			continue;
+		}
+
+		mp_grid_add_rectangle(
+			wall_navigation_grid,
+			_wall.bbox_left - BALANCE_WALL_NAVIGATION_OBSTACLE_PADDING,
+			_wall.bbox_top - BALANCE_WALL_NAVIGATION_OBSTACLE_PADDING,
+			_wall.bbox_right + BALANCE_WALL_NAVIGATION_OBSTACLE_PADDING,
+			_wall.bbox_bottom + BALANCE_WALL_NAVIGATION_OBSTACLE_PADDING
+		);
+	}
+
+	wall_navigation_grid_dirty = false;
+	wall_navigation_grid_version++;
+
+	return wall_navigation_grid;
+};
+
+wall_navigation_grid_get = function()
+{
+	if (wall_navigation_grid_dirty || wall_navigation_grid == noone)
+	{
+		return wall_navigation_grid_rebuild();
+	}
+
+	return wall_navigation_grid;
+};
+
+wall_navigation_debug_draw = function()
+{
+	if (!global.cheats_enabled
+		|| !wall_navigation_debug_visible
+		|| !instance_exists(o_camera_controller))
+	{
+		return;
+	}
+
+	var _navigation_grid = wall_navigation_grid_get();
+
+	if (_navigation_grid == noone)
+	{
+		return;
+	}
+
+	var _camera_controller = instance_find(o_camera_controller, 0);
+	var _camera_x = camera_get_view_x(_camera_controller.camera_id);
+	var _camera_y = camera_get_view_y(_camera_controller.camera_id);
+	var _camera_width = max(1, camera_get_view_width(_camera_controller.camera_id));
+	var _camera_height = max(1, camera_get_view_height(_camera_controller.camera_id));
+	var _horizontal_cell_count = ceil(room_width / wall_navigation_cell_size);
+	var _vertical_cell_count = ceil(room_height / wall_navigation_cell_size);
+
+	if (_horizontal_cell_count <= 0 || _vertical_cell_count <= 0)
+	{
+		return;
+	}
+
+	// Restrict checks and drawing to cells intersecting the current camera view.
+	var _first_cell_x = clamp(floor(_camera_x / wall_navigation_cell_size), 0, _horizontal_cell_count - 1);
+	var _last_cell_x = clamp(floor((_camera_x + _camera_width) / wall_navigation_cell_size), 0, _horizontal_cell_count - 1);
+	var _first_cell_y = clamp(floor(_camera_y / wall_navigation_cell_size), 0, _vertical_cell_count - 1);
+	var _last_cell_y = clamp(floor((_camera_y + _camera_height) / wall_navigation_cell_size), 0, _vertical_cell_count - 1);
+	var _world_to_gui_x = camera_view_width / _camera_width;
+	var _world_to_gui_y = camera_view_height / _camera_height;
+
+	// Occupied cells are filled red.
+	draw_set_alpha(wall_navigation_debug_blocked_alpha);
+	draw_set_color(COLOR_NAVIGATION_DEBUG_BLOCKED);
+
+	for (var _cell_y = _first_cell_y; _cell_y <= _last_cell_y; ++_cell_y)
+	{
+		for (var _cell_x = _first_cell_x; _cell_x <= _last_cell_x; ++_cell_x)
+		{
+			if (mp_grid_get_cell(_navigation_grid, _cell_x, _cell_y) != -1)
+			{
+				continue;
+			}
+
+			var _cell_world_left = _cell_x * wall_navigation_cell_size;
+			var _cell_world_top = _cell_y * wall_navigation_cell_size;
+			var _cell_world_right = min(_cell_world_left + wall_navigation_cell_size, room_width);
+			var _cell_world_bottom = min(_cell_world_top + wall_navigation_cell_size, room_height);
+			var _cell_gui_left = (_cell_world_left - _camera_x) * _world_to_gui_x;
+			var _cell_gui_top = (_cell_world_top - _camera_y) * _world_to_gui_y;
+			var _cell_gui_right = (_cell_world_right - _camera_x) * _world_to_gui_x;
+			var _cell_gui_bottom = (_cell_world_bottom - _camera_y) * _world_to_gui_y;
+
+			draw_rectangle(
+				_cell_gui_left,
+				_cell_gui_top,
+				_cell_gui_right,
+				_cell_gui_bottom,
+				false
+			);
+		}
+	}
+
+	// Grid lines are drawn once per visible row and column to avoid duplicate edges.
+	draw_set_alpha(wall_navigation_debug_grid_alpha);
+	draw_set_color(COLOR_NAVIGATION_DEBUG_GRID);
+	var _grid_gui_top = ((_first_cell_y * wall_navigation_cell_size) - _camera_y) * _world_to_gui_y;
+	var _grid_world_bottom = min((_last_cell_y + 1) * wall_navigation_cell_size, room_height);
+	var _grid_gui_bottom = (_grid_world_bottom - _camera_y) * _world_to_gui_y;
+	var _grid_gui_left = ((_first_cell_x * wall_navigation_cell_size) - _camera_x) * _world_to_gui_x;
+	var _grid_world_right = min((_last_cell_x + 1) * wall_navigation_cell_size, room_width);
+	var _grid_gui_right = (_grid_world_right - _camera_x) * _world_to_gui_x;
+
+	for (var _line_cell_x = _first_cell_x; _line_cell_x <= _last_cell_x + 1; ++_line_cell_x)
+	{
+		var _line_world_x = min(_line_cell_x * wall_navigation_cell_size, room_width);
+		var _line_gui_x = (_line_world_x - _camera_x) * _world_to_gui_x;
+		draw_line(_line_gui_x, _grid_gui_top, _line_gui_x, _grid_gui_bottom);
+	}
+
+	for (var _line_cell_y = _first_cell_y; _line_cell_y <= _last_cell_y + 1; ++_line_cell_y)
+	{
+		var _line_world_y = min(_line_cell_y * wall_navigation_cell_size, room_height);
+		var _line_gui_y = (_line_world_y - _camera_y) * _world_to_gui_y;
+		draw_line(_grid_gui_left, _line_gui_y, _grid_gui_right, _line_gui_y);
+	}
+
+	// Keep a small reminder visible while the diagnostic overlay is active.
+	draw_set_alpha(0.9);
+	draw_set_color(COLOR_HUD_TEXT);
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_text(18, 18, "F5 NAV GRID - RED CELLS ARE BLOCKED");
+
+	// Restore the project draw defaults.
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
 };
 
 // The first daytime preview is available immediately when the room starts.

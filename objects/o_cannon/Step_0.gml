@@ -9,7 +9,8 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 	target_version = global.cannon_target_version;
 
 	// Fire once at the freshly selected target, including player-paused target selection.
-	var _can_fire_selected_target = !global.pause || global.focus_window == FOCUS_WINDOW.NOONE;
+	var _can_fire_selected_target = (!global.pause || global.focus_window == FOCUS_WINDOW.NOONE)
+		&& cannon_reload_is_ready();
 
 	if (_can_fire_selected_target)
 	{
@@ -42,6 +43,7 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 		}
 
 		global.cannon_fire_version++;
+		cannon_reload_start(target_projectile_type);
 		global.sound_play_random(global.cannon_shot_sounds);
 
 		// Unlock related Shell Factory upgrade jobs after the player fires each shell type.
@@ -62,6 +64,7 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 
 		if (target_projectile_type == PROJECTILE_TYPE.RALLY
 			|| target_projectile_type == PROJECTILE_TYPE.CULTIST
+			|| target_projectile_type == PROJECTILE_TYPE.HEAL
 			|| target_projectile_type == PROJECTILE_TYPE.BOMB
 			|| target_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL
 			|| target_projectile_type == PROJECTILE_TYPE.DOOM_BELL)
@@ -88,6 +91,7 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 
 			if (target_projectile_type == PROJECTILE_TYPE.RALLY
 				|| target_projectile_type == PROJECTILE_TYPE.CULTIST
+				|| target_projectile_type == PROJECTILE_TYPE.HEAL
 				|| target_projectile_type == PROJECTILE_TYPE.BOMB
 				|| target_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL
 				|| target_projectile_type == PROJECTILE_TYPE.DOOM_BELL)
@@ -143,7 +147,6 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			{
 				_projectile.effect_radius = cannon_projectile_heal_radius_get();
 				_projectile.damage_amount = cannon_projectile_heal_amount_get();
-				_projectile.heal_volley_id = global.cannon_fire_version;
 				_projectile.projectile_sprite = s_heal_meat;
 			}
 			else if (target_projectile_type == PROJECTILE_TYPE.BOMB)
@@ -160,9 +163,6 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			else if (target_projectile_type == PROJECTILE_TYPE.DOOM_BELL)
 			{
 				_projectile.effect_radius = BALANCE_PROJECTILE_DOOM_BELL_RADIUS;
-				_projectile.damage_amount = BALANCE_PROJECTILE_DOOM_BELL_DAMAGE_AMOUNT;
-				_projectile.ground_corruption_amount = BALANCE_PROJECTILE_DOOM_BELL_CORRUPTION_AMOUNT;
-				_projectile.ground_corruption_radius = BALANCE_PROJECTILE_DOOM_BELL_CORRUPTION_RADIUS;
 				_projectile.projectile_sprite = s_mega_bell;
 				_projectile.projectile_sprite_scale *= BALANCE_PROJECTILE_DOOM_BELL_VISUAL_SCALE_MULTIPLIER;
 			}
@@ -227,6 +227,12 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			global.cannon_selected_projectile_index = _next_selected_projectile_index;
 		}
 	}
+}
+
+// Reload progress follows gameplay time and pauses with the simulation.
+if (!global.pause && cannon_reload_timer > 0)
+{
+	cannon_reload_timer = max(cannon_reload_timer - global.gameplay_time_scale, 0);
 }
 
 // Maximum Satisfaction periodically produces a free shot during combat.

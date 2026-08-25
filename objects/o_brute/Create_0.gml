@@ -286,8 +286,7 @@ brute_damage_enemy = function(_enemy, _damage_amount, _stun_time, _knockback_x, 
 
 	if (!_enemy_was_killed && (_knockback_x != 0 || _knockback_y != 0))
 	{
-		_enemy.x += _knockback_x;
-		_enemy.y += _knockback_y;
+		_enemy.unit_forced_displacement_apply(_knockback_x, _knockback_y);
 	}
 
 	return _enemy_was_killed;
@@ -835,8 +834,10 @@ brute_hook_update = function()
 		var _pull_direction = point_direction(_target.x, _target.y, x, y);
 		var _pull_speed = BALANCE_BRUTE_BUTCHER_CHAINS_PULL_SPEED * gameplay_time_scale;
 		var _pull_distance = min(_pull_speed, _distance_to_brute);
-		_target.x += lengthdir_x(_pull_distance, _pull_direction);
-		_target.y += lengthdir_y(_pull_distance, _pull_direction);
+		_target.unit_forced_displacement_apply(
+			lengthdir_x(_pull_distance, _pull_direction),
+			lengthdir_y(_pull_distance, _pull_direction)
+		);
 		hook_targets[_write_index] = _target;
 		_write_index++;
 	}

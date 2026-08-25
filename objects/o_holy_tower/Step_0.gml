@@ -14,6 +14,13 @@ if (is_destroyed)
 	exit;
 }
 
+// Holy towers remain completely passive throughout Unholy Night.
+if (variable_global_exists("unholy_night_active") && global.unholy_night_active)
+{
+	target_instance = noone;
+	exit;
+}
+
 holy_tower_saint_source_register();
 holy_tower_reinforcement_thresholds_update();
 holy_tower_night_volley_update();

@@ -70,18 +70,32 @@ if (projectile_sprite != noone)
 		}
 	}
 
+	// A landed Hellcow draws two additional cows on each side without changing gameplay collisions.
+	var _side_cow_count = projectile_type == PROJECTILE_TYPE.BOMB && hellcow_charge_active
+		? BALANCE_PROJECTILE_HELLCOW_VISUAL_SIDE_COW_COUNT
+		: 0;
+	var _side_direction = _projectile_draw_angle + 90;
+
 	draw_set_color(c_white);
-	draw_sprite_ext(
-		projectile_sprite,
-		0,
-		x,
-		y,
-		_projectile_draw_xscale,
-		_projectile_draw_yscale,
-		_projectile_draw_angle,
-		c_white,
-		1
-	);
+
+	for (var _cow_index = -_side_cow_count; _cow_index <= _side_cow_count; ++_cow_index)
+	{
+		var _cow_side_offset = _cow_index * BALANCE_PROJECTILE_HELLCOW_VISUAL_COW_SPACING;
+		var _cow_x = x + lengthdir_x(_cow_side_offset, _side_direction);
+		var _cow_y = y + lengthdir_y(_cow_side_offset, _side_direction);
+
+		draw_sprite_ext(
+			projectile_sprite,
+			0,
+			_cow_x,
+			_cow_y,
+			_projectile_draw_xscale,
+			_projectile_draw_yscale,
+			_projectile_draw_angle,
+			c_white,
+			1
+		);
+	}
 }
 else
 {

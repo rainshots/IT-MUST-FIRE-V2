@@ -56,7 +56,10 @@ if (!is_activated && activation_check_timer >= activation_check_interval)
 // Activated garnizons release their prepared troops during the current night.
 if (global.day_phase == DAY_PHASE.NIGHT)
 {
-	if (is_activated && !has_released_current_night)
+	var _unholy_night_is_active = variable_global_exists("unholy_night_active")
+		&& global.unholy_night_active;
+
+	if (!_unholy_night_is_active && is_activated && !has_released_current_night)
 	{
 		release_owned_units();
 	}

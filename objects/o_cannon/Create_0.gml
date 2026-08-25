@@ -112,6 +112,69 @@ volley_launch_delay_min = BALANCE_CANNON_VOLLEY_LAUNCH_DELAY_MIN;
 volley_launch_delay_max = BALANCE_CANNON_VOLLEY_LAUNCH_DELAY_MAX;
 projectile_spawn_offset_y = -20;
 projectile_layer_name = "Instances";
+
+// The Cannon cannot accept another player shot until its current reload completes.
+cannon_reload_timer = 0;
+cannon_reload_duration = 0;
+cannon_reload_projectile_type = PROJECTILE_TYPE.DAMAGE;
+
+cannon_reload_time_get = function(_projectile_type)
+{
+	if (_projectile_type == PROJECTILE_TYPE.BOMB)
+	{
+		return BALANCE_CANNON_RELOAD_HELLCOW_TIME
+			/ cannon_satisfaction_shell_recharge_multiplier_get();
+	}
+
+	if (_projectile_type == PROJECTILE_TYPE.HEAL)
+	{
+		return BALANCE_CANNON_RELOAD_FIRST_AID_TIME
+			/ cannon_satisfaction_shell_recharge_multiplier_get();
+	}
+
+	if (_projectile_type == PROJECTILE_TYPE.DOOM_BELL)
+	{
+		return BALANCE_CANNON_RELOAD_DOOM_BELL_TIME;
+	}
+
+	if (_projectile_type == PROJECTILE_TYPE.CULTIST
+		|| _projectile_type == PROJECTILE_TYPE.SKELETONS)
+	{
+		return BALANCE_CANNON_RELOAD_SQUAD_TIME;
+	}
+
+	return BALANCE_CANNON_RELOAD_DEFAULT_TIME;
+};
+
+cannon_reload_is_ready = function()
+{
+	return cannon_reload_timer <= 0;
+};
+
+cannon_reload_progress_get = function()
+{
+	if (cannon_reload_duration <= 0 || cannon_reload_timer <= 0)
+	{
+		return 1;
+	}
+
+	return clamp(1 - (cannon_reload_timer / cannon_reload_duration), 0, 1);
+};
+
+cannon_reload_remaining_seconds_get = function()
+{
+	return max(0, cannon_reload_timer / room_speed);
+};
+
+cannon_reload_start = function(_projectile_type)
+{
+	var _reload_seconds = max(0, cannon_reload_time_get(_projectile_type));
+
+	cannon_reload_projectile_type = _projectile_type;
+	cannon_reload_duration = _reload_seconds * room_speed;
+	cannon_reload_timer = cannon_reload_duration;
+};
+
 // At maximum Satisfaction the cannon fires a free basic shot every twenty combat seconds.
 satisfaction_auto_fire_time = BALANCE_CANNON_SATISFACTION_AUTO_FIRE_TIME * room_speed;
 satisfaction_auto_fire_timer = satisfaction_auto_fire_time;
@@ -225,6 +288,7 @@ cannon_satisfaction_auto_fire = function(_target)
 		return false;
 	}
 
+	cannon_reload_start(PROJECTILE_TYPE.DAMAGE);
 	global.sound_play_random(global.cannon_shot_sounds);
 
 	if (instance_exists(o_camera_controller))
@@ -247,7 +311,10 @@ cannon_satisfaction_auto_fire_update = function()
 		return false;
 	}
 
-	if (global.pause || global.day_phase != DAY_PHASE.NIGHT || hp <= 0)
+	if (global.pause
+		|| global.day_phase != DAY_PHASE.NIGHT
+		|| hp <= 0
+		|| !cannon_reload_is_ready())
 	{
 		return false;
 	}
@@ -808,19 +875,19 @@ cannon_projectile_heal_amount_get = function()
 	var _level = cannon_payload_upgrade_level_get();
 	var _shell_factory_multiplier = 1
 		+ (global.shell_factory_first_aid_heal_upgrade_count * BALANCE_SHELL_FACTORY_UPGRADE_BONUS);
-	var _heal_amount = BALANCE_PROJECTILE_HEAL_AMOUNT;
+	var _heal_amount = BALANCE_FIRST_AID_MEAT_HEAL_AMOUNT;
 
 	if (_level >= 3)
 	{
-		_heal_amount = BALANCE_PROJECTILE_HEAL_AMOUNT_LEVEL_4;
+		_heal_amount = BALANCE_FIRST_AID_MEAT_HEAL_AMOUNT_LEVEL_4;
 	}
 	else if (_level == 2)
 	{
-		_heal_amount = BALANCE_PROJECTILE_HEAL_AMOUNT_LEVEL_3;
+		_heal_amount = BALANCE_FIRST_AID_MEAT_HEAL_AMOUNT_LEVEL_3;
 	}
 	else if (_level == 1)
 	{
-		_heal_amount = BALANCE_PROJECTILE_HEAL_AMOUNT_LEVEL_2;
+		_heal_amount = BALANCE_FIRST_AID_MEAT_HEAL_AMOUNT_LEVEL_2;
 	}
 
 	return _heal_amount * _shell_factory_multiplier;
@@ -831,7 +898,7 @@ cannon_projectile_heal_radius_get = function()
 	var _shell_factory_multiplier = 1
 		+ (global.shell_factory_first_aid_heal_upgrade_count * BALANCE_SHELL_FACTORY_UPGRADE_BONUS);
 
-	return BALANCE_PROJECTILE_HEAL_RADIUS * _shell_factory_multiplier;
+	return BALANCE_FIRST_AID_MEAT_HEAL_RADIUS * _shell_factory_multiplier;
 };
 
 building_upgrade_description_get = function(_upgrade_index)
@@ -894,26 +961,26 @@ building_upgrade_description_get = function(_upgrade_index)
 		var _payload_level = min(_level + 2, 4);
 		var _bomb_damage = BALANCE_PROJECTILE_HELLCOW_DAMAGE_AMOUNT;
 		var _skeleton_count = BALANCE_PROJECTILE_SKELETON_COUNT;
-		var _heal_amount = BALANCE_PROJECTILE_HEAL_AMOUNT;
+		var _heal_amount = BALANCE_FIRST_AID_MEAT_HEAL_AMOUNT;
 		var _taint_bonus_percent = round(BALANCE_CANNON_PAYLOAD_MASTERY_TAINT_BONUS_PER_LEVEL * 100 * (_level + 1));
 
 		if (_payload_level >= 4)
 		{
 			_bomb_damage = BALANCE_PROJECTILE_HELLCOW_DAMAGE_AMOUNT_LEVEL_4;
 			_skeleton_count = BALANCE_PROJECTILE_SKELETON_COUNT_LEVEL_4;
-			_heal_amount = BALANCE_PROJECTILE_HEAL_AMOUNT_LEVEL_4;
+			_heal_amount = BALANCE_FIRST_AID_MEAT_HEAL_AMOUNT_LEVEL_4;
 		}
 		else if (_payload_level == 3)
 		{
 			_bomb_damage = BALANCE_PROJECTILE_HELLCOW_DAMAGE_AMOUNT_LEVEL_3;
 			_skeleton_count = BALANCE_PROJECTILE_SKELETON_COUNT_LEVEL_3;
-			_heal_amount = BALANCE_PROJECTILE_HEAL_AMOUNT_LEVEL_3;
+			_heal_amount = BALANCE_FIRST_AID_MEAT_HEAL_AMOUNT_LEVEL_3;
 		}
 		else if (_payload_level == 2)
 		{
 			_bomb_damage = BALANCE_PROJECTILE_HELLCOW_DAMAGE_AMOUNT_LEVEL_2;
 			_skeleton_count = BALANCE_PROJECTILE_SKELETON_COUNT_LEVEL_2;
-			_heal_amount = BALANCE_PROJECTILE_HEAL_AMOUNT_LEVEL_2;
+			_heal_amount = BALANCE_FIRST_AID_MEAT_HEAL_AMOUNT_LEVEL_2;
 		}
 
 		return "Bomb " + string(_bomb_damage) + " damage, Skeletons x" + string(_skeleton_count) + ", Heal " + string(_heal_amount) + " HP, Taint +" + string(_taint_bonus_percent) + "% radius and impacts.";

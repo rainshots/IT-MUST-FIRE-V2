@@ -103,7 +103,6 @@ has_warlock_demonic_infusion = false;
 // Day-form health is synced with the chosen demon form after selection.
 max_hp = 10;
 hp = max_hp;
-last_heal_volley_id = -1;
 // Cheat balance UI carries this nightly HP snapshot marker into demon form.
 balance_player_hp_snapshot_id = 0;
 

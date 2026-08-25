@@ -497,31 +497,6 @@ function day_event_building_construction_create(_construction_site, _choice, _is
 	return _event;
 }
 
-function day_event_shell_factory_shells_execute(_event, _assigned_cultists, _data)
-{
-	var _game_controller = noone;
-
-	if (instance_exists(o_game_controller))
-	{
-		_game_controller = instance_find(o_game_controller, 0);
-	}
-
-	for (var _shell_index = 0; _shell_index < _data.shell_count; ++_shell_index)
-	{
-		if (instance_exists(_game_controller)
-			&& variable_instance_exists(_game_controller, "cannon_projectile_queue_add"))
-		{
-			_game_controller.cannon_projectile_queue_add(_data.projectile_type);
-		}
-	}
-
-	day_event_cultist_hp_cost_apply(
-		_assigned_cultists,
-		_data.hp_cost
-	);
-	return true;
-}
-
 function day_event_cultist_hp_share_cost_apply(_assigned_cultists, _hp_share)
 {
 	for (var _cultist_index = 0; _cultist_index < array_length(_assigned_cultists); ++_cultist_index)
@@ -2858,54 +2833,12 @@ function day_event_blood_bath_create(
 	return _event;
 }
 
-function day_event_shell_factory_production_create(
-	_shell_factory,
-	_event_id,
-	_title,
-	_description,
-	_projectile_type,
-	_shell_count,
-	_cultist_count,
-	_hp_cost
-)
-{
-	var _event = new day_event_constructor(
-		_event_id + "_" + string(_shell_factory),
-		_title,
-		_description,
-		_cultist_count,
-		1,
-		[
-			new event_action_constructor(
-				"produce_shell_factory_shells",
-				day_event_shell_factory_shells_execute,
-				{ projectile_type: _projectile_type, shell_count: _shell_count, hp_cost: _hp_cost }
-			)
-		]
-	);
-
-	_event.source_building = _shell_factory;
-	return _event;
-}
-
 function day_event_shell_factory_morning_limit_total_get(_projectile_type)
 {
 	var _shell_factory_count = instance_number(o_shell_factory);
-	var _total_limit = 0;
-
-	// Shell Factories add to the Cannon's default morning stockpile limits.
-	if (_projectile_type == PROJECTILE_TYPE.BOMB)
-	{
-		_total_limit = BALANCE_DEFAULT_MORNING_HELLCOW_LIMIT;
-	}
-	else if (_projectile_type == PROJECTILE_TYPE.HEAL)
-	{
-		_total_limit = BALANCE_DEFAULT_MORNING_FIRST_AID_LIMIT;
-	}
-	else if (_projectile_type == PROJECTILE_TYPE.CORRUPTION)
-	{
-		_total_limit = BALANCE_DEFAULT_MORNING_TAINT_COMPOST_LIMIT;
-	}
+	var _total_limit = _projectile_type == PROJECTILE_TYPE.CORRUPTION
+		? BALANCE_DEFAULT_MORNING_TAINT_COMPOST_LIMIT
+		: 0;
 
 	for (var _factory_index = 0; _factory_index < _shell_factory_count; ++_factory_index)
 	{
@@ -2932,15 +2865,7 @@ function day_event_shell_factory_daily_production_execute(_event, _assigned_cult
 
 	var _shell_factory = _event.source_building;
 
-	if (_data.projectile_type == PROJECTILE_TYPE.BOMB)
-	{
-		_shell_factory.shell_factory_hellcow_morning_limit_bonus++;
-	}
-	else if (_data.projectile_type == PROJECTILE_TYPE.HEAL)
-	{
-		_shell_factory.shell_factory_first_aid_morning_limit_bonus++;
-	}
-	else if (_data.projectile_type == PROJECTILE_TYPE.CORRUPTION)
+	if (_data.projectile_type == PROJECTILE_TYPE.CORRUPTION)
 	{
 		_shell_factory.shell_factory_taint_compost_morning_limit_bonus++;
 	}
@@ -3090,10 +3015,7 @@ function day_event_building_catalog_get(_building_object)
 	{
 		case o_shell_factory:
 			return [
-				_entry("First Aid Meat shells production", "Permanently increase the morning First Aid Meat shell stockpile limit by 1. Requires 1 Cultist, who loses 20 HP."),
-				_entry("Hellcow shells production", "Permanently increase the morning Hellcow shell stockpile limit by 1. Requires 1 Cultist, who loses 20 HP."),
 				_entry("Taint Compost shells production", "Permanently increase the morning Taint Compost shell stockpile limit by 1. Requires 1 Cultist, who loses 20 HP."),
-				_entry("Produce Doom Bell Shell", "Produce 1 powerful Doom Bell shell that damages enemies and taints ground. Requires 2 Cultists. Each loses 25 HP.", 2),
 				_entry("Hellcow's diet change", "Permanently increase Hellcow shell damage by 25%. Maximum 4 activations."),
 				_entry("Tight tamping of meat", "Permanently increase First Aid Meat healing and effect radius by 25%. Maximum 4 activations.")
 			];
@@ -3785,39 +3707,12 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 		{
 			day_event_add(day_event_shell_factory_daily_production_create(
 				_shell_factory,
-				"shell_factory_first_aid_production",
-				"First Aid Meat shells production",
-				"First Aid Meat shell",
-				"First Aid Meat shells heal your troops on impact.",
-				PROJECTILE_TYPE.HEAL
-			));
-			day_event_add(day_event_shell_factory_daily_production_create(
-				_shell_factory,
-				"shell_factory_hellcow_production",
-				"Hellcow shells production",
-				"Hellcow shell",
-				"Hellcow shells explode on impact and damage enemies.",
-				PROJECTILE_TYPE.BOMB
-			));
-			day_event_add(day_event_shell_factory_daily_production_create(
-				_shell_factory,
 				"shell_factory_taint_compost_production",
 				"Taint Compost shells production",
 				"Taint Compost shell",
 				"Taint Compost shells taint land on impact.",
 				PROJECTILE_TYPE.CORRUPTION
 			));
-			day_event_add(day_event_shell_factory_production_create(
-				_shell_factory,
-				"shell_factory_doom_bell_shell",
-				"Produce Doom Bell Shell",
-				"Produce 1 Doom Bell shell that explodes on impact, dealing heavy damage and tainting the ground.\nRequires 2 Cultists. Each loses 25 HP.",
-				PROJECTILE_TYPE.DOOM_BELL,
-				BALANCE_SHELL_FACTORY_DOOM_BELL_SHELL_COUNT,
-				BALANCE_SHELL_FACTORY_DOOM_BELL_CULTIST_COUNT,
-				BALANCE_SHELL_FACTORY_DOOM_BELL_CULTIST_HP_COST
-			));
-
 			if (global.shell_factory_hellcow_shell_fired
 				&& global.shell_factory_hellcow_damage_upgrade_count < BALANCE_SHELL_FACTORY_HELLCOW_UPGRADE_LIMIT)
 			{

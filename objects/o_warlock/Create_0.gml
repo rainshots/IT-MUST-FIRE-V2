@@ -317,8 +317,10 @@ warlock_soul_engine_hit_feedback_apply = function(_target, _hit_x, _hit_y)
 		_knockback_direction = point_direction(x, y, _target.x, _target.y);
 	}
 
-	_target.x += lengthdir_x(BALANCE_WARLOCK_SOUL_ENGINE_SKULL_KNOCKBACK_DISTANCE, _knockback_direction);
-	_target.y += lengthdir_y(BALANCE_WARLOCK_SOUL_ENGINE_SKULL_KNOCKBACK_DISTANCE, _knockback_direction);
+	_target.unit_forced_displacement_apply(
+		lengthdir_x(BALANCE_WARLOCK_SOUL_ENGINE_SKULL_KNOCKBACK_DISTANCE, _knockback_direction),
+		lengthdir_y(BALANCE_WARLOCK_SOUL_ENGINE_SKULL_KNOCKBACK_DISTANCE, _knockback_direction)
+	);
 };
 
 warlock_soul_engine_souls_update = function()

@@ -18,6 +18,7 @@ fog_color = c_black;
 // Fully corrupted ground reveals fog nearby.
 full_corruption_value = 1;
 reveal_radius_in_cells = BALANCE_FOG_REVEAL_RADIUS_IN_CELLS;
+cannon_starting_reveal_radius = BALANCE_CANNON_STARTING_FOG_REVEAL_RADIUS;
 demon_reveal_radius_in_pixels = BALANCE_DEMON_FOG_REVEAL_RADIUS_IN_PIXELS;
 demon_reveal_radius_in_cells = ceil(demon_reveal_radius_in_pixels / cell_size);
 enemy_tower_reveal_radius = BALANCE_ENEMY_TOWER_FOG_REVEAL_RADIUS;

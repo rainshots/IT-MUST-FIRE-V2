@@ -93,17 +93,6 @@ if (_flight_progress >= 1)
 		exit;
 	}
 
-	// Doom Bell combines its ground corruption with a later damage effect.
-	if (projectile_type == PROJECTILE_TYPE.DOOM_BELL)
-	{
-		corrupt_circle(
-			target_x,
-			target_y,
-			ground_corruption_radius,
-			ground_corruption_amount
-		);
-	}
-
 	// Corruption projectiles infect ground cells in the explosion radius.
 	if (projectile_type == PROJECTILE_TYPE.CORRUPTION)
 	{
@@ -238,102 +227,19 @@ if (_flight_progress >= 1)
 	}
 	else if (projectile_type == PROJECTILE_TYPE.HEAL)
 	{
-		var _friendly_list = ds_list_create();
-		var _friendly_count = collision_circle_list(
+		// First Aid Meat becomes a persistent ground effect instead of healing on impact.
+		var _first_aid_meat = instance_create_layer(
 			target_x,
 			target_y,
-			effect_radius,
-			o_friendly_units,
-			false,
-			true,
-			_friendly_list,
-			false
+			particle_layer_name,
+			o_first_aid_meat
 		);
+		_first_aid_meat.heal_radius = effect_radius;
+		_first_aid_meat.heal_amount = damage_amount;
 
-		for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_index)
+		if (variable_instance_exists(id, "balance_test_match_id"))
 		{
-			var _friendly = _friendly_list[| _friendly_index];
-			var _friendly_is_in_same_test = true;
-
-			if (variable_instance_exists(id, "balance_test_match_id"))
-			{
-				_friendly_is_in_same_test = instance_exists(_friendly)
-					&& variable_instance_exists(_friendly, "balance_test_match_id")
-					&& _friendly.balance_test_match_id == balance_test_match_id;
-			}
-
-			if (!instance_exists(_friendly)
-				|| !_friendly_is_in_same_test
-				|| !variable_instance_exists(_friendly, "hp")
-				|| !variable_instance_exists(_friendly, "max_hp")
-				|| _friendly.max_hp <= 0
-				|| (heal_volley_id >= 0
-					&& variable_instance_exists(_friendly, "last_heal_volley_id")
-					&& _friendly.last_heal_volley_id == heal_volley_id))
-			{
-				continue;
-			}
-
-			// Each unit can receive healing from only one shell in this volley.
-			if (heal_volley_id >= 0)
-			{
-				_friendly.last_heal_volley_id = heal_volley_id;
-			}
-
-			var _hp_before_heal = _friendly.hp;
-
-			if (variable_instance_exists(_friendly, "is_knocked_out") && _friendly.is_knocked_out)
-			{
-				_friendly.is_knocked_out = false;
-				_friendly.knockout_timer = 0;
-				_friendly.image_angle = 0;
-			}
-
-			_friendly.hp = min(_friendly.hp + damage_amount, _friendly.max_hp);
-
-			if (_friendly.hp > _hp_before_heal)
-			{
-				heal_feedback_create(_friendly, _friendly.hp - _hp_before_heal);
-			}
-		}
-
-		ds_list_destroy(_friendly_list);
-
-		if (variable_global_exists("archdemons"))
-		{
-			var _cultist_count = array_length(global.archdemons);
-
-			for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
-			{
-				var _cultist = global.archdemons[_cultist_index];
-
-				if (!instance_exists(_cultist)
-					|| !_cultist.visible
-					|| !variable_instance_exists(_cultist, "hp")
-					|| !variable_instance_exists(_cultist, "max_hp")
-					|| _cultist.max_hp <= 0
-					|| point_distance(_cultist.x, _cultist.y, target_x, target_y) > effect_radius
-					|| (heal_volley_id >= 0
-						&& variable_instance_exists(_cultist, "last_heal_volley_id")
-						&& _cultist.last_heal_volley_id == heal_volley_id))
-				{
-					continue;
-				}
-
-				// Each archdemon can receive healing from only one shell in this volley.
-				if (heal_volley_id >= 0)
-				{
-					_cultist.last_heal_volley_id = heal_volley_id;
-				}
-
-				var _cultist_hp_before_heal = _cultist.hp;
-				_cultist.hp = min(_cultist.hp + damage_amount, _cultist.max_hp);
-
-				if (_cultist.hp > _cultist_hp_before_heal)
-				{
-					heal_feedback_create(_cultist, _cultist.hp - _cultist_hp_before_heal);
-				}
-			}
+			_first_aid_meat.balance_test_match_id = balance_test_match_id;
 		}
 	}
 	else if (projectile_type == PROJECTILE_TYPE.ARTILLERY)
@@ -439,42 +345,14 @@ if (_flight_progress >= 1)
 	}
 	else if (projectile_type == PROJECTILE_TYPE.DOOM_BELL)
 	{
-		with (all)
+		// Doom Bell is crowd control only: it neither damages nor taints the ground.
+		with (o_enemy_units)
 		{
-			var _is_valid_target = (
-				id != other.id
-				&& id != other.source_instance
-				&& object_index != o_projectile
-				&& object_index != o_particle_smoke
-				&& object_index != o_particle_explosion
-				&& object_index != o_camera_controller
-				&& object_index != o_game_controller
-			);
-
-			if (_is_valid_target
-				&& !other.projectile_target_is_allied(id)
+			if (hp > 0
 				&& point_distance(x, y, other.target_x, other.target_y) <= other.effect_radius
-				&& variable_instance_exists(id, "hp"))
+				&& variable_instance_exists(id, "stun_apply"))
 			{
-				if (variable_instance_exists(id, "unit_damage_receive"))
-				{
-					unit_damage_receive(
-						other.damage_amount,
-						other.damage_faction,
-						false,
-						true,
-						other.source_instance
-					);
-				}
-				else
-				{
-					hp = max(hp - other.damage_amount, 0);
-
-					if (variable_instance_exists(id, "unit_faction"))
-					{
-						damage_popup_create(x, y, other.damage_amount, unit_faction);
-					}
-				}
+				stun_apply(BALANCE_PROJECTILE_DOOM_BELL_STUN_TIME);
 			}
 		}
 	}

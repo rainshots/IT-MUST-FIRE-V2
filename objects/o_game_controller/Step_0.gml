@@ -240,6 +240,12 @@ if (global.cheats_enabled && keyboard_check_pressed(vk_f1))
 	global.day_event_pins_remaining += _day_event_action_cheat_amount;
 }
 
+// F5 toggles the visible portion of the shared wall navigation grid.
+if (global.cheats_enabled && keyboard_check_pressed(vk_f5))
+{
+	wall_navigation_debug_visible = !wall_navigation_debug_visible;
+}
+
 // F6 replaces the current daily cards with every currently available event.
 if (global.cheats_enabled && keyboard_check_pressed(vk_f6))
 {
@@ -1288,11 +1294,13 @@ if (keyboard_check_pressed(vk_escape))
 // Play UI feedback for the currently hovered or clicked button.
 ui_audio_update();
 
-// Track elapsed night time, but never force Blood Moon or boss nights to end by timer.
+// Track elapsed night time; Unholy Night always ends after its dedicated duration.
 if (!global.pause && global.day_cycle_enabled)
 {
 	var _blood_moon_is_active = variable_global_exists("full_moon_night_active")
 		&& global.full_moon_night_active;
+	var _unholy_night_is_active = variable_global_exists("unholy_night_active")
+		&& global.unholy_night_active;
 
 	if (global.day_phase == DAY_PHASE.NIGHT)
 	{
@@ -1301,7 +1309,14 @@ if (!global.pause && global.day_cycle_enabled)
 			: 1;
 		global.day_timer = max(global.day_timer - _gameplay_time_scale, 0);
 
-		if (!_blood_moon_is_active
+		if (_unholy_night_is_active)
+		{
+			if (global.day_timer <= 0)
+			{
+				start_day_phase();
+			}
+		}
+		else if (!_blood_moon_is_active
 			&& !boss_griffith_night_active
 			&& !night_force_end_active)
 		{
@@ -1316,6 +1331,9 @@ if (!global.pause && global.day_cycle_enabled)
 		}
 	}
 }
+
+// Schedule metaphorical Holy Cannon warnings independently from the regular enemy army.
+holy_cannon_update();
 
 cannon_corrupted_ground_damage_update();
 
@@ -1736,12 +1754,6 @@ if (!global.pause
 	}
 }
 
-// Restore missing Hellcow and First Aid Meat shells throughout the night.
-if (!global.pause)
-{
-	cannon_night_shell_recharge_update();
-}
-
 // Move night cultists into the cannon until they become queued projectiles.
 update_cultists_loading_into_cannon();
 
@@ -1752,30 +1764,34 @@ night_attack_spawning_update();
 if (!global.pause
 	&& global.day_cycle_enabled
 	&& global.day_phase == DAY_PHASE.NIGHT
+	&& !global.unholy_night_active
 	&& night_attack_is_complete())
 {
 	start_day_phase();
 }
 
-// Structure shells can be aimed during the day; combat projectiles are night-only.
-if (global.day_phase != DAY_PHASE.NIGHT
-	&& global.focus_window == FOCUS_WINDOW.TARGET_SELECTION
-	&& target_selection_projectile_type != PROJECTILE_TYPE.BUILDING_SHELL)
+// Close aiming when the selected shell is phase-locked or the Cannon begins reloading.
+if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION
+	&& (!cannon_projectile_type_can_fire_in_current_phase(target_selection_projectile_type)
+		|| !cannon_is_ready_to_fire()))
 {
 	hellcow_aim_is_dragging = false;
 	hellcow_aim_drag_distance = 0;
 	global.focus_window = FOCUS_WINDOW.NOONE;
 }
 
-var _can_select_cannon_projectile = (global.day_phase == DAY_PHASE.NIGHT
+var _cannon_is_ready = cannon_is_ready_to_fire();
+var _can_select_cannon_projectile = _cannon_is_ready
+	&& (global.day_phase == DAY_PHASE.NIGHT
 		|| global.day_phase == DAY_PHASE.DAY)
 	&& (global.focus_window == FOCUS_WINDOW.NOONE
 		|| (global.cannon_projectile_cheat_enabled && global.focus_window == FOCUS_WINDOW.TARGET_SELECTION));
 var _projectile_selection_click_index = -1;
 var _projectile_selection_click_used = false;
 
-// Night projectile slots use the same selection path as their number hotkeys.
-if (global.day_phase == DAY_PHASE.NIGHT
+// Projectile slots use the same selection path as their number hotkeys.
+if ((global.day_phase == DAY_PHASE.NIGHT || global.day_phase == DAY_PHASE.DAY)
+	&& _cannon_is_ready
 	&& (global.focus_window == FOCUS_WINDOW.NOONE
 		|| global.focus_window == FOCUS_WINDOW.TARGET_SELECTION)
 	&& mouse_check_button_pressed(mb_left)
@@ -1797,7 +1813,9 @@ if (global.day_phase == DAY_PHASE.NIGHT
 		{
 			_projectile_selection_click_used = true;
 
-			if (_clicked_projectile_slot.queue_index >= 0 && _clicked_projectile_slot.count > 0)
+			if (_clicked_projectile_slot.queue_index >= 0
+				&& _clicked_projectile_slot.count > 0
+				&& cannon_projectile_type_can_fire_in_current_phase(_clicked_projectile_slot.projectile_type))
 			{
 				_projectile_selection_click_index = _clicked_projectile_slot.consume_queue_index;
 
@@ -1835,8 +1853,7 @@ if (_can_select_cannon_projectile || _projectile_selection_click_index >= 0)
 			var _digit_slot = _projectile_display_slots[_digit_index];
 			var _digit_projectile_type = _digit_slot.projectile_type;
 
-			if (global.day_phase == DAY_PHASE.NIGHT
-				|| _digit_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
+			if (cannon_projectile_type_can_fire_in_current_phase(_digit_projectile_type))
 			{
 				_selected_projectile_index = _digit_slot.consume_queue_index;
 			}
@@ -1938,8 +1955,7 @@ var _target_selection_should_confirm = global.focus_window == FOCUS_WINDOW.TARGE
 // Confirm ordinary targets on click and Hellcow targets on drag release.
 if (_target_selection_should_confirm)
 {
-	if (global.day_phase != DAY_PHASE.NIGHT
-		&& target_selection_projectile_type != PROJECTILE_TYPE.BUILDING_SHELL)
+	if (!cannon_projectile_type_can_fire_in_current_phase(target_selection_projectile_type))
 	{
 		global.focus_window = FOCUS_WINDOW.NOONE;
 	}
@@ -1988,9 +2004,13 @@ if (_target_selection_should_confirm)
 
 		target_selection_radius = projectile_target_selection_radius_get(target_selection_projectile_type);
 		var _target_can_be_confirmed = true;
-		var _target_consumes_projectile_queue = true;
+		var _target_consumes_projectile_queue = !cannon_projectile_type_is_reusable(target_selection_projectile_type);
 
-		if (_hellcow_target_selection_active
+		if (!cannon_is_ready_to_fire())
+		{
+			_target_can_be_confirmed = false;
+		}
+		else if (_hellcow_target_selection_active
 			&& hellcow_aim_drag_distance < BALANCE_PROJECTILE_HELLCOW_AIM_MIN_DRAG)
 		{
 			_target_can_be_confirmed = false;

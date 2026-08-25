@@ -689,8 +689,10 @@ imp_crimson_guillotine_aoe_apply = function(_origin_x, _origin_y, _radius, _dama
 		if (!_enemy_was_killed)
 		{
 			var _knockback_direction = point_direction(_origin_x, _origin_y, _enemy.x, _enemy.y);
-			_enemy.x += lengthdir_x(BALANCE_IMP_CRIMSON_GUILLOTINE_KNOCKBACK_DISTANCE, _knockback_direction);
-			_enemy.y += lengthdir_y(BALANCE_IMP_CRIMSON_GUILLOTINE_KNOCKBACK_DISTANCE, _knockback_direction);
+			_enemy.unit_forced_displacement_apply(
+				lengthdir_x(BALANCE_IMP_CRIMSON_GUILLOTINE_KNOCKBACK_DISTANCE, _knockback_direction),
+				lengthdir_y(BALANCE_IMP_CRIMSON_GUILLOTINE_KNOCKBACK_DISTANCE, _knockback_direction)
+			);
 		}
 	}
 

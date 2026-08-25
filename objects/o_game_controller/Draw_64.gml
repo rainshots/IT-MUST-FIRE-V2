@@ -42,13 +42,16 @@ else if (global.day_phase == DAY_PHASE.NIGHT)
 	draw_set_color(c_white);
 }
 
+// Cheat overlay shows only navigation cells intersecting the current camera.
+wall_navigation_debug_draw();
+
 // Draw night squad markers above world units but below the rest of the GUI.
 squad_night_markers_draw_gui();
 
 // Draw attack warning arrows during the day and briefly at the start of the night.
 var _game_speed_normal = variable_global_exists("game_speed_normal") ? global.game_speed_normal : room_speed;
 var _night_warning_time = 10 * _game_speed_normal;
-var _night_elapsed_time = (global.night_duration * _game_speed_normal) - global.day_timer;
+var _night_elapsed_time = (night_duration_current * _game_speed_normal) - global.day_timer;
 var _night_warning_active = global.day_phase == DAY_PHASE.NIGHT
 	&& _night_elapsed_time <= _night_warning_time;
 

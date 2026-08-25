@@ -44,6 +44,13 @@ for (var _taint_reveal_cell_index = 0; _taint_reveal_cell_index < _taint_reveal_
 	);
 }
 
+// Keep the cannon's starting area open when the temporary fog grid is rebuilt.
+if (cannon_starting_reveal_radius > 0 && instance_exists(o_cannon))
+{
+	var _cannon = instance_find(o_cannon, 0);
+	fog_world_circle_reveal(_cannon.x, _cannon.y, cannon_starting_reveal_radius);
+}
+
 // Combat demon fog reveal is disabled while any demon is being dragged.
 if (global.day_phase == DAY_PHASE.NIGHT && demon_reveal_radius_in_cells > 0 && !_dragged_demon_exists)
 {

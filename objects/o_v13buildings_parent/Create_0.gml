@@ -833,9 +833,7 @@ else if (object_index == o_workshop)
 }
 else if (object_index == o_shell_factory)
 {
-	// Day events permanently increase this factory's contribution to each morning stockpile limit.
-	shell_factory_hellcow_morning_limit_bonus = 0;
-	shell_factory_first_aid_morning_limit_bonus = 0;
+	// Day events can permanently increase this factory's daily Taint Compost contribution.
 	shell_factory_taint_compost_morning_limit_bonus = 0;
 
 	building_accepts_workers = true;
@@ -845,10 +843,10 @@ else if (object_index == o_shell_factory)
 	production_bonus_stat_name = "BODY";
 	production_bonus_stat_color = COLOR_CULTIST_BODY;
 	building_tooltip_title = "Shell Production";
-	building_tooltip_description = "Produces special shells while staffed and can improve morning stockpile limits.";
+	building_tooltip_description = "Produces squad shells while staffed and can improve daily Taint Compost stock.";
 	building_tooltip_detail = "Uses " + string(BALANCE_SHELL_FACTORY_SOUL_COST) + " Souls + "
 		+ string(BALANCE_SHELL_FACTORY_IRON_COST) + " Iron while staffed. "
-		+ "Events can permanently increase morning shell limits. Bonus: "
+		+ "Events can permanently increase daily Taint Compost. Bonus: "
 		+ production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
 	building_tooltip_detail_color = production_bonus_stat_color;
 	building_has_upgrades = true;
@@ -2037,16 +2035,6 @@ shell_factory_morning_projectile_limit_get = function(_projectile_type)
 		return 0;
 	}
 
-	if (_projectile_type == PROJECTILE_TYPE.BOMB)
-	{
-		return shell_factory_hellcow_morning_limit_bonus;
-	}
-
-	if (_projectile_type == PROJECTILE_TYPE.HEAL)
-	{
-		return shell_factory_first_aid_morning_limit_bonus;
-	}
-
 	if (_projectile_type == PROJECTILE_TYPE.CORRUPTION)
 	{
 		return shell_factory_taint_compost_morning_limit_bonus;
@@ -2065,15 +2053,11 @@ building_tooltip_detail_get = function()
 
 	if (object_index == o_shell_factory)
 	{
-		var _hellcow_limit = shell_factory_morning_projectile_limit_get(PROJECTILE_TYPE.BOMB);
-		var _first_aid_limit = shell_factory_morning_projectile_limit_get(PROJECTILE_TYPE.HEAL);
 		var _taint_compost_limit = shell_factory_morning_projectile_limit_get(PROJECTILE_TYPE.CORRUPTION);
 
 		return "Uses " + string(BALANCE_SHELL_FACTORY_SOUL_COST) + " Souls + "
-			+ string(BALANCE_SHELL_FACTORY_IRON_COST) + " Iron while staffed. Morning stockpile bonus: +"
-			+ string(_hellcow_limit) + " Hellcow, +"
-			+ string(_first_aid_limit) + " First Aid Meat, +"
-			+ string(_taint_compost_limit) + " Taint Compost. Bonus: "
+			+ string(BALANCE_SHELL_FACTORY_IRON_COST) + " Iron while staffed. Daily Taint Compost bonus: +"
+			+ string(_taint_compost_limit) + ". Bonus: "
 			+ production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
 	}
 
