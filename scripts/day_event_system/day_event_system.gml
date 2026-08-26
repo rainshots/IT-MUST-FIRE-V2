@@ -375,7 +375,16 @@ function day_event_building_construction_execute(_event, _assigned_cultists, _da
 		}
 	}
 
-	instance_destroy(_construction_site);
+	// Trap Points persist after construction so they can restore their bound trap every morning.
+	if (variable_instance_exists(_construction_site, "construction_site_complete"))
+	{
+		_construction_site.construction_site_complete(_built_object, _data.choice);
+	}
+	else
+	{
+		instance_destroy(_construction_site);
+	}
+
 	return true;
 }
 

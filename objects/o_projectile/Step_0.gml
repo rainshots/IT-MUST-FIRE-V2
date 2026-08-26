@@ -36,9 +36,23 @@ flight_timer += gameplay_time_scale;
 
 var _flight_progress = clamp(flight_timer / flight_time, 0, 1);
 var _arc_offset = -sin(_flight_progress * pi) * arc_height;
+var _previous_x = x;
+var _previous_y = y;
 
 x = lerp(start_x, target_x, _flight_progress);
 y = lerp(start_y, target_y, _flight_progress) + _arc_offset;
+
+// Leave a staggered smoke trail behind every projectile fired by the Cannon.
+if (smoke_trail_enabled && _flight_progress < 1)
+{
+	smoke_trail_timer += gameplay_time_scale;
+
+	if (smoke_trail_timer >= smoke_trail_interval)
+	{
+		smoke_trail_timer -= smoke_trail_interval;
+		projectile_smoke_trail_create(_previous_x, _previous_y);
+	}
+}
 
 // Apply the projectile effect when it lands.
 if (_flight_progress >= 1)

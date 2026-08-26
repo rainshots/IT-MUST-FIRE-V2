@@ -49,6 +49,30 @@ structure_choice_hover_scale = 2;
 structure_choice_options = [];
 structure_choice_options_rolled = false;
 restore_structure_choice = noone;
+structure_selection_title = "Summon Structure";
+structure_selection_subtitle = "Choose one tower to summon";
+
+cursed_point_interaction_is_blocked = function()
+{
+	return variable_instance_exists(id, "construction_event_pending")
+		&& construction_event_pending;
+};
+
+cursed_point_draw_above_tile_layer = function(_tile_layer_name = "tiles")
+{
+	var _tile_layer_id = layer_get_id(_tile_layer_name);
+
+	if (_tile_layer_id == -1)
+	{
+		return false;
+	}
+
+	// A slightly lower depth than the tile layer draws the point immediately above the ground.
+	var _depth_offset = 1;
+	y_sort_enabled = false;
+	depth = layer_get_depth(_tile_layer_id) - _depth_offset;
+	return true;
+};
 
 // Captured points let the player choose any tower from this roster.
 structure_choice_packs = [
@@ -277,7 +301,7 @@ cursed_point_summon_button_is_hovered = function()
 {
 	if (!is_captured
 		|| structure_selection_open
-		|| (variable_instance_exists(id, "construction_event_pending") && construction_event_pending)
+		|| cursed_point_interaction_is_blocked()
 		|| global.day_phase != DAY_PHASE.DAY
 		|| global.focus_window != FOCUS_WINDOW.NOONE)
 	{
@@ -311,6 +335,7 @@ cursed_point_structure_selection_open = function()
 {
 	if (!is_captured
 		|| structure_selection_open
+		|| cursed_point_interaction_is_blocked()
 		|| global.day_phase != DAY_PHASE.DAY)
 	{
 		return;
@@ -498,4 +523,62 @@ cursed_point_structure_restore = function()
 
 	// Restoration reuses normal Cursed Point construction without reopening structure choice.
 	return cursed_point_structure_build(restore_structure_choice, false);
+};
+
+cursed_point_morning_restore = function()
+{
+	if (!is_struct(restore_structure_choice)
+		|| !variable_struct_exists(restore_structure_choice, "building_object"))
+	{
+		return false;
+	}
+
+	var _building_object = restore_structure_choice.building_object;
+	var _restored_building = instance_create_layer(x, y, "Instances", _building_object);
+
+	if (!instance_exists(_restored_building))
+	{
+		return false;
+	}
+
+	// Restore the exact structure previously built on this point without using a cultist.
+	with (_restored_building)
+	{
+		depth = -floor(y);
+		building_constructed_by_cursed_point = true;
+		cursed_point_restore_choice = other.restore_structure_choice;
+
+		if (variable_instance_exists(id, "tower_capture_enabled"))
+		{
+			tower_capture_enabled = true;
+		}
+
+		if (variable_instance_exists(id, "is_captured"))
+		{
+			is_captured = true;
+		}
+
+		if (variable_instance_exists(id, "corruption")
+			&& variable_instance_exists(id, "corruption_max"))
+		{
+			corruption = corruption_max;
+		}
+
+		if (variable_instance_exists(id, "captured_sprite")
+			&& captured_sprite != noone)
+		{
+			sprite_index = captured_sprite;
+			image_index = 0;
+			image_speed = 0;
+		}
+
+		if (variable_instance_exists(id, "hp")
+			&& variable_instance_exists(id, "max_hp"))
+		{
+			hp = max_hp;
+		}
+	}
+
+	instance_destroy();
+	return true;
 };

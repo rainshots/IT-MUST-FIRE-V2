@@ -4299,7 +4299,7 @@ boss_griffith_pending_direction = 0;
 boss_griffith_force_next_night = false;
 boss_griffith_night_active = false;
 full_moon_night_interval = BALANCE_FULL_MOON_NIGHT_INTERVAL;
-// A completed Blood Moon queues one peaceful night for the following dusk.
+// A completed Blood Moon may queue one peaceful night when the feature is enabled.
 unholy_night_pending = false;
 night_force_end_timer = 0;
 night_force_end_active = false;
@@ -10655,7 +10655,7 @@ night_attack_enemy_difficulties_spend = function(_enemy_objects, _enemy_difficul
 	return _enemy_difficulties;
 };
 
-// Night attacks prefer an active shrine and fall back to a random direction when none exist.
+// An active shrine remains an optional wave source, but no longer determines its direction.
 night_attack_shrine_source_roll = function()
 {
 	var _shrine_count = array_length(shrine_instances);
@@ -10681,18 +10681,48 @@ night_attack_shrine_source_roll = function()
 	return noone;
 };
 
-night_attack_shrine_direction_roll = function(_shrine)
+night_attack_marker_directions_get = function()
 {
-	if (!instance_exists(o_cannon) || !instance_exists(_shrine))
+	var _directions = [];
+
+	if (!instance_exists(o_cannon))
 	{
-		return random(360);
+		return _directions;
 	}
 
 	var _cannon = instance_find(o_cannon, 0);
-	var _shrine_direction = point_direction(_cannon.x, _cannon.y, _shrine.x, _shrine.y);
-	var _random_angle = BALANCE_NIGHT_ATTACK_SHRINE_DIRECTION_RANDOM_ANGLE;
+	var _marker_count = instance_number(o_attack_direction);
 
-	return (_shrine_direction + random_range(-_random_angle, _random_angle) + 360) mod 360;
+	// Every placed marker contributes one exact angle measured from the cannon.
+	for (var _marker_index = 0; _marker_index < _marker_count; ++_marker_index)
+	{
+		var _marker = instance_find(o_attack_direction, _marker_index);
+
+		if (!instance_exists(_marker)
+			|| point_distance(_cannon.x, _cannon.y, _marker.x, _marker.y) <= 0)
+		{
+			continue;
+		}
+
+		array_push(
+			_directions,
+			point_direction(_cannon.x, _cannon.y, _marker.x, _marker.y)
+		);
+	}
+
+	// Shuffle once so the first requested directions are unique and random each night.
+	var _direction_count = array_length(_directions);
+
+	for (var _direction_index = _direction_count - 1; _direction_index > 0; --_direction_index)
+	{
+		var _swap_index = irandom(_direction_index);
+		var _swap_direction = _directions[_swap_index];
+
+		_directions[_swap_index] = _directions[_direction_index];
+		_directions[_direction_index] = _swap_direction;
+	}
+
+	return _directions;
 };
 
 night_attack_plan_create = function()
@@ -10724,8 +10754,20 @@ night_attack_plan_create = function()
 	}
 
 	var _total_difficulty = night_attack_total_difficulty_get();
-
+	var _marker_directions = night_attack_marker_directions_get();
+	var _marker_direction_count = array_length(_marker_directions);
 	var _directions = [];
+
+	// Without a placed marker there is deliberately no valid night attack direction.
+	if (_marker_direction_count <= 0)
+	{
+		night_attack_directions = [];
+		night_attack_plan_exists = true;
+		boss_griffith_pending_next_night = false;
+		return;
+	}
+
+	_direction_count = min(_direction_count, _marker_direction_count);
 
 	for (var _roll_index = 0; _roll_index < _direction_count; ++_roll_index)
 	{
@@ -10734,7 +10776,7 @@ night_attack_plan_create = function()
 		array_push(
 			_directions,
 			{
-				direction: night_attack_shrine_direction_roll(_source_shrine),
+				direction: _marker_directions[_roll_index],
 				source_shrine: _source_shrine
 			}
 		);
@@ -11500,7 +11542,7 @@ start_night_phase = function()
 	clear_dragged_unit();
 	cannon_corpse_workers_drop_all();
 	var _is_full_moon_night = full_moon_night_is_scheduled(night_attack_night_index);
-	var _is_unholy_night = unholy_night_pending;
+	var _is_unholy_night = BALANCE_UNHOLY_NIGHT_ENABLED && unholy_night_pending;
 
 	global.day_phase = DAY_PHASE.NIGHT;
 	night_fast_forward_set(false);
@@ -11719,7 +11761,7 @@ start_day_phase = function()
 	global.cannon_corpses_delivered_today = 0;
 	global.full_moon_night_active = false;
 	global.unholy_night_active = false;
-	unholy_night_pending = _previous_night_was_full_moon;
+	unholy_night_pending = BALANCE_UNHOLY_NIGHT_ENABLED && _previous_night_was_full_moon;
 	boss_griffith_night_active = false;
 	global.day_timer = global.day_duration * global.game_speed_normal;
 	global.night_attack_unit_count = 0;
@@ -11796,6 +11838,33 @@ start_day_phase = function()
 	settlement_garrison_buildings_spawn_morning_units();
 	move_summoned_units_to_cannon_inner();
 
+	// Fully repair every surviving structure built on a special construction point.
+	with (o_map_objects_parent)
+	{
+		if (building_constructed_by_cursed_point && hp > 0)
+		{
+			hp = max_hp;
+		}
+	}
+
+	// Rebuild destroyed point structures from their saved construction choices.
+	with (o_cursed_point)
+	{
+		if (variable_instance_exists(id, "cursed_point_morning_restore"))
+		{
+			cursed_point_morning_restore();
+		}
+	}
+
+	// Habitat populations return to their full count and HP every morning.
+	with (o_orcs_pit)
+	{
+		if (variable_instance_exists(id, "orcs_pit_morning_restore"))
+		{
+			orcs_pit_morning_restore();
+		}
+	}
+
 	with (o_boneyard)
 	{
 		boneyard_spawn_morning_units();
@@ -11827,6 +11896,15 @@ start_day_phase = function()
 	with (o_ihor_extractor)
 	{
 		ihor_extractor_morning_income_collect();
+	}
+
+	// Recreate every bound trap that was consumed during the previous night.
+	with (o_trap_point)
+	{
+		if (variable_instance_exists(id, "trap_point_morning_restore"))
+		{
+			trap_point_morning_restore();
+		}
 	}
 
 	cannon_morning_projectiles_refill();

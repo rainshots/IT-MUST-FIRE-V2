@@ -229,6 +229,7 @@ cannon_agony_projectile_create = function(_target_x, _target_y, _projectile_type
 	_projectile.hellcow_charge_direction = point_direction(_projectile_x, _projectile_y, _target_x, _target_y);
 	_projectile.damage_faction = UNIT_FACTION.FRIENDLY;
 	_projectile.source_instance = id;
+	_projectile.smoke_trail_enabled = true;
 	_projectile.ignore_pause = global.pause;
 	_projectile.launch_delay_timer = _launch_delay_seconds * room_speed;
 	_projectile.flight_time = _flight_time_seconds * room_speed;

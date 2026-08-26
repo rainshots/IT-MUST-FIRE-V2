@@ -117,6 +117,7 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			_projectile.cultist_payload = _projectile_payload;
 			_projectile.building_payload = _projectile_payload;
 			_projectile.source_instance = id;
+			_projectile.smoke_trail_enabled = true;
 			_projectile.damage_faction = UNIT_FACTION.FRIENDLY;
 			_projectile.ignore_pause = global.pause;
 			_projectile.launch_delay_timer = _launch_delay_seconds * room_speed;

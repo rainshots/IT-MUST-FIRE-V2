@@ -39,6 +39,22 @@ flight_timer = 0;
 arc_height = 260;
 ignore_pause = false;
 
+// Cannon-fired projectiles enable this smoke trail after creation.
+smoke_trail_enabled = false;
+smoke_trail_interval = max(1, round(BALANCE_CANNON_PROJECTILE_SMOKE_TRAIL_INTERVAL * room_speed));
+smoke_trail_timer = smoke_trail_interval;
+smoke_trail_jitter_radius = BALANCE_CANNON_PROJECTILE_SMOKE_TRAIL_JITTER_RADIUS;
+
+projectile_smoke_trail_create = function(_trail_x, _trail_y)
+{
+	var _smoke_direction = random(360);
+	var _smoke_distance = sqrt(random(1)) * smoke_trail_jitter_radius;
+	var _smoke_x = _trail_x + lengthdir_x(_smoke_distance, _smoke_direction);
+	var _smoke_y = _trail_y + lengthdir_y(_smoke_distance, _smoke_direction);
+
+	instance_create_layer(_smoke_x, _smoke_y, particle_layer_name, o_particle_smoke);
+};
+
 // Visual settings.
 projectile_radius = 12;
 projectile_visual_scale = 2.5;

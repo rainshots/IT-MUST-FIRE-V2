@@ -75,13 +75,13 @@ draw_rectangle(_panel_x, _panel_y, _panel_x + structure_choice_window_width, _pa
 draw_set_halign(fa_center);
 draw_set_valign(fa_middle);
 draw_set_color(COLOR_HUD_TEXT);
-draw_text(_panel_x + (structure_choice_window_width * 0.5), _panel_y + 38, "Summon Structure");
+draw_text(_panel_x + (structure_choice_window_width * 0.5), _panel_y + 38, structure_selection_title);
 
 draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
 draw_text(
 	_panel_x + (structure_choice_window_width * 0.5),
 	_panel_y + 68,
-	"Choose one tower to summon"
+	structure_selection_subtitle
 );
 
 for (var _choice_index = 0; _choice_index < array_length(structure_choice_options); ++_choice_index)
