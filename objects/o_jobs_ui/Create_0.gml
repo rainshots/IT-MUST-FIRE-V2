@@ -11,6 +11,19 @@ jobs_pool_width = 456;
 jobs_pool_height = 85;
 jobs_pool_cultist_start_x = 107;
 jobs_pool_cultist_y = 10;
+jobs_whip_home_offset_x = 58;
+jobs_whip_home_offset_y = 55;
+jobs_whip_home_scale = 0.4;
+jobs_whip_held_scale = 0.5;
+jobs_whip_tooltip_offset_y = 42;
+jobs_whip_tooltip_padding_x = 8;
+jobs_whip_tooltip_padding_y = 5;
+jobs_whip_tooltip_margin = 8;
+jobs_whip_tooltip_background_alpha = 0.9;
+jobs_whip_pickup_hint = "Hold LMB to hold a whip.";
+jobs_whip_target_hint = "Press RMB to satisfy cannon demon";
+jobs_whip = instance_create_layer(0, 0, layer, o_whip);
+jobs_whip_hovered = false;
 jobs_event_y = 147;
 jobs_event_width = 458;
 jobs_event_height = 132;
@@ -198,6 +211,40 @@ jobs_layout_get = function()
 		close_x: _panel_x + _panel_width - (64 * _scale),
 		close_y: _panel_y + (10 * _scale),
 		close_size: 56 * _scale
+	};
+};
+
+jobs_whip_home_position_get = function()
+{
+	var _layout = jobs_layout_get();
+
+	return [
+		_layout.pool_x + (jobs_whip_home_offset_x * _layout.scale),
+		_layout.pool_y + (jobs_whip_home_offset_y * _layout.scale)
+	];
+};
+
+jobs_whip_rect_get = function()
+{
+	if (!instance_exists(jobs_whip) || !sprite_exists(jobs_whip.sprite_index))
+	{
+		return noone;
+	}
+
+	var _layout = jobs_layout_get();
+	var _home_position = jobs_whip_home_position_get();
+	var _sprite = jobs_whip.sprite_index;
+	var _sprite_scale = jobs_whip_home_scale * _layout.scale;
+	var _sprite_width = sprite_get_width(_sprite) * _sprite_scale;
+	var _sprite_height = sprite_get_height(_sprite) * _sprite_scale;
+	var _sprite_origin_x = sprite_get_xoffset(_sprite) * _sprite_scale;
+	var _sprite_origin_y = sprite_get_yoffset(_sprite) * _sprite_scale;
+
+	return {
+		x: _home_position[0] - _sprite_origin_x,
+		y: _home_position[1] - _sprite_origin_y,
+		width: _sprite_width,
+		height: _sprite_height
 	};
 };
 
@@ -1091,6 +1138,13 @@ jobs_window_open = function()
 	jobs_hovered_event_action_key = "";
 	jobs_squad_selector_event = noone;
 	jobs_scroll_offset = 0;
+	jobs_whip_hovered = false;
+
+	if (instance_exists(jobs_whip))
+	{
+		jobs_whip.whip_release();
+	}
+
 	jobs_window_opened_once = true;
 	global.focus_window = FOCUS_WINDOW.JOBS;
 
@@ -1123,6 +1177,12 @@ jobs_window_close = function()
 	jobs_hovered_empty_slot_key = "";
 	jobs_hovered_event_action_key = "";
 	jobs_squad_selector_event = noone;
+	jobs_whip_hovered = false;
+
+	if (instance_exists(jobs_whip))
+	{
+		jobs_whip.whip_release();
+	}
 
 	if (instance_exists(o_camera_controller))
 	{

@@ -97,8 +97,8 @@ tutorial_items = [
 	},
 	{
 		id: "squad_dragging",
-		title: "Dragging Squads During Combat",
-		body: "You can reposition squads during combat at night. Hover over a squad icon, hold LMB, and drag the squad to a new position.\n\nKeep in mind that the squad will be stunned for a while after being moved."
+		title: "Squad Marching",
+		body: "During combat at night, drag a squad flag with LMB and release it at the destination.\n\nThe red flag means the squad is marching. Its units ignore enemies until every surviving member reaches the flag."
 	},
 	{
 		id: "tainted_ground",

@@ -7,6 +7,14 @@ var _confirmation_end_hovered_now = false;
 var _hovered_empty_slot_key_now = "";
 var _hovered_event_action_key_now = "";
 jobs_hovered_cultist = noone;
+jobs_whip_hovered = false;
+
+if (instance_exists(jobs_whip)
+	&& jobs_whip.is_held
+	&& global.focus_window != FOCUS_WINDOW.JOBS)
+{
+	jobs_whip.whip_release();
+}
 
 // Tutorial popups block Assign Duties input while they are visible above the window.
 if (variable_global_exists("tutorial_popup_active") && global.tutorial_popup_active)
@@ -191,6 +199,41 @@ var _mouse_is_over_event_list = point_in_rectangle(
 	_event_viewport.y + _event_viewport.height
 );
 
+// Pick up the Whip from its fixed pool slot and return it as soon as LMB is released.
+if (instance_exists(jobs_whip))
+{
+	if (jobs_whip.is_held)
+	{
+		if (!mouse_check_button(mb_left))
+		{
+			jobs_whip.whip_release();
+			exit;
+		}
+	}
+	else
+	{
+		var _whip_rect = jobs_whip_rect_get();
+		jobs_whip_hovered = is_struct(_whip_rect)
+			&& point_in_rectangle(
+				_mouse_x,
+				_mouse_y,
+				_whip_rect.x,
+				_whip_rect.y,
+				_whip_rect.x + _whip_rect.width,
+				_whip_rect.y + _whip_rect.height
+			);
+
+		if (jobs_whip_hovered && mouse_check_button_pressed(mb_left))
+		{
+			jobs_whip.whip_pick_up();
+			jobs_dragged_cultist = noone;
+			jobs_drag_origin_event = noone;
+			jobs_drag_origin_slot_index = -1;
+			exit;
+		}
+	}
+}
+
 // Scroll only the event-card list while the cultist pool and actions remain fixed.
 if (_mouse_is_over_event_list)
 {
@@ -340,6 +383,19 @@ if (_hovered_empty_slot_key_now != ""
 }
 
 jobs_hovered_empty_slot_key = _hovered_empty_slot_key_now;
+
+// While the Whip is held, RMB strikes the hovered Cultist instead of unassigning them.
+if (instance_exists(jobs_whip)
+	&& jobs_whip.is_held
+	&& mouse_check_button_pressed(mb_right))
+{
+	if (instance_exists(jobs_hovered_cultist))
+	{
+		jobs_whip.whip_cultist_hit(jobs_hovered_cultist);
+	}
+
+	exit;
+}
 
 // Right-clicking an occupied event slot returns its cultist to the pool.
 if (mouse_check_button_pressed(mb_right))

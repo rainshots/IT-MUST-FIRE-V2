@@ -495,7 +495,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("archdem
 		}
 	}
 
-	// Night squad markers move every surviving member toward one shared cursor target.
+	// Night squad markers move independently and become march destinations when released.
 	if (global.day_phase == DAY_PHASE.NIGHT)
 	{
 		if (is_struct(global.dragged_squad))

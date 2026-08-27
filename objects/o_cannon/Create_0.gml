@@ -120,30 +120,27 @@ cannon_reload_projectile_type = PROJECTILE_TYPE.DAMAGE;
 
 cannon_reload_time_get = function(_projectile_type)
 {
+	var _reload_time = BALANCE_CANNON_RELOAD_DEFAULT_TIME;
+
 	if (_projectile_type == PROJECTILE_TYPE.BOMB)
 	{
-		return BALANCE_CANNON_RELOAD_HELLCOW_TIME
-			/ cannon_satisfaction_shell_recharge_multiplier_get();
+		_reload_time = BALANCE_CANNON_RELOAD_HELLCOW_TIME;
 	}
-
-	if (_projectile_type == PROJECTILE_TYPE.HEAL)
+	else if (_projectile_type == PROJECTILE_TYPE.HEAL)
 	{
-		return BALANCE_CANNON_RELOAD_FIRST_AID_TIME
-			/ cannon_satisfaction_shell_recharge_multiplier_get();
+		_reload_time = BALANCE_CANNON_RELOAD_FIRST_AID_TIME;
 	}
-
-	if (_projectile_type == PROJECTILE_TYPE.DOOM_BELL)
+	else if (_projectile_type == PROJECTILE_TYPE.DOOM_BELL)
 	{
-		return BALANCE_CANNON_RELOAD_DOOM_BELL_TIME;
+		_reload_time = BALANCE_CANNON_RELOAD_DOOM_BELL_TIME;
 	}
-
-	if (_projectile_type == PROJECTILE_TYPE.CULTIST
+	else if (_projectile_type == PROJECTILE_TYPE.CULTIST
 		|| _projectile_type == PROJECTILE_TYPE.SKELETONS)
 	{
-		return BALANCE_CANNON_RELOAD_SQUAD_TIME;
+		_reload_time = BALANCE_CANNON_RELOAD_SQUAD_TIME;
 	}
 
-	return BALANCE_CANNON_RELOAD_DEFAULT_TIME;
+	return _reload_time * cannon_satisfaction_reload_time_multiplier_get();
 };
 
 cannon_reload_is_ready = function()
@@ -173,6 +170,22 @@ cannon_reload_start = function(_projectile_type)
 	cannon_reload_projectile_type = _projectile_type;
 	cannon_reload_duration = _reload_seconds * room_speed;
 	cannon_reload_timer = cannon_reload_duration;
+};
+
+cannon_reload_satisfaction_recalculate = function()
+{
+	if (cannon_reload_duration <= 0 || cannon_reload_timer <= 0)
+	{
+		return false;
+	}
+
+	var _reload_progress = cannon_reload_progress_get();
+	var _new_reload_seconds = max(0, cannon_reload_time_get(cannon_reload_projectile_type));
+	var _new_reload_duration = _new_reload_seconds * room_speed;
+
+	cannon_reload_duration = _new_reload_duration;
+	cannon_reload_timer = _new_reload_duration * (1 - _reload_progress);
+	return true;
 };
 
 // At maximum Satisfaction the cannon fires a free basic shot every twenty combat seconds.
@@ -565,9 +578,11 @@ settlement_expansion_visual_update = function()
 		settlement_expansion_visual_element = noone;
 	}
 
-	settlement_expansion_visual_element = layer_sprite_create(_layer_id, _visual_data.visual_x, _visual_data.visual_y, s_wall2);
+	//settlement_expansion_visual_element = layer_sprite_create(_layer_id, _visual_data.visual_x, _visual_data.visual_y, s_wall2);
+	settlement_expansion_visual_element = layer_sprite_create(_layer_id, _visual_data.visual_x, _visual_data.visual_y, s_base_texture);
 	layer_sprite_xscale(settlement_expansion_visual_element, _visual_data.visual_scale_x);
 	layer_sprite_yscale(settlement_expansion_visual_element, _visual_data.visual_scale_y);
+	
 };
 
 cannon_upgrade_display_level_get = function(_upgrade_index)

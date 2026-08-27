@@ -49,6 +49,35 @@ structure_choice_packs = [_trap_choices];
 structure_choice_options = [];
 structure_choice_options_rolled = false;
 
+// Count installed formations, not the individual trap instances in each formation.
+cursed_point_structure_choice_built_count_get = function(_choice)
+{
+	if (!is_struct(_choice)
+		|| !variable_struct_exists(_choice, "building_object"))
+	{
+		return 0;
+	}
+
+	var _built_count = 0;
+	var _trap_point_count = instance_number(o_trap_point);
+
+	for (var _trap_point_index = 0; _trap_point_index < _trap_point_count; ++_trap_point_index)
+	{
+		var _trap_point = instance_find(o_trap_point, _trap_point_index);
+
+		if (instance_exists(_trap_point)
+			&& variable_instance_exists(_trap_point, "installed_trap_choice")
+			&& is_struct(_trap_point.installed_trap_choice)
+			&& variable_struct_exists(_trap_point.installed_trap_choice, "building_object")
+			&& _trap_point.installed_trap_choice.building_object == _choice.building_object)
+		{
+			_built_count++;
+		}
+	}
+
+	return _built_count;
+};
+
 // The installed formation reserves the point even when some traps are consumed.
 cursed_point_interaction_is_blocked = function()
 {

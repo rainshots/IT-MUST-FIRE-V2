@@ -95,7 +95,7 @@ for (var _choice_index = 0; _choice_index < array_length(structure_choice_option
 	var _can_construct_choice = cursed_point_structure_choice_can_construct(_choice);
 	var _choice_is_blocked = !_can_construct_choice;
 	var _sprite = object_get_sprite(_choice.building_object);
-	var _built_count = instance_number(_choice.building_object);
+	var _built_count = cursed_point_structure_choice_built_count_get(_choice);
 
 	draw_set_alpha(0.82);
 	draw_set_color(c_black);

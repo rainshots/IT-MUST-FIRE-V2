@@ -2817,22 +2817,6 @@ foundry_shell_choices = [
 		]
 	},
 	{
-		building_object: o_tower_heal,
-		building_sprite: s_heal_tower,
-		building_name: "Heal Tower",
-		building_description: "Forges a shell that builds a tower healing friendly troops nearby.",
-		construction_costs: [
-			{
-				resource: RESOURCES.SOULS,
-				cost: BALANCE_FOUNDRY_HEAL_TOWER_SHELL_SOUL_COST
-			},
-			{
-				resource: RESOURCES.IHOR,
-				cost: BALANCE_FOUNDRY_HEAL_TOWER_SHELL_IHOR_COST
-			}
-		]
-	},
-	{
 		building_object: o_orcs_hut,
 		building_sprite: s_orks_hut,
 		building_name: "Orcs Pit",
@@ -2929,15 +2913,6 @@ debug_shell_choices = [
 			building_object: o_tower_damage,
 			building_sprite: s_damage_tower,
 			building_name: "Damage Tower"
-		}
-	},
-	{
-		label: "Heal Tower",
-		projectile_type: PROJECTILE_TYPE.BUILDING_SHELL,
-		payload: {
-			building_object: o_tower_heal,
-			building_sprite: s_heal_tower,
-			building_name: "Heal Tower"
 		}
 	},
 	{
@@ -4631,13 +4606,12 @@ unit_is_blocked_by_cannon_wall = function(_unit)
 		return false;
 	}
 
-	var _is_summoned_night_unit = global.day_phase == DAY_PHASE.NIGHT
+	var _is_player_night_unit = global.day_phase == DAY_PHASE.NIGHT
 		&& (variable_instance_exists(_unit, "summon_nights_remaining")
 			|| (variable_instance_exists(_unit, "squad")
-				&& is_struct(_unit.squad)
-				&& _unit.squad.squad_type != SQUAD_TYPE.ARCHDEMON));
+				&& is_struct(_unit.squad)));
 
-	return unit_is_demon_form(_unit) || _is_summoned_night_unit;
+	return unit_is_demon_form(_unit) || _is_player_night_unit;
 };
 
 cannon_wall_position_clamp = function(_world_x, _world_y)
@@ -4855,6 +4829,15 @@ find_building_slot_at_position = function(_world_x, _world_y)
 drag_cultist_can_be_picked = function(_cultist)
 {
 	if (!instance_exists(_cultist))
+	{
+		return false;
+	}
+
+	// Night archdemons are repositioned only through their squad flag.
+	if (global.day_phase == DAY_PHASE.NIGHT
+		&& variable_instance_exists(_cultist, "squad")
+		&& is_struct(_cultist.squad)
+		&& _cultist.squad.squad_type == SQUAD_TYPE.ARCHDEMON)
 	{
 		return false;
 	}
@@ -7889,6 +7872,7 @@ transform_cultists_to_demons = function()
 			_demon.base_reload_time = _demon.reload_time;
 		}
 
+		squad_unit_reference_replace(_cultist, _demon);
 		array_push(_new_units, _demon);
 		instance_destroy(_cultist);
 	}
@@ -11843,7 +11827,14 @@ start_day_phase = function()
 	{
 		if (building_constructed_by_cursed_point && hp > 0)
 		{
-			hp = max_hp;
+			if (variable_instance_exists(id, "player_building_health_restore_full"))
+			{
+				player_building_health_restore_full();
+			}
+			else
+			{
+				hp = max_hp;
+			}
 		}
 	}
 

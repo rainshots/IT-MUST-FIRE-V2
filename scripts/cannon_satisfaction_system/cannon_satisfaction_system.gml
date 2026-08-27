@@ -12,11 +12,18 @@ function cannon_satisfaction_get()
 
 function cannon_satisfaction_add(_amount)
 {
+	var _previous_level = cannon_satisfaction_level_get();
 	global.cannon_satisfaction = clamp(
 		cannon_satisfaction_get() + _amount,
 		0,
 		BALANCE_CANNON_SATISFACTION_MAX
 	);
+	var _current_level = cannon_satisfaction_level_get();
+
+	if (_current_level != _previous_level)
+	{
+		cannon_satisfaction_level_effects_refresh(_previous_level, _current_level);
+	}
 
 	return global.cannon_satisfaction;
 }
@@ -73,46 +80,87 @@ function cannon_satisfaction_effect_text_get(_level = cannon_satisfaction_level_
 	switch (_level)
 	{
 		case CANNON_SATISFACTION_LEVEL.SULKING:
-			return "- All events cost an additional 5 Cultist HP.";
+			return "- The Cannon takes 30% longer to reload.\n- All events cost an additional 5 Cultist HP.";
 
 		case CANNON_SATISFACTION_LEVEL.AWAKE:
 			return "- No effects.";
 
 		case CANNON_SATISFACTION_LEVEL.PLAYFUL:
-			return "- Hellcow and First Aid Meat shells recharge 15% faster.";
+			return "- The Cannon reloads 15% faster.";
 
 		case CANNON_SATISFACTION_LEVEL.ECSTATIC:
-			return "- Hellcow and First Aid Meat shells recharge 25% faster.\n- Grants +1 Reroll each day.";
+			return "- The Cannon reloads 20% faster.\n- Grants +1 Reroll each day.";
 
 		case CANNON_SATISFACTION_LEVEL.IT_MUST_FIRE:
-			return "- The Cannon fires at enemies every 20 seconds without consuming shells.\n- Hellcow and First Aid Meat shells recharge 30% faster.\n- Grants +1 Reroll each day.";
+			return "- The Cannon fires at enemies every 20 seconds without consuming shells.\n- The Cannon reloads 25% faster.\n- Grants +1 Reroll each day.";
 	}
 
 	return "- No effects.";
 }
 
-function cannon_satisfaction_shell_recharge_multiplier_get()
+function cannon_satisfaction_reload_time_multiplier_get()
 {
 	switch (cannon_satisfaction_level_get())
 	{
+		case CANNON_SATISFACTION_LEVEL.SULKING:
+			return BALANCE_CANNON_SATISFACTION_SULKING_RELOAD_TIME_MULTIPLIER;
+
 		case CANNON_SATISFACTION_LEVEL.PLAYFUL:
-			return 1.15;
+			return 1 / BALANCE_CANNON_SATISFACTION_PLAYFUL_RELOAD_SPEED_MULTIPLIER;
 
 		case CANNON_SATISFACTION_LEVEL.ECSTATIC:
-			return 1.25;
+			return 1 / BALANCE_CANNON_SATISFACTION_ECSTATIC_RELOAD_SPEED_MULTIPLIER;
 
 		case CANNON_SATISFACTION_LEVEL.IT_MUST_FIRE:
-			return 1.3;
+			return 1 / BALANCE_CANNON_SATISFACTION_IT_MUST_FIRE_RELOAD_SPEED_MULTIPLIER;
 	}
 
 	return 1;
 }
 
-function cannon_satisfaction_daily_reroll_bonus_get()
+function cannon_satisfaction_daily_reroll_bonus_for_level_get(_level)
 {
-	return cannon_satisfaction_level_get() >= CANNON_SATISFACTION_LEVEL.ECSTATIC
+	return _level >= CANNON_SATISFACTION_LEVEL.ECSTATIC
 		? BALANCE_CANNON_SATISFACTION_DAILY_REROLL_BONUS
 		: 0;
+}
+
+function cannon_satisfaction_daily_reroll_bonus_get()
+{
+	return cannon_satisfaction_daily_reroll_bonus_for_level_get(cannon_satisfaction_level_get());
+}
+
+function cannon_satisfaction_level_effects_refresh(_previous_level, _current_level)
+{
+	if (_previous_level == _current_level)
+	{
+		return false;
+	}
+
+	// Preserve active reload progress while applying the new tier multiplier.
+	if (instance_exists(o_cannon))
+	{
+		var _cannon = instance_find(o_cannon, 0);
+
+		if (variable_instance_exists(_cannon, "cannon_reload_satisfaction_recalculate"))
+		{
+			_cannon.cannon_reload_satisfaction_recalculate();
+		}
+	}
+
+	// Crossing the Ecstatic boundary updates today's still-available Rerolls immediately.
+	if (variable_global_exists("day_event_rerolls_remaining"))
+	{
+		var _previous_reroll_bonus = cannon_satisfaction_daily_reroll_bonus_for_level_get(_previous_level);
+		var _current_reroll_bonus = cannon_satisfaction_daily_reroll_bonus_for_level_get(_current_level);
+		var _reroll_bonus_change = _current_reroll_bonus - _previous_reroll_bonus;
+		global.day_event_rerolls_remaining = max(
+			global.day_event_rerolls_remaining + _reroll_bonus_change,
+			0
+		);
+	}
+
+	return true;
 }
 
 function cannon_satisfaction_event_hp_cost_get()

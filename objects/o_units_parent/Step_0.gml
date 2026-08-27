@@ -324,6 +324,34 @@ else
 	forced_attack_target = noone;
 }
 
+// Marching squad members run to their flag and ignore every combat target.
+var _squad_march_is_active = unit_faction == UNIT_FACTION.FRIENDLY
+	&& global.day_phase == DAY_PHASE.NIGHT
+	&& is_struct(squad)
+	&& squad_is_marching(squad)
+	&& variable_struct_exists(squad.properties, "marker_x")
+	&& variable_struct_exists(squad.properties, "marker_y");
+
+if (_squad_march_is_active)
+{
+	target_instance = noone;
+	alert_target = noone;
+	alert_target_timer = 0;
+	forced_attack_target = noone;
+	forced_attack_target_timer = 0;
+	cached_follow_target = noone;
+	is_attacking_target = false;
+	visual_attack_offset_x = 0;
+	visual_attack_offset_y = 0;
+
+	update_separation_push();
+	move_towards_world_point(squad.properties.marker_x, squad.properties.marker_y);
+	apply_separation_push();
+	clamp_outside_cannon_wall();
+	update_walk_sway();
+	exit;
+}
+
 // Enemy units remain passive throughout Unholy Night, even when fired upon.
 if (unit_faction == UNIT_FACTION.ENEMY
 	&& variable_global_exists("unholy_night_active")

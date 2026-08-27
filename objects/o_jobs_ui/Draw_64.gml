@@ -1035,6 +1035,82 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 		);
 	}
 
+	// Draw the Whip in its pool slot or attached to the cursor while LMB is held.
+	if (instance_exists(jobs_whip) && sprite_exists(jobs_whip.sprite_index))
+	{
+		var _whip_is_held = jobs_whip.is_held;
+		var _whip_position = _whip_is_held
+			? [device_mouse_x_to_gui(0), device_mouse_y_to_gui(0)]
+			: jobs_whip_home_position_get();
+		var _whip_scale = (_whip_is_held ? jobs_whip_held_scale : jobs_whip_home_scale)
+			* _layout.scale;
+
+		draw_set_alpha(1);
+		draw_set_color(c_white);
+		draw_sprite_ext(
+			jobs_whip.sprite_index,
+			0,
+			_whip_position[0],
+			_whip_position[1],
+			_whip_scale,
+			_whip_scale,
+			0,
+			c_white,
+			1
+		);
+
+		var _whip_hint = "";
+
+		if (_whip_is_held
+			&& jobs_whip.whip_cultist_is_valid(jobs_hovered_cultist))
+		{
+			_whip_hint = jobs_whip_target_hint;
+		}
+		else if (!_whip_is_held && jobs_whip_hovered)
+		{
+			_whip_hint = jobs_whip_pickup_hint;
+		}
+
+		if (_whip_hint != "")
+		{
+			draw_set_font(jobs_hp_font);
+			var _hint_padding_x = jobs_whip_tooltip_padding_x * _layout.scale;
+			var _hint_padding_y = jobs_whip_tooltip_padding_y * _layout.scale;
+			var _hint_width = (string_width(_whip_hint) * _layout.scale) + (_hint_padding_x * 2);
+			var _hint_height = (string_height(_whip_hint) * _layout.scale) + (_hint_padding_y * 2);
+			var _hint_margin = jobs_whip_tooltip_margin * _layout.scale;
+			var _hint_x = clamp(
+				device_mouse_x_to_gui(0) - (_hint_width * 0.5),
+				_hint_margin,
+				display_get_gui_width() - _hint_width - _hint_margin
+			);
+			var _hint_y = min(
+				device_mouse_y_to_gui(0) + (jobs_whip_tooltip_offset_y * _layout.scale),
+				display_get_gui_height() - _hint_height - _hint_margin
+			);
+
+			draw_set_alpha(jobs_whip_tooltip_background_alpha);
+			draw_set_color(COLOR_JOBS_ASSIGN_BACKGROUND);
+			draw_rectangle(_hint_x, _hint_y, _hint_x + _hint_width, _hint_y + _hint_height, false);
+			draw_set_alpha(1);
+			draw_set_color(COLOR_JOBS_SLOT_BORDER);
+			draw_rectangle(_hint_x, _hint_y, _hint_x + _hint_width, _hint_y + _hint_height, true);
+			draw_set_halign(fa_center);
+			draw_set_valign(fa_top);
+			draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+			draw_text_transformed(
+				_hint_x + (_hint_width * 0.5),
+				_hint_y + _hint_padding_y,
+				_whip_hint,
+				_layout.scale,
+				_layout.scale,
+				0
+			);
+			draw_set_halign(fa_left);
+			draw_set_valign(fa_top);
+		}
+	}
+
 	// Dragged cultist follows the cursor above all cards.
 	if (instance_exists(jobs_dragged_cultist))
 	{
@@ -1055,7 +1131,9 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			1
 		);
 	}
-	else if (instance_exists(jobs_hovered_cultist) && sprite_exists(s_hand))
+	else if ((!instance_exists(jobs_whip) || !jobs_whip.is_held)
+		&& instance_exists(jobs_hovered_cultist)
+		&& sprite_exists(s_hand))
 	{
 		// Use the same red hand cursor feedback as cultists in the world.
 		var _hand_scale = 0.33 * _layout.scale;

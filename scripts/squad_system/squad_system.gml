@@ -6,7 +6,12 @@ function squad_constructor(_squad_type, _primary_unit_object, _unit_count) const
 	primary_unit_object = _primary_unit_object;
 	unit_objects = array_create(max(1, floor(_unit_count)), _primary_unit_object);
 	units = [];
-	properties = {};
+	properties = {
+		marker_is_dragged: false,
+		march_is_active: false,
+		march_enemy_check_timer: 0,
+		march_speed_bonus_active: false
+	};
 	name = "";
 	total_max_hp = 0;
 };
@@ -464,6 +469,12 @@ function squad_units_restore_morning()
 	for (var _squad_index = 0; _squad_index < array_length(global.squads); ++_squad_index)
 	{
 		var _squad = global.squads[_squad_index];
+		_squad.properties.marker_is_dragged = false;
+		_squad.properties.march_is_active = false;
+		_squad.properties.march_enemy_check_timer = 0;
+		_squad.properties.march_speed_bonus_active = false;
+		_squad.properties.combat_guide_unit = noone;
+
 		if (_squad.squad_type == SQUAD_TYPE.ARCHDEMON) continue;
 
 		for (var _unit_index = 0; _unit_index < array_length(_squad.units); ++_unit_index)
@@ -512,8 +523,12 @@ function squad_total_hp_get(_squad)
 
 function squad_marker_position_update(_squad)
 {
-	if (variable_struct_exists(_squad.properties, "marker_is_dragged")
-		&& _squad.properties.marker_is_dragged)
+	var _marker_is_dragged = variable_struct_exists(_squad.properties, "marker_is_dragged")
+		&& _squad.properties.marker_is_dragged;
+	var _march_is_active = variable_struct_exists(_squad.properties, "march_is_active")
+		&& _squad.properties.march_is_active;
+
+	if (_marker_is_dragged || _march_is_active)
 	{
 		return true;
 	}
@@ -544,6 +559,202 @@ function squad_marker_position_update(_squad)
 	return true;
 }
 
+function squad_is_marching(_squad)
+{
+	return is_struct(_squad)
+		&& variable_struct_exists(_squad.properties, "march_is_active")
+		&& _squad.properties.march_is_active;
+}
+
+function squad_march_speed_multiplier_get(_squad)
+{
+	var _speed_bonus_is_active = squad_is_marching(_squad)
+		&& variable_struct_exists(_squad.properties, "march_speed_bonus_active")
+		&& _squad.properties.march_speed_bonus_active;
+
+	return _speed_bonus_is_active ? BALANCE_SQUAD_MARCH_SPEED_MULTIPLIER : 1;
+}
+
+function squad_march_enemy_is_nearby(_squad)
+{
+	if (!is_struct(_squad))
+	{
+		return false;
+	}
+
+	var _check_radius_squared = BALANCE_SQUAD_MARCH_ENEMY_CHECK_RADIUS
+		* BALANCE_SQUAD_MARCH_ENEMY_CHECK_RADIUS;
+	var _enemy_count = instance_number(o_enemy_units);
+	var _unit_count = array_length(_squad.units);
+
+	// One enemy close to any living squad member disables the bonus for the whole squad.
+	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	{
+		var _enemy = instance_find(o_enemy_units, _enemy_index);
+
+		if (!instance_exists(_enemy)
+			|| !variable_instance_exists(_enemy, "hp")
+			|| _enemy.hp <= 0
+			|| !_enemy.visible)
+		{
+			continue;
+		}
+
+		for (var _unit_index = 0; _unit_index < _unit_count; ++_unit_index)
+		{
+			var _unit = _squad.units[_unit_index];
+
+			if (!instance_exists(_unit)
+				|| !variable_instance_exists(_unit, "hp")
+				|| _unit.hp <= 0
+				|| !_unit.visible)
+			{
+				continue;
+			}
+
+			var _distance_x = _enemy.x - _unit.x;
+			var _distance_y = _enemy.y - _unit.y;
+			var _distance_squared = (_distance_x * _distance_x) + (_distance_y * _distance_y);
+
+			if (_distance_squared <= _check_radius_squared)
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+function squad_march_speed_bonus_update(_squad)
+{
+	if (!squad_is_marching(_squad))
+	{
+		return false;
+	}
+
+	var _check_interval = max(1, BALANCE_SQUAD_MARCH_ENEMY_CHECK_TIME * room_speed);
+	var _time_scale = variable_global_exists("gameplay_time_scale")
+		? global.gameplay_time_scale
+		: 1;
+	_squad.properties.march_enemy_check_timer += _time_scale;
+
+	if (_squad.properties.march_enemy_check_timer < _check_interval)
+	{
+		return _squad.properties.march_speed_bonus_active;
+	}
+
+	_squad.properties.march_enemy_check_timer -= _check_interval;
+	_squad.properties.march_speed_bonus_active = !squad_march_enemy_is_nearby(_squad);
+	return _squad.properties.march_speed_bonus_active;
+}
+
+function squad_march_begin(_squad)
+{
+	if (!is_struct(_squad)
+		|| !variable_struct_exists(_squad.properties, "marker_x")
+		|| !variable_struct_exists(_squad.properties, "marker_y"))
+	{
+		return false;
+	}
+
+	_squad.properties.march_is_active = true;
+	_squad.properties.march_enemy_check_timer = BALANCE_SQUAD_MARCH_ENEMY_CHECK_TIME * room_speed;
+	_squad.properties.march_speed_bonus_active = false;
+	_squad.properties.combat_guide_unit = noone;
+	return true;
+}
+
+function squad_march_end(_squad)
+{
+	if (!is_struct(_squad))
+	{
+		return false;
+	}
+
+	_squad.properties.march_is_active = false;
+	_squad.properties.march_enemy_check_timer = 0;
+	_squad.properties.march_speed_bonus_active = false;
+	_squad.properties.combat_guide_unit = noone;
+
+	// Let every surviving unit immediately search for a combat target again.
+	for (var _unit_index = 0; _unit_index < array_length(_squad.units); ++_unit_index)
+	{
+		var _unit = _squad.units[_unit_index];
+
+		if (!instance_exists(_unit))
+		{
+			continue;
+		}
+
+		if (variable_instance_exists(_unit, "target_search_update_interval"))
+		{
+			_unit.target_search_update_timer = _unit.target_search_update_interval;
+		}
+
+		if (variable_instance_exists(_unit, "navigation_path_state_clear"))
+		{
+			_unit.navigation_path_state_clear();
+		}
+	}
+
+	return true;
+}
+
+function squad_march_update(_squad)
+{
+	if (!squad_is_marching(_squad))
+	{
+		return false;
+	}
+
+	if (global.pause)
+	{
+		return true;
+	}
+
+	// The expensive all-units enemy proximity scan runs only once per gameplay second.
+	squad_march_speed_bonus_update(_squad);
+
+	// A held flag remains a live destination but cannot finish the march until released.
+	if (variable_struct_exists(_squad.properties, "marker_is_dragged")
+		&& _squad.properties.marker_is_dragged)
+	{
+		return true;
+	}
+
+	var _living_unit_count = 0;
+
+	for (var _unit_index = 0; _unit_index < array_length(_squad.units); ++_unit_index)
+	{
+		var _unit = _squad.units[_unit_index];
+
+		if (!instance_exists(_unit)
+			|| !variable_instance_exists(_unit, "hp")
+			|| _unit.hp <= 0
+			|| !_unit.visible)
+		{
+			continue;
+		}
+
+		_living_unit_count++;
+
+		if (point_distance(
+			_unit.x,
+			_unit.y,
+			_squad.properties.marker_x,
+			_squad.properties.marker_y
+		) > BALANCE_SQUAD_MARCH_COMPLETE_RADIUS)
+		{
+			return true;
+		}
+	}
+
+	// No surviving members or a fully gathered squad no longer needs a march target.
+	squad_march_end(_squad);
+	return _living_unit_count > 0;
+}
+
 function squad_unit_is_in_combat(_unit)
 {
 	if (!instance_exists(_unit)
@@ -567,6 +778,12 @@ function squad_combat_guide_update(_squad)
 {
 	if (!is_struct(_squad))
 	{
+		return noone;
+	}
+
+	if (squad_is_marching(_squad))
+	{
+		_squad.properties.combat_guide_unit = noone;
 		return noone;
 	}
 
@@ -641,11 +858,8 @@ function squad_night_markers_update()
 	for (var _squad_index = 0; _squad_index < array_length(global.squads); ++_squad_index)
 	{
 		var _squad = global.squads[_squad_index];
-
-		if (_squad.squad_type != SQUAD_TYPE.ARCHDEMON)
-		{
-			squad_marker_position_update(_squad);
-		}
+		squad_march_update(_squad);
+		squad_marker_position_update(_squad);
 	}
 }
 
@@ -669,8 +883,7 @@ function squad_marker_find_at_position(_world_x, _world_y)
 	{
 		var _squad = global.squads[_squad_index];
 
-		if (_squad.squad_type == SQUAD_TYPE.ARCHDEMON
-			|| !variable_struct_exists(_squad.properties, "marker_x")
+		if (!variable_struct_exists(_squad.properties, "marker_x")
 			|| !variable_struct_exists(_squad.properties, "marker_y"))
 		{
 			continue;
@@ -694,23 +907,13 @@ function squad_marker_find_at_position(_world_x, _world_y)
 
 function squad_drag_begin(_squad)
 {
-	if (!is_struct(_squad) || _squad.squad_type == SQUAD_TYPE.ARCHDEMON)
+	if (!is_struct(_squad))
 	{
 		return false;
 	}
 
 	_squad.properties.marker_is_dragged = true;
 	global.dragged_squad = _squad;
-
-	for (var _unit_index = 0; _unit_index < array_length(_squad.units); ++_unit_index)
-	{
-		var _unit = _squad.units[_unit_index];
-
-		if (instance_exists(_unit))
-		{
-			_unit.is_being_dragged = true;
-		}
-	}
 
 	return true;
 }
@@ -748,39 +951,11 @@ function squad_drag_update(_squad, _target_x, _target_y)
 
 	_squad.properties.marker_x = _target_x;
 	_squad.properties.marker_y = _target_y;
-	var _unit_count = array_length(_squad.units);
-
-	for (var _unit_index = 0; _unit_index < _unit_count; ++_unit_index)
-	{
-		var _unit = _squad.units[_unit_index];
-
-		if (!instance_exists(_unit))
-		{
-			continue;
-		}
-
-		var _formation_angle = (_unit_index * 137.5) mod 360;
-		var _formation_radius = BALANCE_SQUAD_MARKER_GATHER_RADIUS * sqrt((_unit_index + 1) / max(1, _unit_count));
-		var _unit_target_x = _target_x + lengthdir_x(_formation_radius, _formation_angle);
-		var _unit_target_y = _target_y + lengthdir_y(_formation_radius, _formation_angle);
-		var _unit_distance = point_distance(_unit.x, _unit.y, _unit_target_x, _unit_target_y);
-		var _move_distance = min(BALANCE_SQUAD_MARKER_GATHER_SPEED, _unit_distance);
-
-		if (_move_distance > 0)
-		{
-			var _move_direction = point_direction(_unit.x, _unit.y, _unit_target_x, _unit_target_y);
-			_unit.x += lengthdir_x(_move_distance, _move_direction);
-			_unit.y += lengthdir_y(_move_distance, _move_direction);
-		}
-
-		_unit.drag_drop_x = _unit.x;
-		_unit.drag_drop_y = _unit.y;
-	}
 
 	return true;
 }
 
-function squad_drag_end(_squad, _apply_stun = true)
+function squad_drag_end(_squad, _start_march = true)
 {
 	if (!is_struct(_squad))
 	{
@@ -790,21 +965,13 @@ function squad_drag_end(_squad, _apply_stun = true)
 
 	_squad.properties.marker_is_dragged = false;
 
-	for (var _unit_index = 0; _unit_index < array_length(_squad.units); ++_unit_index)
+	if (_start_march)
 	{
-		var _unit = _squad.units[_unit_index];
-
-		if (!instance_exists(_unit))
-		{
-			continue;
-		}
-
-		_unit.is_being_dragged = false;
-
-		if (_apply_stun && variable_instance_exists(_unit, "stun_apply"))
-		{
-			_unit.stun_apply(BALANCE_DEMON_DRAG_STUN_TIME);
-		}
+		squad_march_begin(_squad);
+	}
+	else
+	{
+		squad_march_end(_squad);
 	}
 
 	global.dragged_squad = noone;
@@ -830,7 +997,7 @@ function squad_night_markers_draw_gui()
 	{
 		var _squad = global.squads[_squad_index];
 
-		if (_squad.squad_type == SQUAD_TYPE.ARCHDEMON || !squad_marker_position_update(_squad))
+		if (!squad_marker_position_update(_squad))
 		{
 			continue;
 		}
@@ -855,8 +1022,12 @@ function squad_night_markers_draw_gui()
 		var _body_bottom = _top + BALANCE_SQUAD_MARKER_BODY_HEIGHT;
 		var _bottom = _top + BALANCE_SQUAD_MARKER_HEIGHT;
 
+		var _marker_background_color = squad_is_marching(_squad)
+			? COLOR_SQUAD_MARKER_MARCH_BACKGROUND
+			: COLOR_SQUAD_CARD_BACKGROUND;
+
 		draw_set_alpha(BALANCE_SQUAD_MARKER_BACKGROUND_ALPHA);
-		draw_set_color(COLOR_SQUAD_CARD_BACKGROUND);
+		draw_set_color(_marker_background_color);
 		draw_rectangle(_left, _top, _right, _body_bottom, false);
 		draw_triangle(_left + 14, _body_bottom, _right - 14, _body_bottom, _marker_x, _bottom, false);
 		draw_set_alpha(1);

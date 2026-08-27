@@ -304,8 +304,8 @@ function cannon_satisfaction_window_draw()
 	var _body_font = cannon_satisfaction_ui_jobs_font_get("jobs_action_font", _default_font);
 	var _current_level = cannon_satisfaction_level_get();
 	var _entries = [
-		{ range: "0-24", level: CANNON_SATISFACTION_LEVEL.SULKING },
-		{ range: "25-49", level: CANNON_SATISFACTION_LEVEL.AWAKE },
+		{ range: "0-25", level: CANNON_SATISFACTION_LEVEL.SULKING },
+		{ range: "26-49", level: CANNON_SATISFACTION_LEVEL.AWAKE },
 		{ range: "50-74", level: CANNON_SATISFACTION_LEVEL.PLAYFUL },
 		{ range: "75-99", level: CANNON_SATISFACTION_LEVEL.ECSTATIC },
 		{ range: "100-120", level: CANNON_SATISFACTION_LEVEL.IT_MUST_FIRE }

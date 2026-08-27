@@ -9,6 +9,12 @@ if (global.focus_window == FOCUS_WINDOW.JOBS && instance_exists(o_camera_control
 	}
 }
 
+// The Whip exists only as part of this Jobs interface.
+if (instance_exists(jobs_whip))
+{
+	instance_destroy(jobs_whip);
+}
+
 // Runtime fonts belong to this window and must be released with it.
 if (font_exists(jobs_title_font))
 {

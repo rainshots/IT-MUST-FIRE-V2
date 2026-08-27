@@ -328,6 +328,12 @@ function day_event_building_construction_execute(_event, _assigned_cultists, _da
 			_built_object.image_speed = 0;
 		}
 
+		// Special-point structures always enter play with their full permanent health.
+		if (variable_instance_exists(_built_object, "player_building_health_restore_full"))
+		{
+			_built_object.player_building_health_restore_full();
+		}
+
 		if (variable_instance_exists(_construction_site, "cursed_point_construction_effect_create"))
 		{
 			_construction_site.cursed_point_construction_effect_create();

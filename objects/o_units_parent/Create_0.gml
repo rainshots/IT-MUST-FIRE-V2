@@ -795,6 +795,12 @@ unit_move_speed_multiplier_get = function()
 		_move_multiplier *= imp_blood_frenzy_move_multiplier_get();
 	}
 
+	// A marching squad runs faster only while its shared proximity check allows it.
+	if (is_struct(squad))
+	{
+		_move_multiplier *= squad_march_speed_multiplier_get(squad);
+	}
+
 	// March speed is independent from fog visibility and fades before combat.
 	_move_multiplier *= enemy_march_current_multiplier;
 

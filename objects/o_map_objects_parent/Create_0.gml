@@ -29,7 +29,8 @@ transform_object = noone;
 building_constructed_by_shell = false;
 building_constructed_by_cursed_point = false;
 
-// Cleansed player buildings permanently lose part of their max HP.
+// Cleansed captured and shell-built structures lose part of their max HP.
+// Structures built on special construction points are exempt and fully repair each morning.
 player_building_cleansed_max_hp_share = BALANCE_PLAYER_BUILDING_CLEANSED_MAX_HP_SHARE;
 player_building_cleansed_hp_penalty_applied = false;
 player_building_cleansed_base_max_hp = max_hp;
@@ -512,9 +513,19 @@ player_building_is_owned_by_player = function()
 		|| (variable_instance_exists(id, "is_captured") && is_captured);
 };
 
+// Restore the permanent maximum and fully repair a player building.
+player_building_health_restore_full = function()
+{
+	player_building_cleansed_base_max_hp = max(player_building_cleansed_base_max_hp, max_hp);
+	max_hp = player_building_cleansed_base_max_hp;
+	hp = max_hp;
+	player_building_cleansed_hp_penalty_applied = false;
+};
+
 player_building_ground_state_update = function()
 {
 	if (!player_building_is_owned_by_player()
+		|| building_constructed_by_cursed_point
 		|| player_building_cleansed_hp_penalty_applied
 		|| max_hp <= 1)
 	{

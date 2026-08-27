@@ -41,6 +41,7 @@ if (structure_selection_open)
 
 // Check whether visible Taint overlaps the ground under the cursed point.
 tower_capture_update();
+cursed_point_sprite_scale_update();
 
 // The summon button stays interactive during lightweight gameplay pause.
 var _pause_menu_blocks_button = false;

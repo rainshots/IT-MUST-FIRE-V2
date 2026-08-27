@@ -4,10 +4,21 @@ event_inherited();
 tower_capture_enabled = true;
 is_captured = false;
 capture_ground_radius = BALANCE_GRID_CELL_SIZE * 0.5;
-uncaptured_sprite_index = s_building_slot_empty;
-captured_sprite_index = s_building_slot;
+uncaptured_sprite_index = s_point_force_disabled;
+captured_sprite_index = s_point_force_active;
 sprite_index = uncaptured_sprite_index;
 image_speed = 0;
+inactive_sprite_scale = BALANCE_CONSTRUCTION_POINT_INACTIVE_SCALE;
+active_sprite_scale = BALANCE_CONSTRUCTION_POINT_ACTIVE_SCALE;
+
+cursed_point_sprite_scale_update = function()
+{
+	var _sprite_scale = is_captured ? active_sprite_scale : inactive_sprite_scale;
+	image_xscale = _sprite_scale;
+	image_yscale = _sprite_scale;
+};
+
+cursed_point_sprite_scale_update();
 
 // Cursed points are choice nodes, not combat targets.
 max_hp = 1;
@@ -89,21 +100,6 @@ structure_choice_packs = [
 			]
 		},
 		{
-			building_object: o_tower_heal,
-			building_name: "Heal Tower",
-			building_description: "Heals nearby friendly units.",
-			construction_costs: [
-				{
-					resource: RESOURCES.SOULS,
-					cost: BALANCE_TOWER_HEAL_BUILD_SOUL_COST
-				},
-				{
-					resource: RESOURCES.IRON,
-					cost: BALANCE_TOWER_HEAL_BUILD_IRON_COST
-				}
-			]
-		},
-		{
 			building_object: o_magic_tower,
 			building_name: "Magic Tower",
 			building_description: "Strikes enemies with magic in a huge radius."
@@ -164,6 +160,18 @@ cursed_point_resource_color_get = function(_resource)
 cursed_point_structure_choice_can_pay = function(_choice)
 {
 	return true;
+};
+
+// Return the number shown on a structure choice card.
+cursed_point_structure_choice_built_count_get = function(_choice)
+{
+	if (!is_struct(_choice)
+		|| !variable_struct_exists(_choice, "building_object"))
+	{
+		return 0;
+	}
+
+	return instance_number(_choice.building_object);
 };
 
 cursed_point_structure_choice_can_construct = function(_choice)
@@ -382,6 +390,7 @@ cursed_point_deactivate = function()
 
 	is_captured = false;
 	corruption = 0;
+	cursed_point_sprite_scale_update();
 	summon_button_hovered = false;
 	summon_button_hover_key = "";
 	structure_choice_options = [];
@@ -572,7 +581,11 @@ cursed_point_morning_restore = function()
 			image_speed = 0;
 		}
 
-		if (variable_instance_exists(id, "hp")
+		if (variable_instance_exists(id, "player_building_health_restore_full"))
+		{
+			player_building_health_restore_full();
+		}
+		else if (variable_instance_exists(id, "hp")
 			&& variable_instance_exists(id, "max_hp"))
 		{
 			hp = max_hp;
