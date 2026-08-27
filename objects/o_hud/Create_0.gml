@@ -15,6 +15,127 @@ resource_sidebar_first_icon_offset_x = 34;
 resource_sidebar_item_gap = 94;
 resource_sidebar_value_offset_x = 36;
 
+// Cheat shortcuts are listed in a compact panel on the right side of the HUD.
+cheat_hud_margin_right = 18;
+cheat_hud_y = 88;
+cheat_hud_padding = 8;
+cheat_hud_text_scale = 0.68;
+cheat_hud_line_height = 15;
+cheat_hud_background_alpha = 0.62;
+cheat_hud_border_alpha = 0.7;
+
+cheat_hud_draw = function()
+{
+	if (!variable_global_exists("cheats_enabled") || !global.cheats_enabled)
+	{
+		return;
+	}
+
+	var _game_controller = instance_exists(o_game_controller)
+		? instance_find(o_game_controller, 0)
+		: noone;
+	var _night_fast_forward_active = instance_exists(_game_controller)
+		&& variable_instance_exists(_game_controller, "night_fast_forward_active")
+		&& _game_controller.night_fast_forward_active;
+	var _navigation_grid_visible = instance_exists(_game_controller)
+		&& variable_instance_exists(_game_controller, "wall_navigation_debug_visible")
+		&& _game_controller.wall_navigation_debug_visible;
+	var _debug_menu_is_open = instance_exists(_game_controller)
+		&& variable_instance_exists(_game_controller, "debug_menu_open")
+		&& _game_controller.debug_menu_open;
+	var _music_debug_visible = false;
+
+	if (instance_exists(o_music_controller))
+	{
+		var _music_controller = instance_find(o_music_controller, 0);
+		_music_debug_visible = variable_instance_exists(_music_controller, "music_debug_visible")
+			&& _music_controller.music_debug_visible;
+	}
+
+	var _cannon_damage_reaction_enabled = !variable_global_exists("cannon_damage_reaction_enabled")
+		|| global.cannon_damage_reaction_enabled;
+	var _map_reveal_active = variable_global_exists("fog_of_war_visible")
+		&& !global.fog_of_war_visible;
+	var _on_text = "ON";
+	var _off_text = "OFF";
+	var _cheat_lines = [
+		"CHEATS",
+		"F1  +1 event Reroll / Pin",
+		"F2  Cannon damage reaction: " + (_cannon_damage_reaction_enabled ? _on_text : _off_text),
+		"F3  Reveal map: " + (_map_reveal_active ? _on_text : _off_text),
+		"F4  Force combat form",
+		"F5  Navigation grid: " + (_navigation_grid_visible ? _on_text : _off_text),
+		"F6  Show all day events",
+		"F7  +" + string(BALANCE_DEBUG_RESOURCE_CHEAT_AMOUNT) + " resources",
+		"F8  Skip day / night",
+		"F9  Open balance test",
+		"F10 Music debug: " + (_music_debug_visible ? _on_text : _off_text),
+		"F12 Restart room",
+		"Q   Night speed x2: " + (_night_fast_forward_active ? _on_text : _off_text),
+		"`   Debug menu: " + (_debug_menu_is_open ? _on_text : _off_text),
+		"MB4 +EXP under cursor",
+		"MB5 Damage under cursor",
+		"Shift+RMB Spawn meat",
+		"Numpad 1-9 Spawn test units"
+	];
+	var _gui_width = display_get_gui_width();
+	var _gui_height = display_get_gui_height();
+	var _layout_scale = clamp(_gui_height / 1080, 0.6, 1);
+	var _text_scale = cheat_hud_text_scale * _layout_scale;
+	var _padding = cheat_hud_padding * _layout_scale;
+	var _line_height = cheat_hud_line_height * _layout_scale;
+	var _panel_right = _gui_width - (cheat_hud_margin_right * _layout_scale);
+	var _panel_top = cheat_hud_y * _layout_scale;
+	var _panel_width = 0;
+	var _line_count = array_length(_cheat_lines);
+
+	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+	{
+		draw_set_font(global.ui_font);
+	}
+
+	// Size the background to the longest shortcut description.
+	for (var _measure_index = 0; _measure_index < _line_count; ++_measure_index)
+	{
+		_panel_width = max(_panel_width, string_width(_cheat_lines[_measure_index]) * _text_scale);
+	}
+
+	_panel_width += _padding * 2;
+	var _panel_height = (_line_height * _line_count) + (_padding * 2);
+	var _panel_left = _panel_right - _panel_width;
+	var _panel_bottom = _panel_top + _panel_height;
+
+	draw_set_alpha(cheat_hud_background_alpha);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_rectangle(_panel_left, _panel_top, _panel_right, _panel_bottom, false);
+
+	draw_set_alpha(cheat_hud_border_alpha);
+	draw_set_color(COLOR_SQUAD_CARD_BORDER);
+	draw_rectangle(_panel_left, _panel_top, _panel_right, _panel_bottom, true);
+
+	draw_set_alpha(1);
+	draw_set_halign(fa_right);
+	draw_set_valign(fa_top);
+
+	for (var _line_index = 0; _line_index < _line_count; ++_line_index)
+	{
+		draw_set_color(_line_index == 0 ? COLOR_PROJECTILE_SUMMON : COLOR_HUD_TEXT);
+		draw_text_transformed(
+			_panel_right - _padding,
+			_panel_top + _padding + (_line_height * _line_index),
+			_cheat_lines[_line_index],
+			_text_scale,
+			_text_scale,
+			0
+		);
+	}
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+};
+
 // Squad information window opened from the roster cards with RMB.
 squad_info_squad = noone;
 global.squad_info_window_open = false;

@@ -1,6 +1,18 @@
 // Base production building state.
 image_xscale = 1.7;
 image_yscale = image_xscale;
+max_hp = BALANCE_PLAYER_BUILDING_MAX_HP; // Shared durability for settlement buildings.
+hp = max_hp;
+// Destroyed visuals keep the original sprite and collision mask ready for morning recovery.
+player_building_active_sprite = sprite_index;
+player_building_active_image_speed = image_speed;
+player_building_original_mask_index = mask_index;
+player_building_active_collision_mask = mask_index == -1 ? sprite_index : mask_index;
+player_building_destroyed_sprite = s_house2_destroyed;
+// Units measure attack distance from this circular footprint around the building pivot.
+combat_radius = BALANCE_PLAYER_BUILDING_COMBAT_RADIUS;
+unit_faction = UNIT_FACTION.FRIENDLY;
+is_attackable = true;
 production_resource = noone;
 production_resource_name = "";
 production_resource_icon = noone;
@@ -40,6 +52,11 @@ worker_stand_offset_y = 12;
 worker_stand_spacing = BALANCE_RESOURCE_BUILDING_WORKER_STAND_SPACING;
 y_sort_enabled = true;
 corruption_bar_visible = false;
+
+// Settlement building health is drawn above the sprite during both phases.
+health_bar_width = 72;
+health_bar_height = 6;
+health_bar_offset_y = 10;
 
 // Resource warning shown by assigned cultists when this building cannot work.
 missing_work_resource = noone;
@@ -110,7 +127,7 @@ ritual_circle_exp_pool = 0;
 ritual_circle_exp_pool_amount = BALANCE_RITUAL_CIRCLE_SOUL_EXP_AMOUNT;
 ritual_circle_daily_exp_remaining = BALANCE_RITUAL_CIRCLE_DAILY_EXP_LIMIT;
 
-// Workshop stores paid repair here before applying it to the cannon wall.
+// Workshop stores paid repair here before applying it to the cannon.
 workshop_repair_pool = 0;
 
 // Shell Factory stores paid resource work here before producing a random shell.
@@ -129,6 +146,89 @@ world_event_hover_active = false;
 
 // Daily event generation avoids IDs selected for this building on the previous day.
 previous_day_event_ids = [];
+
+player_building_distance_to_point = function(_point_x, _point_y)
+{
+	var _center_distance = point_distance(_point_x, _point_y, x, y);
+	return max(0, _center_distance - combat_radius);
+};
+
+player_building_destroyed_visual_set = function(_is_destroyed)
+{
+	if (_is_destroyed)
+	{
+		sprite_index = player_building_destroyed_sprite;
+		image_index = 0;
+		image_speed = 0;
+		mask_index = player_building_active_collision_mask;
+		return;
+	}
+
+	sprite_index = player_building_active_sprite;
+	image_index = 0;
+	image_speed = player_building_active_image_speed;
+	mask_index = player_building_original_mask_index;
+};
+
+player_building_morning_repair = function()
+{
+	var _repair_amount = max_hp * BALANCE_PLAYER_BUILDING_MORNING_REPAIR_SHARE;
+	var _previous_hp = hp;
+
+	hp = min(max_hp, hp + _repair_amount);
+
+	if (_previous_hp <= 0 && hp > 0)
+	{
+		player_building_destroyed_visual_set(false);
+	}
+
+	return hp - _previous_hp;
+};
+
+player_building_event_hp_cost_get = function()
+{
+	return hp < max_hp
+		? BALANCE_PLAYER_BUILDING_DAMAGED_EVENT_HP_COST
+		: 0;
+};
+
+player_building_damage_sound_play = function()
+{
+	if (variable_global_exists("cannon_damage_sounds")
+		&& variable_global_exists("sound_play_random"))
+	{
+		global.sound_play_random(global.cannon_damage_sounds);
+	}
+};
+
+// Buildings remain in place at zero HP and recover by 50% Max HP next morning.
+unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true, _source_instance = noone)
+{
+	if (hp <= 0 || _damage_amount <= 0)
+	{
+		return 0;
+	}
+
+	var _applied_damage = min(_damage_amount, hp);
+	hp = max(0, hp - _damage_amount);
+
+	damage_popup_create(x, y, _applied_damage, UNIT_FACTION.FRIENDLY, _is_critical);
+	player_building_damage_sound_play();
+
+	if (hp <= 0)
+	{
+		player_building_destroyed_visual_set(true);
+		production_speed_multiplier = 0;
+		building_workers_release();
+
+		if (variable_global_exists("tutorial_hint_trigger"))
+		{
+			global.tutorial_hint_trigger("destroyed_player_building");
+		}
+	}
+
+	return _applied_damage;
+};
 
 world_event_current_get = function()
 {
@@ -827,7 +927,7 @@ else if (object_index == o_workshop)
 	production_bonus_stat_name = "BODY";
 	production_bonus_stat_color = COLOR_CULTIST_BODY;
 	building_tooltip_title = "Repair";
-	building_tooltip_description = "Repairs the cannon wall and damaged structures";
+	building_tooltip_description = "Repairs the cannon and damaged structures";
 	building_tooltip_detail = "Structures receive " + string(BALANCE_WORKSHOP_BUILDING_REPAIR_MULTIPLIER * 100) + "% repair. Bonus: " + production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
 	building_tooltip_detail_color = production_bonus_stat_color;
 }

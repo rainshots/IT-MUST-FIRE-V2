@@ -347,7 +347,6 @@ if (_squad_march_is_active)
 	update_separation_push();
 	move_towards_world_point(squad.properties.marker_x, squad.properties.marker_y);
 	apply_separation_push();
-	clamp_outside_cannon_wall();
 	update_walk_sway();
 	exit;
 }
@@ -432,16 +431,34 @@ else if (!_special_behavior_handled && _should_search_target && _is_enemy_unit)
 			target_instance = noone;
 		}
 
+		var _has_alert_target = false;
+
 		if (instance_exists(alert_target))
 		{
 			if (target_can_be_attacked(alert_target))
 			{
 				target_instance = alert_target;
+				_has_alert_target = true;
 			}
 			else
 			{
 				alert_target = noone;
 				alert_target_timer = 0;
+			}
+		}
+
+		// Without a combat alert, attack the first player building that physically blocks the cannon route.
+		if (!_has_alert_target && unit_can_attack_cannon)
+		{
+			var _blocking_building = find_player_building_on_cannon_path();
+
+			if (instance_exists(_blocking_building))
+			{
+				target_instance = _blocking_building;
+			}
+			else if (player_structure_can_be_targeted(target_instance))
+			{
+				target_instance = noone;
 			}
 		}
 	}
@@ -454,11 +471,6 @@ else if (!_special_behavior_handled && _should_search_target && _is_enemy_unit)
 		{
 			target_instance = guard_target;
 		}
-	}
-
-	if (!instance_exists(target_instance))
-	{
-		target_instance = find_nearest_attackable_player_structure(vision_radius);
 	}
 
 	if (!instance_exists(target_instance) && unit_can_attack_cannon && instance_exists(o_cannon))
@@ -580,7 +592,6 @@ else if (!_special_behavior_handled && _should_search_target && _is_friendly_uni
 			&& !instance_exists(_friendly_follow_target)
 			&& !regroup_is_active
 			&& !rally_is_active
-			&& !is_wall_blocked_friendly_unit()
 			&& _distance_to_cannon > cannon_guard_radius)
 		{
 			target_instance = _cannon;
@@ -615,7 +626,7 @@ if (!_special_behavior_handled
 	}
 }
 
-// Enemies should only keep attacking the wall while no player units are visible.
+// Enemies keep attacking the cannon only while no player units are visible.
 if (!_special_behavior_handled
 	&& _is_enemy_unit
 	&& instance_exists(target_instance)
@@ -640,10 +651,26 @@ if (!_special_behavior_handled && instance_exists(target_instance))
 	var _attack_move_y = target_instance.y;
 	var _target_is_wall = variable_instance_exists(target_instance, "is_wall")
 		&& target_instance.is_wall;
+	var _target_is_player_building = variable_instance_exists(
+		target_instance,
+		"player_building_distance_to_point"
+	);
+	var _target_is_cannon = target_instance.object_index == o_cannon
+		&& variable_instance_exists(target_instance, "combat_radius");
 
 	if (_target_is_wall)
 	{
 		_target_distance = target_instance.wall_distance_to_point(x, y);
+		_direct_target_distance = _target_distance;
+	}
+	else if (_target_is_player_building)
+	{
+		_target_distance = target_instance.player_building_distance_to_point(x, y);
+		_direct_target_distance = _target_distance;
+	}
+	else if (_target_is_cannon)
+	{
+		_target_distance = max(0, _target_distance - target_instance.combat_radius);
 		_direct_target_distance = _target_distance;
 	}
 
@@ -652,10 +679,6 @@ if (!_special_behavior_handled && instance_exists(target_instance))
 	if (target_instance == guard_target)
 	{
 		_current_attack_radius = guard_radius;
-	}
-	else if (_is_enemy_unit && target_instance.object_index == o_cannon)
-	{
-		_current_attack_radius = cannon_wall_attack_radius_get();
 	}
 
 	_use_attack_ring = attack_ring_should_use(target_instance, _current_attack_radius);
@@ -767,9 +790,6 @@ else if (!_special_behavior_handled && _is_friendly_unit && rally_is_active)
 
 // Apply separation after main AI movement so units do not stack.
 apply_separation_push();
-
-// Cannon wall keeps blocked units outside the safe zone.
-clamp_outside_cannon_wall();
 
 // Add a simple sprite sway while the unit is walking.
 update_walk_sway();

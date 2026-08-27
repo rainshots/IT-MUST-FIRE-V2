@@ -258,49 +258,55 @@ if (_flight_progress >= 1)
 	}
 	else if (projectile_type == PROJECTILE_TYPE.ARTILLERY)
 	{
-		// Gather player units by distance so the blast hits the nearest targets first.
+		// Optional unit splash is kept for artillery variants that explicitly enable it.
 		var _artillery_targets = ds_priority_create();
-		var _friendly_unit_count = instance_number(o_friendly_units);
 
-		for (var _friendly_unit_index = 0; _friendly_unit_index < _friendly_unit_count; ++_friendly_unit_index)
+		if (artillery_can_damage_units)
 		{
-			var _friendly_unit = instance_find(o_friendly_units, _friendly_unit_index);
+			var _friendly_unit_count = instance_number(o_friendly_units);
 
-			if (!instance_exists(_friendly_unit)
-				|| _friendly_unit == source_instance
-				|| _friendly_unit.hp <= 0
-				|| point_distance(_friendly_unit.x, _friendly_unit.y, target_x, target_y) > effect_radius)
+			for (var _friendly_unit_index = 0; _friendly_unit_index < _friendly_unit_count; ++_friendly_unit_index)
 			{
-				continue;
-			}
+				var _friendly_unit = instance_find(o_friendly_units, _friendly_unit_index);
 
-			var _friendly_distance_squared = sqr(_friendly_unit.x - target_x) + sqr(_friendly_unit.y - target_y);
-			ds_priority_add(_artillery_targets, _friendly_unit, _friendly_distance_squared);
-		}
-
-		if (variable_global_exists("archdemons"))
-		{
-			var _archdemon_count = array_length(global.archdemons);
-
-			for (var _archdemon_index = 0; _archdemon_index < _archdemon_count; ++_archdemon_index)
-			{
-				var _archdemon = global.archdemons[_archdemon_index];
-
-				if (!instance_exists(_archdemon)
-					|| !_archdemon.visible
-					|| !variable_instance_exists(_archdemon, "hp")
-					|| _archdemon.hp <= 0
-					|| point_distance(_archdemon.x, _archdemon.y, target_x, target_y) > effect_radius)
+				if (!instance_exists(_friendly_unit)
+					|| _friendly_unit == source_instance
+					|| _friendly_unit.hp <= 0
+					|| point_distance(_friendly_unit.x, _friendly_unit.y, target_x, target_y) > effect_radius)
 				{
 					continue;
 				}
 
-				var _archdemon_distance_squared = sqr(_archdemon.x - target_x) + sqr(_archdemon.y - target_y);
-				ds_priority_add(_artillery_targets, _archdemon, _archdemon_distance_squared);
+				var _friendly_distance_squared = sqr(_friendly_unit.x - target_x)
+					+ sqr(_friendly_unit.y - target_y);
+				ds_priority_add(_artillery_targets, _friendly_unit, _friendly_distance_squared);
+			}
+
+			if (variable_global_exists("archdemons"))
+			{
+				var _archdemon_count = array_length(global.archdemons);
+
+				for (var _archdemon_index = 0; _archdemon_index < _archdemon_count; ++_archdemon_index)
+				{
+					var _archdemon = global.archdemons[_archdemon_index];
+
+					if (!instance_exists(_archdemon)
+						|| !_archdemon.visible
+						|| !variable_instance_exists(_archdemon, "hp")
+						|| _archdemon.hp <= 0
+						|| point_distance(_archdemon.x, _archdemon.y, target_x, target_y) > effect_radius)
+					{
+						continue;
+					}
+
+					var _archdemon_distance_squared = sqr(_archdemon.x - target_x)
+						+ sqr(_archdemon.y - target_y);
+					ds_priority_add(_artillery_targets, _archdemon, _archdemon_distance_squared);
+				}
 			}
 		}
 
-		// A shell explicitly aimed at the cannon includes it in the normal artillery hit limit.
+		// The explicitly selected structure is always the primary artillery target.
 		if (instance_exists(artillery_direct_target)
 			&& variable_instance_exists(artillery_direct_target, "hp")
 			&& artillery_direct_target.hp > 0)

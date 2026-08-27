@@ -1,13 +1,16 @@
 // Cannon target selected by the player.
 max_hp = BALANCE_CANNON_MAX_HP;
 hp = max_hp;
+// Units measure attack distance from this circular footprint around the pivot.
+combat_radius = BALANCE_CANNON_COMBAT_RADIUS;
 global.cannon_fire_version = 0;
 y_sort_enabled = true;
 
-// Night damage tracking plays agony sounds at each 10 percent damage threshold.
+// Night damage tracking drives agony reactions and the next morning's Satisfaction penalty.
 night_damage_start_hp = max_hp;
 night_damage_agony_threshold_index = 0;
 night_damage_agony_step_share = 0.1;
+night_damage_satisfaction_evaluated = false;
 
 // Corpse-fed Taint is disabled, so the cannon no longer accepts corpse haulers.
 building_accepts_workers = false;
@@ -100,9 +103,9 @@ target_projectile_type = PROJECTILE_TYPE.DAMAGE;
 target_direction = 0;
 target_version = -1;
 
-// Cannon fades when a worker is hidden by the upper part of its sprite.
-hidden_worker_alpha = BALANCE_CANNON_HIDDEN_WORKER_ALPHA;
-hidden_worker_front_offset_y = BALANCE_CANNON_HIDDEN_WORKER_FRONT_OFFSET_Y;
+// Cannon fades when a live unit is hidden by the upper part of its sprite.
+hidden_unit_alpha = BALANCE_CANNON_HIDDEN_UNIT_ALPHA;
+hidden_unit_front_offset_y = BALANCE_CANNON_HIDDEN_UNIT_FRONT_OFFSET_Y;
 
 // Projectile settings passed to created projectile instances.
 projectile_effect_radius = BALANCE_PROJECTILE_EFFECT_RADIUS;
@@ -429,6 +432,26 @@ cannon_night_damage_tracking_start = function()
 {
 	night_damage_start_hp = max(hp, 1);
 	night_damage_agony_threshold_index = 0;
+	night_damage_satisfaction_evaluated = false;
+};
+
+cannon_night_damage_satisfaction_penalty_apply = function()
+{
+	if (night_damage_satisfaction_evaluated || night_damage_start_hp <= 0)
+	{
+		return false;
+	}
+
+	night_damage_satisfaction_evaluated = true;
+	var _damage_share = clamp((night_damage_start_hp - hp) / night_damage_start_hp, 0, 1);
+
+	if (_damage_share <= BALANCE_CANNON_SATISFACTION_NIGHT_DAMAGE_LOSS_SHARE)
+	{
+		return false;
+	}
+
+	cannon_satisfaction_add(-BALANCE_CANNON_SATISFACTION_NIGHT_DAMAGE_PENALTY);
+	return true;
 };
 
 cannon_night_damage_agony_update = function()
@@ -444,6 +467,15 @@ cannon_night_damage_agony_update = function()
 	var _damage_share = clamp((night_damage_start_hp - hp) / night_damage_start_hp, 0, 1);
 	var _current_threshold_index = floor(_damage_share / night_damage_agony_step_share);
 	var _previous_threshold_index = night_damage_agony_threshold_index;
+	var _damage_reaction_is_enabled = !variable_global_exists("cannon_damage_reaction_enabled")
+		|| global.cannon_damage_reaction_enabled;
+
+	// Keep thresholds current while the cheat suppresses sounds and automatic projectiles.
+	if (!_damage_reaction_is_enabled)
+	{
+		night_damage_agony_threshold_index = _current_threshold_index;
+		return;
+	}
 
 	if (_current_threshold_index <= _previous_threshold_index)
 	{
@@ -1051,53 +1083,63 @@ building_upgrade_buy = function(_upgrade_index)
 	return true;
 };
 
-cannon_worker_is_behind_sprite = function(_worker)
+cannon_unit_is_behind_sprite = function(_unit)
 {
-	if (!instance_exists(_worker)
-		|| (_worker.object_index != o_archdemon && _worker.object_index != o_goblin)
-		|| !variable_instance_exists(_worker, "hp")
-		|| _worker.hp <= 0)
+	if (!instance_exists(_unit)
+		|| !_unit.visible
+		|| !variable_instance_exists(_unit, "hp")
+		|| _unit.hp <= 0)
 	{
 		return false;
 	}
 
-	if ((variable_instance_exists(_worker, "cannon_loading") && _worker.cannon_loading)
-		|| (variable_instance_exists(_worker, "cannon_loaded") && _worker.cannon_loaded))
+	if ((variable_instance_exists(_unit, "cannon_loading") && _unit.cannon_loading)
+		|| (variable_instance_exists(_unit, "cannon_loaded") && _unit.cannon_loaded))
 	{
 		return false;
 	}
 
-	return _worker.x >= bbox_left
-		&& _worker.x <= bbox_right
-		&& _worker.y >= bbox_top
-		&& _worker.y <= y + hidden_worker_front_offset_y;
+	return _unit.bbox_right >= bbox_left
+		&& _unit.bbox_left <= bbox_right
+		&& _unit.y >= bbox_top
+		&& _unit.y <= y + hidden_unit_front_offset_y;
 };
 
-cannon_has_worker_behind_sprite = function()
+cannon_has_object_unit_behind_sprite = function(_object_index)
 {
-	if (!variable_global_exists("archdemons"))
-	{
-		return false;
-	}
+	var _unit_count = instance_number(_object_index);
 
-	var _cultist_count = array_length(global.archdemons);
-
-	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+	for (var _unit_index = 0; _unit_index < _unit_count; ++_unit_index)
 	{
-		if (cannon_worker_is_behind_sprite(global.archdemons[_cultist_index]))
+		if (cannon_unit_is_behind_sprite(instance_find(_object_index, _unit_index)))
 		{
 			return true;
 		}
 	}
 
-	var _goblin_count = instance_number(o_goblin);
+	return false;
+};
 
-	for (var _goblin_index = 0; _goblin_index < _goblin_count; ++_goblin_index)
+cannon_has_unit_behind_sprite = function()
 	{
-		if (cannon_worker_is_behind_sprite(instance_find(o_goblin, _goblin_index)))
-		{
-			return true;
-		}
+	if (cannon_has_object_unit_behind_sprite(o_friendly_units))
+	{
+		return true;
+	}
+
+	if (cannon_has_object_unit_behind_sprite(o_enemy_units))
+	{
+		return true;
+	}
+
+	if (cannon_has_object_unit_behind_sprite(o_archdemon))
+	{
+		return true;
+	}
+
+	if (cannon_has_object_unit_behind_sprite(o_cultist))
+	{
+		return true;
 	}
 
 	return false;

@@ -10,6 +10,13 @@ if (building_warning_timer > 0)
 	building_warning_timer = max(0, building_warning_timer - _time_scale);
 }
 
+// A destroyed building stays dormant until the next morning repair.
+if (hp <= 0)
+{
+	production_speed_multiplier = 0;
+	exit;
+}
+
 if (global.pause || !building_accepts_workers)
 {
 	exit;
@@ -321,7 +328,7 @@ if (object_index == o_ritual_circle)
 	exit;
 }
 
-// Workshop converts Iron into stored repair and applies it to the cannon wall.
+// Workshop converts Iron into stored repair and applies it to the cannon.
 if (object_index == o_workshop)
 {
 	var _repair_target = noone;

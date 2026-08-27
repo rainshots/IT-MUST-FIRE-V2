@@ -4,6 +4,8 @@ global.pause = false;
 global.focus_window = FOCUS_WINDOW.NOONE;
 global.fog_of_war_visible = true;
 global.cheats_enabled = BALANCE_CHEATS_ENABLED;
+// F2 toggles the Cannon's automatic reaction to night damage.
+global.cannon_damage_reaction_enabled = true;
 global.play_music = BALANCE_PLAY_MUSIC;
 global.tutorial_hints_enabled = BALANCE_TUTORIAL_HINTS_ENABLED;
 global.music_volume = 0.8;
@@ -3212,7 +3214,6 @@ debug_unit_spawn = function(_unit_object, _spawn_count = 1)
 		_unit.rally_is_returning = false;
 		_unit.rally_has_arrived = false;
 		_unit.target_search_update_timer = _unit.target_search_update_interval;
-		_unit.clamp_outside_cannon_wall();
 		_unit_was_spawned = true;
 	}
 
@@ -4583,63 +4584,6 @@ cannon_corrupted_ground_damage_update = function()
 			damage_popup_create(_enemy.x, _enemy.y, _tick_damage, UNIT_FACTION.ENEMY);
 		}
 	}
-};
-
-// Cannon wall helpers keep demon-form cultists outside the cannon safe zone.
-cannon_wall_is_active = function()
-{
-	return global.day_phase == DAY_PHASE.NIGHT && instance_exists(o_cannon);
-};
-
-unit_is_demon_form = function(_unit)
-{
-	return instance_exists(_unit)
-		&& variable_instance_exists(_unit, "demon_type")
-		&& _unit.demon_type != DEMON_TYPE.NONE
-		&& _unit.object_index != o_archdemon;
-};
-
-unit_is_blocked_by_cannon_wall = function(_unit)
-{
-	if (!instance_exists(_unit))
-	{
-		return false;
-	}
-
-	var _is_player_night_unit = global.day_phase == DAY_PHASE.NIGHT
-		&& (variable_instance_exists(_unit, "summon_nights_remaining")
-			|| (variable_instance_exists(_unit, "squad")
-				&& is_struct(_unit.squad)));
-
-	return unit_is_demon_form(_unit) || _is_player_night_unit;
-};
-
-cannon_wall_position_clamp = function(_world_x, _world_y)
-{
-	if (!instance_exists(o_cannon))
-	{
-		return [_world_x, _world_y];
-	}
-
-	var _cannon = instance_find(o_cannon, 0);
-	var _distance_to_cannon = point_distance(_world_x, _world_y, _cannon.x, _cannon.y);
-
-	if (_distance_to_cannon >= BALANCE_CANNON_WALL_RADIUS)
-	{
-		return [_world_x, _world_y];
-	}
-
-	var _direction_from_cannon = point_direction(_cannon.x, _cannon.y, _world_x, _world_y);
-
-	if (_distance_to_cannon <= 0)
-	{
-		_direction_from_cannon = 0;
-	}
-
-	return [
-		_cannon.x + lengthdir_x(BALANCE_CANNON_WALL_RADIUS, _direction_from_cannon),
-		_cannon.y + lengthdir_y(BALANCE_CANNON_WALL_RADIUS, _direction_from_cannon)
-	];
 };
 
 // Worker assignment helpers connect day-form cultists to production buildings.
@@ -8372,24 +8316,6 @@ move_spawned_summoned_unit_to_cannon_inner = function(_unit)
 	}
 };
 
-move_unit_outside_cannon_wall = function(_unit, _unit_index, _unit_count)
-{
-	if (!instance_exists(_unit) || !instance_exists(o_cannon))
-	{
-		return;
-	}
-
-	var _cannon = instance_find(o_cannon, 0);
-	var _safe_unit_count = max(1, _unit_count);
-	var _angle = 360 * (_unit_index / _safe_unit_count);
-	var _outside_radius = BALANCE_CANNON_WALL_RADIUS + 84 + (18 * (_unit_index mod 3));
-
-	_unit.x = _cannon.x + lengthdir_x(_outside_radius, _angle);
-	_unit.y = _cannon.y + lengthdir_y(_outside_radius, _angle);
-	_unit.drag_drop_x = _unit.x;
-	_unit.drag_drop_y = _unit.y;
-};
-
 move_summoned_units_to_cannon_inner = function()
 {
 	var _friendly_count = instance_number(o_friendly_units);
@@ -8485,59 +8411,6 @@ move_goblins_to_cannon_inner = function()
 		_assigned_goblin.rally_has_arrived = false;
 		_assigned_goblin.drag_drop_x = _position[0];
 		_assigned_goblin.drag_drop_y = _position[1];
-	}
-};
-
-move_summoned_units_outside_cannon_wall = function()
-{
-	var _friendly_count = instance_number(o_friendly_units);
-	var _summoned_units = array_create(0);
-	var _outside_units = array_create(0);
-
-	for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_index)
-	{
-		var _friendly_unit = instance_find(o_friendly_units, _friendly_index);
-
-		if (instance_exists(_friendly_unit)
-			&& variable_instance_exists(_friendly_unit, "summon_nights_remaining"))
-		{
-			clear_cultist_building_assignment(_friendly_unit);
-			array_push(_summoned_units, _friendly_unit);
-
-			if (_friendly_unit.object_index != o_goblin)
-			{
-				array_push(_outside_units, _friendly_unit);
-			}
-		}
-	}
-
-	var _summoned_count = array_length(_summoned_units);
-	var _outside_count = array_length(_outside_units);
-
-	for (var _summoned_index = 0; _summoned_index < _summoned_count; ++_summoned_index)
-	{
-		var _summoned_unit = _summoned_units[_summoned_index];
-
-		if (!instance_exists(_summoned_unit) || _summoned_unit.object_index != o_goblin)
-		{
-			continue;
-		}
-
-		var _position = cannon_inner_position_get(_summoned_index, _summoned_count);
-
-		_summoned_unit.regroup_is_active = true;
-		_summoned_unit.regroup_target_x = _position[0];
-		_summoned_unit.regroup_target_y = _position[1];
-		_summoned_unit.rally_is_active = false;
-		_summoned_unit.rally_is_returning = false;
-		_summoned_unit.rally_has_arrived = false;
-		_summoned_unit.drag_drop_x = _position[0];
-		_summoned_unit.drag_drop_y = _position[1];
-	}
-
-	for (var _outside_index = 0; _outside_index < _outside_count; ++_outside_index)
-	{
-		move_unit_outside_cannon_wall(_outside_units[_outside_index], _outside_index, _outside_count);
 	}
 };
 
@@ -11696,6 +11569,17 @@ start_day_phase = function()
 	clear_dragged_unit();
 	holy_cannon_night_end();
 
+	// Heavy overnight Cannon damage reduces Satisfaction once at daybreak.
+	if (instance_exists(o_cannon))
+	{
+		var _cannon = instance_find(o_cannon, 0);
+
+		if (variable_instance_exists(_cannon, "cannon_night_damage_satisfaction_penalty_apply"))
+		{
+			_cannon.cannon_night_damage_satisfaction_penalty_apply();
+		}
+	}
+
 	// Completing the thirteenth night ends the prototype before another day can begin.
 	if (night_attack_night_index == BALANCE_SURVIVAL_OBJECTIVE_DAYS
 		&& !game_completion_popup_was_shown)
@@ -11739,6 +11623,16 @@ start_day_phase = function()
 	global.ritual_extra_building_event_active = global.ritual_invite_worthy_reward_pending
 		&& instance_exists(o_cannon);
 	global.ritual_invite_worthy_reward_pending = false;
+
+	// Settlement buildings recover half of Max HP before today's events are generated.
+	with (o_v13buildings_parent)
+	{
+		if (variable_instance_exists(id, "player_building_morning_repair"))
+		{
+			player_building_morning_repair();
+		}
+	}
+
 	day_event_generate_for_buildings();
 	global.day_phase = DAY_PHASE.DAY;
 	night_fast_forward_set(false);
@@ -11889,7 +11783,7 @@ start_day_phase = function()
 		ihor_extractor_morning_income_collect();
 	}
 
-	// Recreate every bound trap that was consumed during the previous night.
+	// Replace every installed trap formation with a fresh copy each morning.
 	with (o_trap_point)
 	{
 		if (variable_instance_exists(id, "trap_point_morning_restore"))

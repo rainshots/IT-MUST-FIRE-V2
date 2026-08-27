@@ -11,6 +11,19 @@ function day_event_add(_event)
 	return true;
 }
 
+function day_event_damaged_building_hp_cost_get(_event)
+{
+	if (!is_struct(_event)
+		|| !variable_struct_exists(_event, "source_building")
+		|| !instance_exists(_event.source_building)
+		|| !variable_instance_exists(_event.source_building, "player_building_event_hp_cost_get"))
+	{
+		return 0;
+	}
+
+	return _event.source_building.player_building_event_hp_cost_get();
+}
+
 function day_event_add_first(_event)
 {
 	if (!is_struct(_event))
@@ -2790,7 +2803,7 @@ function day_event_ritual_events_add(_ritual_circle)
 		_ritual_circle,
 		"lesser_gate",
 		"Open the Lesser Gate",
-		"A temporary portal appears near the Cannon walls next night. Every 5 seconds it releases a random friendly creature that fights until morning.",
+		"A temporary portal appears near the Cannon next night. Every 5 seconds it releases a random friendly creature that fights until morning.",
 		BALANCE_RITUAL_EVENT_CULTIST_COUNT,
 		BALANCE_RITUAL_EVENT_HP_COST
 	));

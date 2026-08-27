@@ -116,7 +116,8 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 			var _activation_cultists = array_create(cultist_cost);
 			array_copy(_activation_cultists, 0, assigned_cultists, _first_cultist_index, cultist_cost);
 			var _action_count = array_length(actions);
-			var _additional_hp_cost = cannon_satisfaction_event_hp_cost_get();
+			var _additional_hp_cost = cannon_satisfaction_event_hp_cost_get()
+				+ day_event_damaged_building_hp_cost_get(self);
 
 			for (var _action_index = 0; _action_index < _action_count; ++_action_index)
 			{
@@ -128,7 +129,7 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 				}
 			}
 
-			// Sulking makes every funded event hurt each assigned Cultist a little more.
+			// Cannon sulking and damaged buildings increase every assigned Cultist's HP cost.
 			if (_additional_hp_cost > 0)
 			{
 				day_event_cultist_hp_cost_apply(_activation_cultists, _additional_hp_cost);

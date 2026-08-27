@@ -1,6 +1,38 @@
 // Draw the building sprite first because this parent owns the draw event.
 draw_self();
 
+// Draw settlement durability only while the building is damaged.
+if (hp < max_hp)
+{
+	var _health_progress = clamp(hp / max(1, max_hp), 0, 1);
+	var _health_width = health_bar_width_get(health_bar_width, max_hp);
+	var _health_x = x - (_health_width * 0.5);
+	var _health_y = bbox_top - health_bar_offset_y - health_bar_height;
+
+	draw_set_alpha(0.75);
+	draw_set_color(c_black);
+	draw_rectangle(
+		_health_x,
+		_health_y,
+		_health_x + _health_width,
+		_health_y + health_bar_height,
+		false
+	);
+
+	draw_set_alpha(1);
+	draw_set_color(COLOR_HEALTH_BAR);
+	draw_rectangle(
+		_health_x,
+		_health_y,
+		_health_x + (_health_width * _health_progress),
+		_health_y + health_bar_height,
+		false
+	);
+	draw_set_color(c_black);
+	health_bar_segments_draw(_health_x, _health_y, _health_width, health_bar_height, max_hp);
+	draw_set_color(c_white);
+}
+
 // Highlight the building that will receive the dragged cultist if released.
 if (variable_global_exists("cultist_assignment_preview_building")
 	&& global.cultist_assignment_preview_building == id)

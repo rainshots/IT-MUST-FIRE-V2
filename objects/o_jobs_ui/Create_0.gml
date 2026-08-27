@@ -745,6 +745,9 @@ jobs_event_empty_slot_hp_cost_text_get = function(_event)
 		}
 	}
 
+	// A damaged settlement building adds its repair penalty to every event slot.
+	_fixed_hp_cost += day_event_damaged_building_hp_cost_get(_event);
+
 	if (_fixed_hp_cost > 0 && _hp_share_cost > 0)
 	{
 		return "-" + string(round(_fixed_hp_cost)) + " HP -" + string(round(_hp_share_cost * 100)) + "% HP";
@@ -931,10 +934,12 @@ jobs_event_cultist_hp_preview_get = function(_event, _slot_index, _cultist)
 		}
 	}
 
-	// Sulking adds the same visible HP cost to every funded event slot.
+	// Global sulking and a damaged source building add visible HP costs to every slot.
 	var _sulking_hp_cost = cannon_satisfaction_event_hp_cost_get();
-	_hp_loss += _sulking_hp_cost;
-	_lethal_hp_loss += _sulking_hp_cost;
+	var _damaged_building_hp_cost = day_event_damaged_building_hp_cost_get(_event);
+	var _additional_hp_cost = _sulking_hp_cost + _damaged_building_hp_cost;
+	_hp_loss += _additional_hp_cost;
+	_lethal_hp_loss += _additional_hp_cost;
 
 	return {
 		hp_change: _hp_gain - _hp_loss,

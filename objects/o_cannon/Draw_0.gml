@@ -1,14 +1,22 @@
 // Draw cannon sprite.
-var _cannon_alpha = 1;
+var _cannon_alpha = image_alpha;
 
-if (cannon_has_worker_behind_sprite())
+if (cannon_has_unit_behind_sprite())
 {
-	_cannon_alpha = hidden_worker_alpha;
+	_cannon_alpha *= hidden_unit_alpha;
 }
 
-draw_set_alpha(_cannon_alpha);
-draw_self();
-draw_set_alpha(1);
+draw_sprite_ext(
+	sprite_index,
+	image_index,
+	x,
+	y,
+	image_xscale,
+	image_yscale,
+	image_angle,
+	image_blend,
+	_cannon_alpha
+);
 
 // Match the building hover highlight when the Satisfaction window can be opened.
 var _satisfaction_info_is_hovered = false;

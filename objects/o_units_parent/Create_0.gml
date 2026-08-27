@@ -7,7 +7,6 @@ magic_damage = 0;
 reload_time = room_speed;
 reload_timer = 0;
 attack_radius = 32;
-cannon_attack_radius = 200;
 y_sort_enabled = true;
 
 // Base unit movement and target search settings.
@@ -862,11 +861,11 @@ enemy_march_defense_is_near = function()
 		}
 	}
 
-	// With no outer defense, slow down shortly before reaching the cannon wall.
+	// With no outer defense, slow down shortly before reaching the cannon itself.
 	if (instance_exists(o_cannon))
 	{
 		var _cannon = instance_find(o_cannon, 0);
-		var _cannon_approach_radius = cannon_wall_attack_radius_get()
+		var _cannon_approach_radius = attack_radius
 			+ BALANCE_ENEMY_MARCH_CANNON_APPROACH_PADDING;
 
 		if (point_distance(x, y, _cannon.x, _cannon.y) <= _cannon_approach_radius)
@@ -1787,68 +1786,6 @@ is_summoned_unit = function()
 			&& squad.squad_type != SQUAD_TYPE.ARCHDEMON);
 };
 
-is_wall_blocked_friendly_unit = function()
-{
-	return is_demon_form_unit()
-		|| (object_index != o_goblin
-			&& (debug_combat_spawned
-				|| (is_summoned_unit() && global.day_phase == DAY_PHASE.NIGHT)));
-};
-
-is_blocked_by_cannon_wall = function()
-{
-	return (unit_faction == UNIT_FACTION.ENEMY
-			&& (global.day_phase == DAY_PHASE.NIGHT || debug_combat_spawned))
-		|| is_wall_blocked_friendly_unit();
-};
-
-cannon_wall_is_active = function()
-{
-	return instance_exists(o_cannon);
-};
-
-cannon_wall_attack_radius_get = function()
-{
-	return BALANCE_CANNON_WALL_RADIUS + cannon_attack_radius;
-};
-
-clamp_outside_cannon_wall = function()
-{
-	if (!cannon_wall_is_active() || !is_blocked_by_cannon_wall())
-	{
-		return;
-	}
-
-	var _cannon = instance_find(o_cannon, 0);
-	var _distance_to_cannon = point_distance(x, y, _cannon.x, _cannon.y);
-
-	if (_distance_to_cannon >= BALANCE_CANNON_WALL_RADIUS)
-	{
-		return;
-	}
-
-	var _direction_from_cannon = point_direction(_cannon.x, _cannon.y, x, y);
-
-	if (_distance_to_cannon <= 0)
-	{
-		_direction_from_cannon = 0;
-	}
-
-	x = _cannon.x + lengthdir_x(BALANCE_CANNON_WALL_RADIUS, _direction_from_cannon);
-	y = _cannon.y + lengthdir_y(BALANCE_CANNON_WALL_RADIUS, _direction_from_cannon);
-};
-
-target_is_inside_cannon_wall = function(_target)
-{
-	if (!cannon_wall_is_active() || !instance_exists(_target))
-	{
-		return false;
-	}
-
-	var _cannon = instance_find(o_cannon, 0);
-	return point_distance(_target.x, _target.y, _cannon.x, _cannon.y) < BALANCE_CANNON_WALL_RADIUS;
-};
-
 panic_flee_apply = function(_source, _duration_seconds, _cooldown_seconds, _speed_multiplier)
 {
 	if (!instance_exists(_source) || panic_flee_cooldown_timer > 0)
@@ -2231,6 +2168,81 @@ player_map_structure_can_be_targeted = function(_structure)
 	return false;
 };
 
+player_settlement_building_can_be_targeted = function(_building)
+{
+	return target_can_be_attacked(_building)
+		&& variable_instance_exists(_building, "player_building_distance_to_point");
+};
+
+player_structure_can_be_targeted = function(_structure)
+{
+	return player_map_structure_can_be_targeted(_structure)
+		|| player_settlement_building_can_be_targeted(_structure);
+};
+
+find_player_building_on_cannon_path = function()
+{
+	if (!instance_exists(o_cannon))
+	{
+		return noone;
+	}
+
+	var _cannon = instance_find(o_cannon, 0);
+	var _nearest_building = noone;
+	var _nearest_distance_squared = infinity;
+	var _settlement_building_count = instance_number(o_v13buildings_parent);
+
+	// Settlement buildings intercept enemies only when their collision mask crosses the route to the cannon.
+	for (var _building_index = 0; _building_index < _settlement_building_count; ++_building_index)
+	{
+		var _building = instance_find(o_v13buildings_parent, _building_index);
+
+		if (!player_settlement_building_can_be_targeted(_building)
+			|| collision_line(x, y, _cannon.x, _cannon.y, _building, false, true) == noone)
+		{
+			continue;
+		}
+
+		var _building_distance_x = _building.x - x;
+		var _building_distance_y = _building.y - y;
+		var _building_distance_squared = (_building_distance_x * _building_distance_x)
+			+ (_building_distance_y * _building_distance_y);
+
+		if (_building_distance_squared < _nearest_distance_squared)
+		{
+			_nearest_building = _building;
+			_nearest_distance_squared = _building_distance_squared;
+		}
+	}
+
+	var _map_structure_count = instance_number(o_map_objects_parent);
+
+	// Player-owned field structures use the same interception rule.
+	for (var _structure_index = 0; _structure_index < _map_structure_count; ++_structure_index)
+	{
+		var _structure = instance_find(o_map_objects_parent, _structure_index);
+
+		if (!player_map_structure_can_be_targeted(_structure)
+			|| collision_line(x, y, _cannon.x, _cannon.y, _structure, false, true) == noone)
+		{
+			continue;
+		}
+
+		var _structure_distance_x = _structure.x - x;
+		var _structure_distance_y = _structure.y - y;
+		var _structure_distance_squared = (_structure_distance_x * _structure_distance_x)
+			+ (_structure_distance_y * _structure_distance_y);
+
+		if (_structure_distance_squared < _nearest_distance_squared)
+		{
+			_nearest_building = _structure;
+			_nearest_distance_squared = _structure_distance_squared;
+		}
+	}
+
+	return _nearest_building;
+};
+
 find_nearest_attackable_player_structure = function(_max_distance)
 {
 	var _nearest_target = noone;
@@ -2257,6 +2269,29 @@ find_nearest_attackable_player_structure = function(_max_distance)
 		}
 	}
 
+	var _settlement_building_count = instance_number(o_v13buildings_parent);
+
+	for (var _building_index = 0; _building_index < _settlement_building_count; ++_building_index)
+	{
+		var _building = instance_find(o_v13buildings_parent, _building_index);
+
+		if (!player_settlement_building_can_be_targeted(_building))
+		{
+			continue;
+		}
+
+		var _building_distance_x = _building.x - x;
+		var _building_distance_y = _building.y - y;
+		var _building_distance_squared = (_building_distance_x * _building_distance_x)
+			+ (_building_distance_y * _building_distance_y);
+
+		if (_building_distance_squared <= _nearest_distance_squared)
+		{
+			_nearest_target = _building;
+			_nearest_distance_squared = _building_distance_squared;
+		}
+	}
+
 	return _nearest_target;
 };
 
@@ -2272,7 +2307,7 @@ find_nearest_cannon_attacker = function()
 	var _nearest_distance_squared = infinity;
 	var _enemy_count = instance_number(o_enemy_units);
 
-	// Pick the closest enemy that is actively attacking the cannon wall.
+	// Pick the closest enemy that is actively attacking the cannon.
 	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
 	{
 		var _enemy = instance_find(o_enemy_units, _enemy_index);
@@ -2535,6 +2570,20 @@ navigation_target_distance_get = function(_target)
 		&& variable_instance_exists(_target, "wall_distance_to_point"))
 	{
 		return _target.wall_distance_to_point(x, y);
+	}
+
+	// The Cannon uses a circular combat footprint instead of its large sprite center.
+	if (_target.object_index == o_cannon
+		&& variable_instance_exists(_target, "combat_radius"))
+	{
+		var _center_distance = point_distance(x, y, _target.x, _target.y);
+		return max(0, _center_distance - _target.combat_radius);
+	}
+
+	// Settlement buildings expose the same edge distance to navigation and attacks.
+	if (variable_instance_exists(_target, "player_building_distance_to_point"))
+	{
+		return _target.player_building_distance_to_point(x, y);
 	}
 
 	return point_distance(x, y, _target.x, _target.y);
@@ -3369,6 +3418,7 @@ attack_ring_should_use = function(_target, _attack_radius)
 		|| _target.object_index == o_cannon
 		|| _target == guard_target
 		|| (variable_instance_exists(_target, "is_wall") && _target.is_wall)
+		|| variable_instance_exists(_target, "player_building_distance_to_point")
 		|| _attack_radius > BALANCE_UNIT_ATTACK_RING_MELEE_RADIUS_MAX)
 	{
 		return false;

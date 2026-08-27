@@ -9,6 +9,7 @@ cultist_deploy_units = [];
 building_payload = noone;
 source_instance = noone;
 artillery_direct_target = noone;
+artillery_can_damage_units = true;
 
 // Explosion and effect settings.
 effect_radius = BALANCE_PROJECTILE_EFFECT_RADIUS;

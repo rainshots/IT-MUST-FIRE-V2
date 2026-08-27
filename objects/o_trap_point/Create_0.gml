@@ -171,6 +171,32 @@ trap_point_trap_create = function(_slot_index)
 	return trap_point_trap_bind(_trap, _slot_index);
 };
 
+trap_point_installed_traps_destroy = function()
+{
+	var _owner_trap_point = id;
+	var _trap_count = instance_number(o_trap_parent);
+
+	// Remove every trap owned by this point, including an orphaned trap missing from the slot array.
+	for (var _trap_index = _trap_count - 1; _trap_index >= 0; --_trap_index)
+	{
+		var _trap = instance_find(o_trap_parent, _trap_index);
+
+		if (!instance_exists(_trap)
+			|| !variable_instance_exists(_trap, "owner_trap_point")
+			|| _trap.owner_trap_point != _owner_trap_point)
+		{
+			continue;
+		}
+
+		with (_trap)
+		{
+			instance_destroy();
+		}
+	}
+
+	installed_traps = array_create(trap_formation_count, noone);
+};
+
 // Persistent construction sites receive the completed object instead of being destroyed.
 construction_site_complete = function(_built_object, _choice)
 {
@@ -206,16 +232,21 @@ trap_point_morning_restore = function()
 		return false;
 	}
 
-	var _restored_any_trap = false;
+	// A trap that was activated just before morning can still exist until its delayed effect fires.
+	// Replacing the entire formation also resets activation and detection state consistently.
+	trap_point_installed_traps_destroy();
 
-	// Restore only formation slots whose traps were consumed.
+	var _restored_trap_count = 0;
+
+	// Recreate every formation slot from the trap type saved by the hidden construction point.
 	for (var _slot_index = 0; _slot_index < trap_formation_count; ++_slot_index)
 	{
-		if (!instance_exists(installed_traps[_slot_index]))
+		if (trap_point_trap_create(_slot_index))
 		{
-			_restored_any_trap = trap_point_trap_create(_slot_index) || _restored_any_trap;
+			_restored_trap_count++;
 		}
 	}
 
-	return _restored_any_trap;
+	visible = false;
+	return _restored_trap_count == trap_formation_count;
 };

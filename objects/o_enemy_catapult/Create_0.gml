@@ -1,7 +1,7 @@
 // Initialize shared enemy unit state.
 event_inherited();
 
-// Catapult attacks player troops with physical AOE projectiles.
+// Catapult exclusively attacks player structures with physical artillery projectiles.
 max_hp = BALANCE_ENEMY_CATAPULT_HP;
 hp = max_hp;
 armor = BALANCE_ENEMY_CATAPULT_ARMOR;
@@ -10,12 +10,10 @@ damage = BALANCE_ENEMY_CATAPULT_DAMAGE;
 magic_damage = BALANCE_ENEMY_CATAPULT_MAGIC_DAMAGE;
 reload_time = BALANCE_ENEMY_CATAPULT_RELOAD_TIME * room_speed;
 attack_radius = BALANCE_ENEMY_CATAPULT_ATTACK_RADIUS;
-cannon_attack_radius = BALANCE_ENEMY_CATAPULT_CANNON_ATTACK_RADIUS;
 move_speed = BALANCE_ENEMY_CATAPULT_MOVE_SPEED;
 target_detection_radius = attack_radius;
 vision_radius = attack_radius;
 
-catapult_minimum_attack_radius = BALANCE_ENEMY_CATAPULT_MINIMUM_ATTACK_RADIUS;
 catapult_projectile_aoe_radius = BALANCE_ENEMY_CATAPULT_PROJECTILE_AOE_RADIUS;
 catapult_projectile_target_count = BALANCE_ENEMY_CATAPULT_TARGET_COUNT;
 catapult_projectile_spawn_offset_y = BALANCE_ENEMY_CATAPULT_PROJECTILE_SPAWN_OFFSET_Y;
@@ -30,88 +28,75 @@ catapult_target_is_in_attack_band = function(_target)
 		return false;
 	}
 
-	var _target_distance = point_distance(x, y, _target.x, _target.y);
-
 	if (_target.object_index == o_cannon)
 	{
 		return unit_can_attack_cannon
-			&& _target_distance <= cannon_wall_attack_radius_get();
+			&& navigation_target_distance_get(_target) <= attack_radius;
 	}
 
-	if (!target_is_player_unit(_target))
-	{
-		return false;
-	}
-
-	return _target_distance >= catapult_minimum_attack_radius
-		&& _target_distance <= attack_radius;
+	return player_structure_can_be_targeted(_target)
+		&& navigation_target_distance_get(_target) <= attack_radius;
 };
 
 catapult_target_find = function()
 {
 	var _nearest_target = noone;
-	var _nearest_distance_squared = attack_radius * attack_radius;
-	var _minimum_distance_squared = catapult_minimum_attack_radius * catapult_minimum_attack_radius;
-	var _friendly_count = instance_number(o_friendly_units);
+	var _nearest_target_distance = attack_radius;
+	var _map_structure_count = instance_number(o_map_objects_parent);
 
-	// Find the nearest friendly combat unit outside the catapult dead zone.
-	for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_index)
+	// Captured towers and shell-built field structures are valid artillery targets.
+	for (var _structure_index = 0; _structure_index < _map_structure_count; ++_structure_index)
 	{
-		var _friendly_unit = instance_find(o_friendly_units, _friendly_index);
+		var _structure = instance_find(o_map_objects_parent, _structure_index);
 
-		if (!target_can_be_attacked(_friendly_unit))
+		if (!player_map_structure_can_be_targeted(_structure))
 		{
 			continue;
 		}
 
-		var _distance_x = _friendly_unit.x - x;
-		var _distance_y = _friendly_unit.y - y;
-		var _distance_squared = (_distance_x * _distance_x) + (_distance_y * _distance_y);
+		var _structure_distance = navigation_target_distance_get(_structure);
 
-		if (_distance_squared >= _minimum_distance_squared
-			&& _distance_squared <= _nearest_distance_squared)
+		if (_structure_distance <= _nearest_target_distance)
 		{
-			_nearest_target = _friendly_unit;
-			_nearest_distance_squared = _distance_squared;
+			_nearest_target = _structure;
+			_nearest_target_distance = _structure_distance;
 		}
 	}
 
-	// Archdemons are player units but do not inherit from o_friendly_units.
-	if (variable_global_exists("archdemons"))
+	var _settlement_building_count = instance_number(o_v13buildings_parent);
+
+	// Settlement production buildings use their combat footprint for range checks.
+	for (var _building_index = 0; _building_index < _settlement_building_count; ++_building_index)
 	{
-		for (var _cultist_index = 0; _cultist_index < array_length(global.archdemons); ++_cultist_index)
+		var _building = instance_find(o_v13buildings_parent, _building_index);
+
+		if (!player_settlement_building_can_be_targeted(_building))
 		{
-			var _cultist = global.archdemons[_cultist_index];
+			continue;
+		}
 
-			if (!target_can_be_attacked(_cultist) || !_cultist.visible)
-			{
-				continue;
-			}
+		var _building_distance = navigation_target_distance_get(_building);
 
-			var _cultist_distance_x = _cultist.x - x;
-			var _cultist_distance_y = _cultist.y - y;
-			var _cultist_distance_squared = (_cultist_distance_x * _cultist_distance_x)
-				+ (_cultist_distance_y * _cultist_distance_y);
-
-			if (_cultist_distance_squared >= _minimum_distance_squared
-				&& _cultist_distance_squared <= _nearest_distance_squared)
-			{
-				_nearest_target = _cultist;
-				_nearest_distance_squared = _cultist_distance_squared;
-			}
+		if (_building_distance <= _nearest_target_distance)
+		{
+			_nearest_target = _building;
+			_nearest_target_distance = _building_distance;
 		}
 	}
 
-	// The cannon becomes the fallback target once the catapult reaches firing distance from the wall.
-	if (!instance_exists(_nearest_target)
-		&& unit_can_attack_cannon
-		&& instance_exists(o_cannon))
+	// The cannon participates in the same nearest-structure selection.
+	if (unit_can_attack_cannon && instance_exists(o_cannon))
 	{
 		var _cannon = instance_find(o_cannon, 0);
 
-		if (catapult_target_is_in_attack_band(_cannon))
+		if (target_can_be_attacked(_cannon))
 		{
-			_nearest_target = _cannon;
+			var _cannon_distance = navigation_target_distance_get(_cannon);
+
+			if (_cannon_distance <= _nearest_target_distance)
+			{
+				_nearest_target = _cannon;
+			}
 		}
 	}
 
@@ -147,7 +132,8 @@ catapult_projectile_create = function(_target)
 	_projectile.damage_faction = UNIT_FACTION.ENEMY;
 	_projectile.damage_target_count = catapult_projectile_target_count;
 	_projectile.source_instance = id;
-	_projectile.artillery_direct_target = _target.object_index == o_cannon ? _target : noone;
+	_projectile.artillery_direct_target = _target;
+	_projectile.artillery_can_damage_units = false;
 	_projectile.balance_test_match_id = balance_test_match_id;
 	_projectile.projectile_speed = BALANCE_ENEMY_CATAPULT_PROJECTILE_SPEED;
 	_projectile.flight_time = _flight_time_seconds * room_speed;

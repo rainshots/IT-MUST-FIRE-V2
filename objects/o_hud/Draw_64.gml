@@ -1218,7 +1218,7 @@ if (false
 	draw_set_alpha(1);
 }
 
-// Draw defeat notice when the cannon wall has no HP left.
+// Draw defeat notice when the cannon has no HP left.
 if (instance_exists(o_cannon))
 {
 	var _cannon = instance_find(o_cannon, 0);
@@ -2519,6 +2519,9 @@ if (_regular_hud_is_visible && variable_global_exists("squads"))
 		}
 	}
 }
+
+// Keep all active cheat shortcuts visible without opening the debug menu.
+cheat_hud_draw();
 
 // Restore default draw state.
 draw_set_halign(fa_left);

@@ -56,6 +56,11 @@ tutorial_items = [
 		body: "You can build 1 building per day around the cannon. Each building provides 1 random job for your Cultists. The more buildings you have, the more jobs your Cultists will have!\n\nConstruction does not cost resources. Each selected building creates an Assign Duties event that requires 1 Cultist.\n\nJobs often reduce your Cultists’ HP. That’s why I recommend building a Blood Bath first, so you can heal their wounds."
 	},
 	{
+		id: "destroyed_player_building",
+		title: "Building Destroyed",
+		body: "A destroyed building will be restored the next morning with 50% HP. Each following morning, it recovers another 50% of its Max HP.\n\nWhile a building is below 100% HP, its events cost Cultists 5 additional HP."
+	},
+	{
 		id: "meat_bath_needed",
 		title: "Meat Bath",
 		body: "Your cultists need a Meat Bath to heal after battle. Build a Meat Bath, then assign wounded cultists to work there so they can recover before the next night."

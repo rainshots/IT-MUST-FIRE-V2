@@ -10,7 +10,6 @@ damage = BALANCE_ENEMY_MAGE_DAMAGE;
 magic_damage = BALANCE_ENEMY_MAGE_MAGIC_DAMAGE;
 reload_time = BALANCE_ENEMY_MAGE_RELOAD_TIME * room_speed;
 attack_radius = BALANCE_ENEMY_MAGE_ATTACK_RADIUS;
-cannon_attack_radius = BALANCE_ENEMY_MAGE_CANNON_ATTACK_RADIUS;
 move_speed = BALANCE_ENEMY_MAGE_MOVE_SPEED;
 
 // Melee damage periodically makes the Mage disengage from its attacker.

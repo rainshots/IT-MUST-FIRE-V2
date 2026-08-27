@@ -649,15 +649,6 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("archdem
 		var _drop_world_y = _mouse_world_y + cultist_drag_drop_offset_y;
 		var _assignment_world_y = _mouse_world_y;
 
-		if (unit_is_blocked_by_cannon_wall(_dragged_cultist))
-		{
-			var _clamped_position = cannon_wall_position_clamp(_drag_world_x, _drop_world_y);
-
-			_drag_world_x = _clamped_position[0];
-			_drop_world_y = _clamped_position[1];
-			_assignment_world_y = _drop_world_y;
-		}
-
 		// Keep dragged units inside the already revealed fog of war area.
 		if (!world_position_is_revealed_by_fog(_drag_world_x, _drop_world_y))
 		{
@@ -1174,8 +1165,14 @@ if (global.cheats_enabled)
 		}
 	}
 
-	// F2 adds prototype resources for fast construction testing.
+	// F2 toggles the Cannon's automatic projectile reaction to night damage.
 	if (keyboard_check_pressed(vk_f2))
+	{
+		global.cannon_damage_reaction_enabled = !global.cannon_damage_reaction_enabled;
+	}
+
+	// F7 adds prototype resources for fast construction testing.
+	if (keyboard_check_pressed(vk_f7))
 	{
 		resource_add(RESOURCES.FLESH, BALANCE_DEBUG_RESOURCE_CHEAT_AMOUNT);
 		resource_add(RESOURCES.SOULS, BALANCE_DEBUG_RESOURCE_CHEAT_AMOUNT);

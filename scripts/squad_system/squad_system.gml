@@ -925,24 +925,6 @@ function squad_drag_update(_squad, _target_x, _target_y)
 		return false;
 	}
 
-	var _boundary_unit = noone;
-
-	for (var _boundary_unit_index = 0; _boundary_unit_index < array_length(_squad.units); ++_boundary_unit_index)
-	{
-		if (instance_exists(_squad.units[_boundary_unit_index]))
-		{
-			_boundary_unit = _squad.units[_boundary_unit_index];
-			break;
-		}
-	}
-
-	if (instance_exists(_boundary_unit) && unit_is_blocked_by_cannon_wall(_boundary_unit))
-	{
-		var _clamped_position = cannon_wall_position_clamp(_target_x, _target_y);
-		_target_x = _clamped_position[0];
-		_target_y = _clamped_position[1];
-	}
-
 	if (!world_position_is_revealed_by_fog(_target_x, _target_y))
 	{
 		_target_x = _squad.properties.marker_x;
