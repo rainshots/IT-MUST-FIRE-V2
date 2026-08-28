@@ -24,6 +24,171 @@ function day_event_damaged_building_hp_cost_get(_event)
 	return _event.source_building.player_building_event_hp_cost_get();
 }
 
+function day_event_source_sprite_get(_event)
+{
+	if (!is_struct(_event))
+	{
+		return -1;
+	}
+
+	if (variable_struct_exists(_event, "source_sprite")
+		&& sprite_exists(_event.source_sprite))
+	{
+		return _event.source_sprite;
+	}
+
+	if (variable_struct_exists(_event, "source_building")
+		&& instance_exists(_event.source_building)
+		&& sprite_exists(_event.source_building.sprite_index))
+	{
+		return _event.source_building.sprite_index;
+	}
+
+	return -1;
+}
+
+function day_event_specialization_source_building_get(_event)
+{
+	if (!is_struct(_event)
+		|| variable_struct_exists(_event, "construction_site")
+		|| !variable_struct_exists(_event, "source_building")
+		|| !instance_exists(_event.source_building))
+	{
+		return noone;
+	}
+
+	var _source_building = _event.source_building;
+	var _source_object = _source_building.object_index;
+	var _is_player_building = _source_object == o_v13buildings_parent
+		|| object_is_ancestor(_source_object, o_v13buildings_parent);
+
+	return _is_player_building ? _source_building : noone;
+}
+
+function day_event_cultist_specialization_progress_add(_cultist, _event)
+{
+	if (!instance_exists(_cultist))
+	{
+		return false;
+	}
+
+	if (variable_instance_exists(_cultist, "specialization_building_object")
+		&& _cultist.specialization_building_object != noone)
+	{
+		return false;
+	}
+
+	var _source_building = day_event_specialization_source_building_get(_event);
+
+	if (!instance_exists(_source_building))
+	{
+		return false;
+	}
+
+	if (!variable_instance_exists(_cultist, "building_work_counts")
+		|| !is_array(_cultist.building_work_counts))
+	{
+		_cultist.building_work_counts = [];
+	}
+
+	var _building_object = _source_building.object_index;
+	var _building_work_counts = _cultist.building_work_counts;
+	var _building_work_count_entry = noone;
+	var _building_work_count_entry_count = array_length(_building_work_counts);
+
+	for (var _entry_index = 0;
+		_entry_index < _building_work_count_entry_count;
+		++_entry_index)
+	{
+		var _entry = _building_work_counts[_entry_index];
+
+		if (is_struct(_entry) && _entry.building_object == _building_object)
+		{
+			_building_work_count_entry = _entry;
+			break;
+		}
+	}
+
+	if (!is_struct(_building_work_count_entry))
+	{
+		_building_work_count_entry = {
+			building_object: _building_object,
+			work_count: 0
+		};
+		array_push(_cultist.building_work_counts, _building_work_count_entry);
+	}
+
+	_building_work_count_entry.work_count++;
+
+	if (_building_work_count_entry.work_count < BALANCE_CULTIST_SPECIALIZATION_WORK_COUNT)
+	{
+		return false;
+	}
+
+	var _building_name = variable_instance_exists(_source_building, "building_display_name")
+		? _source_building.building_display_name
+		: "";
+	var _building_sprite = variable_instance_exists(_source_building, "player_building_active_sprite")
+		? _source_building.player_building_active_sprite
+		: _source_building.sprite_index;
+
+	if (_building_name == "")
+	{
+		_building_name = string_replace_all(object_get_name(_building_object), "_", " ");
+	}
+
+	_cultist.specialization_building_object = _building_object;
+	_cultist.specialization_building_name = _building_name;
+	_cultist.specialization_building_sprite = sprite_exists(_building_sprite)
+		? _building_sprite
+		: noone;
+	return true;
+}
+
+function day_event_cultist_specialization_hp_discount_get(_cultist, _event)
+{
+	if (!instance_exists(_cultist)
+		|| !variable_instance_exists(_cultist, "specialization_building_object")
+		|| _cultist.specialization_building_object == noone)
+	{
+		return 0;
+	}
+
+	var _source_building = day_event_specialization_source_building_get(_event);
+
+	return instance_exists(_source_building)
+		&& _source_building.object_index == _cultist.specialization_building_object
+		? BALANCE_CULTIST_SPECIALIZATION_HP_DISCOUNT
+		: 0;
+}
+
+function day_event_cultist_work_history_add(_cultist, _event)
+{
+	if (!instance_exists(_cultist))
+	{
+		return false;
+	}
+
+	// Only real player buildings advance specialization; every source still appears in history.
+	day_event_cultist_specialization_progress_add(_cultist, _event);
+
+	var _source_sprite = day_event_source_sprite_get(_event);
+
+	if (!sprite_exists(_source_sprite))
+	{
+		return false;
+	}
+
+	if (!variable_instance_exists(_cultist, "work_history")
+		|| !is_array(_cultist.work_history))
+	{
+		_cultist.work_history = [];
+	}
+
+	array_push(_cultist.work_history, _source_sprite);
+	return true;
+}
+
 function day_event_add_first(_event)
 {
 	if (!is_struct(_event))
@@ -161,6 +326,21 @@ function day_event_cultist_damage_apply(_cultist, _amount, _release_assignment =
 	}
 
 	var _damage = max(0, _amount);
+	var _specialization_discount_remaining = variable_instance_exists(
+		_cultist,
+		"event_specialization_hp_discount_remaining"
+	)
+		? max(0, _cultist.event_specialization_hp_discount_remaining)
+		: 0;
+	var _specialization_discount = min(_damage, _specialization_discount_remaining);
+
+	// One specialization discount is shared by every HP cost within the current Rite.
+	if (_specialization_discount > 0)
+	{
+		_damage -= _specialization_discount;
+		_cultist.event_specialization_hp_discount_remaining -= _specialization_discount;
+	}
+
 	_cultist.hp -= _damage;
 
 	if (_cultist.hp <= 0)
@@ -1540,11 +1720,42 @@ function day_event_undying_devotion_cultist_store(_cultist)
 		? max(1, _cultist.max_hp)
 		: BALANCE_EVENT_CULTIST_MAX_HP;
 	var _sprite_index = _cultist.sprite_index;
+	var _work_history = variable_instance_exists(_cultist, "work_history")
+		&& is_array(_cultist.work_history)
+		? _cultist.work_history
+		: [];
+	var _building_work_counts = variable_instance_exists(_cultist, "building_work_counts")
+		&& is_array(_cultist.building_work_counts)
+		? _cultist.building_work_counts
+		: [];
+	var _specialization_building_object = variable_instance_exists(
+		_cultist,
+		"specialization_building_object"
+	)
+		? _cultist.specialization_building_object
+		: noone;
+	var _specialization_building_name = variable_instance_exists(
+		_cultist,
+		"specialization_building_name"
+	)
+		? _cultist.specialization_building_name
+		: "";
+	var _specialization_building_sprite = variable_instance_exists(
+		_cultist,
+		"specialization_building_sprite"
+	)
+		? _cultist.specialization_building_sprite
+		: noone;
 
 	array_push(global.blood_bath_undying_devotion_dead_cultists, {
 		cultist_name: _cultist_name,
 		max_hp: _max_hp,
-		sprite_index: _sprite_index
+		sprite_index: _sprite_index,
+		work_history: _work_history,
+		building_work_counts: _building_work_counts,
+		specialization_building_object: _specialization_building_object,
+		specialization_building_name: _specialization_building_name,
+		specialization_building_sprite: _specialization_building_sprite
 	});
 	return true;
 }
@@ -1655,6 +1866,30 @@ function day_event_undying_devotion_morning_apply()
 
 		_cultist.cultist_name = _cultist_data.cultist_name;
 		_cultist.sprite_index = _cultist_data.sprite_index;
+		_cultist.work_history = variable_struct_exists(_cultist_data, "work_history")
+			? _cultist_data.work_history
+			: [];
+		_cultist.building_work_counts = variable_struct_exists(_cultist_data, "building_work_counts")
+			? _cultist_data.building_work_counts
+			: [];
+		_cultist.specialization_building_object = variable_struct_exists(
+			_cultist_data,
+			"specialization_building_object"
+		)
+			? _cultist_data.specialization_building_object
+			: noone;
+		_cultist.specialization_building_name = variable_struct_exists(
+			_cultist_data,
+			"specialization_building_name"
+		)
+			? _cultist_data.specialization_building_name
+			: "";
+		_cultist.specialization_building_sprite = variable_struct_exists(
+			_cultist_data,
+			"specialization_building_sprite"
+		)
+			? _cultist_data.specialization_building_sprite
+			: noone;
 		_cultist.hp = min(
 			_cultist.max_hp,
 			BALANCE_BLOOD_BATH_UNDYING_DEVOTION_REVIVE_HP

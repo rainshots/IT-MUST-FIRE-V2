@@ -1,4 +1,6 @@
 // Cannon target selected by the player.
+sprite_index = cannon_satisfaction_sprite_get();
+image_index = 0;
 max_hp = BALANCE_CANNON_MAX_HP;
 hp = max_hp;
 // Units measure attack distance from this circular footprint around the pivot.

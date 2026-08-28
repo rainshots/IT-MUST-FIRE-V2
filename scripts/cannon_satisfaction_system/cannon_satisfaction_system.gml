@@ -52,6 +52,21 @@ function cannon_satisfaction_level_get()
 	return CANNON_SATISFACTION_LEVEL.SULKING;
 }
 
+function cannon_satisfaction_sprite_get(_level = cannon_satisfaction_level_get())
+{
+	switch (_level)
+	{
+		case CANNON_SATISFACTION_LEVEL.SULKING:
+			return s_cannon_angry;
+
+		case CANNON_SATISFACTION_LEVEL.ECSTATIC:
+		case CANNON_SATISFACTION_LEVEL.IT_MUST_FIRE:
+			return s_cannon_pleased;
+	}
+
+	return s_cannon_awake;
+}
+
 function cannon_satisfaction_level_name_get(_level = cannon_satisfaction_level_get())
 {
 	switch (_level)
@@ -141,6 +156,8 @@ function cannon_satisfaction_level_effects_refresh(_previous_level, _current_lev
 	if (instance_exists(o_cannon))
 	{
 		var _cannon = instance_find(o_cannon, 0);
+		_cannon.sprite_index = cannon_satisfaction_sprite_get(_current_level);
+		_cannon.image_index = 0;
 
 		if (variable_instance_exists(_cannon, "cannon_reload_satisfaction_recalculate"))
 		{

@@ -53,7 +53,7 @@ tutorial_items = [
 	{
 		id: "buildings",
 		title: "Buildings",
-		body: "You can build 1 building per day around the cannon. Each building provides 1 random job for your Cultists. The more buildings you have, the more jobs your Cultists will have!\n\nConstruction does not cost resources. Each selected building creates an Assign Duties event that requires 1 Cultist.\n\nJobs often reduce your Cultists’ HP. That’s why I recommend building a Blood Bath first, so you can heal their wounds."
+		body: "You can build 1 building per day around the cannon. Each building provides 1 random Rite for your Cultists. The more buildings you have, the more Rites your Cultists will have!\n\nConstruction does not cost resources. Each selected building creates an Assign Duties event that requires 1 Cultist.\n\nRites often reduce your Cultists’ HP. That’s why I recommend building a Blood Bath first, so you can heal their wounds."
 	},
 	{
 		id: "destroyed_player_building",

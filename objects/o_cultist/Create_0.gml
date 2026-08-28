@@ -3,6 +3,15 @@ cultist_name = "Cultist";
 max_hp = BALANCE_EVENT_CULTIST_MAX_HP;
 hp = max_hp;
 assigned_event = noone;
+// Completed Rite building sprites are stored oldest-first for the Assign Duties history.
+work_history = [];
+// Building work counts select one permanent specialization after three completed Rites.
+building_work_counts = [];
+specialization_building_object = noone;
+specialization_building_name = "";
+specialization_building_sprite = noone;
+// Event execution consumes this temporary discount across all HP costs in one Rite.
+event_specialization_hp_discount_remaining = 0;
 is_being_dragged = false;
 drag_drop_x = x;
 drag_drop_y = y;

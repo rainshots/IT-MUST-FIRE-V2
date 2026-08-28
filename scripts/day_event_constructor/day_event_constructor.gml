@@ -118,6 +118,22 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 			var _action_count = array_length(actions);
 			var _additional_hp_cost = cannon_satisfaction_event_hp_cost_get()
 				+ day_event_damaged_building_hp_cost_get(self);
+			var _activation_cultist_count = array_length(_activation_cultists);
+
+			// Existing specialists receive one shared discount before this Rite advances work history.
+			for (var _cultist_index = 0; _cultist_index < _activation_cultist_count; ++_cultist_index)
+			{
+				var _activation_cultist = _activation_cultists[_cultist_index];
+
+				if (instance_exists(_activation_cultist))
+				{
+					_activation_cultist.event_specialization_hp_discount_remaining =
+						day_event_cultist_specialization_hp_discount_get(_activation_cultist, self);
+				}
+
+				// Record before an action can transform or sacrifice its workers.
+				day_event_cultist_work_history_add(_activation_cultist, self);
+			}
 
 			for (var _action_index = 0; _action_index < _action_count; ++_action_index)
 			{
@@ -133,6 +149,19 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 			if (_additional_hp_cost > 0)
 			{
 				day_event_cultist_hp_cost_apply(_activation_cultists, _additional_hp_cost);
+			}
+
+			// Never let an unused Rite discount affect later damage such as the Whip.
+			for (var _discount_clear_index = 0;
+				_discount_clear_index < _activation_cultist_count;
+				++_discount_clear_index)
+			{
+				var _discount_clear_cultist = _activation_cultists[_discount_clear_index];
+
+				if (instance_exists(_discount_clear_cultist))
+				{
+					_discount_clear_cultist.event_specialization_hp_discount_remaining = 0;
+				}
 			}
 
 			activation_count++;

@@ -711,20 +711,33 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 					false
 				);
 
-				// Show the HP cost before a cultist is assigned, matching occupied slots.
-				var _empty_slot_hp_cost_text = jobs_event_empty_slot_hp_cost_text_get(_display_event);
+				// Show the Rite cost and every global or building modifier on separate rows.
+				var _empty_slot_hp_rows = jobs_event_empty_slot_hp_rows_get(_display_event);
 
-				if (_empty_slot_hp_cost_text != "")
+				if (array_length(_empty_slot_hp_rows) > 0)
 				{
 					draw_set_halign(fa_center);
 					draw_set_valign(fa_top);
 					draw_set_font(jobs_hp_font);
-					draw_set_color(COLOR_STATUS_NEGATIVE_RED);
-					draw_text(
-						_plus_center_x,
-						_slot_y + _slot_rect.height + (jobs_slot_hp_cost_offset_y * _layout.scale),
-						_empty_slot_hp_cost_text
-					);
+
+					for (var _hp_row_index = 0;
+						_hp_row_index < array_length(_empty_slot_hp_rows);
+						++_hp_row_index)
+					{
+						var _hp_row = _empty_slot_hp_rows[_hp_row_index];
+						var _hp_row_rect = jobs_hp_preview_row_rect_get(
+							_slot_rect,
+							_hp_row_index,
+							jobs_slot_hp_cost_offset_y
+						);
+						draw_set_color(_hp_row.color);
+						draw_text(
+							_hp_row_rect.x + (_hp_row_rect.width * 0.5),
+							_hp_row_rect.y,
+							_hp_row.text
+						);
+					}
+
 					draw_set_halign(fa_left);
 				}
 			}
@@ -966,20 +979,25 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 
 			if (_preview_slot_index >= 0)
 			{
-				var _hp_preview = jobs_event_cultist_hp_preview_get(_preview_event, _preview_slot_index, _cultist);
-				var _change_y = _cultist_rect.y + _cultist_rect.height + (13 * _layout.scale);
+				var _hp_rows_data = jobs_event_cultist_hp_rows_get(
+					_preview_event,
+					_preview_slot_index,
+					_cultist
+				);
+				var _hp_preview = _hp_rows_data.preview;
 
-				if (_hp_preview.hp_loss > 0)
+				for (var _hp_row_index = 0;
+					_hp_row_index < array_length(_hp_rows_data.rows);
+					++_hp_row_index)
 				{
-					draw_set_color(COLOR_STATUS_NEGATIVE_RED);
-					draw_text(_cultist_text_x, _change_y, "-" + string(round(_hp_preview.hp_loss)) + " HP");
-					_change_y += 12 * _layout.scale;
-				}
-
-				if (_hp_preview.hp_gain > 0)
-				{
-					draw_set_color(COLOR_HEALTH_BAR);
-					draw_text(_cultist_text_x, _change_y, "+" + string(round(_hp_preview.hp_gain)) + " HP");
+					var _hp_row = _hp_rows_data.rows[_hp_row_index];
+					var _hp_row_rect = jobs_hp_preview_row_rect_get(
+						_cultist_rect,
+						_hp_row_index,
+						jobs_assigned_hp_preview_offset_y
+					);
+					draw_set_color(_hp_row.color);
+					draw_text(_cultist_text_x, _hp_row_rect.y, _hp_row.text);
 				}
 
 				if (_hp_preview.loses_consciousness)
@@ -1325,6 +1343,10 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			);
 		}
 	}
+
+	// Keep contextual explanations above the Assign Duties window.
+	jobs_cultist_info_draw();
+	jobs_hp_modifier_tooltip_draw();
 
 }
 

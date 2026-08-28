@@ -38,6 +38,18 @@ jobs_icon_gap = 8;
 jobs_event_slot_y = 22;
 jobs_event_slot_step = 52;
 jobs_slot_hp_cost_offset_y = 10;
+jobs_assigned_hp_preview_offset_y = 13;
+jobs_hp_preview_row_step = 10;
+jobs_hp_preview_row_hover_width = 48;
+jobs_hp_modifier_tooltip_offset_y = 18;
+jobs_hp_modifier_tooltip_padding_x = 8;
+jobs_hp_modifier_tooltip_padding_y = 5;
+jobs_hp_modifier_tooltip_margin = 8;
+jobs_hp_modifier_tooltip_background_alpha = 0.94;
+jobs_hp_modifier_source_sulking = "Cannon is Sulking";
+jobs_hp_modifier_source_damaged_building = "Building was damaged during the night";
+jobs_hp_modifier_source_specialization = "Cultist specialization";
+jobs_hovered_hp_modifier_source = "";
 jobs_result_unit_icon_center_x = 400;
 jobs_result_unit_icon_center_y = 58;
 jobs_result_unit_icon_size = 68;
@@ -58,6 +70,17 @@ jobs_dragged_cultist = noone;
 jobs_drag_origin_event = noone;
 jobs_drag_origin_slot_index = -1;
 jobs_hovered_cultist = noone;
+// A stationary one-second hover opens a Cultist summary and completed-work history.
+jobs_cultist_info_hover_target = noone;
+jobs_cultist_info_cultist = noone;
+jobs_cultist_info_hover_frames = 0;
+jobs_cultist_info_hover_delay_seconds = 0.15;
+jobs_cultist_info_width = 250;
+jobs_cultist_info_header_height = 128;
+jobs_cultist_info_icon_size = 52;
+jobs_cultist_info_icon_gap = 8;
+jobs_cultist_info_padding = 12;
+jobs_cultist_info_margin = 12;
 // Assigned Cultists explain the RMB shortcut below the hover hand.
 jobs_unassign_hint_text = "RMB to unassign";
 jobs_unassign_hint_offset_y = 36;
@@ -119,7 +142,7 @@ jobs_onboarding_hints = [
 		arrow_angle: 0
 	},
 	{
-		text: "Each building gives one random Job per day.",
+		text: "Each building gives one random Rite per day.",
 		text_x: 839,
 		text_y: 164,
 		text_width: 228,
@@ -128,7 +151,7 @@ jobs_onboarding_hints = [
 		arrow_angle: 0
 	},
 	{
-		text: "If the required number of Cultists is assigned to the Job, it will be completed tomorrow morning.",
+		text: "If the required number of Cultists is assigned to the Rite, it will be completed tomorrow morning.",
 		text_x: 1123,
 		text_y: 620,
 		text_width: 250,
@@ -137,7 +160,7 @@ jobs_onboarding_hints = [
 		arrow_angle: 90
 	},
 	{
-		text: "You can pin 1 Job per day, so it will remain available tomorrow.\nYou can also reroll 1 Job per day.\nSome Jobs cannot be rerolled or pinned.",
+		text: "You can pin 1 Rite per day, so it will remain available tomorrow.\nYou can also reroll 1 Rite per day.\nSome Rites cannot be rerolled or pinned.",
 		text_x: 1625,
 		text_y: 620,
 		text_width: 250,
@@ -745,9 +768,6 @@ jobs_event_empty_slot_hp_cost_text_get = function(_event)
 		}
 	}
 
-	// A damaged settlement building adds its repair penalty to every event slot.
-	_fixed_hp_cost += day_event_damaged_building_hp_cost_get(_event);
-
 	if (_fixed_hp_cost > 0 && _hp_share_cost > 0)
 	{
 		return "-" + string(round(_fixed_hp_cost)) + " HP -" + string(round(_hp_share_cost * 100)) + "% HP";
@@ -789,6 +809,7 @@ jobs_event_cultist_hp_preview_get = function(_event, _slot_index, _cultist)
 	var _hp_loss = 0;
 	var _hp_gain = 0;
 	var _lethal_hp_loss = 0;
+	var _specialization_eligible_hp_loss = 0;
 
 	if (!is_struct(_event) || !instance_exists(_cultist))
 	{
@@ -796,6 +817,9 @@ jobs_event_cultist_hp_preview_get = function(_event, _slot_index, _cultist)
 			hp_change: 0,
 			hp_loss: 0,
 			hp_gain: 0,
+			sulking_hp_cost: 0,
+			damaged_building_hp_cost: 0,
+			specialization_hp_discount: 0,
 			loses_consciousness: false
 		};
 	}
@@ -816,6 +840,7 @@ jobs_event_cultist_hp_preview_get = function(_event, _slot_index, _cultist)
 			var _hp_cost = max(0, _action.data.hp_cost);
 			_hp_loss += _hp_cost;
 			_lethal_hp_loss += _hp_cost;
+			_specialization_eligible_hp_loss += _hp_cost;
 		}
 
 		if (variable_struct_exists(_action, "data")
@@ -825,6 +850,7 @@ jobs_event_cultist_hp_preview_get = function(_event, _slot_index, _cultist)
 			var _hp_share_cost = _cultist.max_hp * max(0, _action.data.hp_share);
 			_hp_loss += _hp_share_cost;
 			_lethal_hp_loss += _hp_share_cost;
+			_specialization_eligible_hp_loss += _hp_share_cost;
 		}
 
 		switch (_action.action_type)
@@ -879,6 +905,7 @@ jobs_event_cultist_hp_preview_get = function(_event, _slot_index, _cultist)
 						{
 							_hp_loss += BALANCE_BLOOD_TRANSFUSION_HEALTHY_DAMAGE;
 							_lethal_hp_loss += BALANCE_BLOOD_TRANSFUSION_HEALTHY_DAMAGE;
+							_specialization_eligible_hp_loss += BALANCE_BLOOD_TRANSFUSION_HEALTHY_DAMAGE;
 						}
 						else
 						{
@@ -894,6 +921,7 @@ jobs_event_cultist_hp_preview_get = function(_event, _slot_index, _cultist)
 			case "harden_the_vessel":
 				_hp_loss += BALANCE_HARDEN_VESSEL_DAMAGE;
 				_lethal_hp_loss += BALANCE_HARDEN_VESSEL_DAMAGE;
+				_specialization_eligible_hp_loss += BALANCE_HARDEN_VESSEL_DAMAGE;
 
 				var _hardened_hp = _cultist.hp - _lethal_hp_loss;
 
@@ -909,11 +937,13 @@ jobs_event_cultist_hp_preview_get = function(_event, _slot_index, _cultist)
 			case "the_bath_demands_a_name":
 				_hp_loss += BALANCE_BATH_DEMANDS_NAME_DAMAGE;
 				_lethal_hp_loss += BALANCE_BATH_DEMANDS_NAME_DAMAGE;
+				_specialization_eligible_hp_loss += BALANCE_BATH_DEMANDS_NAME_DAMAGE;
 				break;
 
 			case "blood_for_blood":
 				_hp_loss += BALANCE_BLOOD_FOR_BLOOD_DAMAGE;
 				_lethal_hp_loss += BALANCE_BLOOD_FOR_BLOOD_DAMAGE;
+				_specialization_eligible_hp_loss += BALANCE_BLOOD_FOR_BLOOD_DAMAGE;
 				break;
 
 			case "blood_warpaint":
@@ -934,18 +964,147 @@ jobs_event_cultist_hp_preview_get = function(_event, _slot_index, _cultist)
 		}
 	}
 
-	// Global sulking and a damaged source building add visible HP costs to every slot.
+	// Keep global and building costs separate from the Rite's own HP effect for the UI.
 	var _sulking_hp_cost = cannon_satisfaction_event_hp_cost_get();
 	var _damaged_building_hp_cost = day_event_damaged_building_hp_cost_get(_event);
 	var _additional_hp_cost = _sulking_hp_cost + _damaged_building_hp_cost;
-	_hp_loss += _additional_hp_cost;
 	_lethal_hp_loss += _additional_hp_cost;
+	_specialization_eligible_hp_loss += _additional_hp_cost;
+	var _specialization_hp_discount = min(
+		day_event_cultist_specialization_hp_discount_get(_cultist, _event),
+		_specialization_eligible_hp_loss
+	);
+	var _total_hp_loss = _hp_loss + _additional_hp_cost;
 
 	return {
-		hp_change: _hp_gain - _hp_loss,
+		hp_change: _hp_gain + _specialization_hp_discount - _total_hp_loss,
 		hp_loss: _hp_loss,
 		hp_gain: _hp_gain,
-		loses_consciousness: _cultist.hp - _lethal_hp_loss <= 0
+		sulking_hp_cost: _sulking_hp_cost,
+		damaged_building_hp_cost: _damaged_building_hp_cost,
+		specialization_hp_discount: _specialization_hp_discount,
+		loses_consciousness: _cultist.hp
+			- max(0, _lethal_hp_loss - _specialization_hp_discount) <= 0
+	};
+};
+
+jobs_event_empty_slot_hp_rows_get = function(_event)
+{
+	var _rows = [];
+	var _event_hp_text = jobs_event_empty_slot_hp_cost_text_get(_event);
+
+	// The Rite's own HP cost is always the first, unmodified row.
+	if (_event_hp_text != "")
+	{
+		array_push(_rows, {
+			text: _event_hp_text,
+			color: COLOR_STATUS_NEGATIVE_RED,
+			source: ""
+		});
+	}
+
+	var _sulking_hp_cost = cannon_satisfaction_event_hp_cost_get();
+
+	if (_sulking_hp_cost > 0)
+	{
+		array_push(_rows, {
+			text: "-" + string(round(_sulking_hp_cost)) + " HP",
+			color: COLOR_STATUS_NEGATIVE_RED,
+			source: jobs_hp_modifier_source_sulking
+		});
+	}
+
+	var _damaged_building_hp_cost = day_event_damaged_building_hp_cost_get(_event);
+
+	if (_damaged_building_hp_cost > 0)
+	{
+		array_push(_rows, {
+			text: "-" + string(round(_damaged_building_hp_cost)) + " HP",
+			color: COLOR_STATUS_NEGATIVE_RED,
+			source: jobs_hp_modifier_source_damaged_building
+		});
+	}
+
+	return _rows;
+};
+
+jobs_event_cultist_hp_rows_get = function(_event, _slot_index, _cultist)
+{
+	var _preview = jobs_event_cultist_hp_preview_get(_event, _slot_index, _cultist);
+	var _rows = [];
+
+	// Base Rite HP changes are followed by every independent modifier.
+	if (_preview.hp_loss > 0)
+	{
+		array_push(_rows, {
+			text: "-" + string(round(_preview.hp_loss)) + " HP",
+			color: COLOR_STATUS_NEGATIVE_RED,
+			source: ""
+		});
+	}
+
+	if (_preview.hp_gain > 0)
+	{
+		array_push(_rows, {
+			text: "+" + string(round(_preview.hp_gain)) + " HP",
+			color: COLOR_HEALTH_BAR,
+			source: ""
+		});
+	}
+
+	if (_preview.sulking_hp_cost > 0)
+	{
+		array_push(_rows, {
+			text: "-" + string(round(_preview.sulking_hp_cost)) + " HP",
+			color: COLOR_STATUS_NEGATIVE_RED,
+			source: jobs_hp_modifier_source_sulking
+		});
+	}
+
+	if (_preview.damaged_building_hp_cost > 0)
+	{
+		array_push(_rows, {
+			text: "-" + string(round(_preview.damaged_building_hp_cost)) + " HP",
+			color: COLOR_STATUS_NEGATIVE_RED,
+			source: jobs_hp_modifier_source_damaged_building
+		});
+	}
+
+	if (_preview.specialization_hp_discount > 0)
+	{
+		array_push(_rows, {
+			text: "+" + string(round(_preview.specialization_hp_discount)) + " HP",
+			color: COLOR_HEALTH_BAR,
+			source: jobs_hp_modifier_source_specialization
+		});
+	}
+
+	return {
+		preview: _preview,
+		rows: _rows
+	};
+};
+
+jobs_hp_preview_row_rect_get = function(_slot_rect, _row_index, _offset_y)
+{
+	if (!is_struct(_slot_rect))
+	{
+		return noone;
+	}
+
+	var _layout = jobs_layout_get();
+	var _row_step = jobs_hp_preview_row_step * _layout.scale;
+	var _row_width = jobs_hp_preview_row_hover_width * _layout.scale;
+	var _row_y = _slot_rect.y
+		+ _slot_rect.height
+		+ (_offset_y * _layout.scale)
+		+ (_row_index * _row_step);
+
+	return {
+		x: _slot_rect.x + (_slot_rect.width * 0.5) - (_row_width * 0.5),
+		y: _row_y,
+		width: _row_width,
+		height: _row_step
 	};
 };
 
@@ -1128,6 +1287,434 @@ jobs_cultist_rect_get = function(_cultist)
 	return noone;
 };
 
+jobs_hp_modifier_hover_update = function(_mouse_x, _mouse_y)
+{
+	jobs_hovered_hp_modifier_source = "";
+	var _event_viewport = jobs_event_viewport_get();
+	var _mouse_is_over_event_viewport = point_in_rectangle(
+		_mouse_x,
+		_mouse_y,
+		_event_viewport.x,
+		_event_viewport.y,
+		_event_viewport.x + _event_viewport.width,
+		_event_viewport.y + _event_viewport.height
+	);
+
+	if (!_mouse_is_over_event_viewport)
+	{
+		return false;
+	}
+
+	// Match the rows currently drawn for every occupied or empty event slot.
+	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
+	{
+		var _event = global.day_events[_event_index];
+
+		if (!is_struct(_event))
+		{
+			continue;
+		}
+
+		var _display_event = _event;
+		var _reroll_preview_is_active = jobs_hovered_event_action_key
+			== jobs_event_action_key_get(_event, "reroll")
+			&& variable_struct_exists(_event, "reroll_preview_event")
+			&& is_struct(_event.reroll_preview_event);
+
+		if (_reroll_preview_is_active)
+		{
+			_display_event = _event.reroll_preview_event;
+		}
+
+		if (!variable_struct_exists(_display_event, "assigned_cultists")
+			|| !is_array(_display_event.assigned_cultists))
+		{
+			continue;
+		}
+
+		var _slot_count = _display_event.cultist_cost * _display_event.activation_limit;
+		var _assigned_count = array_length(_display_event.assigned_cultists);
+
+		for (var _slot_index = 0; _slot_index < _slot_count; ++_slot_index)
+		{
+			var _slot_rect = jobs_event_slot_rect_get(_event_index, _slot_index, _slot_count);
+			var _rows = [];
+			var _row_offset_y = jobs_slot_hp_cost_offset_y;
+
+			if (_slot_index < _assigned_count)
+			{
+				var _cultist = _display_event.assigned_cultists[_slot_index];
+
+				if (!instance_exists(_cultist))
+				{
+					continue;
+				}
+
+				var _hp_rows = jobs_event_cultist_hp_rows_get(_display_event, _slot_index, _cultist);
+				_rows = _hp_rows.rows;
+				_row_offset_y = jobs_assigned_hp_preview_offset_y;
+			}
+			else
+			{
+				_rows = jobs_event_empty_slot_hp_rows_get(_display_event);
+			}
+
+			for (var _row_index = 0; _row_index < array_length(_rows); ++_row_index)
+			{
+				var _row = _rows[_row_index];
+
+				if (!is_struct(_row) || _row.source == "")
+				{
+					continue;
+				}
+
+				var _row_rect = jobs_hp_preview_row_rect_get(
+					_slot_rect,
+					_row_index,
+					_row_offset_y
+				);
+
+				if (point_in_rectangle(
+					_mouse_x,
+					_mouse_y,
+					_row_rect.x,
+					_row_rect.y,
+					_row_rect.x + _row_rect.width,
+					_row_rect.y + _row_rect.height
+				))
+				{
+					jobs_hovered_hp_modifier_source = _row.source;
+					return true;
+				}
+			}
+		}
+	}
+
+	return false;
+};
+
+jobs_hp_modifier_tooltip_draw = function()
+{
+	if (jobs_hovered_hp_modifier_source == "")
+	{
+		return false;
+	}
+
+	var _layout = jobs_layout_get();
+	var _scale = max(0.01, _layout.scale);
+	var _padding_x = jobs_hp_modifier_tooltip_padding_x * _scale;
+	var _padding_y = jobs_hp_modifier_tooltip_padding_y * _scale;
+	var _margin = jobs_hp_modifier_tooltip_margin * _scale;
+	var _offset_y = jobs_hp_modifier_tooltip_offset_y * _scale;
+	var _mouse_x = device_mouse_x_to_gui(0);
+	var _mouse_y = device_mouse_y_to_gui(0);
+	var _gui_width = display_get_gui_width();
+	var _gui_height = display_get_gui_height();
+
+	draw_set_font(jobs_hp_font);
+	var _tooltip_width = (string_width(jobs_hovered_hp_modifier_source) * _scale)
+		+ (_padding_x * 2);
+	var _tooltip_height = (string_height(jobs_hovered_hp_modifier_source) * _scale)
+		+ (_padding_y * 2);
+	var _tooltip_x = clamp(
+		_mouse_x - (_tooltip_width * 0.5),
+		_margin,
+		max(_margin, _gui_width - _tooltip_width - _margin)
+	);
+	var _tooltip_y = _mouse_y + _offset_y;
+
+	if (_tooltip_y + _tooltip_height > _gui_height - _margin)
+	{
+		_tooltip_y = _mouse_y - _tooltip_height - _offset_y;
+	}
+
+	_tooltip_y = clamp(
+		_tooltip_y,
+		_margin,
+		max(_margin, _gui_height - _tooltip_height - _margin)
+	);
+
+	// Draw the source explanation next to the hovered modifier line.
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_alpha(jobs_hp_modifier_tooltip_background_alpha);
+	draw_set_color(COLOR_JOBS_ASSIGN_BACKGROUND);
+	draw_rectangle(
+		_tooltip_x,
+		_tooltip_y,
+		_tooltip_x + _tooltip_width,
+		_tooltip_y + _tooltip_height,
+		false
+	);
+	draw_set_alpha(1);
+	draw_set_color(COLOR_JOBS_SLOT_BORDER);
+	draw_rectangle(
+		_tooltip_x,
+		_tooltip_y,
+		_tooltip_x + _tooltip_width,
+		_tooltip_y + _tooltip_height,
+		true
+	);
+	draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+	draw_text_transformed(
+		_tooltip_x + _padding_x,
+		_tooltip_y + _padding_y,
+		jobs_hovered_hp_modifier_source,
+		_scale,
+		_scale,
+		0
+	);
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+	return true;
+};
+
+jobs_cultist_info_reset = function()
+{
+	jobs_cultist_info_hover_target = noone;
+	jobs_cultist_info_cultist = noone;
+	jobs_cultist_info_hover_frames = 0;
+};
+
+jobs_cultist_info_hover_update = function(_cultist)
+{
+	var _mouse_button_down = mouse_check_button(mb_left)
+		|| mouse_check_button(mb_right);
+
+	if (!instance_exists(_cultist) || _mouse_button_down)
+	{
+		jobs_cultist_info_reset();
+		return false;
+	}
+
+	if (jobs_cultist_info_hover_target != _cultist)
+	{
+		jobs_cultist_info_hover_target = _cultist;
+		jobs_cultist_info_cultist = noone;
+		jobs_cultist_info_hover_frames = 1;
+		return false;
+	}
+
+	var _hover_delay_frames = max(
+		1,
+		round(jobs_cultist_info_hover_delay_seconds * room_speed)
+	);
+	jobs_cultist_info_hover_frames = min(
+		jobs_cultist_info_hover_frames + 1,
+		_hover_delay_frames
+	);
+
+	if (jobs_cultist_info_hover_frames >= _hover_delay_frames)
+	{
+		jobs_cultist_info_cultist = _cultist;
+		return true;
+	}
+
+	return false;
+};
+
+jobs_cultist_info_draw = function()
+{
+	var _cultist = jobs_cultist_info_cultist;
+
+	if (!instance_exists(_cultist))
+	{
+		return false;
+	}
+
+	var _cultist_rect = jobs_cultist_rect_get(_cultist);
+
+	if (!is_struct(_cultist_rect))
+	{
+		return false;
+	}
+
+	var _layout = jobs_layout_get();
+	var _scale = max(0.01, _layout.scale);
+	var _gui_width = display_get_gui_width();
+	var _gui_height = display_get_gui_height();
+	var _margin = jobs_cultist_info_margin * _scale;
+	var _padding = jobs_cultist_info_padding * _scale;
+	var _header_height = jobs_cultist_info_header_height * _scale;
+	var _icon_size = jobs_cultist_info_icon_size * _scale;
+	var _icon_gap = jobs_cultist_info_icon_gap * _scale;
+	var _history = variable_instance_exists(_cultist, "work_history")
+		&& is_array(_cultist.work_history)
+		? _cultist.work_history
+		: [];
+	var _history_count = array_length(_history);
+	var _available_history_height = max(
+		_icon_size,
+		_gui_height - (_margin * 2) - _header_height - (_padding * 2)
+	);
+	var _max_rows = max(
+		1,
+		floor((_available_history_height + _icon_gap) / (_icon_size + _icon_gap))
+	);
+	var _row_count = _history_count > 0 ? min(_history_count, _max_rows) : 1;
+	var _column_count = _history_count > 0 ? ceil(_history_count / _max_rows) : 1;
+	var _history_width = (_column_count * _icon_size)
+		+ (max(0, _column_count - 1) * _icon_gap);
+	var _panel_width = max(jobs_cultist_info_width * _scale, _history_width + (_padding * 2));
+	var _history_height = (_row_count * _icon_size)
+		+ (max(0, _row_count - 1) * _icon_gap);
+	var _panel_height = _header_height + _history_height + (_padding * 2);
+	var _panel_right = _layout.panel_x - _margin;
+	var _panel_x = clamp(
+		_panel_right - _panel_width,
+		_margin,
+		max(_margin, _gui_width - _panel_width - _margin)
+	);
+	var _panel_y = clamp(
+		_cultist_rect.y,
+		_margin,
+		max(_margin, _gui_height - _panel_height - _margin)
+	);
+	var _content_x = _panel_x + _padding;
+	var _history_y = _panel_y + _header_height + _padding;
+	var _cultist_name = _cultist.cultist_name == "" ? "Unnamed" : _cultist.cultist_name;
+	var _hp_text = "HP: " + string(max(0, ceil(_cultist.hp)))
+		+ "/" + string(ceil(_cultist.max_hp));
+	var _status_text = "Available";
+	var _status_color = COLOR_HEALTH_BAR;
+	var _specialization_name = "None";
+	var _specialization_color = COLOR_HUD_PROJECTILE_DESCRIPTION;
+
+	if (variable_instance_exists(_cultist, "is_unconscious") && _cultist.is_unconscious)
+	{
+		_status_text = "Unconscious";
+		_status_color = COLOR_STATUS_NEGATIVE_RED;
+	}
+	else if (variable_instance_exists(_cultist, "assigned_event")
+		&& is_struct(_cultist.assigned_event))
+	{
+		_status_text = "Assigned";
+		_status_color = COLOR_JOBS_EVENT_ACTION;
+	}
+
+	if (variable_instance_exists(_cultist, "specialization_building_object")
+		&& _cultist.specialization_building_object != noone
+		&& variable_instance_exists(_cultist, "specialization_building_name")
+		&& _cultist.specialization_building_name != "")
+	{
+		_specialization_name = _cultist.specialization_building_name;
+		_specialization_color = COLOR_HEALTH_BAR;
+	}
+
+	// Draw the summary above a newest-first, top-to-bottom work history.
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_alpha(0.96);
+	draw_set_color(COLOR_JOBS_ASSIGN_BACKGROUND);
+	draw_rectangle(
+		_panel_x,
+		_panel_y,
+		_panel_x + _panel_width,
+		_panel_y + _panel_height,
+		false
+	);
+	draw_set_alpha(1);
+	draw_set_color(COLOR_JOBS_SLOT_BORDER);
+	draw_rectangle(
+		_panel_x,
+		_panel_y,
+		_panel_x + _panel_width,
+		_panel_y + _panel_height,
+		true
+	);
+
+	draw_set_font(jobs_action_font);
+	draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+	draw_text(_content_x, _panel_y + _padding, _cultist_name);
+	draw_set_font(jobs_hp_font);
+	draw_text(_content_x, _panel_y + (_padding + (26 * _scale)), _hp_text);
+	draw_set_color(_status_color);
+	draw_text(_content_x, _panel_y + (_padding + (46 * _scale)), _status_text);
+	draw_set_color(_specialization_color);
+	draw_text(
+		_content_x,
+		_panel_y + (_padding + (66 * _scale)),
+		"Specialization: " + _specialization_name
+	);
+	draw_set_color(COLOR_JOBS_EVENT_ACTION);
+	draw_text(_content_x, _panel_y + (_header_height - (24 * _scale)), "WORK HISTORY - NEWEST FIRST");
+
+	if (_history_count <= 0)
+	{
+		draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+		draw_text(_content_x, _history_y + (16 * _scale), "No completed Rites yet.");
+	}
+	else
+	{
+		for (var _display_index = 0; _display_index < _history_count; ++_display_index)
+		{
+			var _history_index = _history_count - 1 - _display_index;
+			var _building_sprite = _history[_history_index];
+			var _column = floor(_display_index / _max_rows);
+			var _row = _display_index mod _max_rows;
+			var _icon_x = _content_x + (_column * (_icon_size + _icon_gap));
+			var _icon_y = _history_y + (_row * (_icon_size + _icon_gap));
+
+			draw_set_alpha(0.72);
+			draw_set_color(COLOR_HUD_BACKGROUND);
+			draw_rectangle(
+				_icon_x,
+				_icon_y,
+				_icon_x + _icon_size,
+				_icon_y + _icon_size,
+				false
+			);
+			draw_set_alpha(1);
+			draw_set_color(COLOR_JOBS_SLOT_BORDER);
+			draw_rectangle(
+				_icon_x,
+				_icon_y,
+				_icon_x + _icon_size,
+				_icon_y + _icon_size,
+				true
+			);
+
+			if (sprite_exists(_building_sprite))
+			{
+				var _sprite_width = max(1, sprite_get_width(_building_sprite));
+				var _sprite_height = max(1, sprite_get_height(_building_sprite));
+				var _available_icon_size = max(1, _icon_size - (8 * _scale));
+				var _sprite_scale = min(
+					_available_icon_size / _sprite_width,
+					_available_icon_size / _sprite_height
+				);
+				var _icon_center_x = _icon_x + (_icon_size * 0.5);
+				var _icon_center_y = _icon_y + (_icon_size * 0.5);
+				var _sprite_x = _icon_center_x
+					+ ((sprite_get_xoffset(_building_sprite) - (_sprite_width * 0.5)) * _sprite_scale);
+				var _sprite_y = _icon_center_y
+					+ ((sprite_get_yoffset(_building_sprite) - (_sprite_height * 0.5)) * _sprite_scale);
+
+				draw_sprite_ext(
+					_building_sprite,
+					0,
+					_sprite_x,
+					_sprite_y,
+					_sprite_scale,
+					_sprite_scale,
+					0,
+					c_white,
+					1
+				);
+			}
+		}
+	}
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+	return true;
+};
+
 jobs_window_open = function()
 {
 	if (global.day_phase != DAY_PHASE.DAY || global.focus_window != FOCUS_WINDOW.NOONE)
@@ -1139,11 +1726,13 @@ jobs_window_open = function()
 	jobs_drag_origin_event = noone;
 	jobs_drag_origin_slot_index = -1;
 	jobs_hovered_cultist = noone;
+	jobs_hovered_hp_modifier_source = "";
 	jobs_hovered_empty_slot_key = "";
 	jobs_hovered_event_action_key = "";
 	jobs_squad_selector_event = noone;
 	jobs_scroll_offset = 0;
 	jobs_whip_hovered = false;
+	jobs_cultist_info_reset();
 
 	if (instance_exists(jobs_whip))
 	{
@@ -1179,10 +1768,12 @@ jobs_window_close = function()
 	jobs_drag_origin_event = noone;
 	jobs_drag_origin_slot_index = -1;
 	jobs_hovered_cultist = noone;
+	jobs_hovered_hp_modifier_source = "";
 	jobs_hovered_empty_slot_key = "";
 	jobs_hovered_event_action_key = "";
 	jobs_squad_selector_event = noone;
 	jobs_whip_hovered = false;
+	jobs_cultist_info_reset();
 
 	if (instance_exists(jobs_whip))
 	{

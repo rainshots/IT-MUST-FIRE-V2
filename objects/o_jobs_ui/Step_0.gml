@@ -6,8 +6,18 @@ var _confirmation_cancel_hovered_now = false;
 var _confirmation_end_hovered_now = false;
 var _hovered_empty_slot_key_now = "";
 var _hovered_event_action_key_now = "";
+var _cultist_info_hovered_now = noone;
 jobs_hovered_cultist = noone;
 jobs_whip_hovered = false;
+jobs_hovered_hp_modifier_source = "";
+
+// Any mouse action or inactive window closes the delayed Cultist information card.
+if (global.focus_window != FOCUS_WINDOW.JOBS
+	|| mouse_check_button(mb_left)
+	|| mouse_check_button(mb_right))
+{
+	jobs_cultist_info_reset();
+}
 
 if (instance_exists(jobs_whip)
 	&& jobs_whip.is_held
@@ -19,6 +29,7 @@ if (instance_exists(jobs_whip)
 // Tutorial popups block Assign Duties input while they are visible above the window.
 if (variable_global_exists("tutorial_popup_active") && global.tutorial_popup_active)
 {
+	jobs_cultist_info_reset();
 	exit;
 }
 
@@ -357,8 +368,10 @@ for (var _cultist_index = array_length(global.event_cultists) - 1; _cultist_inde
 		&& (!variable_instance_exists(_cultist, "is_unconscious") || !_cultist.is_unconscious);
 	var _cultist_can_be_hovered = _cultist_is_conscious
 		&& (!_cultist_is_in_scroll_list || _mouse_is_over_event_viewport);
+	var _cultist_can_show_info = !_cultist_is_in_scroll_list
+		|| _mouse_is_over_event_viewport;
 
-	if (_cultist_can_be_hovered
+	if (_cultist_can_show_info
 		&& is_struct(_cultist_rect)
 		&& point_in_rectangle(
 			_mouse_x,
@@ -369,10 +382,19 @@ for (var _cultist_index = array_length(global.event_cultists) - 1; _cultist_inde
 			_cultist_rect.y + _cultist_rect.height
 		))
 	{
-		jobs_hovered_cultist = _cultist;
+		_cultist_info_hovered_now = _cultist;
+
+		if (_cultist_can_be_hovered)
+		{
+			jobs_hovered_cultist = _cultist;
+		}
+
 		break;
 	}
 }
+
+jobs_cultist_info_hover_update(_cultist_info_hovered_now);
+jobs_hp_modifier_hover_update(_mouse_x, _mouse_y);
 
 if (_hovered_empty_slot_key_now != ""
 	&& _hovered_empty_slot_key_now != jobs_hovered_empty_slot_key

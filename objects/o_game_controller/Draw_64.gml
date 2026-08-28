@@ -3134,7 +3134,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_EVENTS)
 	draw_text_transformed(
 		_panel_x + (_panel_width * 0.5),
 		_panel_y + (95 * _scale),
-		"ALL POSSIBLE JOBS",
+		"ALL POSSIBLE RITES",
 		_scale,
 		_scale,
 		0
@@ -3302,7 +3302,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_EVENTS)
 				draw_text_transformed(
 					_card_x + _event_width + (16 * _scale),
 					_card_y + (_event_height * 0.5),
-					"Current job",
+					"Current Rite",
 					_scale,
 					_scale,
 					0
