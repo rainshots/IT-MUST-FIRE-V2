@@ -1417,6 +1417,9 @@
     {"name":"inst_12334B25","path":"rooms/Room1/Room1.yy",},
     {"name":"inst_31C82C60","path":"rooms/Room1/Room1.yy",},
     {"name":"inst_3F841771","path":"rooms/Room1/Room1.yy",},
+    {"name":"inst_71F6A873","path":"rooms/Room1/Room1.yy",},
+    {"name":"inst_555280CC","path":"rooms/Room1/Room1.yy",},
+    {"name":"inst_7EED8FB4","path":"rooms/Room1/Room1.yy",},
   ],
   "isDnd":false,
   "layers":[
@@ -2866,6 +2869,9 @@
         {"$GMRInstance":"v4","%Name":"inst_12334B25","colour":4294967295,"frozen":false,"hasCreationCode":false,"ignore":false,"imageIndex":0,"imageSpeed":1.0,"inheritCode":false,"inheritedItemId":null,"inheritItemSettings":false,"isDnd":false,"name":"inst_12334B25","objectId":{"name":"o_trap_point","path":"objects/o_trap_point/o_trap_point.yy",},"properties":[],"resourceType":"GMRInstance","resourceVersion":"2.0","rotation":0.0,"scaleX":1.0,"scaleY":1.0,"x":7514.0,"y":9366.0,},
         {"$GMRInstance":"v4","%Name":"inst_31C82C60","colour":4294967295,"frozen":false,"hasCreationCode":false,"ignore":false,"imageIndex":0,"imageSpeed":1.0,"inheritCode":false,"inheritedItemId":null,"inheritItemSettings":false,"isDnd":false,"name":"inst_31C82C60","objectId":{"name":"o_trap_point","path":"objects/o_trap_point/o_trap_point.yy",},"properties":[],"resourceType":"GMRInstance","resourceVersion":"2.0","rotation":0.0,"scaleX":1.0,"scaleY":1.0,"x":9800.0,"y":7800.0,},
         {"$GMRInstance":"v4","%Name":"inst_3F841771","colour":4294967295,"frozen":false,"hasCreationCode":false,"ignore":false,"imageIndex":0,"imageSpeed":1.0,"inheritCode":false,"inheritedItemId":null,"inheritItemSettings":false,"isDnd":false,"name":"inst_3F841771","objectId":{"name":"o_trap_point","path":"objects/o_trap_point/o_trap_point.yy",},"properties":[],"resourceType":"GMRInstance","resourceVersion":"2.0","rotation":0.0,"scaleX":1.0,"scaleY":1.0,"x":7858.0,"y":5721.0,},
+        {"$GMRInstance":"v4","%Name":"inst_71F6A873","colour":4294967295,"frozen":false,"hasCreationCode":false,"ignore":false,"imageIndex":0,"imageSpeed":1.0,"inheritCode":false,"inheritedItemId":null,"inheritItemSettings":false,"isDnd":false,"name":"inst_71F6A873","objectId":{"name":"o_gold_mine","path":"objects/o_gold_mine/o_gold_mine.yy",},"properties":[],"resourceType":"GMRInstance","resourceVersion":"2.0","rotation":0.0,"scaleX":1.0,"scaleY":1.0,"x":6400.0,"y":5200.0,},
+        {"$GMRInstance":"v4","%Name":"inst_555280CC","colour":4294967295,"frozen":false,"hasCreationCode":false,"ignore":false,"imageIndex":0,"imageSpeed":1.0,"inheritCode":false,"inheritedItemId":null,"inheritItemSettings":false,"isDnd":false,"name":"inst_555280CC","objectId":{"name":"o_gold_mine","path":"objects/o_gold_mine/o_gold_mine.yy",},"properties":[],"resourceType":"GMRInstance","resourceVersion":"2.0","rotation":0.0,"scaleX":1.0,"scaleY":1.0,"x":10300.0,"y":7600.0,},
+        {"$GMRInstance":"v4","%Name":"inst_7EED8FB4","colour":4294967295,"frozen":false,"hasCreationCode":false,"ignore":false,"imageIndex":0,"imageSpeed":1.0,"inheritCode":false,"inheritedItemId":null,"inheritItemSettings":false,"isDnd":false,"name":"inst_7EED8FB4","objectId":{"name":"o_gold_mine","path":"objects/o_gold_mine/o_gold_mine.yy",},"properties":[],"resourceType":"GMRInstance","resourceVersion":"2.0","rotation":0.0,"scaleX":1.0,"scaleY":1.0,"x":8300.0,"y":8900.0,},
       ],"layers":[],"name":"Instances","properties":[],"resourceType":"GMRInstanceLayer","resourceVersion":"2.0","userdefinedDepth":false,"visible":true,},
     {"$GMRAssetLayer":"","%Name":"Assets_1","assets":[
         {"$GMRSpriteGraphic":"v1","%Name":"graphic_721B30C2","animationSpeed":1.0,"colour":4294967295,"frozen":false,"headPosition":0.0,"ignore":true,"inheritedItemId":null,"inheritItemSettings":false,"name":"graphic_721B30C2","resourceType":"GMRSpriteGraphic","resourceVersion":"2.0","rotation":0.0,"scaleX":1.0,"scaleY":1.0,"spriteId":{"name":"s_wall_top","path":"sprites/s_wall_top/s_wall_top.yy",},"x":7836.0,"y":7500.0,},

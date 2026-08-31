@@ -67,7 +67,8 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			|| target_projectile_type == PROJECTILE_TYPE.HEAL
 			|| target_projectile_type == PROJECTILE_TYPE.BOMB
 			|| target_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL
-			|| target_projectile_type == PROJECTILE_TYPE.DOOM_BELL)
+			|| target_projectile_type == PROJECTILE_TYPE.DOOM_BELL
+			|| target_projectile_type == PROJECTILE_TYPE.VACUUM)
 		{
 			_fired_projectile_count = 1;
 		}
@@ -94,7 +95,8 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 				|| target_projectile_type == PROJECTILE_TYPE.HEAL
 				|| target_projectile_type == PROJECTILE_TYPE.BOMB
 				|| target_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL
-				|| target_projectile_type == PROJECTILE_TYPE.DOOM_BELL)
+				|| target_projectile_type == PROJECTILE_TYPE.DOOM_BELL
+				|| target_projectile_type == PROJECTILE_TYPE.VACUUM)
 			{
 				_spread_target_x = target_x;
 				_spread_target_y = target_y;
@@ -159,6 +161,11 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			else if (target_projectile_type == PROJECTILE_TYPE.CORRUPTION)
 			{
 				_projectile.effect_radius = cannon_taint_compost_radius_get();
+				_projectile.projectile_sprite = s_taint_shell;
+			}
+			else if (target_projectile_type == PROJECTILE_TYPE.VACUUM)
+			{
+				_projectile.effect_radius = BALANCE_PROJECTILE_VACUUM_RADIUS;
 				_projectile.projectile_sprite = s_taint_shell;
 			}
 			else if (target_projectile_type == PROJECTILE_TYPE.DOOM_BELL)

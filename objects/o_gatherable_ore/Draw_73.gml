@@ -1,0 +1,1 @@
+draw_sprite(s_iron_icon, -1, x, y);

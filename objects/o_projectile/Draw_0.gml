@@ -49,6 +49,10 @@ else if (projectile_type == PROJECTILE_TYPE.DOOM_BELL)
 {
 	_projectile_color = COLOR_PROJECTILE_BOMB;
 }
+else if (projectile_type == PROJECTILE_TYPE.VACUUM)
+{
+	_projectile_color = COLOR_PROJECTILE_SUMMON;
+}
 
 // Factory shells use their authored sprites; other projectiles retain the round marker.
 if (projectile_sprite != noone)

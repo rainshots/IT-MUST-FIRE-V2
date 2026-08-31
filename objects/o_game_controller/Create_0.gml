@@ -3542,6 +3542,11 @@ projectile_target_selection_radius_get = function(_projectile_type)
 		return BALANCE_PROJECTILE_TAINT_COMPOST_RADIUS;
 	}
 
+	if (_projectile_type == PROJECTILE_TYPE.VACUUM)
+	{
+		return BALANCE_PROJECTILE_VACUUM_RADIUS;
+	}
+
 	if (_projectile_type == PROJECTILE_TYPE.CULTIST)
 	{
 		return BALANCE_CULTIST_PROJECTILE_EFFECT_RADIUS;
@@ -3587,7 +3592,8 @@ cannon_projectile_type_is_reusable = function(_projectile_type)
 
 cannon_projectile_type_can_fire_in_current_phase = function(_projectile_type)
 {
-	if (_projectile_type == PROJECTILE_TYPE.CORRUPTION)
+	if (_projectile_type == PROJECTILE_TYPE.CORRUPTION
+		|| _projectile_type == PROJECTILE_TYPE.VACUUM)
 	{
 		return global.day_phase == DAY_PHASE.DAY;
 	}
@@ -6797,7 +6803,11 @@ cannon_projectile_queue_type_count_get = function(_projectile_type)
 
 cannon_morning_projectile_target_count_get = function(_projectile_type)
 {
-	// Taint Compost is the only special shell that keeps a daily stockpile.
+	if (_projectile_type == PROJECTILE_TYPE.VACUUM)
+	{
+		return BALANCE_DEFAULT_MORNING_VACUUM_SHOT_LIMIT;
+	}
+
 	if (_projectile_type != PROJECTILE_TYPE.CORRUPTION)
 	{
 		return 0;
@@ -6865,21 +6875,26 @@ cannon_reusable_projectiles_ensure = function()
 
 cannon_morning_projectiles_refill = function()
 {
-	// Reusable shells are permanent choices; only Taint Compost is replenished by count.
+	// Reusable shells are permanent choices; daily shells are replenished by count.
 	var _added_count = cannon_reusable_projectiles_ensure();
-	var _projectile_type = PROJECTILE_TYPE.CORRUPTION;
-	var _target_count = cannon_morning_projectile_target_count_get(_projectile_type);
-	var _current_count = cannon_projectile_queue_type_count_get(_projectile_type);
-	var _missing_count = max(0, _target_count - _current_count);
+	var _daily_projectile_types = [PROJECTILE_TYPE.CORRUPTION, PROJECTILE_TYPE.VACUUM];
 
-	for (var _missing_index = 0; _missing_index < _missing_count; ++_missing_index)
+	for (var _daily_type_index = 0; _daily_type_index < array_length(_daily_projectile_types); ++_daily_type_index)
 	{
-		if (!cannon_projectile_queue_add(_projectile_type))
-		{
-			break;
-		}
+		var _projectile_type = _daily_projectile_types[_daily_type_index];
+		var _target_count = cannon_morning_projectile_target_count_get(_projectile_type);
+		var _current_count = cannon_projectile_queue_type_count_get(_projectile_type);
+		var _missing_count = max(0, _target_count - _current_count);
 
-		_added_count++;
+		for (var _missing_index = 0; _missing_index < _missing_count; ++_missing_index)
+		{
+			if (!cannon_projectile_queue_add(_projectile_type))
+			{
+				break;
+			}
+
+			_added_count++;
+		}
 	}
 
 	if (_added_count > 0)
@@ -11635,6 +11650,16 @@ start_day_phase = function()
 
 	day_event_generate_for_buildings();
 	global.day_phase = DAY_PHASE.DAY;
+
+	// Gold mines standing on corrupted ground produce gatherable ore each morning.
+	with (o_gold_mine)
+	{
+		if (is_on_corrupted_ground())
+		{
+			spawn_gatherable_ore();
+		}
+	}
+
 	night_fast_forward_set(false);
 	global.cannon_corpses_delivered_today = 0;
 	global.full_moon_night_active = false;

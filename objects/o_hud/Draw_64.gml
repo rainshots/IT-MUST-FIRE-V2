@@ -1725,6 +1725,11 @@ if (variable_global_exists("cannon_projectile_queue")
 			_projectile_color = COLOR_PROJECTILE_CORRUPTION;
 			_projectile_sprite = s_taint_shell;
 		}
+		else if (_projectile_type == PROJECTILE_TYPE.VACUUM)
+		{
+			_projectile_color = COLOR_PROJECTILE_SUMMON;
+			_projectile_sprite = s_taint_shell;
+		}
 		else if (_projectile_type == PROJECTILE_TYPE.SUMMON)
 		{
 			_projectile_color = COLOR_PROJECTILE_SUMMON;
@@ -1903,7 +1908,8 @@ if (variable_global_exists("cannon_projectile_queue")
 
 		// Only stockpiled shells show a quantity; reusable shells are governed by Cannon reload.
 		var _projectile_count_is_visible = _projectile_stack_count > 1
-			|| _projectile_type == PROJECTILE_TYPE.CORRUPTION;
+			|| _projectile_type == PROJECTILE_TYPE.CORRUPTION
+			|| _projectile_type == PROJECTILE_TYPE.VACUUM;
 
 		if (_projectile_count_is_visible)
 		{

@@ -112,6 +112,16 @@ if (_flight_progress >= 1)
 	{
 		corrupt_circle(target_x, target_y, effect_radius, ground_corruption_amount);
 	}
+	else if (projectile_type == PROJECTILE_TYPE.VACUUM)
+	{
+		with (o_gatherable_object)
+		{
+			if (point_distance(x, y, other.target_x, other.target_y) <= other.effect_radius)
+			{
+				is_sucked = true;
+			}
+		}
+	}
 	else if (projectile_type == PROJECTILE_TYPE.CLEANSE)
 	{
 		if (instance_exists(o_corruption_grid))
@@ -449,7 +459,8 @@ if (_flight_progress >= 1)
 		&& projectile_type != PROJECTILE_TYPE.BUILDING_SHELL
 		&& projectile_type != PROJECTILE_TYPE.CLEANSE
 		&& projectile_type != PROJECTILE_TYPE.ARTILLERY
-		&& projectile_type != PROJECTILE_TYPE.DOOM_BELL)
+		&& projectile_type != PROJECTILE_TYPE.DOOM_BELL
+		&& projectile_type != PROJECTILE_TYPE.VACUUM)
 	{
 		with (all)
 		{

@@ -1202,6 +1202,7 @@ projectile_names[PROJECTILE_TYPE.SKELETONS] = "SKELETONS";
 projectile_names[PROJECTILE_TYPE.BUILDING_SHELL] = "STRUCTURE";
 projectile_names[PROJECTILE_TYPE.CLEANSE] = "CLEANSE";
 projectile_names[PROJECTILE_TYPE.DOOM_BELL] = "DOOM BELL";
+projectile_names[PROJECTILE_TYPE.VACUUM] = "VACUUM SHOT";
 
 projectile_descriptions = array_create(PROJECTILE_TYPE.COUNT, "");
 projectile_descriptions[PROJECTILE_TYPE.DAMAGE] = "Damages units and buildings inside the impact area.";
@@ -1231,3 +1232,8 @@ projectile_descriptions[PROJECTILE_TYPE.DOOM_BELL] = "Stuns all enemies inside a
 	+ " pixel radius for "
 	+ string(BALANCE_PROJECTILE_DOOM_BELL_STUN_TIME)
 	+ " seconds. Deals no damage.";
+projectile_descriptions[PROJECTILE_TYPE.VACUUM] = "Day-only shell with "
+	+ string(BALANCE_DEFAULT_MORNING_VACUUM_SHOT_LIMIT)
+	+ " daily charges. Gatherable objects inside its "
+	+ string(BALANCE_PROJECTILE_VACUUM_RADIUS)
+	+ " pixel impact radius are pulled toward the Cannon.";

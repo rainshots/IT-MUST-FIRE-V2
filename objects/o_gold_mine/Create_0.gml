@@ -20,6 +20,28 @@ give_iron_reward = function(_iron_reward)
 	resource_popup_create(x, y - bar_offset_y, RESOURCES.IRON, _iron_reward);
 };
 
+spawn_gatherable_ore = function(_amount = BALANCE_GOLD_MINE_GATHERABLE_ORE_COUNT)
+{
+	var _spawned_ore = [];
+	var _ore_count = max(0, floor(_amount));
+
+	for (var _ore_index = 0; _ore_index < _ore_count; ++_ore_index)
+	{
+		var _direction = random(360);
+		var _distance = random_range(10, 50);
+		var _ore = instance_create_layer(
+			x + lengthdir_x(_distance, _direction),
+			y + lengthdir_y(_distance, _direction),
+			"Instances",
+			o_gatherable_ore
+		);
+
+		array_push(_spawned_ore, _ore);
+	}
+
+	return _spawned_ore;
+};
+
 is_on_corrupted_ground = function()
 {
 	if (!instance_exists(o_corruption_grid))
