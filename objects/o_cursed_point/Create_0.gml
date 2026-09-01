@@ -91,13 +91,15 @@ structure_choice_packs = [
 		{
 			building_object: o_tower_damage,
 			building_name: "Damage Tower",
-			building_description: "Shoots enemies with exploding projectiles. Physical damage.",
+			building_description: "Shoots enemies with exploding projectiles. Physical damage."
+			/* Previous event-system cost retained for reference:
 			construction_costs: [
 				{
 					resource: RESOURCES.IRON,
 					cost: BALANCE_TOWER_DAMAGE_BUILD_IRON_COST
 				}
 			]
+			*/
 		},
 		{
 			building_object: o_magic_tower,
@@ -159,7 +161,70 @@ cursed_point_resource_color_get = function(_resource)
 
 cursed_point_structure_choice_can_pay = function(_choice)
 {
+	var _costs = cursed_point_structure_choice_costs_get(_choice);
+
+	for (var _cost_index = 0; _cost_index < array_length(_costs); ++_cost_index)
+	{
+		var _cost_data = _costs[_cost_index];
+
+		if (_cost_data.cost > 0
+			&& global.resources[_cost_data.resource] < _cost_data.cost)
+		{
+			return false;
+		}
+	}
+
 	return true;
+};
+
+cursed_point_structure_choice_costs_get = function(_choice)
+{
+	if (is_struct(_choice) && variable_struct_exists(_choice, "construction_costs"))
+	{
+		return _choice.construction_costs;
+	}
+
+	return [
+		{ resource: RESOURCES.IRON, cost: BALANCE_CURSED_POINT_DEFAULT_BUILD_IRON_COST },
+		{ resource: RESOURCES.FLESH, cost: BALANCE_CURSED_POINT_DEFAULT_BUILD_FLESH_COST }
+	];
+};
+
+cursed_point_resource_name_get = function(_resource)
+{
+	if (_resource == RESOURCES.IRON) return "Iron";
+	if (_resource == RESOURCES.FLESH) return "Flesh";
+	if (_resource == RESOURCES.SOULS) return "Souls";
+	if (_resource == RESOURCES.IHOR) return "Ihor";
+	if (_resource == RESOURCES.CORPSE) return "Corpses";
+	return "Resource";
+};
+
+cursed_point_structure_choice_cost_text_get = function(_choice)
+{
+	var _costs = cursed_point_structure_choice_costs_get(_choice);
+	var _cost_text = "";
+
+	for (var _cost_index = 0; _cost_index < array_length(_costs); ++_cost_index)
+	{
+		var _cost_data = _costs[_cost_index];
+
+		if (_cost_data.cost <= 0)
+		{
+			continue;
+		}
+
+		if (_cost_text != "")
+		{
+			_cost_text += " | ";
+		}
+
+		_cost_text += string(_cost_data.cost)
+			+ " "
+			+ cursed_point_resource_name_get(_cost_data.resource);
+	}
+
+	return _cost_text;
 };
 
 // Return the number shown on a structure choice card.
@@ -177,27 +242,42 @@ cursed_point_structure_choice_built_count_get = function(_choice)
 cursed_point_structure_choice_can_construct = function(_choice)
 {
 	return is_struct(_choice)
-		&& variable_struct_exists(_choice, "building_object");
+		&& variable_struct_exists(_choice, "building_object")
+		&& object_exists(_choice.building_object)
+		&& cursed_point_structure_choice_can_pay(_choice);
 };
 
 cursed_point_structure_choice_costs_pay = function(_choice)
 {
-	if (!variable_struct_exists(_choice, "construction_costs"))
+	var _costs = cursed_point_structure_choice_costs_get(_choice);
+	var _cost_count = array_length(_costs);
+	var _positive_cost_count = 0;
+
+	for (var _positive_cost_index = 0; _positive_cost_index < _cost_count; ++_positive_cost_index)
 	{
-		return;
+		if (_costs[_positive_cost_index].cost > 0)
+		{
+			_positive_cost_count++;
+		}
 	}
 
-	var _cost_count = array_length(_choice.construction_costs);
 	var _popup_gap = 46;
-	var _popup_start_x = x - ((_cost_count - 1) * _popup_gap * 0.5);
+	var _popup_start_x = x - ((max(1, _positive_cost_count) - 1) * _popup_gap * 0.5);
+	var _popup_index = 0;
 
 	for (var _cost_index = 0; _cost_index < _cost_count; ++_cost_index)
 	{
-		var _cost_data = _choice.construction_costs[_cost_index];
-		var _popup_x = _popup_start_x + (_cost_index * _popup_gap);
+		var _cost_data = _costs[_cost_index];
+
+		if (_cost_data.cost <= 0)
+		{
+			continue;
+		}
+		var _popup_x = _popup_start_x + (_popup_index * _popup_gap);
 
 		global.resources[_cost_data.resource] -= _cost_data.cost;
 		resource_popup_create(_popup_x, y - 84, _cost_data.resource, -_cost_data.cost);
+		_popup_index++;
 	}
 };
 
@@ -501,6 +581,55 @@ cursed_point_structure_build = function(_choice, _close_selection = true)
 		cursed_point_structure_selection_close();
 	}
 
+	var _built_object = instance_create_layer(x, y, "Instances", _choice.building_object);
+
+	if (!instance_exists(_built_object))
+	{
+		return false;
+	}
+
+	_built_object.depth = -floor(_built_object.y);
+
+	if (variable_instance_exists(_built_object, "building_constructed_by_cursed_point"))
+	{
+		_built_object.building_constructed_by_cursed_point = true;
+	}
+
+	_built_object.cursed_point_restore_choice = _choice;
+
+	if (variable_instance_exists(_built_object, "tower_capture_enabled"))
+	{
+		_built_object.tower_capture_enabled = true;
+	}
+
+	if (variable_instance_exists(_built_object, "is_captured"))
+	{
+		_built_object.is_captured = true;
+	}
+
+	if (variable_instance_exists(_built_object, "max_corruption")
+		&& variable_instance_exists(_built_object, "corruption"))
+	{
+		_built_object.corruption = _built_object.max_corruption;
+	}
+
+	if (variable_instance_exists(_built_object, "captured_sprite_index")
+		&& _built_object.captured_sprite_index != noone)
+	{
+		_built_object.sprite_index = _built_object.captured_sprite_index;
+		_built_object.image_index = 0;
+		_built_object.image_speed = 0;
+	}
+
+	if (variable_instance_exists(_built_object, "player_building_health_restore_full"))
+	{
+		_built_object.player_building_health_restore_full();
+	}
+
+	cursed_point_structure_choice_costs_pay(_choice);
+	cursed_point_construction_effect_create();
+
+	/* Previous event-system construction path retained for reference.
 	var _construction_event = day_event_building_construction_create(id, _choice, true);
 
 	if (!is_struct(_construction_event))
@@ -518,6 +647,9 @@ cursed_point_structure_build = function(_choice, _close_selection = true)
 			_jobs_ui.jobs_input_block_until_mouse_release();
 		}
 	}
+	*/
+
+	instance_destroy();
 
 	return true;
 };

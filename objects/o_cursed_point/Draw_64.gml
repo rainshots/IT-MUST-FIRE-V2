@@ -148,6 +148,8 @@ for (var _choice_index = 0; _choice_index < array_length(structure_choice_option
 	draw_set_halign(fa_center);
 	draw_set_valign(fa_middle);
 	draw_set_color(COLOR_HUD_TEXT);
+	var _choice_cost_text = cursed_point_structure_choice_cost_text_get(_choice);
+	/* Previous event-system Cultist cost display retained for reference.
 	var _cultist_label = BALANCE_BUILDING_CONSTRUCTION_CULTIST_COST == 1
 		? " Cultist"
 		: " Cultists";
@@ -156,6 +158,16 @@ for (var _choice_index = 0; _choice_index < array_length(structure_choice_option
 		_tile_y + structure_choice_tile_height - 22,
 		string(BALANCE_BUILDING_CONSTRUCTION_CULTIST_COST) + _cultist_label
 	);
+	*/
+
+	if (_choice_cost_text != "")
+	{
+		draw_text(
+			_tile_x + (structure_choice_tile_width * 0.5),
+			_tile_y + structure_choice_tile_height - 22,
+			_choice_cost_text
+		);
+	}
 
 	// Cursed Point cards also show the number of completed towers of this type.
 	draw_set_valign(fa_top);
@@ -168,7 +180,9 @@ for (var _choice_index = 0; _choice_index < array_length(structure_choice_option
 
 	if (_choice_is_blocked)
 	{
-		var _blocked_text = _built_count > 0 ? "Already built" : "Already ordered";
+		var _blocked_text = !_can_pay_choice
+			? "Not enough resources"
+			: (_built_count > 0 ? "Already built" : "Unavailable");
 
 		draw_set_color(COLOR_STATUS_NEGATIVE_RED);
 		draw_text(
