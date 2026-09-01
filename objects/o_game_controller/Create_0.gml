@@ -2272,6 +2272,72 @@ corpse_snapshot_add = function(_unit)
 	);
 };
 
+corpse_gatherable_create = function(_corpse)
+{
+	if (!is_struct(_corpse))
+	{
+		return noone;
+	}
+
+	var _gatherable_corpse = instance_create_layer(
+		_corpse.x,
+		_corpse.y,
+		"Instances",
+		o_gatherable_corpse
+	);
+
+	if (!instance_exists(_gatherable_corpse))
+	{
+		return noone;
+	}
+
+	_gatherable_corpse.corpse_sprite_index = _corpse.sprite_index;
+	_gatherable_corpse.corpse_image_index = _corpse.image_index;
+	_gatherable_corpse.corpse_image_xscale = _corpse.image_xscale;
+	_gatherable_corpse.corpse_image_yscale = _corpse.image_yscale;
+	_gatherable_corpse.corpse_image_angle = _corpse.image_angle;
+	_gatherable_corpse.corpse_image_blend = _corpse.image_blend;
+	_gatherable_corpse.corpse_image_alpha = _corpse.image_alpha;
+	_gatherable_corpse.is_sucked = true;
+
+	return _gatherable_corpse;
+};
+
+corpse_is_on_corrupted_ground = function(_corpse)
+{
+	if (!is_struct(_corpse) || !instance_exists(o_corruption_grid))
+	{
+		return false;
+	}
+
+	var _corruption_grid = instance_find(o_corruption_grid, 0);
+	var _cell_x = clamp(floor(_corpse.x / _corruption_grid.cell_size), 0, _corruption_grid.grid_width - 1);
+	var _cell_y = clamp(floor(_corpse.y / _corruption_grid.cell_size), 0, _corruption_grid.grid_height - 1);
+	var _cell_corruption = ds_grid_get(_corruption_grid.corruption_grid, _cell_x, _cell_y);
+	var _cell_saint = 0;
+
+	if (variable_instance_exists(_corruption_grid, "saint_grid"))
+	{
+		_cell_saint = ds_grid_get(_corruption_grid.saint_grid, _cell_x, _cell_y);
+	}
+
+	return _cell_saint <= 0 && _cell_corruption > 0;
+};
+
+corrupted_ground_corpses_gather = function()
+{
+	for (var _corpse_index = array_length(corpse_draw_data) - 1; _corpse_index >= 0; --_corpse_index)
+	{
+		var _corpse = corpse_draw_data[_corpse_index];
+
+		if (corpse_is_on_corrupted_ground(_corpse)
+			&& instance_exists(corpse_gatherable_create(_corpse)))
+		{
+			array_delete(corpse_draw_data, _corpse_index, 1);
+		}
+	}
+};
+
 corpse_decay_at_morning = function()
 {
 	cannon_morning_skeletons_raise();
@@ -11659,6 +11725,9 @@ start_day_phase = function()
 			spawn_gatherable_ore();
 		}
 	}
+
+	// Corpses on corrupted ground are pulled into the Cannon at daybreak.
+	corrupted_ground_corpses_gather();
 
 	night_fast_forward_set(false);
 	global.cannon_corpses_delivered_today = 0;

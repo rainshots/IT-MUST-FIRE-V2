@@ -36,6 +36,88 @@ if (_regular_hud_is_visible)
 	var _sidebar_scale = clamp(_sidebar_gui_height / 1080, 0.6, 1);
 	var _sidebar_width = hud_sidebar_width * _sidebar_scale;
 	var _sidebar_x = _sidebar_gui_width - _sidebar_width;
+	var _resource_panel_icon_x = resource_middle_left_x * _sidebar_scale;
+	var _resource_panel_iron_y = (_sidebar_gui_height * 0.5)
+		+ (resource_middle_left_y_offset * _sidebar_scale);
+	var _resource_panel_flesh_y = _resource_panel_iron_y
+		+ (resource_middle_left_row_gap * _sidebar_scale);
+	var _resource_panel_icon_size = resource_middle_left_icon_size * _sidebar_scale;
+	var _resource_panel_text_x = _resource_panel_icon_x
+		+ ((_resource_panel_icon_size * 0.5) + (resource_middle_left_text_gap * _sidebar_scale));
+	var _resource_panel_text_scale = resource_middle_left_text_scale * _sidebar_scale;
+
+	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+	{
+		draw_set_font(global.ui_font);
+	}
+
+	// Iron row.
+	if (sprite_exists(s_iron_icon))
+	{
+		var _iron_icon_width = max(1, sprite_get_width(s_iron_icon));
+		var _iron_icon_height = max(1, sprite_get_height(s_iron_icon));
+		var _iron_icon_scale = min(
+			_resource_panel_icon_size / _iron_icon_width,
+			_resource_panel_icon_size / _iron_icon_height
+		);
+		var _iron_icon_x = _resource_panel_icon_x
+			+ ((sprite_get_xoffset(s_iron_icon) - (_iron_icon_width * 0.5)) * _iron_icon_scale);
+		var _iron_icon_y = _resource_panel_iron_y
+			+ ((sprite_get_yoffset(s_iron_icon) - (_iron_icon_height * 0.5)) * _iron_icon_scale);
+
+		draw_sprite_ext(s_iron_icon, 0, _iron_icon_x, _iron_icon_y, _iron_icon_scale, _iron_icon_scale, 0, c_white, 1);
+	}
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_middle);
+	draw_set_color(COLOR_HUD_TEXT);
+	draw_set_alpha(1);
+	draw_text_transformed(
+		_resource_panel_text_x,
+		_resource_panel_iron_y,
+		string(global.resources[RESOURCES.IRON]),
+		_resource_panel_text_scale,
+		_resource_panel_text_scale,
+		0
+	);
+
+	// Flesh row, followed by the corpse count without a separate icon.
+	if (sprite_exists(s_meat_01))
+	{
+		var _flesh_icon_width = max(1, sprite_get_width(s_meat_01));
+		var _flesh_icon_height = max(1, sprite_get_height(s_meat_01));
+		var _flesh_icon_scale = min(
+			_resource_panel_icon_size / _flesh_icon_width,
+			_resource_panel_icon_size / _flesh_icon_height
+		);
+		var _flesh_icon_x = _resource_panel_icon_x
+			+ ((sprite_get_xoffset(s_meat_01) - (_flesh_icon_width * 0.5)) * _flesh_icon_scale);
+		var _flesh_icon_y = _resource_panel_flesh_y
+			+ ((sprite_get_yoffset(s_meat_01) - (_flesh_icon_height * 0.5)) * _flesh_icon_scale);
+
+		draw_sprite_ext(s_meat_01, 0, _flesh_icon_x, _flesh_icon_y, _flesh_icon_scale, _flesh_icon_scale, 0, c_white, 1);
+	}
+
+	var _flesh_amount_text = string(global.resources[RESOURCES.FLESH]);
+	draw_text_transformed(
+		_resource_panel_text_x,
+		_resource_panel_flesh_y,
+		_flesh_amount_text,
+		_resource_panel_text_scale,
+		_resource_panel_text_scale,
+		0
+	);
+	var _corpse_amount_x = _resource_panel_text_x
+		+ (string_width(_flesh_amount_text) * _resource_panel_text_scale)
+		+ (resource_middle_left_corpse_gap * _sidebar_scale);
+	draw_text_transformed(
+		_corpse_amount_x,
+		_resource_panel_flesh_y,
+		"(" + string(global.resources[RESOURCES.CORPSE]) + ")",
+		_resource_panel_text_scale,
+		_resource_panel_text_scale,
+		0
+	);
 
 	// Draw squad cards in type order, followed by the available empty slots.
 	if (variable_global_exists("squads") && variable_global_exists("squad_limits"))

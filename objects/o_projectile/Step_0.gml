@@ -121,6 +121,28 @@ if (_flight_progress >= 1)
 				is_sucked = true;
 			}
 		}
+
+		if (instance_exists(o_game_controller))
+		{
+			var _game_controller = instance_find(o_game_controller, 0);
+			var _corpse_count = array_length(_game_controller.corpse_draw_data);
+
+			// Iterate backwards because each converted corpse is removed immediately.
+			for (var _corpse_index = _corpse_count - 1; _corpse_index >= 0; --_corpse_index)
+			{
+				var _corpse = _game_controller.corpse_draw_data[_corpse_index];
+
+				if (point_distance(_corpse.x, _corpse.y, target_x, target_y) > effect_radius)
+				{
+					continue;
+				}
+
+				if (instance_exists(_game_controller.corpse_gatherable_create(_corpse)))
+				{
+					array_delete(_game_controller.corpse_draw_data, _corpse_index, 1);
+				}
+			}
+		}
 	}
 	else if (projectile_type == PROJECTILE_TYPE.CLEANSE)
 	{

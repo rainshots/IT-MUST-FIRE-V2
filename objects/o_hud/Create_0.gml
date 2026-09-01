@@ -15,6 +15,15 @@ resource_sidebar_first_icon_offset_x = 34;
 resource_sidebar_item_gap = 94;
 resource_sidebar_value_offset_x = 36;
 
+// Compact resource display anchored at the middle-left of the screen.
+resource_middle_left_x = 67;
+resource_middle_left_y_offset = -42;
+resource_middle_left_row_gap = 87;
+resource_middle_left_icon_size = 57;
+resource_middle_left_text_gap = 21;
+resource_middle_left_corpse_gap = 24;
+resource_middle_left_text_scale = 1.35;
+
 // Cheat shortcuts are listed in a compact panel on the right side of the HUD.
 cheat_hud_margin_right = 18;
 cheat_hud_y = 88;

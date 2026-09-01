@@ -88,6 +88,7 @@ enum RESOURCES
 	SOULS,
 	IRON,
 	IHOR,
+	CORPSE,
 	COUNT
 }
 

@@ -79,6 +79,7 @@
     {"id":{"name":"o_friendly_units","path":"objects/o_friendly_units/o_friendly_units.yy",},},
     {"id":{"name":"o_game_controller","path":"objects/o_game_controller/o_game_controller.yy",},},
     {"id":{"name":"o_garnizon","path":"objects/o_garnizon/o_garnizon.yy",},},
+    {"id":{"name":"o_gatherable_corpse","path":"objects/o_gatherable_corpse/o_gatherable_corpse.yy",},},
     {"id":{"name":"o_gatherable_object","path":"objects/o_gatherable_object/o_gatherable_object.yy",},},
     {"id":{"name":"o_gatherable_ore","path":"objects/o_gatherable_ore/o_gatherable_ore.yy",},},
     {"id":{"name":"o_goblin","path":"objects/o_goblin/o_goblin.yy",},},
