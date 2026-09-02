@@ -2406,7 +2406,7 @@ function day_event_foundry_event_create(
 	_title,
 	_description,
 	_cultist_cost,
-	_iron_cost = BALANCE_FOUNDRY_EVENT_IRON_COST,
+	_iron_cost,
 	_action_type,
 	_action_callback,
 	_action_data
