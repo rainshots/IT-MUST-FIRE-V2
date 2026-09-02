@@ -1,24 +1,33 @@
-// Open or close squad information from the roster cards before throttled HUD updates.
+// Preview squad information on roster hover and keep it open when pinned with RMB.
 if (global.focus_window != FOCUS_WINDOW.NOONE)
 {
 	squad_info_squad = noone;
+	squad_info_is_pinned = false;
 }
 else
 {
-	if (mouse_check_button_pressed(mb_right))
-	{
-		var _mouse_x = device_mouse_x_to_gui(0);
-		var _mouse_y = device_mouse_y_to_gui(0);
-		var _hovered_squad = hud_squad_at_gui_position(_mouse_x, _mouse_y);
+	var _mouse_x = device_mouse_x_to_gui(0);
+	var _mouse_y = device_mouse_y_to_gui(0);
+	var _hovered_squad = hud_squad_at_gui_position(_mouse_x, _mouse_y);
 
-		if (is_struct(_hovered_squad) && squad_info_squad != _hovered_squad)
+	// RMB on a roster card pins that squad or returns its window to hover preview.
+	if (mouse_check_button_pressed(mb_right) && is_struct(_hovered_squad))
+	{
+		if (squad_info_is_pinned && squad_info_squad == _hovered_squad)
 		{
-			squad_info_squad = _hovered_squad;
+			squad_info_is_pinned = false;
 		}
 		else
 		{
-			squad_info_squad = noone;
+			squad_info_squad = _hovered_squad;
+			squad_info_is_pinned = true;
 		}
+	}
+
+	// An unpinned window exists only while its roster card is hovered.
+	if (!squad_info_is_pinned)
+	{
+		squad_info_squad = _hovered_squad;
 	}
 }
 

@@ -70,13 +70,21 @@ cheat_hud_draw = function()
 		"F8  Skip day / night",
 		"F9  Open balance test",
 		"F10 Music debug: " + (_music_debug_visible ? _on_text : _off_text),
+		"F11 +" + string(BALANCE_DEBUG_CANNON_SATISFACTION_CHEAT_AMOUNT) + " Cannon Satisfaction",
 		"F12 Restart room",
 		"Q   Night speed x2: " + (_night_fast_forward_active ? _on_text : _off_text),
 		"`   Debug menu: " + (_debug_menu_is_open ? _on_text : _off_text),
 		"MB4 +EXP under cursor",
 		"MB5 Damage under cursor",
 		"Shift+RMB Spawn meat",
-		"Numpad 1-9 Spawn test units"
+		"Numpad 1-9 Spawn test units",
+		"Shift+1/Num1 Bone Warriors: Boiling Blood",
+		"Shift+2/Num2 Bone Warriors: Stunning Arrival",
+		"Shift+3/Num3 Bone Warriors: Savage Leap",
+		"Shift+4/Num4 Bone Warriors: Endless Procession",
+		"Shift+5/Num5 Bone Warriors: Taint Treatment",
+		"Shift+6/Num6 Bone Warriors: Roar of the Abyss",
+		"Shift+7/Num7 Bone Warriors: Power of Twilight"
 	];
 	var _gui_width = display_get_gui_width();
 	var _gui_height = display_get_gui_height();
@@ -136,23 +144,33 @@ cheat_hud_draw = function()
 	draw_set_alpha(1);
 };
 
-// Squad information window opened from the roster cards with RMB.
+// Squad information follows roster-card hover and can be pinned with RMB.
 squad_info_squad = noone;
+squad_info_is_pinned = false;
 global.squad_info_window_open = false;
 squad_info_window_width = 520;
-squad_info_window_height = 430;
+squad_info_window_height = 484;
 squad_info_padding = 18;
-squad_info_unit_icon_size = 52;
-squad_info_unit_icon_gap = 8;
-squad_info_unit_count_scale = 0.72;
-squad_info_unit_count_margin = 2;
-squad_info_unit_count_padding_x = 4;
-squad_info_unit_count_padding_y = 2;
-squad_info_unit_count_background_alpha = 0.88;
+squad_info_unholy_trait_offset_y = 44;
+squad_info_relic_offset_y = 70;
+squad_info_relic_slot_size = 42;
+squad_info_relic_slot_gap = 8;
+squad_info_unit_grid_offset_y = 126;
+squad_info_unit_icon_size = 44;
+squad_info_unit_icon_gap = 4;
+squad_info_unit_icon_hover_alpha = 0.95;
+squad_info_unit_icon_alive_alpha = 0.72;
+squad_info_unit_icon_fallen_alpha = 0.35;
+squad_info_unholy_tooltip_width = 410;
+squad_info_unholy_tooltip_padding = 12;
+squad_info_unholy_tooltip_title_gap = 7;
+squad_info_unholy_tooltip_line_separation = 18;
+squad_info_unholy_tooltip_mouse_offset = 14;
+squad_info_unholy_tooltip_screen_margin = 8;
 
 hud_squad_at_gui_position = function(_mouse_x, _mouse_y)
 {
-	if (!variable_global_exists("squads") || !variable_global_exists("squad_limits"))
+	if (!variable_global_exists("squads") || !variable_global_exists("squad_limit"))
 	{
 		return noone;
 	}
@@ -169,8 +187,6 @@ hud_squad_at_gui_position = function(_mouse_x, _mouse_y)
 
 	for (var _squad_type = SQUAD_TYPE.ARCHDEMON; _squad_type < SQUAD_TYPE.COUNT; ++_squad_type)
 	{
-		var _type_squad_count = 0;
-
 		for (var _squad_index = 0; _squad_index < _squad_count; ++_squad_index)
 		{
 			var _squad = global.squads[_squad_index];
@@ -187,59 +203,14 @@ hud_squad_at_gui_position = function(_mouse_x, _mouse_y)
 				return _squad;
 			}
 
-			_type_squad_count++;
 			_card_index++;
 		}
-
-		_card_index += max(0, global.squad_limits[_squad_type] - _type_squad_count);
 	}
 
 	return noone;
 };
 
-hud_squad_unique_unit_objects_get = function(_squad)
-{
-	var _unit_objects = [];
-
-	if (!is_struct(_squad))
-	{
-		return _unit_objects;
-	}
-
-	var _squad_unit_count = array_length(_squad.unit_objects);
-	var _live_unit_count = array_length(_squad.units);
-
-	for (var _unit_index = 0; _unit_index < _squad_unit_count; ++_unit_index)
-	{
-		var _unit_object = _squad.unit_objects[_unit_index];
-
-		if (_unit_index < _live_unit_count && instance_exists(_squad.units[_unit_index]))
-		{
-			_unit_object = _squad.units[_unit_index].object_index;
-		}
-
-		var _object_is_added = false;
-		var _unique_count = array_length(_unit_objects);
-
-		for (var _unique_index = 0; _unique_index < _unique_count; ++_unique_index)
-		{
-			if (_unit_objects[_unique_index] == _unit_object)
-			{
-				_object_is_added = true;
-				break;
-			}
-		}
-
-		if (!_object_is_added)
-		{
-			array_push(_unit_objects, _unit_object);
-		}
-	}
-
-	return _unit_objects;
-};
-
-hud_squad_unit_instance_get = function(_squad, _unit_object)
+hud_squad_unit_instance_at_index_get = function(_squad, _unit_index)
 {
 	if (!is_struct(_squad))
 	{
@@ -248,46 +219,37 @@ hud_squad_unit_instance_get = function(_squad, _unit_object)
 
 	var _unit_count = array_length(_squad.units);
 
-	for (var _unit_index = 0; _unit_index < _unit_count; ++_unit_index)
+	if (_unit_index < 0 || _unit_index >= _unit_count)
 	{
-		var _unit = _squad.units[_unit_index];
-
-		if (instance_exists(_unit) && _unit.object_index == _unit_object)
-		{
-			return _unit;
-		}
+		return noone;
 	}
 
-	return noone;
+	var _unit = _squad.units[_unit_index];
+	return instance_exists(_unit) ? _unit : noone;
 };
 
-hud_squad_unit_type_count_get = function(_squad, _unit_object)
+hud_squad_unit_object_at_index_get = function(_squad, _unit_index)
 {
 	if (!is_struct(_squad))
 	{
-		return 0;
+		return noone;
 	}
 
-	var _matching_unit_count = 0;
-	var _squad_unit_count = array_length(_squad.unit_objects);
-	var _live_unit_count = array_length(_squad.units);
+	var _unit = hud_squad_unit_instance_at_index_get(_squad, _unit_index);
 
-	for (var _unit_index = 0; _unit_index < _squad_unit_count; ++_unit_index)
+	if (instance_exists(_unit))
 	{
-		var _squad_unit_object = _squad.unit_objects[_unit_index];
-
-		if (_unit_index < _live_unit_count && instance_exists(_squad.units[_unit_index]))
-		{
-			_squad_unit_object = _squad.units[_unit_index].object_index;
-		}
-
-		if (_squad_unit_object == _unit_object)
-		{
-			_matching_unit_count++;
-		}
+		return _unit.object_index;
 	}
 
-	return _matching_unit_count;
+	var _unit_object_count = array_length(_squad.unit_objects);
+
+	if (_unit_index < 0 || _unit_index >= _unit_object_count)
+	{
+		return noone;
+	}
+
+	return _squad.unit_objects[_unit_index];
 };
 
 hud_unit_display_name_get = function(_unit_object)
@@ -506,13 +468,31 @@ hud_unit_matchups_get = function(_unit_object)
 	return { strong_against: _strong_against, weak_against: _weak_against };
 };
 
-hud_squad_info_unit_icon_rect_get = function(_window_x, _window_y, _unit_index)
+hud_squad_info_unit_icon_rect_get = function(_window_x, _window_y, _column_count, _unit_index)
 {
+	var _safe_column_count = max(1, _column_count);
+	var _column_index = _unit_index mod _safe_column_count;
+	var _row_index = floor(_unit_index / _safe_column_count);
+	var _icon_step = squad_info_unit_icon_size + squad_info_unit_icon_gap;
+
 	return {
-		x: _window_x + squad_info_padding + (_unit_index * (squad_info_unit_icon_size + squad_info_unit_icon_gap)),
-		y: _window_y + 54,
+		x: _window_x + squad_info_padding + (_column_index * _icon_step),
+		y: _window_y + squad_info_unit_grid_offset_y + (_row_index * _icon_step),
 		width: squad_info_unit_icon_size,
 		height: squad_info_unit_icon_size
+	};
+};
+
+hud_squad_info_relic_slot_rect_get = function(_window_x, _window_y, _slot_index)
+{
+	var _label_width = string_width("Relics:") + 12;
+
+	return {
+		x: _window_x + squad_info_padding + _label_width
+			+ (_slot_index * (squad_info_relic_slot_size + squad_info_relic_slot_gap)),
+		y: _window_y + squad_info_relic_offset_y,
+		width: squad_info_relic_slot_size,
+		height: squad_info_relic_slot_size
 	};
 };
 
@@ -529,6 +509,121 @@ hud_squad_info_stat_draw = function(_label, _current_value, _base_value, _x, _y,
 		draw_set_color(_difference > 0 ? COLOR_PROJECTILE_SUMMON : COLOR_STATUS_NEGATIVE_RED);
 		draw_text(_x + string_width(_text) + 6, _y, "(" + _difference_prefix + string_format(_difference, 0, _decimal_places) + _suffix + ")");
 	}
+};
+
+hud_squad_info_text_tooltip_draw = function(_title, _description, _mouse_x, _mouse_y)
+{
+	if (_title == "" || _description == "")
+	{
+		return false;
+	}
+
+	var _gui_width = display_get_gui_width();
+	var _gui_height = display_get_gui_height();
+	var _screen_margin = squad_info_unholy_tooltip_screen_margin;
+	var _tooltip_width = min(
+		squad_info_unholy_tooltip_width,
+		_gui_width - (_screen_margin * 2)
+	);
+	var _text_width = _tooltip_width - (squad_info_unholy_tooltip_padding * 2);
+	var _title_height = string_height(_title);
+	var _description_height = string_height_ext(
+		_description,
+		squad_info_unholy_tooltip_line_separation,
+		_text_width
+	);
+	var _tooltip_height = (squad_info_unholy_tooltip_padding * 2)
+		+ _title_height
+		+ squad_info_unholy_tooltip_title_gap
+		+ _description_height;
+	var _tooltip_x = clamp(
+		_mouse_x + squad_info_unholy_tooltip_mouse_offset,
+		_screen_margin,
+		_gui_width - _tooltip_width - _screen_margin
+	);
+	var _tooltip_y = _mouse_y + squad_info_unholy_tooltip_mouse_offset;
+
+	if (_tooltip_y + _tooltip_height > _gui_height - _screen_margin)
+	{
+		_tooltip_y = _mouse_y - _tooltip_height - squad_info_unholy_tooltip_mouse_offset;
+	}
+
+	_tooltip_y = clamp(
+		_tooltip_y,
+		_screen_margin,
+		_gui_height - _tooltip_height - _screen_margin
+	);
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_alpha(0.97);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_rectangle(
+		_tooltip_x,
+		_tooltip_y,
+		_tooltip_x + _tooltip_width,
+		_tooltip_y + _tooltip_height,
+		false
+	);
+	draw_set_alpha(1);
+	draw_set_color(COLOR_PROJECTILE_SUMMON);
+	draw_rectangle(
+		_tooltip_x,
+		_tooltip_y,
+		_tooltip_x + _tooltip_width,
+		_tooltip_y + _tooltip_height,
+		true
+	);
+	draw_text(
+		_tooltip_x + squad_info_unholy_tooltip_padding,
+		_tooltip_y + squad_info_unholy_tooltip_padding,
+		_title
+	);
+	draw_set_color(COLOR_HUD_TEXT);
+	draw_text_ext(
+		_tooltip_x + squad_info_unholy_tooltip_padding,
+		_tooltip_y + squad_info_unholy_tooltip_padding + _title_height
+			+ squad_info_unholy_tooltip_title_gap,
+		_description,
+		squad_info_unholy_tooltip_line_separation,
+		_text_width
+	);
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+	return true;
+};
+
+hud_squad_info_unholy_tooltip_draw = function(_unholy_trait, _mouse_x, _mouse_y)
+{
+	if (_unholy_trait == UNHOLY_TRAIT.NONE)
+	{
+		return false;
+	}
+
+	return hud_squad_info_text_tooltip_draw(
+		squad_unholy_trait_name_get(_unholy_trait),
+		squad_unholy_trait_description_get(_unholy_trait),
+		_mouse_x,
+		_mouse_y
+	);
+};
+
+hud_squad_info_relic_tooltip_draw = function(_relic, _mouse_x, _mouse_y)
+{
+	if (_relic == RELIC.NONE)
+	{
+		return false;
+	}
+
+	return hud_squad_info_text_tooltip_draw(
+		squad_relic_name_get(_relic),
+		squad_relic_description_get(_relic),
+		_mouse_x,
+		_mouse_y
+	);
 };
 
 // Cannon HP is centered against the top edge of the HUD.
@@ -1217,7 +1312,7 @@ projectile_descriptions[PROJECTILE_TYPE.HEAL] = "Remains on the ground for "
 	+ string(BALANCE_FIRST_AID_MEAT_HEAL_AMOUNT)
 	+ " health to all friendly units inside a "
 	+ string(BALANCE_FIRST_AID_MEAT_HEAL_RADIUS)
-	+ " pixel base radius. Payload Mastery improves each pulse; Tight tamping of meat improves healing and radius.";
+	+ " pixel base radius. Payload Mastery improves each pulse.";
 projectile_descriptions[PROJECTILE_TYPE.BOMB] = "Hold and drag from the landing point to aim a "
 	+ string(BALANCE_PROJECTILE_HELLCOW_CORRIDOR_WIDTH)
 	+ "px-wide Hellcow charge. It pushes enemies along the arrow, then explodes for "

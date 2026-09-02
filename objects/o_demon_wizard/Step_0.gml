@@ -6,8 +6,11 @@ var _balance_test_tick_is_blocked = variable_global_exists("balance_test_active"
 	&& (!variable_global_exists("balance_test_manual_tick_active")
 		|| !global.balance_test_manual_tick_active);
 
-if (_balance_test_tick_is_blocked
+if (unholy_savage_leap_active
+	|| _balance_test_tick_is_blocked
 	|| global.pause
+	|| cannon_loading
+	|| cannon_loaded
 	|| hp <= 0)
 {
 	exit;

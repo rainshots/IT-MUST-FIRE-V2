@@ -14,6 +14,32 @@ if (is_being_dragged)
 	draw_set_color(c_white);
 }
 
+// Savage Leap uses the same readable trajectory language as the Imp's leap.
+if (unholy_savage_leap_active)
+{
+	var _leap_line_y_offset = 16;
+
+	draw_set_color(COLOR_UNHOLY_SAVAGE_LEAP);
+	draw_set_alpha(0.55);
+	draw_line_width(
+		unholy_savage_leap_start_x,
+		unholy_savage_leap_start_y - _leap_line_y_offset,
+		unholy_savage_leap_end_x,
+		unholy_savage_leap_end_y - _leap_line_y_offset,
+		9
+	);
+	draw_set_alpha(0.9);
+	draw_line_width(
+		unholy_savage_leap_start_x,
+		unholy_savage_leap_start_y - _leap_line_y_offset,
+		unholy_savage_leap_end_x,
+		unholy_savage_leap_end_y - _leap_line_y_offset,
+		3
+	);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+}
+
 // Draw unit sprite with combat offset and a small whip panic shake while boosted.
 var _whip_shake_x = 0;
 
@@ -46,6 +72,35 @@ if (sprite_exists(sprite_index))
 	if (_damage_flash_is_active)
 	{
 		shader_reset();
+	}
+
+	// Roar immortality is a yellow body overlay; sprite origin math accounts for bottom pivots.
+	if (global.day_phase == DAY_PHASE.NIGHT
+		&& unit_faction == UNIT_FACTION.FRIENDLY
+		&& hp > 0
+		&& unholy_abyss_immortality_timer > 0)
+	{
+		var _immortality_sprite_width = sprite_get_width(sprite_index);
+		var _immortality_sprite_height = sprite_get_height(sprite_index);
+		var _immortality_draw_x = x + visual_attack_offset_x + _whip_shake_x;
+		var _immortality_draw_y = y + visual_attack_offset_y;
+		var _immortality_center_x = _immortality_draw_x
+			+ ((_immortality_sprite_width * 0.5 - sprite_get_xoffset(sprite_index)) * image_xscale);
+		var _immortality_center_y = _immortality_draw_y
+			+ ((_immortality_sprite_height * 0.5 - sprite_get_yoffset(sprite_index)) * image_yscale);
+		var _immortality_draw_width = abs(_immortality_sprite_width * image_xscale);
+		var _immortality_draw_height = abs(_immortality_sprite_height * image_yscale);
+		var _immortality_radius = max(
+			BALANCE_UNHOLY_SHRINE_ROAR_IMMORTALITY_CIRCLE_MIN_RADIUS,
+			max(_immortality_draw_width, _immortality_draw_height)
+				* BALANCE_UNHOLY_SHRINE_ROAR_IMMORTALITY_CIRCLE_RADIUS_SHARE
+		);
+
+		draw_set_color(COLOR_UNHOLY_ROAR_IMMORTALITY);
+		draw_set_alpha(BALANCE_UNHOLY_SHRINE_ROAR_IMMORTALITY_OVERLAY_ALPHA);
+		draw_circle(_immortality_center_x, _immortality_center_y, _immortality_radius, false);
+		draw_set_color(c_white);
+		draw_set_alpha(1);
 	}
 }
 

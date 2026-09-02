@@ -11,7 +11,6 @@ tutorial_queue = array_create(0);
 tutorial_seen_ids = array_create(0);
 // These hints are temporarily disabled but remain registered for easy restoration.
 tutorial_disabled_ids = [
-	"meat_bath_needed",
 	"workers",
 	"production_bonus",
 	"building_upgrades",
@@ -53,17 +52,12 @@ tutorial_items = [
 	{
 		id: "buildings",
 		title: "Buildings",
-		body: "You can build 1 building per day around the cannon. Each building provides 1 random Rite for your Cultists. The more buildings you have, the more Rites your Cultists will have!\n\nConstruction does not cost resources. Each selected building creates an Assign Duties event that requires 1 Cultist.\n\nRites often reduce your Cultists’ HP. That’s why I recommend building a Blood Bath first, so you can heal their wounds."
+		body: "You can build 1 building per day around the cannon. Each building provides 1 Rite for your Cultists. The more buildings you have, the more Rites your Cultists will have!\n\nConstruction does not cost resources. Each selected building creates an Assign Duties event that requires 1 Cultist."
 	},
 	{
 		id: "destroyed_player_building",
 		title: "Building Destroyed",
 		body: "A destroyed building will be restored the next morning with 50% HP. Each following morning, it recovers another 50% of its Max HP.\n\nWhile a building is below 100% HP, its events cost Cultists 5 additional HP."
-	},
-	{
-		id: "meat_bath_needed",
-		title: "Meat Bath",
-		body: "Your cultists need a Meat Bath to heal after battle. Build a Meat Bath, then assign wounded cultists to work there so they can recover before the next night."
 	},
 	{
 		id: "cultist_recovery",

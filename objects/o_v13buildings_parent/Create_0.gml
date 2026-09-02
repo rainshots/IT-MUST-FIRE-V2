@@ -88,6 +88,17 @@ production_multiplier_bar_gap_y = 4;
 assignment_preview_padding = 5;
 assignment_preview_alpha = 0.22;
 assignment_preview_outline_alpha = 0.95;
+// Building information hover remains available during the lightweight gameplay pause.
+building_info_hover_padding = 7;
+building_info_hover_fill_alpha = 0.1;
+building_info_hover_pulse_alpha = 0.08;
+building_info_hover_outline_alpha = 0.92;
+building_info_hover_pulse_speed = 0.007;
+building_info_hover_label = "LMB - INFO";
+building_info_hover_label_offset_y = 8;
+building_info_hover_label_padding_x = 9;
+building_info_hover_label_padding_y = 4;
+building_info_hover_label_background_alpha = 0.9;
 production_tooltip_padding = 8;
 production_tooltip_line_height = 16;
 production_tooltip_width = 270;
@@ -146,6 +157,12 @@ world_event_hover_active = false;
 
 // Daily event generation avoids IDs selected for this building on the previous day.
 previous_day_event_ids = [];
+
+// Successful ritual days accumulate until this building must take one day off.
+ritual_execution_day_count = 0;
+ritual_execution_last_day = 0;
+ritual_rest_warning_day = 0;
+ritual_rest_unavailable_day = 0;
 
 player_building_distance_to_point = function(_point_x, _point_y)
 {
@@ -313,8 +330,9 @@ world_event_layout_get = function(_event)
 		}
 	}
 
+	var _event_description = day_event_description_get(_event);
 	var _description_height = string_height_ext(
-		_event.description,
+		_event_description,
 		BALANCE_WORLD_EVENT_DESCRIPTION_LINE_SEPARATION,
 		_description_width
 	);
@@ -572,6 +590,11 @@ building_display_name_get = function()
 	if (object_index == o_ritual_circle)
 	{
 		return "Ritual Circle";
+	}
+
+	if (object_index == o_unholy_shrine)
+	{
+		return "Unholy Shrine";
 	}
 
 	if (object_index == o_workshop)
@@ -918,6 +941,13 @@ else if (object_index == o_ritual_circle)
 	building_upgrade_resources[1] = RESOURCES.SOULS;
 	building_upgrade_costs[1] = BALANCE_ENDLESS_CHANT_UPGRADE_SOUL_COST;
 }
+else if (object_index == o_unholy_shrine)
+{
+	building_tooltip_title = "Unholy Rites";
+	building_tooltip_description = "Opens access to rituals that endow squads with Unholy traits.";
+	building_tooltip_detail = "Each squad can carry one Unholy trait.";
+	building_tooltip_detail_color = COLOR_PROJECTILE_SUMMON;
+}
 else if (object_index == o_workshop)
 {
 	building_accepts_workers = true;
@@ -933,9 +963,6 @@ else if (object_index == o_workshop)
 }
 else if (object_index == o_shell_factory)
 {
-	// Day events can permanently increase this factory's daily Taint Compost contribution.
-	shell_factory_taint_compost_morning_limit_bonus = 0;
-
 	building_accepts_workers = true;
 	production_resource_icon = s_shell_factory;
 	production_resource_color = COLOR_PROJECTILE_BUILDING_SHELL;
@@ -943,10 +970,10 @@ else if (object_index == o_shell_factory)
 	production_bonus_stat_name = "BODY";
 	production_bonus_stat_color = COLOR_CULTIST_BODY;
 	building_tooltip_title = "Shell Production";
-	building_tooltip_description = "Produces squad shells while staffed and can improve daily Taint Compost stock.";
+	building_tooltip_description = "Produces squad shells while staffed and can permanently enchant special shells.";
 	building_tooltip_detail = "Uses " + string(BALANCE_SHELL_FACTORY_SOUL_COST) + " Souls + "
 		+ string(BALANCE_SHELL_FACTORY_IRON_COST) + " Iron while staffed. "
-		+ "Events can permanently increase daily Taint Compost. Bonus: "
+		+ "Each Shell Enchantment is available once per match. Bonus: "
 		+ production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
 	building_tooltip_detail_color = production_bonus_stat_color;
 	building_has_upgrades = true;
@@ -2128,21 +2155,6 @@ shell_factory_random_projectile_add = function()
 	return _game_controller.cannon_projectile_queue_add(_projectile_type);
 };
 
-shell_factory_morning_projectile_limit_get = function(_projectile_type)
-{
-	if (object_index != o_shell_factory)
-	{
-		return 0;
-	}
-
-	if (_projectile_type == PROJECTILE_TYPE.CORRUPTION)
-	{
-		return shell_factory_taint_compost_morning_limit_bonus;
-	}
-
-	return 0;
-};
-
 building_tooltip_detail_get = function()
 {
 	if (garrison_building_is_active())
@@ -2153,11 +2165,30 @@ building_tooltip_detail_get = function()
 
 	if (object_index == o_shell_factory)
 	{
-		var _taint_compost_limit = shell_factory_morning_projectile_limit_get(PROJECTILE_TYPE.CORRUPTION);
+		var _taint_enchantment_name = "Not selected";
+		var _first_aid_enchantment_name = "Not selected";
+
+		if (global.shell_factory_taint_enchantment == TAINT_COMPOST_ENCHANTMENT.EXPLOSIVE_FERTILIZER)
+		{
+			_taint_enchantment_name = "Explosive Fertilizer";
+		}
+		else if (global.shell_factory_taint_enchantment == TAINT_COMPOST_ENCHANTMENT.SWEET_ROT)
+		{
+			_taint_enchantment_name = "Sweet Rot";
+		}
+
+		if (global.shell_factory_first_aid_enchantment == FIRST_AID_MEAT_ENCHANTMENT.EMERGENCY_PULL)
+		{
+			_first_aid_enchantment_name = "Emergency Pull";
+		}
+		else if (global.shell_factory_first_aid_enchantment == FIRST_AID_MEAT_ENCHANTMENT.FRESH_MEAT)
+		{
+			_first_aid_enchantment_name = "Fresh Meat";
+		}
 
 		return "Uses " + string(BALANCE_SHELL_FACTORY_SOUL_COST) + " Souls + "
-			+ string(BALANCE_SHELL_FACTORY_IRON_COST) + " Iron while staffed. Daily Taint Compost bonus: +"
-			+ string(_taint_compost_limit) + ". Bonus: "
+			+ string(BALANCE_SHELL_FACTORY_IRON_COST) + " Iron while staffed. Taint: "
+			+ _taint_enchantment_name + ". First Aid: " + _first_aid_enchantment_name + ". Bonus: "
 			+ production_bonus_stat_name + " +" + string(BALANCE_RESOURCE_BUILDING_STAT_SPEED_BONUS) + "x per point";
 	}
 
@@ -2201,6 +2232,32 @@ building_is_mouse_hovered = function()
 		&& _mouse_world_x <= bbox_right
 		&& _mouse_world_y >= bbox_top
 		&& _mouse_world_y <= bbox_bottom;
+};
+
+building_info_hover_is_active = function()
+{
+	if (global.focus_window != FOCUS_WINDOW.NOONE
+		|| (variable_global_exists("tutorial_popup_active") && global.tutorial_popup_active)
+		|| (variable_global_exists("blood_moon_reward_popup_active") && global.blood_moon_reward_popup_active)
+		|| (variable_global_exists("dragged_cultist") && instance_exists(global.dragged_cultist))
+		|| (variable_global_exists("dragged_artifact") && instance_exists(global.dragged_artifact))
+		|| (variable_global_exists("dragged_squad") && is_struct(global.dragged_squad)))
+	{
+		return false;
+	}
+
+	if (instance_exists(o_game_controller))
+	{
+		var _game_controller = instance_find(o_game_controller, 0);
+
+		if (variable_instance_exists(_game_controller, "pause_menu_open")
+			&& _game_controller.pause_menu_open)
+		{
+			return false;
+		}
+	}
+
+	return building_is_mouse_hovered();
 };
 
 building_demolish = function()

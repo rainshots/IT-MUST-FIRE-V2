@@ -46,16 +46,6 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 		cannon_reload_start(target_projectile_type);
 		global.sound_play_random(global.cannon_shot_sounds);
 
-		// Unlock related Shell Factory upgrade jobs after the player fires each shell type.
-		if (target_projectile_type == PROJECTILE_TYPE.BOMB)
-		{
-			global.shell_factory_hellcow_shell_fired = true;
-		}
-		else if (target_projectile_type == PROJECTILE_TYPE.HEAL)
-		{
-			global.shell_factory_first_aid_shell_fired = true;
-		}
-
 		if (instance_exists(o_camera_controller))
 		{
 			var _camera_controller = instance_find(o_camera_controller, 0);
@@ -100,6 +90,13 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 				_spread_target_y = target_y;
 				_launch_delay_seconds = 0;
 			}
+			else if (target_projectile_type == PROJECTILE_TYPE.CORRUPTION && _projectile_index == 0)
+			{
+				// One primary Compost projectile carries the volley enchantment at the selected center.
+				_spread_target_x = target_x;
+				_spread_target_y = target_y;
+				_launch_delay_seconds = 0;
+			}
 			var _projectile_distance = point_distance(_projectile_x, _projectile_y, _spread_target_x, _spread_target_y);
 			var _flight_time_seconds = clamp(
 				_projectile_distance / _projectile.projectile_speed,
@@ -136,6 +133,12 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 					_projectile_payload.cannon_loading = false;
 					_projectile_payload.cannon_loaded = true;
 					_projectile_payload.visible = false;
+
+					if (variable_instance_exists(_projectile_payload, "cultist_projectile_deploy_assigned"))
+					{
+						_projectile_payload.cultist_projectile_deploy_assigned = true;
+						_projectile_payload.cultist_projectile_deploy_waiting = false;
+					}
 				}
 
 				if (instance_exists(o_game_controller))
@@ -149,6 +152,7 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 				_projectile.effect_radius = cannon_projectile_heal_radius_get();
 				_projectile.damage_amount = cannon_projectile_heal_amount_get();
 				_projectile.projectile_sprite = s_heal_meat;
+				_projectile.first_aid_meat_enchantment = global.shell_factory_first_aid_enchantment;
 			}
 			else if (target_projectile_type == PROJECTILE_TYPE.BOMB)
 			{
@@ -160,6 +164,10 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			{
 				_projectile.effect_radius = cannon_taint_compost_radius_get();
 				_projectile.projectile_sprite = s_taint_shell;
+				_projectile.taint_compost_enchantment = global.shell_factory_taint_enchantment;
+				_projectile.taint_compost_enchantment_primary = _projectile_index == 0;
+				_projectile.taint_compost_enchantment_x = target_x;
+				_projectile.taint_compost_enchantment_y = target_y;
 			}
 			else if (target_projectile_type == PROJECTILE_TYPE.DOOM_BELL)
 			{

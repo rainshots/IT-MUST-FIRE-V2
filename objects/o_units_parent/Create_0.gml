@@ -5,7 +5,8 @@ hp = max_hp;
 damage = 10;
 magic_damage = 0;
 reload_time = room_speed;
-reload_timer = 0;
+reload_timer = reload_time;
+initial_attack_reload_pending = true; // First Step applies the unit type's final full reload duration.
 attack_radius = 32;
 y_sort_enabled = true;
 
@@ -73,16 +74,44 @@ rally_has_arrived = false;
 // Cultist projectiles can deliver summoned combat units to the impact area.
 cultist_projectile_deploy_assigned = false;
 cultist_projectile_deploy_waiting = false;
+cannon_loading = false;
+cannon_loaded = false;
 
 // Squad membership persists through the squad system and can be replaced after transformations.
 squad = noone;
 squad_unit_index = -1;
+
+// Unholy Trait state is shared by every squad unit type through this parent object.
+unholy_taint_treatment_heal_timer = 0;
+unholy_savage_leap_active = false;
+unholy_savage_leap_cooldown_timer = 0;
+unholy_savage_leap_search_timer = 0;
+unholy_savage_leap_flight_timer = 0;
+unholy_savage_leap_flight_duration = max(
+	1,
+	BALANCE_UNHOLY_SHRINE_SAVAGE_LEAP_ANIMATION_TIME * room_speed
+);
+unholy_savage_leap_start_x = x;
+unholy_savage_leap_start_y = y;
+unholy_savage_leap_end_x = x;
+unholy_savage_leap_end_y = y;
+unholy_savage_leap_target = noone;
+unholy_abyss_marks = []; // Active Roar marks retain the squad that may deal bonus damage.
+unholy_abyss_immortality_timer = 0; // Surviving Roar squad members cannot fall below 1 HP briefly.
+unholy_aura_instance = noone;
 
 // Regroup movement sends newly spawned friendly summons toward the cannon day area.
 regroup_is_active = false;
 regroup_target_x = x;
 regroup_target_y = y;
 regroup_arrive_radius = BALANCE_PROJECTILE_RALLY_ARRIVE_RADIUS;
+
+// Daytime squad areas give each idle unit a small independent wander target.
+squad_point_wander_point = noone;
+squad_point_wander_target_x = x;
+squad_point_wander_target_y = y;
+squad_point_wander_wait_timer = 0;
+squad_point_wander_target_valid = false;
 
 // Optional guard behavior is used by spawned defenders.
 owner_garnizon = noone;
@@ -97,6 +126,13 @@ health_bar_world_draw_forced = false;
 is_night_attack_unit = false;
 holy_tower_reinforcement_waits_for_night = false;
 foundry_permanent_bonuses_pending = true;
+// Relic multipliers track what this instance already received from its squad.
+relic_health_multiplier_applied = 1;
+relic_damage_multiplier_applied = 1;
+relic_attack_speed_multiplier_applied = 1;
+relic_move_speed_multiplier_applied = 1;
+relic_armor_multiplier_applied = 1;
+relic_magic_resistance_multiplier_applied = 1;
 // Cheat balance UI uses this snapshot marker to keep dead units in the nightly HP total.
 balance_player_hp_snapshot_id = 0;
 
@@ -590,6 +626,76 @@ friendly_tainted_ground_heal_update = function()
 
 	var _heal_amount = BALANCE_DAY_THREE_TAINTED_GROUND_HEAL_PER_SECOND
 		* (tainted_ground_heal_interval / max(1, room_speed));
+	var _previous_hp = hp;
+	hp = min(hp + _heal_amount, max_hp);
+
+	if (hp > _previous_hp)
+	{
+		heal_feedback_create(id, hp - _previous_hp);
+	}
+};
+
+unholy_taint_treatment_enemy_is_nearby = function()
+{
+	var _enemy_count = instance_number(o_enemy_units);
+	var _enemy_radius = BALANCE_UNHOLY_SHRINE_TAINT_TREATMENT_ENEMY_RADIUS;
+	var _enemy_radius_squared = _enemy_radius * _enemy_radius;
+
+	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	{
+		var _enemy = instance_find(o_enemy_units, _enemy_index);
+
+		if (!target_can_be_attacked(_enemy))
+		{
+			continue;
+		}
+
+		var _distance_x = _enemy.x - x;
+		var _distance_y = _enemy.y - y;
+
+		if ((_distance_x * _distance_x) + (_distance_y * _distance_y) <= _enemy_radius_squared)
+		{
+			return true;
+		}
+	}
+
+	return false;
+};
+
+unholy_taint_treatment_update = function()
+{
+	if (unit_faction != UNIT_FACTION.FRIENDLY
+		|| global.day_phase != DAY_PHASE.NIGHT
+		|| !is_struct(squad)
+		|| squad_unholy_trait_get(squad) != UNHOLY_TRAIT.TAINT_TREATMENT
+		|| hp <= 0
+		|| hp >= max_hp)
+	{
+		unholy_taint_treatment_heal_timer = 0;
+		return;
+	}
+
+	// Healing is applied in short batches while no enemy threatens this unit.
+	unholy_taint_treatment_heal_timer += gameplay_time_scale;
+	var _heal_interval = max(
+		1,
+		BALANCE_UNHOLY_SHRINE_TAINT_TREATMENT_HEAL_INTERVAL * room_speed
+	);
+
+	if (unholy_taint_treatment_heal_timer < _heal_interval)
+	{
+		return;
+	}
+
+	if (!unit_is_on_tainted_ground() || unholy_taint_treatment_enemy_is_nearby())
+	{
+		unholy_taint_treatment_heal_timer = 0;
+		return;
+	}
+
+	unholy_taint_treatment_heal_timer -= _heal_interval;
+	var _heal_amount = BALANCE_UNHOLY_SHRINE_TAINT_TREATMENT_HEAL_PER_SECOND
+		* (_heal_interval / max(1, room_speed));
 	var _previous_hp = hp;
 	hp = min(hp + _heal_amount, max_hp);
 
@@ -1235,6 +1341,21 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 		return 0;
 	}
 
+	// The Roar still allows damage but prevents a surviving squad member from dying.
+	var _minimum_hp = 0;
+
+	if (global.day_phase == DAY_PHASE.NIGHT
+		&& unit_faction == UNIT_FACTION.FRIENDLY
+		&& unholy_abyss_immortality_timer > 0)
+	{
+		_minimum_hp = min(1, hp);
+
+		if (hp <= _minimum_hp)
+		{
+			return 0;
+		}
+	}
+
 	if (_source_faction == UNIT_FACTION.ENEMY
 		&& variable_instance_exists(id, "ignored_by_enemies")
 		&& ignored_by_enemies)
@@ -1268,6 +1389,25 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 		_damage_amount *= BALANCE_RITUAL_HELL_WEAKEST_DAMAGE_MULTIPLIER;
 	}
 
+	// The Power of Twilight modifies every damage path that identifies its source unit.
+	if (_source_is_unit
+		&& variable_instance_exists(_source_instance, "squad")
+		&& squad_unholy_power_twilight_is_active(_source_instance.squad))
+	{
+		_damage_amount *= BALANCE_UNHOLY_SHRINE_TWILIGHT_DAMAGE_MULTIPLIER;
+	}
+
+	// An Abyss mark accepts bonus damage only from the squad that created that mark.
+	if (global.day_phase == DAY_PHASE.NIGHT
+		&& _source_is_unit
+		&& unit_faction == UNIT_FACTION.ENEMY
+		&& variable_instance_exists(_source_instance, "squad")
+		&& is_struct(_source_instance.squad)
+		&& unholy_abyss_mark_has_squad(_source_instance.squad))
+	{
+		_damage_amount *= BALANCE_UNHOLY_SHRINE_ROAR_DAMAGE_MULTIPLIER;
+	}
+
 	if (global.day_phase == DAY_PHASE.NIGHT
 		&& global.ritual_awaken_taint_active
 		&& unit_faction == UNIT_FACTION.ENEMY
@@ -1276,9 +1416,15 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 		_damage_amount *= BALANCE_RITUAL_AWAKEN_TAINT_DAMAGE_TAKEN_MULTIPLIER;
 	}
 
-	var _applied_damage = min(_damage_amount, hp);
-	hp = max(hp - _damage_amount, 0);
+	var _applied_damage = min(_damage_amount, max(0, hp - _minimum_hp));
+	hp = max(hp - _damage_amount, _minimum_hp);
 	damage_flash_timer = damage_flash_duration;
+
+	// The Roar reacts as soon as the squad's combined HP falls below half.
+	if (unit_faction == UNIT_FACTION.FRIENDLY && is_struct(squad))
+	{
+		squad_unholy_roar_try(squad);
+	}
 
 	// Taking damage permanently ends the fast approach for this night attacker.
 	if (unit_faction == UNIT_FACTION.ENEMY && is_night_attack_unit)
@@ -1530,6 +1676,345 @@ warlock_skeleton_death_effect_apply = function()
 	}
 };
 
+unholy_boiling_blood_death_explosion_apply = function()
+{
+	if (unit_faction != UNIT_FACTION.FRIENDLY
+		|| !is_struct(squad)
+		|| squad_unholy_trait_get(squad) != UNHOLY_TRAIT.BOILING_BLOOD)
+	{
+		return;
+	}
+
+	var _enemy_list = ds_list_create();
+	var _enemy_count = collision_circle_list(
+		x,
+		y,
+		BALANCE_UNHOLY_SHRINE_BOILING_BLOOD_EXPLOSION_RADIUS,
+		o_enemy_units,
+		false,
+		true,
+		_enemy_list,
+		false
+	);
+
+	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	{
+		var _enemy = _enemy_list[| _enemy_index];
+
+		if (target_can_be_attacked(_enemy)
+			&& variable_instance_exists(_enemy, "unit_damage_receive"))
+		{
+			_enemy.unit_damage_receive(
+				BALANCE_UNHOLY_SHRINE_BOILING_BLOOD_EXPLOSION_DAMAGE,
+				UNIT_FACTION.FRIENDLY,
+				false,
+				true,
+				id
+			);
+		}
+	}
+
+	ds_list_destroy(_enemy_list);
+	instance_create_layer(x, y, "Instances", o_particle_explosion);
+};
+
+unholy_abyss_mark_apply = function(_source_squad, _duration_frames)
+{
+	if (!is_struct(_source_squad) || _duration_frames <= 0)
+	{
+		return false;
+	}
+
+	// Refresh a mark from the same squad without removing marks from other Roar squads.
+	for (var _mark_index = 0; _mark_index < array_length(unholy_abyss_marks); ++_mark_index)
+	{
+		var _mark = unholy_abyss_marks[_mark_index];
+
+		if (_mark.squad == _source_squad)
+		{
+			_mark.timer = max(_mark.timer, _duration_frames);
+			return true;
+		}
+	}
+
+	array_push(unholy_abyss_marks, {
+		squad: _source_squad,
+		timer: _duration_frames
+	});
+	return true;
+};
+
+unholy_abyss_mark_has_squad = function(_source_squad)
+{
+	if (!is_struct(_source_squad))
+	{
+		return false;
+	}
+
+	for (var _mark_index = 0; _mark_index < array_length(unholy_abyss_marks); ++_mark_index)
+	{
+		var _mark = unholy_abyss_marks[_mark_index];
+
+		if (_mark.timer > 0 && _mark.squad == _source_squad)
+		{
+			return true;
+		}
+	}
+
+	return false;
+};
+
+unholy_abyss_effects_update = function()
+{
+	// Roar effects cannot persist outside the night in which they triggered.
+	if (global.day_phase != DAY_PHASE.NIGHT)
+	{
+		unholy_abyss_immortality_timer = 0;
+		unholy_abyss_marks = [];
+		return;
+	}
+
+	if (unholy_abyss_immortality_timer > 0)
+	{
+		unholy_abyss_immortality_timer = max(
+			0,
+			unholy_abyss_immortality_timer - gameplay_time_scale
+		);
+	}
+
+	for (var _mark_index = array_length(unholy_abyss_marks) - 1; _mark_index >= 0; --_mark_index)
+	{
+		var _mark = unholy_abyss_marks[_mark_index];
+		_mark.timer -= gameplay_time_scale;
+
+		if (_mark.timer <= 0)
+		{
+			array_delete(unholy_abyss_marks, _mark_index, 1);
+		}
+	}
+};
+
+unholy_trait_aura_update = function()
+{
+	var _aura_effect = UNHOLY_TRAIT.NONE;
+	var _aura_color = c_white;
+	var _aura_alpha = 1;
+	var _aura_scale = 1;
+	var _aura_pulse_amount = 0;
+	var _aura_pulse_speed = 0;
+
+	// Marked enemies use a compact purple aura while the squad uses its yellow body overlay.
+	if (unit_faction == UNIT_FACTION.ENEMY && hp > 0 && array_length(unholy_abyss_marks) > 0)
+	{
+		_aura_effect = UNHOLY_TRAIT.ROAR_OF_THE_ABYSS;
+		_aura_color = COLOR_UNHOLY_ROAR_OF_THE_ABYSS;
+		_aura_alpha = BALANCE_UNHOLY_SHRINE_ROAR_MARK_ALPHA;
+		_aura_scale = BALANCE_UNHOLY_SHRINE_ROAR_MARK_SCALE;
+		_aura_pulse_amount = BALANCE_UNHOLY_SHRINE_ROAR_AURA_PULSE_AMOUNT;
+		_aura_pulse_speed = BALANCE_UNHOLY_SHRINE_ROAR_AURA_PULSE_SPEED;
+	}
+	else if (unit_faction == UNIT_FACTION.FRIENDLY
+		&& hp > 0
+		&& is_struct(squad)
+		&& squad_unholy_power_twilight_is_active(squad))
+	{
+		_aura_effect = UNHOLY_TRAIT.POWER_OF_TWILIGHT;
+		_aura_color = COLOR_UNHOLY_POWER_OF_TWILIGHT;
+		_aura_alpha = BALANCE_UNHOLY_SHRINE_TWILIGHT_AURA_ALPHA;
+		_aura_scale = BALANCE_UNHOLY_SHRINE_TWILIGHT_AURA_SCALE;
+	}
+
+	if (_aura_effect == UNHOLY_TRAIT.NONE)
+	{
+		if (instance_exists(unholy_aura_instance))
+		{
+			with (unholy_aura_instance)
+			{
+				instance_destroy();
+			}
+		}
+
+		unholy_aura_instance = noone;
+		return;
+	}
+
+	if (!instance_exists(unholy_aura_instance))
+	{
+		var _aura_layer_name = layer_get_id("Instances_1") != -1
+			? "Instances_1"
+			: "Instances";
+		unholy_aura_instance = instance_create_layer(x, y, _aura_layer_name, o_aura);
+	}
+
+	if (instance_exists(unholy_aura_instance))
+	{
+		unholy_aura_instance.aura_owner = id;
+		unholy_aura_instance.aura_effect = _aura_effect;
+		unholy_aura_instance.aura_color = _aura_color;
+		unholy_aura_instance.aura_alpha = _aura_alpha;
+		unholy_aura_instance.aura_scale_x = _aura_scale;
+		unholy_aura_instance.aura_scale_y = _aura_scale;
+		unholy_aura_instance.aura_pulse_amount = _aura_pulse_amount;
+		unholy_aura_instance.aura_pulse_speed = _aura_pulse_speed;
+	}
+};
+
+unholy_savage_leap_target_find = function()
+{
+	var _nearest_target = noone;
+	var _nearest_distance = BALANCE_UNHOLY_SHRINE_SAVAGE_LEAP_MAX_RADIUS;
+	var _enemy_count = instance_number(o_enemy_units);
+
+	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	{
+		var _enemy = instance_find(o_enemy_units, _enemy_index);
+
+		if (!target_can_be_attacked(_enemy))
+		{
+			continue;
+		}
+
+		var _enemy_distance = point_distance(x, y, _enemy.x, _enemy.y);
+
+		if (_enemy_distance > BALANCE_UNHOLY_SHRINE_SAVAGE_LEAP_MIN_RADIUS
+			&& _enemy_distance <= _nearest_distance)
+		{
+			_nearest_target = _enemy;
+			_nearest_distance = _enemy_distance;
+		}
+	}
+
+	return _nearest_target;
+};
+
+unholy_savage_leap_start = function(_target)
+{
+	if (!instance_exists(_target))
+	{
+		return false;
+	}
+
+	unholy_savage_leap_active = true;
+	unholy_savage_leap_flight_timer = 0;
+	unholy_savage_leap_start_x = x;
+	unholy_savage_leap_start_y = y;
+	unholy_savage_leap_end_x = _target.x;
+	unholy_savage_leap_end_y = _target.y;
+	unholy_savage_leap_target = _target;
+	visual_offset_is_ability_controlled = true;
+	target_instance = noone;
+	is_attacking_target = false;
+	is_walking = false;
+	face_world_x(_target.x);
+
+	return true;
+};
+
+unholy_savage_leap_cancel_for_march = function()
+{
+	if (!unholy_savage_leap_active)
+	{
+		return false;
+	}
+
+	// A player move order takes priority and leaves the unit at its current ground position.
+	unholy_savage_leap_active = false;
+	unholy_savage_leap_cooldown_timer = BALANCE_UNHOLY_SHRINE_SAVAGE_LEAP_COOLDOWN
+		* room_speed;
+	unholy_savage_leap_search_timer = 0;
+	unholy_savage_leap_target = noone;
+	visual_offset_is_ability_controlled = false;
+	visual_attack_offset_x = 0;
+	visual_attack_offset_y = 0;
+	target_instance = noone;
+	is_attacking_target = false;
+
+	return true;
+};
+
+unholy_savage_leap_update = function()
+{
+	if (unholy_savage_leap_active)
+	{
+		unholy_savage_leap_flight_timer += gameplay_time_scale;
+		var _flight_progress = clamp(
+			unholy_savage_leap_flight_timer / unholy_savage_leap_flight_duration,
+			0,
+			1
+		);
+
+		x = lerp(unholy_savage_leap_start_x, unholy_savage_leap_end_x, _flight_progress);
+		y = lerp(unholy_savage_leap_start_y, unholy_savage_leap_end_y, _flight_progress);
+		visual_attack_offset_x = 0;
+		visual_attack_offset_y = -sin(_flight_progress * pi)
+			* BALANCE_UNHOLY_SHRINE_SAVAGE_LEAP_ARC_HEIGHT;
+		is_attacking_target = false;
+		is_walking = false;
+
+		if (_flight_progress >= 1)
+		{
+			unholy_savage_leap_active = false;
+			unholy_savage_leap_cooldown_timer = BALANCE_UNHOLY_SHRINE_SAVAGE_LEAP_COOLDOWN
+				* room_speed;
+			unholy_savage_leap_search_timer = 0;
+			visual_offset_is_ability_controlled = false;
+			visual_attack_offset_x = 0;
+			visual_attack_offset_y = 0;
+
+			if (target_can_be_attacked(unholy_savage_leap_target))
+			{
+				target_instance = unholy_savage_leap_target;
+			}
+
+			unholy_savage_leap_target = noone;
+		}
+
+		return true;
+	}
+
+	if (unholy_savage_leap_cooldown_timer > 0)
+	{
+		unholy_savage_leap_cooldown_timer = max(
+			0,
+			unholy_savage_leap_cooldown_timer - gameplay_time_scale
+		);
+	}
+
+	var _can_start = unholy_savage_leap_cooldown_timer <= 0
+		&& unit_faction == UNIT_FACTION.FRIENDLY
+		&& global.day_phase == DAY_PHASE.NIGHT
+		&& is_struct(squad)
+		&& !squad_is_marching(squad)
+		&& squad_unholy_trait_get(squad) == UNHOLY_TRAIT.SAVAGE_LEAP
+		&& attack_radius <= BALANCE_UNIT_MELEE_DAMAGE_RADIUS_MAX
+		&& !is_stunned
+		&& !is_being_dragged
+		&& !cultist_projectile_deploy_assigned
+		&& !cultist_projectile_deploy_waiting;
+
+	if (!_can_start)
+	{
+		return false;
+	}
+
+	if (unholy_savage_leap_search_timer > 0)
+	{
+		unholy_savage_leap_search_timer = max(
+			0,
+			unholy_savage_leap_search_timer - gameplay_time_scale
+		);
+		return false;
+	}
+
+	var _leap_target = unholy_savage_leap_target_find();
+	unholy_savage_leap_search_timer = max(
+		1,
+		BALANCE_UNHOLY_SHRINE_SAVAGE_LEAP_SEARCH_INTERVAL * room_speed
+	);
+
+	return unholy_savage_leap_start(_leap_target);
+};
+
 player_death_explosion_apply = function()
 {
 	if (unit_faction != UNIT_FACTION.FRIENDLY
@@ -1653,11 +2138,18 @@ unit_death_process = function()
 		}
 	}
 
+	// The Roar checks the squad after this fallen unit has reached zero HP.
+	if (unit_faction == UNIT_FACTION.FRIENDLY && is_struct(squad))
+	{
+		squad_unholy_roar_try(squad);
+	}
+
 	if (is_demon_form_unit() || object_index == o_archdemon)
 	{
 		if (!is_knocked_out)
 		{
 			unit_death_sound_play();
+			unholy_boiling_blood_death_explosion_apply();
 			soul_chain_death_effect_apply();
 
 			if (global.day_phase == DAY_PHASE.NIGHT && instance_exists(o_game_controller))
@@ -1687,6 +2179,7 @@ unit_death_process = function()
 	}
 
 	unit_death_sound_play();
+	unholy_boiling_blood_death_explosion_apply();
 	player_death_explosion_apply();
 	unit_corpse_snapshot_create();
 	soul_chain_death_effect_apply();
@@ -1695,11 +2188,27 @@ unit_death_process = function()
 	status_effect_death_rewards_try();
 	meat_drop_try();
 
-	// The daybreak upgrade temporarily replaces a fallen friendly squad unit until morning.
+	// Endless Procession and the daybreak upgrade share one Bonelet replacement roll.
+	var _bonelet_resurrection_chance = 0;
+
+	if (unit_faction == UNIT_FACTION.FRIENDLY
+		&& is_struct(squad)
+		&& squad_unholy_trait_get(squad) == UNHOLY_TRAIT.ENDLESS_PROCESSION)
+	{
+		_bonelet_resurrection_chance = BALANCE_UNHOLY_SHRINE_ENDLESS_PROCESSION_CHANCE;
+	}
+
 	if (unit_faction == UNIT_FACTION.FRIENDLY
 		&& variable_global_exists("player_unit_bonelet_resurrection_active")
-		&& global.player_unit_bonelet_resurrection_active
-		&& random(1) < BALANCE_EARLY_UPGRADE_BONELET_RESURRECTION_CHANCE)
+		&& global.player_unit_bonelet_resurrection_active)
+	{
+		_bonelet_resurrection_chance = max(
+			_bonelet_resurrection_chance,
+			BALANCE_EARLY_UPGRADE_BONELET_RESURRECTION_CHANCE
+		);
+	}
+
+	if (_bonelet_resurrection_chance > 0 && random(1) < _bonelet_resurrection_chance)
 	{
 		squad_unit_resurrect_as_bonelet(id);
 	}
@@ -2152,6 +2661,12 @@ player_map_structure_can_be_targeted = function(_structure)
 		return false;
 	}
 
+	// Sweet Rot is acquired only through its local attraction rule, not normal route interception.
+	if (_structure.object_index == o_taint_shell_tumor)
+	{
+		return false;
+	}
+
 	if (variable_instance_exists(_structure, "building_constructed_by_shell")
 		&& _structure.building_constructed_by_shell)
 	{
@@ -2166,6 +2681,114 @@ player_map_structure_can_be_targeted = function(_structure)
 	}
 
 	return false;
+};
+
+taint_shell_tumor_is_valid = function(_target)
+{
+	return target_can_be_attacked(_target)
+		&& _target.object_index == o_taint_shell_tumor;
+};
+
+first_aid_meat_fresh_target_is_valid = function(_target)
+{
+	if (!target_can_be_attacked(_target)
+		|| _target.object_index != o_first_aid_meat
+		|| !variable_instance_exists(_target, "first_aid_meat_enchantment")
+		|| _target.first_aid_meat_enchantment != FIRST_AID_MEAT_ENCHANTMENT.FRESH_MEAT)
+	{
+		return false;
+	}
+
+	// Deterministic balance matches must not attract enemies from another simulated match.
+	if (variable_instance_exists(_target, "balance_test_match_id")
+		&& _target.balance_test_match_id >= 0
+		&& (!variable_instance_exists(id, "balance_test_match_id")
+			|| balance_test_match_id != _target.balance_test_match_id))
+	{
+		return false;
+	}
+
+	return true;
+};
+
+first_aid_meat_fresh_target_find = function()
+{
+	// Once attracted, keep attacking the same meat while it survives.
+	if (first_aid_meat_fresh_target_is_valid(target_instance))
+	{
+		return target_instance;
+	}
+
+	var _nearest_meat = noone;
+	var _nearest_distance_squared = infinity;
+	var _meat_count = instance_number(o_first_aid_meat);
+
+	for (var _meat_index = 0; _meat_index < _meat_count; ++_meat_index)
+	{
+		var _meat = instance_find(o_first_aid_meat, _meat_index);
+
+		if (!first_aid_meat_fresh_target_is_valid(_meat))
+		{
+			continue;
+		}
+
+		var _distance_x = _meat.x - x;
+		var _distance_y = _meat.y - y;
+		var _distance_squared = (_distance_x * _distance_x) + (_distance_y * _distance_y);
+		var _smell_radius = variable_instance_exists(_meat, "fresh_smell_radius")
+			? _meat.fresh_smell_radius
+			: BALANCE_FIRST_AID_MEAT_FRESH_SMELL_RADIUS;
+		var _smell_radius_squared = _smell_radius * _smell_radius;
+
+		if (_distance_squared <= _smell_radius_squared
+			&& _distance_squared < _nearest_distance_squared)
+		{
+			_nearest_meat = _meat;
+			_nearest_distance_squared = _distance_squared;
+		}
+	}
+
+	return _nearest_meat;
+};
+
+taint_shell_tumor_target_find = function()
+{
+	// Once lured, finish attacking the same tumor while it survives.
+	if (taint_shell_tumor_is_valid(target_instance))
+	{
+		return target_instance;
+	}
+
+	var _nearest_tumor = noone;
+	var _nearest_distance_squared = infinity;
+	var _tumor_count = instance_number(o_taint_shell_tumor);
+
+	for (var _tumor_index = 0; _tumor_index < _tumor_count; ++_tumor_index)
+	{
+		var _tumor = instance_find(o_taint_shell_tumor, _tumor_index);
+
+		if (!taint_shell_tumor_is_valid(_tumor))
+		{
+			continue;
+		}
+
+		var _distance_x = _tumor.x - x;
+		var _distance_y = _tumor.y - y;
+		var _distance_squared = (_distance_x * _distance_x) + (_distance_y * _distance_y);
+		var _attraction_radius = variable_instance_exists(_tumor, "attraction_radius")
+			? _tumor.attraction_radius
+			: BALANCE_TAINT_COMPOST_SWEET_ROT_RADIUS;
+		var _attraction_radius_squared = _attraction_radius * _attraction_radius;
+
+		if (_distance_squared <= _attraction_radius_squared
+			&& _distance_squared < _nearest_distance_squared)
+		{
+			_nearest_tumor = _tumor;
+			_nearest_distance_squared = _distance_squared;
+		}
+	}
+
+	return _nearest_tumor;
 };
 
 player_settlement_building_can_be_targeted = function(_building)

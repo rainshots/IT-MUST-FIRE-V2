@@ -1459,4 +1459,12 @@ function cultist_stats_apply(_unit)
 	_unit.reload_time = max(room_speed / max(_unit.attack_speed, 0.1), 1);
 	_unit.attack_radius = _base_stats.attack_radius;
 	_unit.move_speed = cultist_stat_get(_unit.base_move_speed, _fervor, BALANCE_CULTIST_FERVOR_STAT_BONUS, _unit.move_speed_coefficient);
+
+	// Reapply squad Relics after this full stat rebuild replaces their modified values.
+	squad_relic_applied_multipliers_reset(_unit);
+
+	if (variable_instance_exists(_unit, "squad") && is_struct(_unit.squad))
+	{
+		squad_relic_bonuses_apply(_unit.squad, _unit);
+	}
 }

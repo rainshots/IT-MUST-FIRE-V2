@@ -1,6 +1,69 @@
 // Draw the building sprite first because this parent owns the draw event.
 draw_self();
 
+// Highlight buildings whose information window can be opened with the left mouse button.
+if (building_info_hover_is_active())
+{
+	var _hover_pulse = (sin(current_time * building_info_hover_pulse_speed) + 1) * 0.5;
+	var _hover_fill_alpha = building_info_hover_fill_alpha
+		+ (_hover_pulse * building_info_hover_pulse_alpha);
+	var _hover_left = bbox_left - building_info_hover_padding;
+	var _hover_top = bbox_top - building_info_hover_padding;
+	var _hover_right = bbox_right + building_info_hover_padding;
+	var _hover_bottom = bbox_bottom + building_info_hover_padding;
+
+	draw_set_alpha(_hover_fill_alpha);
+	draw_set_color(COLOR_HUD_IRON);
+	draw_rectangle(_hover_left, _hover_top, _hover_right, _hover_bottom, false);
+
+	draw_set_alpha(building_info_hover_outline_alpha);
+	draw_rectangle(_hover_left, _hover_top, _hover_right, _hover_bottom, true);
+
+	// Keep the click hint compact and centered immediately above the hovered building.
+	var _previous_font = draw_get_font();
+
+	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+	{
+		draw_set_font(global.ui_font);
+	}
+
+	var _label_width = string_width(building_info_hover_label)
+		+ (building_info_hover_label_padding_x * 2);
+	var _label_height = string_height(building_info_hover_label)
+		+ (building_info_hover_label_padding_y * 2);
+	var _label_left = x - (_label_width * 0.5);
+	var _label_top = _hover_top - _label_height - building_info_hover_label_offset_y;
+
+	draw_set_alpha(building_info_hover_label_background_alpha);
+	draw_set_color(COLOR_HUD_BACKGROUND);
+	draw_roundrect(
+		_label_left,
+		_label_top,
+		_label_left + _label_width,
+		_label_top + _label_height,
+		false
+	);
+	draw_set_alpha(1);
+	draw_set_color(COLOR_HUD_IRON);
+	draw_roundrect(
+		_label_left,
+		_label_top,
+		_label_left + _label_width,
+		_label_top + _label_height,
+		true
+	);
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
+	draw_set_color(COLOR_HUD_TEXT);
+	draw_text(x, _label_top + (_label_height * 0.5), building_info_hover_label);
+	draw_set_font(_previous_font);
+}
+
+draw_set_halign(fa_left);
+draw_set_valign(fa_top);
+draw_set_color(c_white);
+draw_set_alpha(1);
+
 // Draw settlement durability only while the building is damaged.
 if (hp < max_hp)
 {

@@ -46,6 +46,17 @@ gameplay_time_scale = variable_global_exists("gameplay_time_scale")
 	: 1;
 image_speed = gameplay_time_scale;
 
+// Child Create events set their final reload time after the parent Create has finished.
+if (initial_attack_reload_pending)
+{
+	reload_timer = max(1, reload_time * unit_attack_reload_multiplier_get());
+	initial_attack_reload_pending = false;
+}
+
+// Timed Roar effects and all visual trait markers share one lightweight update.
+unholy_abyss_effects_update();
+unholy_trait_aura_update();
+
 if (navigation_retry_timer > 0)
 {
 	navigation_retry_timer = max(0, navigation_retry_timer - gameplay_time_scale);
@@ -73,6 +84,21 @@ if (is_knocked_out)
 if (hp <= 0)
 {
 	unit_death_process();
+	exit;
+}
+
+// Squad loading is a visual run; its projectile is already available in the cannon queue.
+if (cannon_loading || cannon_loaded)
+{
+	target_instance = noone;
+	alert_target = noone;
+	forced_attack_target = noone;
+	forced_attack_target_timer = 0;
+	is_attacking_target = false;
+	visual_attack_offset_x = 0;
+	visual_attack_offset_y = 0;
+	is_walking = cannon_loading;
+	update_walk_sway();
 	exit;
 }
 
@@ -227,6 +253,16 @@ enemy_saint_ground_heal_update();
 // The day-three upgrade slowly restores player units standing on Taint.
 friendly_tainted_ground_heal_update();
 
+// Taint Treatment heals only while this unit is safe on corrupted ground.
+unholy_taint_treatment_update();
+
+// Savage Leap owns movement and sprite offset throughout its short flight.
+if (unholy_savage_leap_update())
+{
+	update_walk_sway();
+	exit;
+}
+
 // Stunned units stay vulnerable but cannot move, attack, or progress timers.
 if (is_stunned)
 {
@@ -376,6 +412,34 @@ var _is_friendly_unit = (unit_faction == UNIT_FACTION.FRIENDLY);
 var _friendly_follow_target = noone;
 var _is_cultist_demon_unit = variable_instance_exists(id, "demon_type")
 	&& demon_type != DEMON_TYPE.NONE;
+var _is_player_squad_unit = _is_friendly_unit && is_struct(squad);
+var _uses_squad_day_point = _is_friendly_unit
+	&& global.day_phase == DAY_PHASE.DAY
+	&& is_struct(squad);
+
+// Persistent squads hold their last ordered position instead of idling back to the Cannon.
+if (_is_player_squad_unit)
+{
+	cached_follow_target = noone;
+
+	if (instance_exists(target_instance) && target_instance.object_index == o_cannon)
+	{
+		target_instance = noone;
+		navigation_path_state_clear();
+	}
+}
+
+// Daytime squad members stay inside their reserved area instead of guarding the cannon.
+if (_uses_squad_day_point)
+{
+	target_instance = noone;
+	alert_target = noone;
+	alert_target_timer = 0;
+	forced_attack_target = noone;
+	forced_attack_target_timer = 0;
+	cached_follow_target = noone;
+}
+
 var _had_target = instance_exists(target_instance);
 var _current_target_is_valid = target_can_be_attacked(target_instance);
 
@@ -385,7 +449,9 @@ update_separation_push();
 // March state is updated before any normal, panic, or retreat movement uses its multiplier.
 enemy_march_update();
 
-var _special_behavior_handled = unit_special_behavior_update();
+var _special_behavior_handled = _uses_squad_day_point
+	? false
+	: unit_special_behavior_update();
 var _has_forced_target = target_can_be_attacked(forced_attack_target);
 var _should_search_target = false;
 
@@ -416,69 +482,98 @@ if (!_special_behavior_handled && _has_forced_target)
 }
 else if (!_special_behavior_handled && _should_search_target && _is_enemy_unit)
 {
-	// Nearby player units take priority over distant units, structures, and the cannon.
-	var _nearest_player_unit = find_nearest_player_unit_target(target_detection_radius);
+	// Fresh Meat overrides ordinary combat priorities for every enemy inside its smell radius.
+	var _fresh_meat_target = first_aid_meat_fresh_target_find();
 
-	if (instance_exists(_nearest_player_unit))
+	if (instance_exists(_fresh_meat_target))
 	{
-		target_instance = _nearest_player_unit;
+		target_instance = _fresh_meat_target;
 	}
 	else
 	{
-		// Stop chasing a player unit that has left the detection radius.
-		if (target_is_player_unit(target_instance))
+		// Nearby player units take priority over distant units, structures, and the cannon.
+		var _nearest_player_unit = find_nearest_player_unit_target(target_detection_radius);
+
+		if (instance_exists(_nearest_player_unit))
 		{
-			target_instance = noone;
+			target_instance = _nearest_player_unit;
 		}
-
-		var _has_alert_target = false;
-
-		if (instance_exists(alert_target))
+		else
 		{
-			if (target_can_be_attacked(alert_target))
-			{
-				target_instance = alert_target;
-				_has_alert_target = true;
-			}
-			else
-			{
-				alert_target = noone;
-				alert_target_timer = 0;
-			}
-		}
-
-		// Without a combat alert, attack the first player building that physically blocks the cannon route.
-		if (!_has_alert_target && unit_can_attack_cannon)
-		{
-			var _blocking_building = find_player_building_on_cannon_path();
-
-			if (instance_exists(_blocking_building))
-			{
-				target_instance = _blocking_building;
-			}
-			else if (player_structure_can_be_targeted(target_instance))
+			// Stop chasing a player unit that has left the detection radius.
+			if (target_is_player_unit(target_instance))
 			{
 				target_instance = noone;
 			}
+
+			var _has_alert_target = false;
+
+			if (instance_exists(alert_target))
+			{
+				if (target_can_be_attacked(alert_target))
+				{
+					target_instance = alert_target;
+					_has_alert_target = true;
+				}
+				else
+				{
+					alert_target = noone;
+					alert_target_timer = 0;
+				}
+			}
+
+			var _current_target_is_tumor = taint_shell_tumor_is_valid(target_instance);
+			var _current_target_is_in_combat = target_can_be_attacked(target_instance)
+				&& !_current_target_is_tumor
+				&& navigation_target_distance_get(target_instance) <= attack_radius;
+			var _tumor_target = noone;
+
+			// Sweet Rot lures only enemies that are not already fighting another valid target.
+			if (!_has_alert_target && !_current_target_is_in_combat)
+			{
+				_tumor_target = taint_shell_tumor_target_find();
+			}
+
+			if (instance_exists(_tumor_target))
+			{
+				target_instance = _tumor_target;
+			}
+			// Without a lure or combat alert, attack the first building that blocks the cannon route.
+			else if (!_has_alert_target && unit_can_attack_cannon)
+			{
+				var _blocking_building = find_player_building_on_cannon_path();
+
+				if (instance_exists(_blocking_building))
+				{
+					target_instance = _blocking_building;
+				}
+				else if (player_structure_can_be_targeted(target_instance))
+				{
+					target_instance = noone;
+				}
+			}
 		}
-	}
 
-	if (!instance_exists(target_instance) && !unit_can_attack_cannon && instance_exists(guard_target))
-	{
-		var _distance_to_guard = point_distance(x, y, guard_target.x, guard_target.y);
-
-		if (_distance_to_guard > guard_radius)
+		if (!instance_exists(target_instance) && !unit_can_attack_cannon && instance_exists(guard_target))
 		{
-			target_instance = guard_target;
-		}
-	}
+			var _distance_to_guard = point_distance(x, y, guard_target.x, guard_target.y);
 
-	if (!instance_exists(target_instance) && unit_can_attack_cannon && instance_exists(o_cannon))
-	{
-		target_instance = instance_find(o_cannon, 0);
+			if (_distance_to_guard > guard_radius)
+			{
+				target_instance = guard_target;
+			}
+		}
+
+		if (!instance_exists(target_instance) && unit_can_attack_cannon && instance_exists(o_cannon))
+		{
+			target_instance = instance_find(o_cannon, 0);
+		}
 	}
 }
-else if (!_special_behavior_handled && _should_search_target && _is_friendly_unit)
+else if (!_special_behavior_handled
+	&& !_uses_squad_day_point
+	&& _should_search_target
+	&& _is_friendly_unit)
 {
 	if (instance_exists(alert_target))
 	{
@@ -541,6 +636,7 @@ else if (!_special_behavior_handled && _should_search_target && _is_friendly_uni
 
 	if (!instance_exists(target_instance)
 		&& global.day_phase == DAY_PHASE.NIGHT
+		&& !_is_player_squad_unit
 		&& !regroup_is_active
 		&& !rally_is_active
 		&& (object_index == o_skeleton
@@ -589,6 +685,7 @@ else if (!_special_behavior_handled && _should_search_target && _is_friendly_uni
 		var _distance_to_cannon = point_distance(x, y, _cannon.x, _cannon.y);
 
 		if (friendly_guard_cannon_enabled
+			&& !_is_player_squad_unit
 			&& !instance_exists(_friendly_follow_target)
 			&& !regroup_is_active
 			&& !rally_is_active
@@ -599,7 +696,10 @@ else if (!_special_behavior_handled && _should_search_target && _is_friendly_uni
 	}
 }
 
-if (!_should_search_target && _is_friendly_unit && target_can_be_attacked(cached_follow_target))
+if (!_uses_squad_day_point
+	&& !_should_search_target
+	&& _is_friendly_unit
+	&& target_can_be_attacked(cached_follow_target))
 {
 	_friendly_follow_target = cached_follow_target;
 }
@@ -613,6 +713,7 @@ if (!_special_behavior_handled && instance_exists(target_instance) && !target_ca
 var _squad_combat_guide = noone;
 
 if (!_special_behavior_handled
+	&& !_uses_squad_day_point
 	&& _is_friendly_unit
 	&& !squad_unit_is_in_combat(id)
 	&& is_struct(squad))
@@ -788,8 +889,16 @@ else if (!_special_behavior_handled && _is_friendly_unit && rally_is_active)
 	}
 }
 
-// Apply separation after main AI movement so units do not stack.
-apply_separation_push();
+// Idle daytime squad members hold position; stale separation otherwise makes them vibrate.
+if (!_uses_squad_day_point || is_walking)
+{
+	apply_separation_push();
+}
+else
+{
+	separation_push_x = 0;
+	separation_push_y = 0;
+}
 
 // Add a simple sprite sway while the unit is walking.
 update_walk_sway();

@@ -1,3 +1,11 @@
+// Player-issued squad movement immediately overrides Demon Leap.
+var _squad_march_is_active = is_struct(squad) && squad_is_marching(squad);
+
+if (_squad_march_is_active && demon_leap_is_active)
+{
+	imp_demon_leap_cancel_for_march();
+}
+
 // Shared movement and attacks pause while active leaps control Imp position.
 if (!demon_leap_is_active && crimson_guillotine_strike_timer <= 0)
 {
@@ -10,7 +18,7 @@ else if (hp <= 0)
 	exit;
 }
 
-if (global.pause || hp <= 0)
+if (unholy_savage_leap_active || global.pause || hp <= 0)
 {
 	exit;
 }
@@ -138,6 +146,7 @@ if (demon_leap_is_active)
 
 // Use only the active ability this Imp currently owns.
 if (cultist_active_ability_has(id, DEMON_ABILITY.IMP_DEMON_LEAP)
+	&& !_squad_march_is_active
 	&& demon_leap_timer <= 0
 	&& demon_leap_retry_timer <= 0)
 {

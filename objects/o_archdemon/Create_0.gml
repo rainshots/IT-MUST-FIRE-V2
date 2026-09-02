@@ -4,6 +4,14 @@ cultist_name = "";
 demon_type = DEMON_TYPE.NONE;
 demon_ability = DEMON_ABILITY.NONE;
 
+// Squad Relics are reapplied whenever this Archdemon changes combat form.
+relic_health_multiplier_applied = 1;
+relic_damage_multiplier_applied = 1;
+relic_attack_speed_multiplier_applied = 1;
+relic_move_speed_multiplier_applied = 1;
+relic_armor_multiplier_applied = 1;
+relic_magic_resistance_multiplier_applied = 1;
+
 image_xscale = 0.7;
 image_yscale = image_xscale;
 // Day-form cultists use a random available cultist sprite variant.

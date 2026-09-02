@@ -768,6 +768,39 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 	}
 	else
 	{
+		if (target_selection_projectile_type == PROJECTILE_TYPE.HEAL
+			&& global.shell_factory_first_aid_enchantment != FIRST_AID_MEAT_ENCHANTMENT.NONE)
+		{
+			var _first_aid_extra_radius = global.shell_factory_first_aid_enchantment
+				== FIRST_AID_MEAT_ENCHANTMENT.EMERGENCY_PULL
+				? BALANCE_FIRST_AID_MEAT_PULL_RADIUS
+				: BALANCE_FIRST_AID_MEAT_FRESH_SMELL_RADIUS;
+			var _first_aid_extra_color = global.shell_factory_first_aid_enchantment
+				== FIRST_AID_MEAT_ENCHANTMENT.EMERGENCY_PULL
+				? COLOR_COOLDOWN_BRUTE_BUTCHER_CHAINS
+				: COLOR_STATUS_NEGATIVE_RED;
+			var _first_aid_extra_draw_radius = _first_aid_extra_radius * _radius_scale;
+
+			// The outer enchantment radius sits behind the unchanged healing radius.
+			draw_set_color(_first_aid_extra_color);
+			draw_set_alpha(BALANCE_FIRST_AID_MEAT_EXTRA_RADIUS_FILL_ALPHA);
+			draw_circle(_mouse_x, _mouse_y, _first_aid_extra_draw_radius, false);
+			draw_set_alpha(BALANCE_FIRST_AID_MEAT_EXTRA_RADIUS_OUTLINE_ALPHA);
+			draw_circle(_mouse_x, _mouse_y, _first_aid_extra_draw_radius, true);
+		}
+
+		if (target_selection_projectile_type == PROJECTILE_TYPE.CORRUPTION
+			&& global.shell_factory_taint_enchantment == TAINT_COMPOST_ENCHANTMENT.SWEET_ROT)
+		{
+			// Sweet Rot previews its attraction radius behind the normal corruption radius.
+			var _sweet_rot_draw_radius = BALANCE_TAINT_COMPOST_SWEET_ROT_RADIUS * _radius_scale;
+			draw_set_color(COLOR_TAINT_SPREADER_RADIUS);
+			draw_set_alpha(target_selection_alpha * BALANCE_TAINT_COMPOST_SWEET_ROT_AIM_FILL_ALPHA_MULTIPLIER);
+			draw_circle(_mouse_x, _mouse_y, _sweet_rot_draw_radius, false);
+			draw_set_alpha(target_selection_outline_alpha);
+			draw_circle(_mouse_x, _mouse_y, _sweet_rot_draw_radius, true);
+		}
+
 		draw_set_color(_target_color);
 		draw_set_alpha(target_selection_alpha);
 		draw_circle(_mouse_x, _mouse_y, _draw_radius, false);
@@ -3259,13 +3292,35 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_EVENTS)
 				draw_set_font(_jobs_ui.jobs_description_font);
 			}
 
+			var _description_x = _card_x + (34 * _scale);
+			var _description_y = _card_y + (48 * _scale);
+			var _description_width = 380 * _scale;
+			var _modifier_text = day_event_modifiers_text_get(_entry);
 			draw_text_ext(
-				_card_x + (34 * _scale),
-				_card_y + (48 * _scale),
+				_description_x,
+				_description_y,
 				_entry.description,
 				16 * _scale,
-				380 * _scale
+				_description_width
 			);
+
+			if (_modifier_text != "")
+			{
+				var _description_height = string_height_ext(
+					_entry.description,
+					16 * _scale,
+					_description_width
+				);
+				draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+				draw_text_ext(
+					_description_x,
+					_description_y + _description_height + (8 * _scale),
+					_modifier_text,
+					16 * _scale,
+					_description_width
+				);
+				draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+			}
 
 			// Show requirement slots without cultist portraits or assignment controls.
 			var _slot_count = variable_struct_exists(_entry, "cultist_cost")

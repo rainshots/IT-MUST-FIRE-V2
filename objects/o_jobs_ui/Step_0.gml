@@ -477,7 +477,8 @@ if (mouse_check_button_pressed(mb_left))
 
 		var _reroll_rect = jobs_event_action_rect_get(_event_index, "reroll");
 
-		if (day_event_reroll_is_available(_event)
+		if (global.day_event_rerolls_remaining > 0
+			&& day_event_reroll_is_available(_event)
 			&& point_in_rectangle(
 				_mouse_x,
 				_mouse_y,

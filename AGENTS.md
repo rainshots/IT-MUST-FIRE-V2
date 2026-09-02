@@ -136,6 +136,11 @@ if (instance_exists(_target_instance))
 - Draw events should contain only code related to drawing whenever possible.
 - Keep `Step` and `Draw` especially lean because they run every frame.
 
+## Day Event Descriptions
+
+- Do not include required Cultist counts or Cultist HP costs in player-facing day event descriptions. The assignment UI displays these costs separately.
+- Keep Cultist counts and HP costs in event data and execution logic.
+
 ## Draw State
 
 - When changing draw alignment, alpha, or color, always restore defaults after drawing.
@@ -223,4 +228,3 @@ Additional optimization references:
 
 - https://gamemaker.io/ru/blog/forager-optimization-in-gamemaker
 - https://help.gamemaker.io/hc/en-us/articles/216754778-Optimizing-Your-Games
-

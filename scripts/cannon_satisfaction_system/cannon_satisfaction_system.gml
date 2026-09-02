@@ -95,19 +95,19 @@ function cannon_satisfaction_effect_text_get(_level = cannon_satisfaction_level_
 	switch (_level)
 	{
 		case CANNON_SATISFACTION_LEVEL.SULKING:
-			return "- The Cannon takes 30% longer to reload.\n- All events cost an additional 5 Cultist HP.";
+			return "- All events cost an additional 5 Cultist HP.\n- Cannon reload time is 30% slower.";
 
 		case CANNON_SATISFACTION_LEVEL.AWAKE:
 			return "- No effects.";
 
 		case CANNON_SATISFACTION_LEVEL.PLAYFUL:
-			return "- The Cannon reloads 15% faster.";
+			return "- Cannon reload time is 15% faster.\n- You can reroll 1 building Rite per day.";
 
 		case CANNON_SATISFACTION_LEVEL.ECSTATIC:
-			return "- The Cannon reloads 20% faster.\n- Grants +1 Reroll each day.";
+			return "- Cannon reload time is 20% faster.\n- You can reroll 1 building Rite per day.";
 
 		case CANNON_SATISFACTION_LEVEL.IT_MUST_FIRE:
-			return "- The Cannon fires at enemies every 20 seconds without consuming shells.\n- The Cannon reloads 25% faster.\n- Grants +1 Reroll each day.";
+			return "- The Cannon fires at enemies every 20 seconds without consuming player shells.\n- Cannon reload time is 25% faster.\n- You can reroll 2 building Rites per day.";
 	}
 
 	return "- No effects.";
@@ -133,16 +133,24 @@ function cannon_satisfaction_reload_time_multiplier_get()
 	return 1;
 }
 
-function cannon_satisfaction_daily_reroll_bonus_for_level_get(_level)
+function cannon_satisfaction_daily_reroll_count_for_level_get(_level)
 {
-	return _level >= CANNON_SATISFACTION_LEVEL.ECSTATIC
-		? BALANCE_CANNON_SATISFACTION_DAILY_REROLL_BONUS
-		: 0;
+	if (_level >= CANNON_SATISFACTION_LEVEL.IT_MUST_FIRE)
+	{
+		return BALANCE_CANNON_SATISFACTION_IT_MUST_FIRE_DAILY_REROLL_COUNT;
+	}
+
+	if (_level >= CANNON_SATISFACTION_LEVEL.PLAYFUL)
+	{
+		return BALANCE_CANNON_SATISFACTION_PLAYFUL_DAILY_REROLL_COUNT;
+	}
+
+	return 0;
 }
 
-function cannon_satisfaction_daily_reroll_bonus_get()
+function cannon_satisfaction_daily_reroll_count_get()
 {
-	return cannon_satisfaction_daily_reroll_bonus_for_level_get(cannon_satisfaction_level_get());
+	return cannon_satisfaction_daily_reroll_count_for_level_get(cannon_satisfaction_level_get());
 }
 
 function cannon_satisfaction_level_effects_refresh(_previous_level, _current_level)
@@ -165,14 +173,14 @@ function cannon_satisfaction_level_effects_refresh(_previous_level, _current_lev
 		}
 	}
 
-	// Crossing the Ecstatic boundary updates today's still-available Rerolls immediately.
+	// Satisfaction tier changes update today's still-available Rerolls immediately.
 	if (variable_global_exists("day_event_rerolls_remaining"))
 	{
-		var _previous_reroll_bonus = cannon_satisfaction_daily_reroll_bonus_for_level_get(_previous_level);
-		var _current_reroll_bonus = cannon_satisfaction_daily_reroll_bonus_for_level_get(_current_level);
-		var _reroll_bonus_change = _current_reroll_bonus - _previous_reroll_bonus;
+		var _previous_reroll_count = cannon_satisfaction_daily_reroll_count_for_level_get(_previous_level);
+		var _current_reroll_count = cannon_satisfaction_daily_reroll_count_for_level_get(_current_level);
+		var _reroll_count_change = _current_reroll_count - _previous_reroll_count;
 		global.day_event_rerolls_remaining = max(
-			global.day_event_rerolls_remaining + _reroll_bonus_change,
+			global.day_event_rerolls_remaining + _reroll_count_change,
 			0
 		);
 	}

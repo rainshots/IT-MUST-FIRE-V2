@@ -85,7 +85,10 @@ global.legacy_building_logic_enabled = false;
 global.archdemons = array_create(0);
 global.squads = [];
 global.dragged_squad = noone;
-global.squad_limits = [BALANCE_SQUAD_ARCHDEMON_LIMIT, BALANCE_SQUAD_UNDEAD_LIMIT, BALANCE_SQUAD_DEMON_LIMIT];
+// Each Unholy Shrine Rite may successfully grant its trait only once per run.
+global.unholy_traits_used = array_create(UNHOLY_TRAIT.COUNT, false);
+// Archdemon, Undead, and Demon squads all consume the same day-based shared slots.
+global.squad_limit = squad_limit_for_day_get(1);
 // Archdemons keep the existing combat and cannon lifecycle; regular cultists belong to day events.
 global.event_cultists = array_create(0);
 global.cultist_limit = BALANCE_STARTING_CULTIST_LIMIT;
@@ -128,7 +131,7 @@ global.event_cultist_names = [
 ];
 global.day_events = array_create(0);
 // Jobs actions have daily use counts; pinned events are consumed the following morning.
-global.day_event_rerolls_remaining = BALANCE_DAY_EVENT_DAILY_REROLL_COUNT;
+global.day_event_rerolls_remaining = cannon_satisfaction_daily_reroll_count_get();
 global.day_event_pins_remaining = BALANCE_DAY_EVENT_DAILY_PIN_COUNT;
 global.day_event_pinned_events = [];
 global.world_event_hover_building = noone;
@@ -148,6 +151,7 @@ global.first_night_cultist_projectile_fired = false;
 global.tutorial_popup_active = false;
 global.tutorial_welcome_closed = !global.tutorial_hints_enabled;
 global.cursed_point_structure_selection_source = noone;
+global.squad_point_selection_source = noone;
 
 // Player buildings react to cleansed ground in a throttled shared pass.
 player_building_ground_check_interval = BALANCE_PLAYER_BUILDING_CORRUPTION_CHECK_INTERVAL;
@@ -582,6 +586,12 @@ early_upgrade_copy_squads_get = function()
 {
 	var _eligible_squads = [];
 
+	// Copying a squad requires one free shared slot.
+	if (!squad_slot_is_available())
+	{
+		return _eligible_squads;
+	}
+
 	for (var _squad_index = 0; _squad_index < array_length(global.squads); ++_squad_index)
 	{
 		var _squad = global.squads[_squad_index];
@@ -708,7 +718,7 @@ early_upgrade_choice_apply = function(_choice)
 		if (_choice == EARLY_UPGRADE_CHOICE.COPY_SQUAD)
 		{
 			if (!is_struct(early_upgrade_popup_selected_squad)
-				|| !is_struct(squad_copy_with_extra_slot(early_upgrade_popup_selected_squad)))
+				|| !is_struct(squad_copy(early_upgrade_popup_selected_squad)))
 			{
 				return false;
 			}
@@ -1020,7 +1030,7 @@ early_upgrade_popup_draw = function()
 		if (_is_day_two_upgrade && _choice == EARLY_UPGRADE_CHOICE.COPY_SQUAD)
 		{
 			_title = "COPY SQUAD";
-			_description = "Create a full copy of the selected squad. The Archdemon cannot be copied.";
+			_description = "Create a full copy of the selected squad. The Archdemon cannot be copied. Requires one free squad slot.";
 		}
 		else if (_is_day_two_upgrade && _choice == EARLY_UPGRADE_CHOICE.BONELET_RESURRECTION)
 		{
@@ -1634,11 +1644,12 @@ global.rally_projectile_group_id = 0;
 global.cannon_satiety = 0;
 global.cannon_satiety_max = BALANCE_CANNON_SATIETY_MAX;
 global.cannon_corpses_delivered_today = 0;
-global.shell_factory_hellcow_damage_upgrade_count = 0;
-global.shell_factory_first_aid_heal_upgrade_count = 0;
-// Shell Factory upgrade jobs unlock after the related shell has been fired.
-global.shell_factory_hellcow_shell_fired = false;
-global.shell_factory_first_aid_shell_fired = false;
+// The selected Taint Compost enchantment and its match-long one-use event state.
+global.shell_factory_taint_enchantment = TAINT_COMPOST_ENCHANTMENT.NONE;
+global.shell_factory_taint_enchantment_event_completed = false;
+// First Aid Meat has its own independent match-long enchantment choice.
+global.shell_factory_first_aid_enchantment = FIRST_AID_MEAT_ENCHANTMENT.NONE;
+global.shell_factory_first_aid_enchantment_event_completed = false;
 
 // Global one-shot sound groups used by gameplay feedback.
 global.night_start_sounds = [
@@ -2105,6 +2116,16 @@ ui_hover_candidate_get = function(_mouse_x, _mouse_y)
 		{
 			var _cursed_point = global.cursed_point_structure_selection_source;
 			return _cursed_point.cursed_point_structure_choice_hover_key_get(_mouse_x, _mouse_y);
+		}
+	}
+	else if (global.focus_window == FOCUS_WINDOW.SQUAD_POINT_SELECTION)
+	{
+		if (variable_global_exists("squad_point_selection_source")
+			&& instance_exists(global.squad_point_selection_source)
+			&& variable_instance_exists(global.squad_point_selection_source, "squad_point_choice_hover_key_get"))
+		{
+			var _squad_point = global.squad_point_selection_source;
+			return _squad_point.squad_point_choice_hover_key_get(_mouse_x, _mouse_y);
 		}
 	}
 	else if (global.focus_window == FOCUS_WINDOW.NOONE
@@ -2784,11 +2805,19 @@ building_choices = [
 		iron_cost: BALANCE_RITUAL_CIRCLE_BUILDING_IRON_COST
 	},
 	{
+		building_object: o_unholy_shrine,
+		building_sprite: s_unholy_shrine,
+		building_name: "Unholy Shrine",
+		building_group: "Other",
+		building_description: "Opens access to rituals that endow squads with Unholy traits.",
+		iron_cost: BALANCE_BUILDING_IRON_COST
+	},
+	{
 		building_object: o_shell_factory,
 		building_sprite: s_shell_factory,
 		building_name: "Shell Factory",
 		building_group: "Other",
-		building_description: "Produces squad shells while staffed; events can increase daily Taint Compost stock.",
+		building_description: "Produces squad shells while staffed and offers permanent shell enchantments.",
 		iron_cost: BALANCE_BUILDING_IRON_COST
 	},
 	{
@@ -2796,7 +2825,7 @@ building_choices = [
 		building_sprite: s_foundry,
 		building_name: "Foundry",
 		building_group: "Other",
-		building_description: "Allows upgrading archdemons, demons, and undead.",
+		building_description: "Allows forging Relics for squads.",
 		iron_cost: BALANCE_BUILDING_IRON_COST
 	}
 ];
@@ -3075,7 +3104,7 @@ debug_menu_hint_get = function()
 
 	if (debug_menu_tab == "squads")
 	{
-		return "Add one squad (limit grows automatically)";
+		return "Add one squad (shared limit: " + string(global.squad_limit) + ")";
 	}
 
 	if (debug_menu_tab == "events")
@@ -3151,15 +3180,29 @@ debug_squad_create = function(_choice)
 	}
 
 	var _squad_type = _choice.squad_type;
-	var _squad_count = squad_type_count_get(_squad_type);
+	return is_struct(squad_create(_squad_type, _choice.unit_object, _choice.unit_count));
+};
 
-	// The cheat is allowed to exceed the limit and permanently grows it to fit the new squad.
-	if (_squad_count >= global.squad_limits[_squad_type])
+debug_unholy_bone_warrior_squad_create = function(_unholy_trait)
+{
+	if (_unholy_trait <= UNHOLY_TRAIT.NONE || _unholy_trait >= UNHOLY_TRAIT.COUNT)
 	{
-		global.squad_limits[_squad_type] = _squad_count + 1;
+		return false;
 	}
 
-	return is_struct(squad_create(_squad_type, _choice.unit_object, _choice.unit_count));
+	// squad_create appends to the first free shared slot and reserves a free daytime point.
+	var _squad = squad_create(
+		SQUAD_TYPE.UNDEAD,
+		o_skeleton_warrior,
+		BALANCE_SQUAD_SKELETON_COUNT
+	);
+
+	if (!is_struct(_squad))
+	{
+		return false;
+	}
+
+	return squad_unholy_trait_set(_squad, _unholy_trait);
 };
 
 debug_unit_spawn = function(_unit_object, _spawn_count = 1)
@@ -3549,10 +3592,7 @@ projectile_target_selection_radius_get = function(_projectile_type)
 
 	if (_projectile_type == PROJECTILE_TYPE.HEAL)
 	{
-		var _shell_factory_multiplier = 1
-			+ (global.shell_factory_first_aid_heal_upgrade_count * BALANCE_SHELL_FACTORY_UPGRADE_BONUS);
-
-		return BALANCE_FIRST_AID_MEAT_HEAL_RADIUS * _shell_factory_multiplier;
+		return BALANCE_FIRST_AID_MEAT_HEAL_RADIUS;
 	}
 
 	if (_projectile_type == PROJECTILE_TYPE.BOMB)
@@ -5313,6 +5353,9 @@ open_building_events_window = function(_building)
 			{
 				title: building_events_window_current_event.title,
 				description: _current_catalog_description,
+				modifiers: variable_struct_exists(building_events_window_current_event, "modifiers")
+					? building_events_window_current_event.modifiers
+					: [],
 				cultist_cost: building_events_window_current_event.cultist_cost
 					* building_events_window_current_event.activation_limit,
 				is_current: true
@@ -6538,6 +6581,17 @@ worker_idle_wander_can_update = function(_worker, _allow_cannon_assignment = fal
 		return false;
 	}
 
+	// An Archdemon belonging to a squad uses that squad's reserved daytime area.
+	var _uses_squad_day_point = _worker.object_index == o_archdemon
+		&& variable_instance_exists(_worker, "squad")
+		&& is_struct(_worker.squad)
+		&& instance_exists(squad_day_point_get(_worker.squad));
+
+	if (_uses_squad_day_point)
+	{
+		return false;
+	}
+
 	var _is_assigned_to_building = variable_instance_exists(_worker, "is_assigned_to_building")
 		&& _worker.is_assigned_to_building;
 	var _can_wander_while_assigned_to_cannon = _allow_cannon_assignment
@@ -6804,19 +6858,6 @@ cannon_morning_projectile_target_count_get = function(_projectile_type)
 	}
 
 	var _target_count = BALANCE_DEFAULT_MORNING_TAINT_COMPOST_LIMIT;
-
-	var _shell_factory_count = instance_number(o_shell_factory);
-
-	for (var _factory_index = 0; _factory_index < _shell_factory_count; ++_factory_index)
-	{
-		var _shell_factory = instance_find(o_shell_factory, _factory_index);
-
-		if (instance_exists(_shell_factory)
-			&& variable_instance_exists(_shell_factory, "shell_factory_morning_projectile_limit_get"))
-		{
-			_target_count += _shell_factory.shell_factory_morning_projectile_limit_get(_projectile_type);
-		}
-	}
 
 	if (variable_global_exists("early_upgrade_shell_morning_bonus")
 		&& _projectile_type >= 0
@@ -7293,10 +7334,11 @@ spawn_starting_cultists = function()
 
 	global.archdemons = array_create(0);
 	global.event_cultists = array_create(0);
-	var _starting_unit_count = starting_archdemon_count + starting_event_cultist_count;
+	var _starting_archdemon_count = min(starting_archdemon_count, BALANCE_SQUAD_ARCHDEMON_LIMIT);
+	var _starting_unit_count = _starting_archdemon_count + starting_event_cultist_count;
 
 	// Spawn any configured starting Archdemons before placing regular cultists around the cannon.
-	for (var _archdemon_index = 0; _archdemon_index < starting_archdemon_count; ++_archdemon_index)
+	for (var _archdemon_index = 0; _archdemon_index < _starting_archdemon_count; ++_archdemon_index)
 	{
 		var _spawn_position = cannon_inner_position_get(_archdemon_index, _starting_unit_count);
 		var _spawn_x = _spawn_position[0];
@@ -7998,6 +8040,9 @@ squad_projectile_deploy_units_take = function(_primary_unit)
 	{
 		var _unit = _squad_units[_unit_index];
 		if (!instance_exists(_unit) || _unit == _primary_unit) continue;
+		_unit.cannon_loading = false;
+		_unit.cannon_loaded = true;
+		_unit.cultist_projectile_deploy_waiting = false;
 		cultist_projectile_deploy_unit_hide(_unit);
 		_unit.cultist_projectile_deploy_assigned = true;
 		array_push(_deploy_units, _unit);
@@ -8087,13 +8132,28 @@ start_cultists_loading_into_cannon = function()
 			var _unit = _squad.units[_unit_index];
 			if (!instance_exists(_unit)) continue;
 			if (!instance_exists(_primary_unit)) _primary_unit = _unit;
-			cultist_projectile_deploy_unit_hide(_unit);
+
+			// Every member runs to the cannon, but only one unit represents the queued squad payload.
+			_unit.cannon_loading = true;
+			_unit.cannon_loaded = false;
+			_unit.cultist_projectile_deploy_assigned = false;
+			_unit.cultist_projectile_deploy_waiting = false;
+			_unit.visible = true;
+			_unit.is_being_dragged = false;
+			_unit.target_instance = noone;
+			_unit.alert_target = noone;
+			_unit.forced_attack_target = noone;
+			_unit.forced_attack_target_timer = 0;
+			_unit.is_attacking_target = false;
+			_unit.regroup_is_active = false;
+			_unit.rally_is_active = false;
+			_unit.rally_is_returning = false;
+			_unit.rally_has_arrived = false;
 		}
 
 		if (instance_exists(_primary_unit))
 		{
-			_primary_unit.cannon_loading = true;
-			_primary_unit.cannon_loaded = false;
+			// Queueing now keeps the squad shell fireable before the visual run finishes.
 			queue_cultist_projectile(_primary_unit);
 		}
 	}
@@ -8131,6 +8191,57 @@ update_cultists_loading_into_cannon = function()
 	}
 
 	var _cannon = instance_find(o_cannon, 0);
+	var _move_speed = BALANCE_CULTIST_CANNON_LOAD_SPEED * global.gameplay_time_scale;
+
+	// Regular squad members visually run into the cannon without delaying their queued shell.
+	for (var _squad_index = 0; _squad_index < array_length(global.squads); ++_squad_index)
+	{
+		var _squad = global.squads[_squad_index];
+
+		if (_squad.squad_type == SQUAD_TYPE.ARCHDEMON
+			|| (global.ritual_hell_weakest_active
+				&& _squad == global.ritual_hell_weakest_squad))
+		{
+			continue;
+		}
+
+		for (var _unit_index = 0; _unit_index < array_length(_squad.units); ++_unit_index)
+		{
+			var _unit = _squad.units[_unit_index];
+
+			if (!instance_exists(_unit) || !_unit.cannon_loading || _unit.cannon_loaded)
+			{
+				continue;
+			}
+
+			var _distance_to_cannon = point_distance(_unit.x, _unit.y, _cannon.x, _cannon.y);
+
+			if (_distance_to_cannon <= BALANCE_CULTIST_CANNON_LOAD_ARRIVE_RADIUS)
+			{
+				_unit.cannon_loading = false;
+				_unit.cannon_loaded = true;
+				_unit.cultist_projectile_deploy_waiting = true;
+				_unit.visible = false;
+				_unit.is_walking = false;
+				_unit.x = _cannon.x;
+				_unit.y = _cannon.y;
+				_unit.drag_drop_x = _cannon.x;
+				_unit.drag_drop_y = _cannon.y;
+				continue;
+			}
+
+			var _move_distance = min(_move_speed, _distance_to_cannon);
+			var _move_direction = point_direction(_unit.x, _unit.y, _cannon.x, _cannon.y);
+
+			_unit.x += lengthdir_x(_move_distance, _move_direction);
+			_unit.y += lengthdir_y(_move_distance, _move_direction);
+			_unit.drag_drop_x = _unit.x;
+			_unit.drag_drop_y = _unit.y;
+			_unit.is_walking = true;
+			_unit.face_world_x(_cannon.x);
+		}
+	}
+
 	var _cultist_count = array_length(global.archdemons);
 
 	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
@@ -8160,7 +8271,6 @@ update_cultists_loading_into_cannon = function()
 			continue;
 		}
 
-		var _move_speed = BALANCE_CULTIST_CANNON_LOAD_SPEED * global.gameplay_time_scale;
 		var _move_distance = min(_move_speed, _distance_to_cannon);
 		var _move_direction = point_direction(_cultist.x, _cultist.y, _cannon.x, _cannon.y);
 
@@ -11602,6 +11712,7 @@ start_day_phase = function()
 
 	// Previous day event cards and their assignments never carry into a new day.
 	day_event_new_day_reset();
+	squad_limit_current_day_update();
 	day_event_cultist_unconscious_morning_update();
 	day_event_blood_bath_morning_effects_apply();
 

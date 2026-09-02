@@ -10,6 +10,12 @@ building_payload = noone;
 source_instance = noone;
 artillery_direct_target = noone;
 artillery_can_damage_units = true;
+// Only the primary projectile in a Taint Compost volley creates its chosen enchantment effect.
+taint_compost_enchantment = TAINT_COMPOST_ENCHANTMENT.NONE;
+taint_compost_enchantment_primary = false;
+taint_compost_enchantment_x = x;
+taint_compost_enchantment_y = y;
+first_aid_meat_enchantment = FIRST_AID_MEAT_ENCHANTMENT.NONE;
 
 // Explosion and effect settings.
 effect_radius = BALANCE_PROJECTILE_EFFECT_RADIUS;
@@ -54,6 +60,50 @@ projectile_smoke_trail_create = function(_trail_x, _trail_y)
 	var _smoke_y = _trail_y + lengthdir_y(_smoke_distance, _smoke_direction);
 
 	instance_create_layer(_smoke_x, _smoke_y, particle_layer_name, o_particle_smoke);
+};
+
+taint_compost_enchantment_apply = function()
+{
+	if (!taint_compost_enchantment_primary
+		|| taint_compost_enchantment == TAINT_COMPOST_ENCHANTMENT.NONE)
+	{
+		return false;
+	}
+
+	var _effect_x = taint_compost_enchantment_x;
+	var _effect_y = taint_compost_enchantment_y;
+
+	if (taint_compost_enchantment == TAINT_COMPOST_ENCHANTMENT.EXPLOSIVE_FERTILIZER)
+	{
+		var _mine_count = BALANCE_TAINT_COMPOST_PUMPKIN_MINE_COUNT;
+		var _full_circle_degrees = 360;
+
+		// A compact ring keeps all four mines visible at the center of the impact area.
+		for (var _mine_index = 0; _mine_index < _mine_count; ++_mine_index)
+		{
+			var _mine_direction = (_mine_index / _mine_count) * _full_circle_degrees;
+			var _mine_x = _effect_x + lengthdir_x(BALANCE_TAINT_COMPOST_PUMPKIN_MINE_SPAWN_RADIUS, _mine_direction);
+			var _mine_y = _effect_y + lengthdir_y(BALANCE_TAINT_COMPOST_PUMPKIN_MINE_SPAWN_RADIUS, _mine_direction);
+			var _mine = instance_create_layer(_mine_x, _mine_y, particle_layer_name, o_pumpkin_mine);
+
+			if (instance_exists(_mine))
+			{
+				// No Trap Point owns these mines, so they are never restored after destruction.
+				_mine.owner_trap_point = noone;
+				_mine.trap_point_slot_index = -1;
+			}
+		}
+
+		return true;
+	}
+
+	if (taint_compost_enchantment == TAINT_COMPOST_ENCHANTMENT.SWEET_ROT)
+	{
+		instance_create_layer(_effect_x, _effect_y, particle_layer_name, o_taint_shell_tumor);
+		return true;
+	}
+
+	return false;
 };
 
 // Visual settings.
@@ -311,4 +361,67 @@ projectile_target_is_allied = function(_target)
 	}
 
 	return false;
+};
+
+unholy_stunning_arrival_apply = function()
+{
+	var _has_stunning_arrival = projectile_type == PROJECTILE_TYPE.CULTIST
+		&& instance_exists(cultist_payload)
+		&& variable_instance_exists(cultist_payload, "squad")
+		&& is_struct(cultist_payload.squad)
+		&& squad_unholy_trait_get(cultist_payload.squad) == UNHOLY_TRAIT.STUNNING_ARRIVAL;
+
+	if (!_has_stunning_arrival)
+	{
+		return false;
+	}
+
+	// The trait creates its own damaging shockwave while normal squad deployment stays harmless.
+	var _enemy_count = instance_number(o_enemy_units);
+
+	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	{
+		var _enemy = instance_find(o_enemy_units, _enemy_index);
+
+		if (!instance_exists(_enemy)
+			|| !variable_instance_exists(_enemy, "hp")
+			|| _enemy.hp <= 0
+			|| point_distance(target_x, target_y, _enemy.x, _enemy.y)
+				> BALANCE_UNHOLY_SHRINE_STUNNING_ARRIVAL_RADIUS)
+		{
+			continue;
+		}
+
+		if (variable_instance_exists(_enemy, "unit_damage_receive"))
+		{
+			_enemy.unit_damage_receive(
+				BALANCE_UNHOLY_SHRINE_STUNNING_ARRIVAL_DAMAGE,
+				UNIT_FACTION.FRIENDLY,
+				false,
+				true,
+				cultist_payload
+			);
+		}
+
+		if (instance_exists(_enemy)
+			&& _enemy.hp > 0
+			&& variable_instance_exists(_enemy, "stun_apply"))
+		{
+			_enemy.stun_apply(BALANCE_UNHOLY_SHRINE_STUNNING_ARRIVAL_STUN_TIME);
+		}
+	}
+
+	var _shockwave = instance_create_layer(target_x, target_y, particle_layer_name, o_particle_explosion);
+
+	if (instance_exists(_shockwave))
+	{
+		_shockwave.start_radius = BALANCE_UNHOLY_SHRINE_STUNNING_ARRIVAL_VISUAL_START_RADIUS;
+		_shockwave.end_radius = BALANCE_UNHOLY_SHRINE_STUNNING_ARRIVAL_RADIUS;
+		_shockwave.inner_color = COLOR_UNHOLY_STUNNING_ARRIVAL;
+		_shockwave.outer_color = COLOR_UNHOLY_STUNNING_ARRIVAL;
+		_shockwave.start_alpha = BALANCE_UNHOLY_SHRINE_STUNNING_ARRIVAL_VISUAL_ALPHA;
+		_shockwave.current_alpha = _shockwave.start_alpha;
+	}
+
+	return true;
 };

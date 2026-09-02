@@ -66,6 +66,9 @@ if (_flight_progress >= 1)
 	// Spawn the main explosion flash at the impact point.
 	instance_create_layer(target_x, target_y, particle_layer_name, o_particle_explosion);
 
+	// Stunning Arrival adds its trait shockwave before the shell deploys the squad.
+	unholy_stunning_arrival_apply();
+
 	// Structure shells land with extra weight, even before the building appears.
 	if (projectile_type == PROJECTILE_TYPE.BUILDING_SHELL && instance_exists(o_camera_controller))
 	{
@@ -111,6 +114,7 @@ if (_flight_progress >= 1)
 	if (projectile_type == PROJECTILE_TYPE.CORRUPTION)
 	{
 		corrupt_circle(target_x, target_y, effect_radius, ground_corruption_amount);
+		taint_compost_enchantment_apply();
 	}
 	else if (projectile_type == PROJECTILE_TYPE.CLEANSE)
 	{
@@ -250,6 +254,11 @@ if (_flight_progress >= 1)
 		);
 		_first_aid_meat.heal_radius = effect_radius;
 		_first_aid_meat.heal_amount = damage_amount;
+
+		if (variable_instance_exists(_first_aid_meat, "first_aid_meat_enchantment_set"))
+		{
+			_first_aid_meat.first_aid_meat_enchantment_set(first_aid_meat_enchantment);
+		}
 
 		if (variable_instance_exists(id, "balance_test_match_id"))
 		{
@@ -470,11 +479,12 @@ if (_flight_progress >= 1)
 			{
 				if (other.projectile_type == PROJECTILE_TYPE.CULTIST)
 				{
-					if (variable_instance_exists(id, "health"))
+					// Normal squad deployment is harmless; future properties can opt in by assigning damage.
+					if (other.damage_amount > 0 && variable_instance_exists(id, "health"))
 					{
 						health -= other.damage_amount;
 					}
-					else if (variable_instance_exists(id, "hp"))
+					else if (other.damage_amount > 0 && variable_instance_exists(id, "hp"))
 					{
 						if (variable_instance_exists(id, "unit_damage_receive"))
 						{
@@ -588,6 +598,8 @@ if (_flight_progress >= 1)
 			_deploy_unit.y = _deploy_y;
 			_deploy_unit.drag_drop_x = _deploy_x;
 			_deploy_unit.drag_drop_y = _deploy_y;
+			_deploy_unit.cannon_loading = false;
+			_deploy_unit.cannon_loaded = false;
 			_deploy_unit.cultist_projectile_deploy_assigned = false;
 			_deploy_unit.cultist_projectile_deploy_waiting = false;
 			_deploy_unit.visible = true;

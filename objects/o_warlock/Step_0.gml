@@ -1,7 +1,7 @@
 // Run shared movement and combat first.
 event_inherited();
 
-if (global.pause || hp <= 0)
+if (unholy_savage_leap_active || global.pause || hp <= 0)
 {
 	exit;
 }

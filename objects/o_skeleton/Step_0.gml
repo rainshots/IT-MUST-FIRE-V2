@@ -33,3 +33,8 @@ if (variable_instance_exists(id, "life_timer"))
 
 // Run shared unit behavior.
 event_inherited();
+
+if (unholy_savage_leap_active)
+{
+	exit;
+}

@@ -303,6 +303,8 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 	var _event_scissor = jobs_scissor_rect_get(_event_scissor_viewport);
 	var _previous_scissor = gpu_get_scissor();
 	var _hovered_result_unit_object = noone;
+	var _hovered_result_relic = RELIC.NONE;
+	var _hovered_shell_enchantment_choice = noone;
 	var _mouse_gui_x = device_mouse_x_to_gui(0);
 	var _mouse_gui_y = device_mouse_y_to_gui(0);
 	gpu_set_scissor(_event_scissor);
@@ -402,15 +404,36 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			_description_width = 292 * _layout.scale;
 		}
 
+		var _description_x = _event_rect.x + (34 * _layout.scale);
+		var _description_y = _event_rect.y + (48 * _layout.scale);
+		var _modifier_text = day_event_modifiers_text_get(_display_event);
 		draw_text_ext(
-			_event_rect.x + (34 * _layout.scale),
-			_event_rect.y + (48 * _layout.scale),
+			_description_x,
+			_description_y,
 			_display_event.description,
 			16 * _layout.scale,
 			_description_width
 		);
 
-		// Specialization Jobs show all outcomes and let the player compare them by hovering.
+		if (_modifier_text != "")
+		{
+			var _description_height = string_height_ext(
+				_display_event.description,
+				16 * _layout.scale,
+				_description_width
+			);
+			draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+			draw_text_ext(
+				_description_x,
+				_description_y + _description_height + (8 * _layout.scale),
+				_modifier_text,
+				16 * _layout.scale,
+				_description_width
+			);
+			draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+		}
+
+		// Choice Jobs show unit specializations, Relics, or shell enchantments as selectable icons.
 		if (_has_unit_choices)
 		{
 			var _choice_count = array_length(_display_event.unit_choice_options);
@@ -422,18 +445,29 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			{
 				var _choice = _display_event.unit_choice_options[_choice_index];
 
-				if (!is_struct(_choice)
-					|| !variable_struct_exists(_choice, "target_unit_object"))
+				if (!is_struct(_choice))
 				{
 					continue;
 				}
 
-				var _choice_unit_object = _choice.target_unit_object;
+				var _choice_has_unit = variable_struct_exists(_choice, "target_unit_object");
+				var _choice_has_relic = variable_struct_exists(_choice, "relic");
+				var _choice_has_shell_enchantment = variable_struct_exists(_choice, "shell_enchantment");
+
+				if (!_choice_has_unit && !_choice_has_relic && !_choice_has_shell_enchantment)
+				{
+					continue;
+				}
+
+				var _choice_unit_object = _choice_has_unit ? _choice.target_unit_object : noone;
+				var _choice_relic = _choice_has_relic ? _choice.relic : RELIC.NONE;
 				var _choice_icon_rect = jobs_event_unit_choice_icon_rect_get(_event_index, _choice_index);
 				var _choice_center_x = _choice_icon_rect.x + (_choice_icon_rect.width * 0.5);
 				var _choice_center_y = _choice_icon_rect.y + (_choice_icon_rect.height * 0.5);
 				var _choice_radius = _choice_icon_rect.width * 0.5;
-				var _choice_sprite = object_get_sprite(_choice_unit_object);
+				var _choice_sprite = variable_struct_exists(_choice, "icon_sprite")
+					? _choice.icon_sprite
+					: (_choice_has_unit ? object_get_sprite(_choice_unit_object) : noone);
 				var _choice_is_visible = _choice_icon_rect.y + _choice_icon_rect.height >= _event_viewport.y
 					&& _choice_icon_rect.y <= _event_viewport.y + _event_viewport.height;
 				var _choice_is_hovered = _choice_is_visible
@@ -489,16 +523,41 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 				draw_set_valign(fa_top);
 				draw_set_font(jobs_hp_font);
 				draw_set_color(_choice_is_selected ? COLOR_STATUS_NEGATIVE_RED : COLOR_JOBS_ASSIGN_TEXT);
-				draw_text(
-					_choice_center_x,
-					_event_rect.y + (jobs_unit_choice_label_y * _layout.scale),
-					_choice.label
-				);
+				if (_choice_has_relic || _choice_has_shell_enchantment)
+				{
+					draw_text_ext(
+						_choice_center_x,
+						_event_rect.y + (jobs_unit_choice_label_y * _layout.scale),
+						_choice.label,
+						12 * _layout.scale,
+						jobs_unit_choice_icon_step * _layout.scale
+					);
+				}
+				else
+				{
+					draw_text(
+						_choice_center_x,
+						_event_rect.y + (jobs_unit_choice_label_y * _layout.scale),
+						_choice.label
+					);
+				}
+
 				draw_set_alpha(1);
 
 				if (_choice_is_hovered)
 				{
-					_hovered_result_unit_object = _choice_unit_object;
+					if (_choice_has_unit)
+					{
+						_hovered_result_unit_object = _choice_unit_object;
+					}
+					else if (_choice_has_relic)
+					{
+						_hovered_result_relic = _choice_relic;
+					}
+					else
+					{
+						_hovered_shell_enchantment_choice = _choice;
+					}
 				}
 			}
 
@@ -746,22 +805,17 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 		// Building events expose the Figma actions to the right of the card.
 		if (day_event_building_action_is_available(_event))
 		{
-			if (day_event_reroll_is_available(_event))
+			if (global.day_event_rerolls_remaining > 0
+				&& day_event_reroll_is_available(_event))
 			{
 				var _reroll_rect = jobs_event_action_rect_get(_event_index, "reroll");
 				var _reroll_key = jobs_event_action_key_get(_event, "reroll");
-				var _reroll_enabled = global.day_event_rerolls_remaining > 0;
-				var _reroll_hovered = _reroll_enabled
-					&& jobs_hovered_event_action_key == _reroll_key;
+				var _reroll_hovered = jobs_hovered_event_action_key == _reroll_key;
 				var _reroll_visual_scale = _reroll_hovered ? 1.08 : 1;
-				var _reroll_color = _reroll_enabled
-					? COLOR_JOBS_EVENT_ACTION
-					: COLOR_JOBS_SLOT_BORDER;
 				var _reroll_sprite_scale = _layout.scale
 					* jobs_reroll_icon_scale
 					* _reroll_visual_scale;
 
-				draw_set_alpha(_reroll_enabled ? 1 : 0.35);
 				draw_sprite_ext(
 					s_reroll_icon,
 					0,
@@ -773,11 +827,10 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 					c_white,
 					1
 				);
-				draw_set_alpha(1);
 				draw_set_halign(fa_center);
 				draw_set_valign(fa_top);
 				draw_set_font(jobs_action_font);
-				draw_set_color(_reroll_color);
+				draw_set_color(COLOR_JOBS_EVENT_ACTION);
 				draw_text(
 					_reroll_rect.x + (_reroll_rect.width * 0.5),
 					_event_rect.y + (jobs_reroll_action_label_y * _layout.scale),
@@ -1234,6 +1287,89 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 		);
 	}
 
+	// Relic and shell enchantment choices show their full effect on hover.
+	if (_hovered_result_relic != RELIC.NONE || is_struct(_hovered_shell_enchantment_choice))
+	{
+		var _tooltip_width = 340 * _layout.scale;
+		var _tooltip_padding = 12 * _layout.scale;
+		var _tooltip_margin = 8 * _layout.scale;
+		var _tooltip_mouse_offset = 14 * _layout.scale;
+		var _tooltip_line_separation = 16 * _layout.scale;
+		var _tooltip_title_gap = 7 * _layout.scale;
+		var _tooltip_title = _hovered_result_relic != RELIC.NONE
+			? squad_relic_name_get(_hovered_result_relic)
+			: _hovered_shell_enchantment_choice.title;
+		var _tooltip_description = _hovered_result_relic != RELIC.NONE
+			? squad_relic_description_get(_hovered_result_relic)
+			: _hovered_shell_enchantment_choice.description;
+		var _tooltip_text_width = _tooltip_width - (_tooltip_padding * 2);
+		draw_set_font(jobs_title_font);
+		var _tooltip_title_height = string_height(_tooltip_title);
+		draw_set_font(jobs_description_font);
+		var _tooltip_description_height = string_height_ext(
+			_tooltip_description,
+			_tooltip_line_separation,
+			_tooltip_text_width
+		);
+		var _tooltip_height = (_tooltip_padding * 2)
+			+ _tooltip_title_height
+			+ _tooltip_title_gap
+			+ _tooltip_description_height;
+		var _tooltip_x = clamp(
+			_mouse_gui_x + _tooltip_mouse_offset,
+			_tooltip_margin,
+			display_get_gui_width() - _tooltip_width - _tooltip_margin
+		);
+		var _tooltip_y = _mouse_gui_y + _tooltip_mouse_offset;
+
+		if (_tooltip_y + _tooltip_height > display_get_gui_height() - _tooltip_margin)
+		{
+			_tooltip_y = _mouse_gui_y - _tooltip_height - _tooltip_mouse_offset;
+		}
+
+		_tooltip_y = clamp(
+			_tooltip_y,
+			_tooltip_margin,
+			display_get_gui_height() - _tooltip_height - _tooltip_margin
+		);
+
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_alpha(0.97);
+		draw_set_color(COLOR_JOBS_ASSIGN_BACKGROUND);
+		draw_rectangle(
+			_tooltip_x,
+			_tooltip_y,
+			_tooltip_x + _tooltip_width,
+			_tooltip_y + _tooltip_height,
+			false
+		);
+		draw_set_alpha(1);
+		draw_set_color(COLOR_JOBS_EVENT_ACTIVE);
+		draw_rectangle(
+			_tooltip_x,
+			_tooltip_y,
+			_tooltip_x + _tooltip_width,
+			_tooltip_y + _tooltip_height,
+			true
+		);
+		draw_set_font(jobs_title_font);
+		draw_text(
+			_tooltip_x + _tooltip_padding,
+			_tooltip_y + _tooltip_padding,
+			_tooltip_title
+		);
+		draw_set_font(jobs_description_font);
+		draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+		draw_text_ext(
+			_tooltip_x + _tooltip_padding,
+			_tooltip_y + _tooltip_padding + _tooltip_title_height + _tooltip_title_gap,
+			_tooltip_description,
+			_tooltip_line_separation,
+			_tooltip_text_width
+		);
+	}
+
 	// The annotated Assign Duties overview is visible only while the first-day window is open.
 	var _show_onboarding_hints = day_event_current_day_get() == 1
 		&& (!variable_global_exists("tutorial_hints_enabled") || global.tutorial_hints_enabled);
@@ -1243,6 +1379,27 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 		var _onboarding_design_offset_x = _layout.panel_x
 			- (jobs_onboarding_design_panel_x * _layout.scale);
 		var _onboarding_hint_count = array_length(jobs_onboarding_hints);
+		var _onboarding_reroll_button_exists = false;
+
+		// Do not advertise Rerolls until at least one usable Reroll action is visible.
+		if (global.day_event_rerolls_remaining > 0)
+		{
+			var _onboarding_event_count = array_length(global.day_events);
+
+			for (var _onboarding_event_index = 0;
+				_onboarding_event_index < _onboarding_event_count;
+				++_onboarding_event_index)
+			{
+				var _onboarding_event = global.day_events[_onboarding_event_index];
+
+				if (day_event_building_action_is_available(_onboarding_event)
+					&& day_event_reroll_is_available(_onboarding_event))
+				{
+					_onboarding_reroll_button_exists = true;
+					break;
+				}
+			}
+		}
 
 		draw_set_halign(fa_left);
 		draw_set_valign(fa_top);
@@ -1253,13 +1410,20 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 		for (var _hint_index = 0; _hint_index < _onboarding_hint_count; ++_hint_index)
 		{
 			var _hint = jobs_onboarding_hints[_hint_index];
+			var _hint_text = _hint.text;
 			var _hint_text_x = _onboarding_design_offset_x + (_hint.text_x * _layout.scale);
 			var _hint_text_y = _hint.text_y * _layout.scale;
+
+			if (_onboarding_reroll_button_exists
+				&& variable_struct_exists(_hint, "text_with_reroll"))
+			{
+				_hint_text = _hint.text_with_reroll;
+			}
 
 			draw_text_ext_transformed(
 				_hint_text_x,
 				_hint_text_y,
-				_hint.text,
+				_hint_text,
 				jobs_onboarding_text_line_height,
 				_hint.text_width,
 				_layout.scale,

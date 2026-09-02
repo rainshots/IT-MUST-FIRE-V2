@@ -252,6 +252,12 @@ if (global.cheats_enabled && keyboard_check_pressed(vk_f6))
 	debug_all_events_give();
 }
 
+// F11 raises Cannon Satisfaction for fast mood tier testing.
+if (global.cheats_enabled && keyboard_check_pressed(vk_f11))
+{
+	cannon_satisfaction_add(BALANCE_DEBUG_CANNON_SATISFACTION_CHEAT_AMOUNT);
+}
+
 // F12 restarts the current room for fast prototype iteration.
 if (global.cheats_enabled && keyboard_check_pressed(vk_f12))
 {
@@ -990,7 +996,70 @@ if (global.cheats_enabled)
 		instance_create_layer(_mouse_world_x, _mouse_world_y, "Instances", o_meat);
 	}
 
-	// NumPad keys spawn prototype units under the cursor for encounter testing.
+	// Shift + NumPad 1-7 creates a Bone Warrior squad with the selected Unholy Trait.
+	var _debug_shift_is_held = keyboard_check(vk_shift);
+	var _debug_unholy_trait = UNHOLY_TRAIT.NONE;
+
+	if (_debug_shift_is_held)
+	{
+		var _debug_number_1_pressed = keyboard_check_pressed(ord("1"))
+			|| keyboard_check_pressed(vk_numpad1)
+			|| keyboard_check_pressed(vk_end);
+		var _debug_number_2_pressed = keyboard_check_pressed(ord("2"))
+			|| keyboard_check_pressed(vk_numpad2)
+			|| keyboard_check_pressed(vk_down);
+		var _debug_number_3_pressed = keyboard_check_pressed(ord("3"))
+			|| keyboard_check_pressed(vk_numpad3)
+			|| keyboard_check_pressed(vk_pagedown);
+		var _debug_number_4_pressed = keyboard_check_pressed(ord("4"))
+			|| keyboard_check_pressed(vk_numpad4)
+			|| keyboard_check_pressed(vk_left);
+		var _debug_number_5_pressed = keyboard_check_pressed(ord("5"))
+			|| keyboard_check_pressed(vk_numpad5)
+			|| keyboard_check_pressed(KEY_CODE_NUMPAD_CENTER);
+		var _debug_number_6_pressed = keyboard_check_pressed(ord("6"))
+			|| keyboard_check_pressed(vk_numpad6)
+			|| keyboard_check_pressed(vk_right);
+		var _debug_number_7_pressed = keyboard_check_pressed(ord("7"))
+			|| keyboard_check_pressed(vk_numpad7)
+			|| keyboard_check_pressed(vk_home);
+
+		if (_debug_number_1_pressed)
+		{
+			_debug_unholy_trait = UNHOLY_TRAIT.BOILING_BLOOD;
+		}
+		else if (_debug_number_2_pressed)
+		{
+			_debug_unholy_trait = UNHOLY_TRAIT.STUNNING_ARRIVAL;
+		}
+		else if (_debug_number_3_pressed)
+		{
+			_debug_unholy_trait = UNHOLY_TRAIT.SAVAGE_LEAP;
+		}
+		else if (_debug_number_4_pressed)
+		{
+			_debug_unholy_trait = UNHOLY_TRAIT.ENDLESS_PROCESSION;
+		}
+		else if (_debug_number_5_pressed)
+		{
+			_debug_unholy_trait = UNHOLY_TRAIT.TAINT_TREATMENT;
+		}
+		else if (_debug_number_6_pressed)
+		{
+			_debug_unholy_trait = UNHOLY_TRAIT.ROAR_OF_THE_ABYSS;
+		}
+		else if (_debug_number_7_pressed)
+		{
+			_debug_unholy_trait = UNHOLY_TRAIT.POWER_OF_TWILIGHT;
+		}
+	}
+
+	if (_debug_unholy_trait != UNHOLY_TRAIT.NONE)
+	{
+		debug_unholy_bone_warrior_squad_create(_debug_unholy_trait);
+	}
+
+	// Unmodified NumPad keys spawn prototype units under the cursor for encounter testing.
 	var _debug_spawn_unit_object = noone;
 
 	if (keyboard_check_pressed(vk_numpad1))
@@ -1031,6 +1100,7 @@ if (global.cheats_enabled)
 	}
 
 	if (_debug_spawn_unit_object != noone
+		&& !_debug_shift_is_held
 		&& global.focus_window == FOCUS_WINDOW.NOONE
 		&& !global.pause
 		&& instance_exists(o_camera_controller))
@@ -1244,6 +1314,20 @@ if (keyboard_check_pressed(vk_escape))
 			&& instance_exists(global.cursed_point_structure_selection_source))
 		{
 			global.cursed_point_structure_selection_source.cursed_point_structure_selection_close();
+		}
+		else
+		{
+			global.focus_window = FOCUS_WINDOW.NOONE;
+			global.pause = false;
+		}
+	}
+	else if (global.focus_window == FOCUS_WINDOW.SQUAD_POINT_SELECTION)
+	{
+		if (variable_global_exists("squad_point_selection_source")
+			&& instance_exists(global.squad_point_selection_source)
+			&& variable_instance_exists(global.squad_point_selection_source, "squad_point_selection_close"))
+		{
+			global.squad_point_selection_source.squad_point_selection_close();
 		}
 		else
 		{
@@ -1845,6 +1929,7 @@ if (_can_select_cannon_projectile || _projectile_selection_click_index >= 0)
 	for (var _digit_index = 0; _digit_index < _max_digit_count; ++_digit_index)
 	{
 		if (_can_select_cannon_projectile
+			&& !(global.cheats_enabled && keyboard_check(vk_shift))
 			&& keyboard_check_pressed(ord(string(_digit_index + 1))))
 		{
 			var _digit_slot = _projectile_display_slots[_digit_index];

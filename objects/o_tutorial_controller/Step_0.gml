@@ -76,11 +76,6 @@ var _current_day = tutorial_current_day_get();
 if (_construction_window_open && !construction_window_was_open)
 {
 	tutorial_trigger("buildings");
-
-	if (_current_day == 2 && !instance_exists(o_meat_bath))
-	{
-		tutorial_trigger("meat_bath_needed");
-	}
 }
 
 construction_window_was_open = _construction_window_open;

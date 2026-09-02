@@ -37,8 +37,8 @@ if (_regular_hud_is_visible)
 	var _sidebar_width = hud_sidebar_width * _sidebar_scale;
 	var _sidebar_x = _sidebar_gui_width - _sidebar_width;
 
-	// Draw squad cards in type order, followed by the available empty slots.
-	if (variable_global_exists("squads") && variable_global_exists("squad_limits"))
+	// Draw all squad cards in type order, followed by the shared empty slots.
+	if (variable_global_exists("squads") && variable_global_exists("squad_limit"))
 	{
 		var _squad_card_width = 112 * _sidebar_scale;
 		var _squad_card_height = 145 * _sidebar_scale;
@@ -55,13 +55,11 @@ if (_regular_hud_is_visible)
 		for (var _squad_type = SQUAD_TYPE.ARCHDEMON; _squad_type < SQUAD_TYPE.COUNT; ++_squad_type)
 		{
 			var _type_name = _squad_type == SQUAD_TYPE.ARCHDEMON ? "ARCHDEMON" : (_squad_type == SQUAD_TYPE.UNDEAD ? "UNDEAD SQUAD" : "DEMON SQUAD");
-			var _type_squad_count = 0;
 
 			for (var _squad_index = 0; _squad_index < array_length(global.squads); ++_squad_index)
 			{
 				var _squad = global.squads[_squad_index];
 				if (_squad.squad_type != _squad_type) continue;
-				_type_squad_count++;
 				var _card_x = _squad_card_x + (_squad_card_index * (_squad_card_width + _squad_card_gap));
 				var _card_center_x = _card_x + (_squad_card_width * 0.5);
 				var _hp_values = squad_total_hp_get(_squad);
@@ -104,20 +102,39 @@ if (_regular_hud_is_visible)
 				draw_rectangle(_hp_x + (3 * _sidebar_scale), _hp_y + (3 * _sidebar_scale), _hp_x + (3 * _sidebar_scale) + ((_hp_width - (6 * _sidebar_scale)) * _hp_progress), _hp_y + (10 * _sidebar_scale), false);
 				_squad_card_index++;
 			}
+		}
 
-			for (var _empty_index = _type_squad_count; _empty_index < global.squad_limits[_squad_type]; ++_empty_index)
-			{
-				var _empty_x = _squad_card_x + (_squad_card_index * (_squad_card_width + _squad_card_gap));
-				draw_set_color(COLOR_SQUAD_CARD_BACKGROUND);
-				draw_rectangle(_empty_x, _squad_card_y, _empty_x + _squad_card_width, _squad_card_y + _squad_card_height, false);
-				draw_set_color(COLOR_SQUAD_CARD_BORDER);
-				draw_rectangle(_empty_x, _squad_card_y, _empty_x + _squad_card_width, _squad_card_y + _squad_card_height, true);
-				draw_set_color(COLOR_SQUAD_CARD_TYPE);
-				draw_text_transformed(_empty_x + (_squad_card_width * 0.5), _squad_type_y, _type_name, 0.55 * _sidebar_scale, 0.55 * _sidebar_scale, 0);
-				draw_set_color(COLOR_SQUAD_CARD_TEXT);
-				draw_text_transformed(_empty_x + (_squad_card_width * 0.5), _squad_card_y + (109 * _sidebar_scale), "Empty", 0.75 * _sidebar_scale, 0.75 * _sidebar_scale, 0);
-				_squad_card_index++;
-			}
+		// Recruitment cards reserve their slots before their squads are created at nightfall.
+		var _pending_slot_count = squad_pending_event_count_get();
+
+		for (var _pending_index = 0; _pending_index < _pending_slot_count; ++_pending_index)
+		{
+			var _pending_x = _squad_card_x + (_squad_card_index * (_squad_card_width + _squad_card_gap));
+			draw_set_color(COLOR_SQUAD_CARD_BACKGROUND);
+			draw_rectangle(_pending_x, _squad_card_y, _pending_x + _squad_card_width, _squad_card_y + _squad_card_height, false);
+			draw_set_color(COLOR_PROJECTILE_SUMMON);
+			draw_rectangle(_pending_x, _squad_card_y, _pending_x + _squad_card_width, _squad_card_y + _squad_card_height, true);
+			draw_set_color(COLOR_SQUAD_CARD_TYPE);
+			draw_text_transformed(_pending_x + (_squad_card_width * 0.5), _squad_type_y, "SQUAD", 0.55 * _sidebar_scale, 0.55 * _sidebar_scale, 0);
+			draw_set_color(COLOR_PROJECTILE_SUMMON);
+			draw_text_transformed(_pending_x + (_squad_card_width * 0.5), _squad_card_y + (109 * _sidebar_scale), "Pending", 0.75 * _sidebar_scale, 0.75 * _sidebar_scale, 0);
+			_squad_card_index++;
+		}
+
+		var _empty_slot_count = max(0, global.squad_limit - squad_slot_occupied_count_get());
+
+		for (var _empty_index = 0; _empty_index < _empty_slot_count; ++_empty_index)
+		{
+			var _empty_x = _squad_card_x + (_squad_card_index * (_squad_card_width + _squad_card_gap));
+			draw_set_color(COLOR_SQUAD_CARD_BACKGROUND);
+			draw_rectangle(_empty_x, _squad_card_y, _empty_x + _squad_card_width, _squad_card_y + _squad_card_height, false);
+			draw_set_color(COLOR_SQUAD_CARD_BORDER);
+			draw_rectangle(_empty_x, _squad_card_y, _empty_x + _squad_card_width, _squad_card_y + _squad_card_height, true);
+			draw_set_color(COLOR_SQUAD_CARD_TYPE);
+			draw_text_transformed(_empty_x + (_squad_card_width * 0.5), _squad_type_y, "SQUAD", 0.55 * _sidebar_scale, 0.55 * _sidebar_scale, 0);
+			draw_set_color(COLOR_SQUAD_CARD_TEXT);
+			draw_text_transformed(_empty_x + (_squad_card_width * 0.5), _squad_card_y + (109 * _sidebar_scale), "Empty", 0.75 * _sidebar_scale, 0.75 * _sidebar_scale, 0);
+			_squad_card_index++;
 		}
 
 		draw_set_halign(fa_left);
@@ -2207,7 +2224,7 @@ if (variable_global_exists("cannon_projectile_queue")
 
 }
 
-// Draw squad-card help and the RMB information window above the rest of the HUD.
+// Draw squad-card help and squad information above the rest of the HUD.
 if (_regular_hud_is_visible && variable_global_exists("squads"))
 {
 	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
@@ -2221,7 +2238,9 @@ if (_regular_hud_is_visible && variable_global_exists("squads"))
 
 	if (is_struct(_hovered_roster_squad))
 	{
-		var _hint_text = "Press RMB for info";
+		var _hint_text = squad_info_is_pinned && squad_info_squad == _hovered_roster_squad
+			? "RMB: unpin info"
+			: "RMB: pin info";
 		var _hint_padding = 7;
 		var _hint_width = string_width(_hint_text) + (_hint_padding * 2);
 		var _hint_height = string_height(_hint_text) + (_hint_padding * 2);
@@ -2245,12 +2264,26 @@ if (_regular_hud_is_visible && variable_global_exists("squads"))
 		var _gui_width = display_get_gui_width();
 		var _gui_height = display_get_gui_height();
 		var _window_width = min(squad_info_window_width, _gui_width - 36);
-		var _window_height = min(squad_info_window_height, _gui_height - 36);
+		var _squad_unit_count = array_length(squad_info_squad.unit_objects);
+		var _icon_step = squad_info_unit_icon_size + squad_info_unit_icon_gap;
+		var _icon_available_width = _window_width - (squad_info_padding * 2);
+		var _icon_column_count = max(1, floor((_icon_available_width + squad_info_unit_icon_gap) / _icon_step));
+		var _icon_row_count = max(1, ceil(_squad_unit_count / _icon_column_count));
+		var _additional_icon_row_count = max(0, _icon_row_count - 1);
+		var _window_height_growth = _additional_icon_row_count * _icon_step;
+		var _window_height = min(squad_info_window_height + _window_height_growth, _gui_height - 36);
 		var _window_x = (_gui_width - _window_width) * 0.5;
 		var _window_y = max(18, (_gui_height - _window_height) * 0.5);
-		var _unit_objects = hud_squad_unique_unit_objects_get(squad_info_squad);
-		var _unit_type_count = array_length(_unit_objects);
-		var _hovered_unit_object = noone;
+		var _hovered_unit_index = -1;
+		var _hovered_relic = RELIC.NONE;
+		var _living_unit_count = 0;
+		var _squad_hp_values = squad_total_hp_get(squad_info_squad);
+		var _icon_grid_bottom = _window_y + squad_info_unit_grid_offset_y
+			+ (_icon_row_count * squad_info_unit_icon_size)
+			+ (max(0, _icon_row_count - 1) * squad_info_unit_icon_gap);
+		var _summary_y = _icon_grid_bottom + 14;
+		var _unit_details_title_y = _summary_y + 26;
+		var _unit_details_y = _unit_details_title_y + 30;
 
 		draw_set_alpha(0.97);
 		draw_set_color(COLOR_HUD_BACKGROUND);
@@ -2262,13 +2295,132 @@ if (_regular_hud_is_visible && variable_global_exists("squads"))
 		draw_set_valign(fa_top);
 		draw_set_color(COLOR_HUD_TEXT);
 		draw_text(_window_x + squad_info_padding, _window_y + 16, squad_name_display_get(squad_info_squad.name));
-		draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
-		draw_text(_window_x + _window_width - 110, _window_y + 16, "RMB: close");
+		draw_set_halign(fa_right);
+		draw_set_color(squad_info_is_pinned ? COLOR_PROJECTILE_SUMMON : COLOR_HUD_PROJECTILE_DESCRIPTION);
+		draw_text(
+			_window_x + _window_width - squad_info_padding,
+			_window_y + 16,
+			squad_info_is_pinned ? "PINNED" : "RMB ON CARD: PIN"
+		);
+		draw_set_halign(fa_left);
 
-		for (var _unit_type_index = 0; _unit_type_index < _unit_type_count; ++_unit_type_index)
+		// Unholy Trait belongs to the whole squad and is always visible above its members.
+		var _unholy_trait = squad_unholy_trait_get(squad_info_squad);
+		var _unholy_trait_label = "Unholy Trait: ";
+		var _unholy_trait_x = _window_x + squad_info_padding;
+		var _unholy_trait_y = _window_y + squad_info_unholy_trait_offset_y;
+		var _unholy_trait_text = _unholy_trait_label + squad_unholy_trait_name_get(_unholy_trait);
+		var _unholy_trait_is_hovered = _unholy_trait != UNHOLY_TRAIT.NONE
+			&& point_in_rectangle(
+				_squad_info_mouse_x,
+				_squad_info_mouse_y,
+				_unholy_trait_x,
+				_unholy_trait_y,
+				_unholy_trait_x + string_width(_unholy_trait_text),
+				_unholy_trait_y + string_height(_unholy_trait_text)
+			);
+		draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+		draw_text(_unholy_trait_x, _unholy_trait_y, _unholy_trait_label);
+		draw_set_color(_unholy_trait == UNHOLY_TRAIT.NONE ? COLOR_HUD_PROJECTILE_DESCRIPTION : COLOR_PROJECTILE_SUMMON);
+		draw_text(
+			_unholy_trait_x + string_width(_unholy_trait_label),
+			_unholy_trait_y,
+			squad_unholy_trait_name_get(_unholy_trait)
+		);
+
+		// Relics occupy two permanent squad slots, including visible empty circles.
+		var _relic_label_x = _window_x + squad_info_padding;
+		var _relic_label_y = _window_y + squad_info_relic_offset_y
+			+ (squad_info_relic_slot_size * 0.5);
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_middle);
+		draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
+		draw_text(_relic_label_x, _relic_label_y, "Relics:");
+
+		for (var _relic_slot_index = 0;
+			_relic_slot_index < BALANCE_SQUAD_RELIC_SLOT_COUNT;
+			++_relic_slot_index)
 		{
-			var _unit_object = _unit_objects[_unit_type_index];
-			var _icon_rect = hud_squad_info_unit_icon_rect_get(_window_x, _window_y, _unit_type_index);
+			var _relic = squad_relic_slot_get(squad_info_squad, _relic_slot_index);
+			var _relic_rect = hud_squad_info_relic_slot_rect_get(
+				_window_x,
+				_window_y,
+				_relic_slot_index
+			);
+			var _relic_center_x = _relic_rect.x + (_relic_rect.width * 0.5);
+			var _relic_center_y = _relic_rect.y + (_relic_rect.height * 0.5);
+			var _relic_radius = _relic_rect.width * 0.5;
+			var _relic_is_hovered = point_in_rectangle(
+				_squad_info_mouse_x,
+				_squad_info_mouse_y,
+				_relic_rect.x,
+				_relic_rect.y,
+				_relic_rect.x + _relic_rect.width,
+				_relic_rect.y + _relic_rect.height
+			);
+			var _relic_is_filled = _relic != RELIC.NONE;
+
+			draw_set_alpha(_relic_is_filled ? 0.9 : 0.42);
+			draw_set_color(COLOR_SQUAD_CARD_BACKGROUND);
+			draw_circle(_relic_center_x, _relic_center_y, _relic_radius, false);
+			draw_set_alpha(1);
+			draw_set_color(_relic_is_hovered
+				? COLOR_PROJECTILE_SUMMON
+				: (_relic_is_filled ? COLOR_SQUAD_CARD_BORDER : COLOR_HUD_PROJECTILE_DESCRIPTION));
+			draw_circle(_relic_center_x, _relic_center_y, _relic_radius, true);
+
+			var _relic_sprite = squad_relic_sprite_get(_relic);
+
+			if (_relic_is_filled && sprite_exists(_relic_sprite))
+			{
+				var _relic_sprite_width = max(1, sprite_get_width(_relic_sprite));
+				var _relic_sprite_height = max(1, sprite_get_height(_relic_sprite));
+				var _relic_available_size = _relic_rect.width * 0.72;
+				var _relic_sprite_scale = min(
+					_relic_available_size / _relic_sprite_width,
+					_relic_available_size / _relic_sprite_height
+				);
+				var _relic_sprite_x = _relic_center_x
+					+ ((sprite_get_xoffset(_relic_sprite) - (_relic_sprite_width * 0.5))
+						* _relic_sprite_scale);
+				var _relic_sprite_y = _relic_center_y
+					+ ((sprite_get_yoffset(_relic_sprite) - (_relic_sprite_height * 0.5))
+						* _relic_sprite_scale);
+
+				draw_sprite_ext(
+					_relic_sprite,
+					0,
+					_relic_sprite_x,
+					_relic_sprite_y,
+					_relic_sprite_scale,
+					_relic_sprite_scale,
+					0,
+					c_white,
+					1
+				);
+			}
+
+			if (_relic_is_hovered && _relic_is_filled)
+			{
+				_hovered_relic = _relic;
+			}
+		}
+
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+
+		// Draw one slot for every individual squad member.
+		for (var _unit_index = 0; _unit_index < _squad_unit_count; ++_unit_index)
+		{
+			var _icon_unit = hud_squad_unit_instance_at_index_get(squad_info_squad, _unit_index);
+			var _icon_unit_object = hud_squad_unit_object_at_index_get(squad_info_squad, _unit_index);
+			var _unit_is_alive = instance_exists(_icon_unit);
+			var _icon_rect = hud_squad_info_unit_icon_rect_get(
+				_window_x,
+				_window_y,
+				_icon_column_count,
+				_unit_index
+			);
 			var _icon_is_hovered = point_in_rectangle(
 				_squad_info_mouse_x,
 				_squad_info_mouse_y,
@@ -2278,17 +2430,35 @@ if (_regular_hud_is_visible && variable_global_exists("squads"))
 				_icon_rect.y + _icon_rect.height
 			);
 
-			draw_set_alpha(_icon_is_hovered ? 0.95 : 0.72);
+			if (_unit_is_alive)
+			{
+				_living_unit_count++;
+			}
+
+			var _slot_alpha = _icon_is_hovered
+				? squad_info_unit_icon_hover_alpha
+				: (_unit_is_alive ? squad_info_unit_icon_alive_alpha : squad_info_unit_icon_fallen_alpha);
+			draw_set_alpha(_slot_alpha);
 			draw_set_color(COLOR_SQUAD_CARD_BACKGROUND);
 			draw_rectangle(_icon_rect.x, _icon_rect.y, _icon_rect.x + _icon_rect.width, _icon_rect.y + _icon_rect.height, false);
 			draw_set_alpha(1);
-			draw_set_color(_icon_is_hovered ? COLOR_PROJECTILE_SUMMON : COLOR_SQUAD_CARD_BORDER);
+			draw_set_color(
+				_icon_is_hovered
+					? COLOR_PROJECTILE_SUMMON
+					: (_unit_is_alive ? COLOR_SQUAD_CARD_BORDER : COLOR_STATUS_NEGATIVE_RED)
+			);
 			draw_rectangle(_icon_rect.x, _icon_rect.y, _icon_rect.x + _icon_rect.width, _icon_rect.y + _icon_rect.height, true);
 
-			var _icon_unit = hud_squad_unit_instance_get(squad_info_squad, _unit_object);
-			var _unit_sprite = instance_exists(_icon_unit)
-				? _icon_unit.sprite_index
-				: object_get_sprite(_unit_object);
+			var _unit_sprite = -1;
+
+			if (_unit_is_alive)
+			{
+				_unit_sprite = _icon_unit.sprite_index;
+			}
+			else if (_icon_unit_object != noone)
+			{
+				_unit_sprite = object_get_sprite(_icon_unit_object);
+			}
 
 			if (_unit_sprite != -1)
 			{
@@ -2300,74 +2470,68 @@ if (_regular_hud_is_visible && variable_global_exists("squads"))
 				var _sprite_x = _sprite_center_x + ((sprite_get_xoffset(_unit_sprite) - (_sprite_width * 0.5)) * _sprite_scale);
 				var _sprite_y = _sprite_center_y + ((sprite_get_yoffset(_unit_sprite) - (_sprite_height * 0.5)) * _sprite_scale);
 
-				draw_sprite_ext(_unit_sprite, 0, _sprite_x, _sprite_y, _sprite_scale, _sprite_scale, 0, c_white, 1);
+				draw_sprite_ext(
+					_unit_sprite,
+					0,
+					_sprite_x,
+					_sprite_y,
+					_sprite_scale,
+					_sprite_scale,
+					0,
+					c_white,
+					_unit_is_alive ? 1 : squad_info_unit_icon_fallen_alpha
+				);
 			}
-
-			// Display this unit type's squad count as a badge over the icon.
-			var _icon_unit_count = hud_squad_unit_type_count_get(squad_info_squad, _unit_object);
-			var _count_text = string(_icon_unit_count);
-			var _count_text_width = string_width(_count_text) * squad_info_unit_count_scale;
-			var _count_text_height = string_height(_count_text) * squad_info_unit_count_scale;
-			var _count_badge_right = _icon_rect.x + _icon_rect.width - squad_info_unit_count_margin;
-			var _count_badge_bottom = _icon_rect.y + _icon_rect.height - squad_info_unit_count_margin;
-			var _count_badge_width = _count_text_width + (squad_info_unit_count_padding_x * 2);
-			var _count_badge_height = _count_text_height + (squad_info_unit_count_padding_y * 2);
-
-			draw_set_alpha(squad_info_unit_count_background_alpha);
-			draw_set_color(COLOR_HUD_BACKGROUND);
-			draw_rectangle(
-				_count_badge_right - _count_badge_width,
-				_count_badge_bottom - _count_badge_height,
-				_count_badge_right,
-				_count_badge_bottom,
-				false
-			);
-			draw_set_alpha(1);
-			draw_set_halign(fa_right);
-			draw_set_valign(fa_bottom);
-			draw_set_color(COLOR_HUD_TEXT);
-			draw_text_transformed(
-				_count_badge_right - squad_info_unit_count_padding_x,
-				_count_badge_bottom - squad_info_unit_count_padding_y,
-				_count_text,
-				squad_info_unit_count_scale,
-				squad_info_unit_count_scale,
-				0
-			);
-			draw_set_halign(fa_left);
-			draw_set_valign(fa_top);
 
 			if (_icon_is_hovered)
 			{
-				_hovered_unit_object = _unit_object;
+				_hovered_unit_index = _unit_index;
 			}
 		}
 
-		if (_hovered_unit_object == noone)
+		// Keep the squad-wide summary readable without interacting with the window.
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text(
+			_window_x + squad_info_padding,
+			_summary_y,
+			"Living units: " + string(_living_unit_count) + " / " + string(_squad_unit_count)
+				+ "    Squad HP: " + string_format(_squad_hp_values[0], 0, 1)
+				+ " / " + string_format(_squad_hp_values[1], 0, 1)
+		);
+
+		if (_hovered_unit_index < 0)
 		{
 			draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
-			draw_text(_window_x + squad_info_padding, _window_y + 124, "Hover a unit type to inspect its current stats.");
+			draw_text(
+				_window_x + squad_info_padding,
+				_unit_details_title_y,
+				squad_info_is_pinned
+					? "Hover a unit to inspect its current stats."
+					: "Pin this window with RMB to inspect individual units."
+			);
 		}
 		else
 		{
-			var _unit = hud_squad_unit_instance_get(squad_info_squad, _hovered_unit_object);
-			var _unit_type_count = hud_squad_unit_type_count_get(squad_info_squad, _hovered_unit_object);
-			var _base_stats = hud_unit_base_stats_get(_hovered_unit_object);
+			var _unit = hud_squad_unit_instance_at_index_get(squad_info_squad, _hovered_unit_index);
+			var _selected_unit_object = hud_squad_unit_object_at_index_get(squad_info_squad, _hovered_unit_index);
+			var _base_stats = hud_unit_base_stats_get(_selected_unit_object);
 			var _stats_x = _window_x + squad_info_padding;
-			var _stats_y = _window_y + 150;
+			var _stats_y = _unit_details_y;
 			var _line_height = 23;
 
 			draw_set_color(COLOR_HUD_TEXT);
 			draw_text(
 				_stats_x,
-				_window_y + 120,
-				hud_unit_display_name_get(_hovered_unit_object) + " - in squad: " + string(_unit_type_count)
+				_unit_details_title_y,
+				hud_unit_display_name_get(_selected_unit_object)
+					+ " - unit " + string(_hovered_unit_index + 1)
+					+ " of " + string(_squad_unit_count)
 			);
 
 			if (!instance_exists(_unit))
 			{
 				draw_set_color(COLOR_STATUS_NEGATIVE_RED);
-				draw_text(_stats_x, _stats_y, "No living unit of this type.");
+				draw_text(_stats_x, _stats_y, "This unit is not currently alive.");
 			}
 			else
 			{
@@ -2410,13 +2574,9 @@ if (_regular_hud_is_visible && variable_global_exists("squads"))
 
 				if (variable_instance_exists(_unit, "reload_time"))
 				{
+					// Squad info compares permanent stats; terrain and combat effects are temporary.
 					var _current_attack_speed = room_speed / max(1, _unit.reload_time);
 					var _base_attack_speed = room_speed / max(1, _base_stats.reload_time);
-
-					if (variable_instance_exists(_unit, "effective_attack_speed_get"))
-					{
-						_current_attack_speed = _unit.effective_attack_speed_get();
-					}
 
 					hud_squad_info_stat_draw("Attack speed", _current_attack_speed, _base_attack_speed, _stats_x, _stats_y, 2);
 					_stats_y += _line_height;
@@ -2446,9 +2606,9 @@ if (_regular_hud_is_visible && variable_global_exists("squads"))
 				}
 			}
 
-			var _matchups = hud_unit_matchups_get(_hovered_unit_object);
+			var _matchups = hud_unit_matchups_get(_selected_unit_object);
 			var _matchup_x = _window_x + 300;
-			var _matchup_y = _window_y + 150;
+			var _matchup_y = _unit_details_y;
 			var _matchup_icon_radius = 18;
 			var _matchup_icon_gap = 44;
 			var _matchup_sprite_size = 28;
@@ -2516,6 +2676,24 @@ if (_regular_hud_is_visible && variable_global_exists("squads"))
 					}
 				}
 			}
+		}
+
+		// Trait help is drawn last so it remains above unit details and the squad window.
+		if (_unholy_trait_is_hovered)
+		{
+			hud_squad_info_unholy_tooltip_draw(
+				_unholy_trait,
+				_squad_info_mouse_x,
+				_squad_info_mouse_y
+			);
+		}
+		else if (_hovered_relic != RELIC.NONE)
+		{
+			hud_squad_info_relic_tooltip_draw(
+				_hovered_relic,
+				_squad_info_mouse_x,
+				_squad_info_mouse_y
+			);
 		}
 	}
 }

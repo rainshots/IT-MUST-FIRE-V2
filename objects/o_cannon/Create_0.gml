@@ -880,8 +880,6 @@ cannon_payload_mastery_taint_multiplier_get = function()
 cannon_projectile_bomb_damage_get = function()
 {
 	var _level = cannon_payload_upgrade_level_get();
-	var _shell_factory_multiplier = 1
-		+ (global.shell_factory_hellcow_damage_upgrade_count * BALANCE_SHELL_FACTORY_UPGRADE_BONUS);
 	var _damage = BALANCE_PROJECTILE_HELLCOW_DAMAGE_AMOUNT;
 
 	if (_level >= 3)
@@ -897,7 +895,7 @@ cannon_projectile_bomb_damage_get = function()
 		_damage = BALANCE_PROJECTILE_HELLCOW_DAMAGE_AMOUNT_LEVEL_2;
 	}
 
-	return _damage * _shell_factory_multiplier;
+	return _damage;
 };
 
 cannon_projectile_skeleton_count_get = function()
@@ -923,8 +921,6 @@ cannon_projectile_skeleton_count_get = function()
 cannon_projectile_heal_amount_get = function()
 {
 	var _level = cannon_payload_upgrade_level_get();
-	var _shell_factory_multiplier = 1
-		+ (global.shell_factory_first_aid_heal_upgrade_count * BALANCE_SHELL_FACTORY_UPGRADE_BONUS);
 	var _heal_amount = BALANCE_FIRST_AID_MEAT_HEAL_AMOUNT;
 
 	if (_level >= 3)
@@ -940,15 +936,12 @@ cannon_projectile_heal_amount_get = function()
 		_heal_amount = BALANCE_FIRST_AID_MEAT_HEAL_AMOUNT_LEVEL_2;
 	}
 
-	return _heal_amount * _shell_factory_multiplier;
+	return _heal_amount;
 };
 
 cannon_projectile_heal_radius_get = function()
 {
-	var _shell_factory_multiplier = 1
-		+ (global.shell_factory_first_aid_heal_upgrade_count * BALANCE_SHELL_FACTORY_UPGRADE_BONUS);
-
-	return BALANCE_FIRST_AID_MEAT_HEAL_RADIUS * _shell_factory_multiplier;
+	return BALANCE_FIRST_AID_MEAT_HEAL_RADIUS;
 };
 
 building_upgrade_description_get = function(_upgrade_index)

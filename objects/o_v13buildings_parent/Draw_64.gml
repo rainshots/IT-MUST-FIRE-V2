@@ -171,6 +171,8 @@ var _card_x = _layout.card_x;
 var _card_y = _layout.card_y;
 var _card_height = _layout.card_height;
 var _hovered_result_unit_object = noone;
+var _hovered_result_relic = RELIC.NONE;
+var _hovered_shell_enchantment_choice = noone;
 var _result_stats_font = -1;
 
 if (_is_hovered)
@@ -214,19 +216,43 @@ if (_is_hovered)
 		_result_stats_font = _jobs_ui.jobs_hp_font;
 	}
 
+	var _description_x = _card_x + BALANCE_WORLD_EVENT_CARD_PADDING_X;
+	var _description_y = _card_y
+		+ BALANCE_WORLD_EVENT_CARD_PADDING_Y
+		+ BALANCE_WORLD_EVENT_DESCRIPTION_OFFSET_Y;
+	var _description_width = BALANCE_WORLD_EVENT_CARD_WIDTH
+		- (BALANCE_WORLD_EVENT_CARD_PADDING_X * 2)
+		- (_event_is_ready ? BALANCE_WORLD_EVENT_READY_ICON_WIDTH : 0);
+	var _modifier_text = day_event_modifiers_text_get(_current_event);
 	draw_text_ext(
-		_card_x + BALANCE_WORLD_EVENT_CARD_PADDING_X,
-		_card_y
-			+ BALANCE_WORLD_EVENT_CARD_PADDING_Y
-			+ BALANCE_WORLD_EVENT_DESCRIPTION_OFFSET_Y,
+		_description_x,
+		_description_y,
 		_current_event.description,
 		BALANCE_WORLD_EVENT_DESCRIPTION_LINE_SEPARATION,
-		BALANCE_WORLD_EVENT_CARD_WIDTH
-			- (BALANCE_WORLD_EVENT_CARD_PADDING_X * 2)
-			- (_event_is_ready ? BALANCE_WORLD_EVENT_READY_ICON_WIDTH : 0)
+		_description_width
 	);
 
-	// Specialization Jobs expose every result directly on the building card.
+	if (_modifier_text != "")
+	{
+		var _description_height = string_height_ext(
+			_current_event.description,
+			BALANCE_WORLD_EVENT_DESCRIPTION_LINE_SEPARATION,
+			_description_width
+		);
+		draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+		draw_text_ext(
+			_description_x,
+			_description_y
+				+ _description_height
+				+ BALANCE_WORLD_EVENT_DESCRIPTION_LINE_SEPARATION,
+			_modifier_text,
+			BALANCE_WORLD_EVENT_DESCRIPTION_LINE_SEPARATION,
+			_description_width
+		);
+		draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+	}
+
+	// Choice Jobs expose unit specializations, Relics, or shell enchantments on the building card.
 	if (_layout.has_unit_choice)
 	{
 		var _choice_count = array_length(_current_event.unit_choice_options);
@@ -238,8 +264,16 @@ if (_is_hovered)
 		{
 			var _choice = _current_event.unit_choice_options[_choice_index];
 
-			if (!is_struct(_choice)
-				|| !variable_struct_exists(_choice, "target_unit_object"))
+			if (!is_struct(_choice))
+			{
+				continue;
+			}
+
+			var _choice_has_unit = variable_struct_exists(_choice, "target_unit_object");
+			var _choice_has_relic = variable_struct_exists(_choice, "relic");
+			var _choice_has_shell_enchantment = variable_struct_exists(_choice, "shell_enchantment");
+
+			if (!_choice_has_unit && !_choice_has_relic && !_choice_has_shell_enchantment)
 			{
 				continue;
 			}
@@ -248,8 +282,11 @@ if (_is_hovered)
 			var _choice_center_x = _choice_rect.x + (_choice_rect.width * 0.5);
 			var _choice_center_y = _choice_rect.y + (_choice_rect.height * 0.5);
 			var _choice_radius = _choice_rect.width * 0.5;
-			var _choice_unit_object = _choice.target_unit_object;
-			var _choice_sprite = object_get_sprite(_choice_unit_object);
+			var _choice_unit_object = _choice_has_unit ? _choice.target_unit_object : noone;
+			var _choice_relic = _choice_has_relic ? _choice.relic : RELIC.NONE;
+			var _choice_sprite = variable_struct_exists(_choice, "icon_sprite")
+				? _choice.icon_sprite
+				: (_choice_has_unit ? object_get_sprite(_choice_unit_object) : noone);
 			var _choice_is_hovered = point_in_rectangle(
 				_mouse_gui_x,
 				_mouse_gui_y,
@@ -307,12 +344,40 @@ if (_is_hovered)
 			}
 
 			draw_set_color(_choice_is_selected ? COLOR_STATUS_NEGATIVE_RED : COLOR_JOBS_ASSIGN_TEXT);
-			draw_text(_choice_center_x, _choice_rect.label_y, _choice.label);
+
+			if (_choice_has_relic || _choice_has_shell_enchantment)
+			{
+				var _choice_label_width = (_layout.card_width
+					- (BALANCE_WORLD_EVENT_CARD_PADDING_X * 2)) / _choice_count;
+				draw_text_ext(
+					_choice_center_x,
+					_choice_rect.label_y,
+					_choice.label,
+					12,
+					_choice_label_width
+				);
+			}
+			else
+			{
+				draw_text(_choice_center_x, _choice_rect.label_y, _choice.label);
+			}
+
 			draw_set_alpha(1);
 
 			if (_choice_is_hovered)
 			{
-				_hovered_result_unit_object = _choice_unit_object;
+				if (_choice_has_unit)
+				{
+					_hovered_result_unit_object = _choice_unit_object;
+				}
+				else if (_choice_has_relic)
+				{
+					_hovered_result_relic = _choice_relic;
+				}
+				else
+				{
+					_hovered_shell_enchantment_choice = _choice;
+				}
 			}
 		}
 	}
@@ -549,6 +614,85 @@ if (_hovered_result_unit_object != noone && instance_exists(o_game_controller))
 		18,
 		120,
 		_result_stats_font
+	);
+}
+
+// Relic and shell enchantment choices describe their full effect on hover.
+if (_hovered_result_relic != RELIC.NONE || is_struct(_hovered_shell_enchantment_choice))
+{
+	var _tooltip_width = 340;
+	var _tooltip_padding = 12;
+	var _tooltip_margin = 8;
+	var _tooltip_mouse_offset = 14;
+	var _tooltip_line_separation = 16;
+	var _tooltip_title_gap = 7;
+	var _tooltip_title = _hovered_result_relic != RELIC.NONE
+		? squad_relic_name_get(_hovered_result_relic)
+		: _hovered_shell_enchantment_choice.title;
+	var _tooltip_description = _hovered_result_relic != RELIC.NONE
+		? squad_relic_description_get(_hovered_result_relic)
+		: _hovered_shell_enchantment_choice.description;
+	var _tooltip_text_width = _tooltip_width - (_tooltip_padding * 2);
+	var _tooltip_title_height = string_height(_tooltip_title);
+	var _tooltip_description_height = string_height_ext(
+		_tooltip_description,
+		_tooltip_line_separation,
+		_tooltip_text_width
+	);
+	var _tooltip_height = (_tooltip_padding * 2)
+		+ _tooltip_title_height
+		+ _tooltip_title_gap
+		+ _tooltip_description_height;
+	var _tooltip_x = clamp(
+		_mouse_gui_x + _tooltip_mouse_offset,
+		_tooltip_margin,
+		_gui_width - _tooltip_width - _tooltip_margin
+	);
+	var _tooltip_y = _mouse_gui_y + _tooltip_mouse_offset;
+
+	if (_tooltip_y + _tooltip_height > _gui_height - _tooltip_margin)
+	{
+		_tooltip_y = _mouse_gui_y - _tooltip_height - _tooltip_mouse_offset;
+	}
+
+	_tooltip_y = clamp(
+		_tooltip_y,
+		_tooltip_margin,
+		_gui_height - _tooltip_height - _tooltip_margin
+	);
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_alpha(0.97);
+	draw_set_color(COLOR_JOBS_ASSIGN_BACKGROUND);
+	draw_rectangle(
+		_tooltip_x,
+		_tooltip_y,
+		_tooltip_x + _tooltip_width,
+		_tooltip_y + _tooltip_height,
+		false
+	);
+	draw_set_alpha(1);
+	draw_set_color(COLOR_JOBS_EVENT_ACTIVE);
+	draw_rectangle(
+		_tooltip_x,
+		_tooltip_y,
+		_tooltip_x + _tooltip_width,
+		_tooltip_y + _tooltip_height,
+		true
+	);
+	draw_text(
+		_tooltip_x + _tooltip_padding,
+		_tooltip_y + _tooltip_padding,
+		_tooltip_title
+	);
+	draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+	draw_text_ext(
+		_tooltip_x + _tooltip_padding,
+		_tooltip_y + _tooltip_padding + _tooltip_title_height + _tooltip_title_gap,
+		_tooltip_description,
+		_tooltip_line_separation,
+		_tooltip_text_width
 	);
 }
 

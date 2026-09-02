@@ -18,6 +18,11 @@ var _time_scale = variable_global_exists("gameplay_time_scale")
 	: 1;
 var _previous_life_timer = life_timer;
 
+if (first_aid_meat_enchantment == FIRST_AID_MEAT_ENCHANTMENT.EMERGENCY_PULL)
+{
+	first_aid_meat_pull_update(_time_scale);
+}
+
 life_timer = min(life_timer + _time_scale, life_duration);
 heal_timer += life_timer - _previous_life_timer;
 

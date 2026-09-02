@@ -160,7 +160,8 @@ jobs_onboarding_hints = [
 		arrow_angle: 90
 	},
 	{
-		text: "You can pin 1 Rite per day, so it will remain available tomorrow.\nYou can also reroll 1 Rite per day.\nSome Rites cannot be rerolled or pinned.",
+		text: "You can pin 1 Rite per day, so it will remain available tomorrow.\nSome Rites cannot be pinned.",
+		text_with_reroll: "You can pin 1 Rite per day, so it will remain available tomorrow.\nYou can also reroll building Rites while the Cannon is Playful or better.\nSome Rites cannot be rerolled or pinned.",
 		text_x: 1625,
 		text_y: 620,
 		text_width: 250,

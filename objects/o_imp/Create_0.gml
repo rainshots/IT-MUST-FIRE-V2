@@ -119,6 +119,35 @@ imp_active_ability_cancel_for_death = function()
 	image_alpha = 1;
 };
 
+imp_demon_leap_cancel_for_march = function()
+{
+	if (!demon_leap_is_active)
+	{
+		return false;
+	}
+
+	// Drop to the ground below the current arc before regular squad movement resumes.
+	var _flight_progress = 1 - clamp(
+		demon_leap_flight_timer / max(1, demon_leap_flight_duration),
+		0,
+		1
+	);
+	x = lerp(demon_leap_flight_start_x, demon_leap_flight_end_x, _flight_progress);
+	y = lerp(demon_leap_flight_start_y, demon_leap_flight_end_y, _flight_progress);
+	demon_leap_is_active = false;
+	demon_leap_target = noone;
+	demon_leap_is_returning = false;
+	demon_leap_flight_timer = 0;
+	demon_leap_hit_targets = [];
+	visual_offset_is_ability_controlled = false;
+	visual_attack_offset_x = 0;
+	visual_attack_offset_y = 0;
+	target_instance = noone;
+	is_attacking_target = false;
+
+	return true;
+};
+
 brute_blood_anvil_active_recharge = function(_recharge_share)
 {
 	var _recharge_amount = 0;

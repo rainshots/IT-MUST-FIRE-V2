@@ -14,6 +14,7 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 	activation_limit = max(1, floor(_activation_limit));
 	actions = _actions;
 	assigned_cultists = [];
+	modifiers = [];
 	activation_count = 0;
 	is_resolved = false;
 
@@ -165,6 +166,13 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 			}
 
 			activation_count++;
+		}
+
+		// Event-wide Satisfaction costs apply once per successfully funded card.
+		if (_ready_count > 0
+			&& variable_struct_exists(self, "cannon_satisfaction_cost"))
+		{
+			cannon_satisfaction_add(-max(0, cannon_satisfaction_cost));
 		}
 
 		is_resolved = true;

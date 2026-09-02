@@ -34,6 +34,16 @@ catapult_target_is_in_attack_band = function(_target)
 			&& navigation_target_distance_get(_target) <= attack_radius;
 	}
 
+	if (taint_shell_tumor_is_valid(_target))
+	{
+		return navigation_target_distance_get(_target) <= attack_radius;
+	}
+
+	if (first_aid_meat_fresh_target_is_valid(_target))
+	{
+		return navigation_target_distance_get(_target) <= attack_radius;
+	}
+
 	return player_structure_can_be_targeted(_target)
 		&& navigation_target_distance_get(_target) <= attack_radius;
 };
@@ -145,9 +155,39 @@ catapult_projectile_create = function(_target)
 catapult_behavior_update = function()
 {
 	catapult_target_search_timer += gameplay_time_scale;
+	var _fresh_meat_target = first_aid_meat_fresh_target_find();
+	var _current_target_is_fresh_meat = false;
+	var _current_target_is_tumor = taint_shell_tumor_is_valid(target_instance);
+	var _target_is_in_attack_band = catapult_target_is_in_attack_band(target_instance);
 
-	if (!catapult_target_is_in_attack_band(target_instance)
-		|| catapult_target_search_timer >= target_search_update_interval)
+	// Fresh Meat has priority over every ordinary Catapult target inside its smell radius.
+	if (instance_exists(_fresh_meat_target))
+	{
+		target_instance = _fresh_meat_target;
+		_current_target_is_fresh_meat = true;
+		_current_target_is_tumor = false;
+		_target_is_in_attack_band = catapult_target_is_in_attack_band(target_instance);
+		catapult_target_search_timer = 0;
+	}
+
+	// An idle Catapult inside an attraction radius commits to the tumor until it is destroyed.
+	if (!_current_target_is_fresh_meat && !_current_target_is_tumor && !_target_is_in_attack_band)
+	{
+		var _tumor_target = taint_shell_tumor_target_find();
+
+		if (instance_exists(_tumor_target))
+		{
+			target_instance = _tumor_target;
+			_current_target_is_tumor = true;
+			_target_is_in_attack_band = catapult_target_is_in_attack_band(target_instance);
+			catapult_target_search_timer = 0;
+		}
+	}
+
+	if (!_current_target_is_fresh_meat
+		&& !_current_target_is_tumor
+		&& (!_target_is_in_attack_band
+			|| catapult_target_search_timer >= target_search_update_interval))
 	{
 		catapult_target_search_timer = 0;
 		target_instance = catapult_target_find();

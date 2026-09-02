@@ -9,7 +9,8 @@ if (!structure_selection_open
 	|| !variable_global_exists("cursed_point_structure_selection_source")
 	|| global.cursed_point_structure_selection_source != id)
 {
-	if (!is_captured && map_object_is_hovered() && !global.pause)
+	// Lightweight pause keeps world hover information available without enabling interaction.
+	if (!is_captured && map_object_is_hovered())
 	{
 		var _camera_controller = instance_find(o_camera_controller, 0);
 		var _camera_x = camera_get_view_x(_camera_controller.camera_id);
