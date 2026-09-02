@@ -448,8 +448,11 @@ jobs_available_assignment_slot_count_get = function()
 			continue;
 		}
 
-		var _event_capacity = _event.cultist_cost * _event.activation_limit;
-		_available_slot_count += max(0, _event_capacity - array_length(_event.assigned_cultists));
+		for (var _slot_index = 0; _slot_index < array_length(_event.slots); ++_slot_index)
+		{
+			var _slot = _event.slots[_slot_index];
+			if (_slot.slot_type == "cultist" && !instance_exists(_slot.cultist)) _available_slot_count++;
+		}
 	}
 
 	return _available_slot_count;
@@ -549,7 +552,7 @@ jobs_event_slot_rect_get = function(_event_index, _slot_index, _slot_count = -1)
 	if (_slot_count < 0)
 	{
 		var _event = global.day_events[_event_index];
-		_slot_count = _event.cultist_cost * _event.activation_limit;
+		_slot_count = array_length(_event.slots);
 	}
 
 	var _slot_distance = (_slot_count - _slot_index) * jobs_event_slot_step * _layout.scale;
@@ -745,8 +748,14 @@ jobs_event_empty_slot_hp_cost_text_get = function(_event)
 		}
 	}
 
-	// A damaged settlement building adds its repair penalty to every event slot.
-	_fixed_hp_cost += day_event_damaged_building_hp_cost_get(_event);
+	// A damaged settlement building adds its repair penalty unless this event explicitly has no HP cost.
+	var _ignores_additional_hp_cost = variable_struct_exists(_event, "ignores_additional_hp_cost")
+		&& _event.ignores_additional_hp_cost;
+
+	if (!_ignores_additional_hp_cost)
+	{
+		_fixed_hp_cost += day_event_damaged_building_hp_cost_get(_event);
+	}
 
 	if (_fixed_hp_cost > 0 && _hp_share_cost > 0)
 	{
@@ -773,15 +782,30 @@ jobs_event_cultist_slot_index_get = function(_event, _cultist)
 		return -1;
 	}
 
-	for (var _slot_index = 0; _slot_index < array_length(_event.assigned_cultists); ++_slot_index)
+	for (var _slot_index = 0; _slot_index < array_length(_event.slots); ++_slot_index)
 	{
-		if (_event.assigned_cultists[_slot_index] == _cultist)
+		var _slot = _event.slots[_slot_index];
+		if (_slot.slot_type == "cultist" && _slot.cultist == _cultist)
 		{
 			return _slot_index;
 		}
 	}
 
 	return -1;
+};
+
+jobs_resource_name_get = function(_resource)
+{
+	switch (_resource)
+	{
+		case RESOURCES.FLESH: return "FLESH";
+		case RESOURCES.SOULS: return "SOULS";
+		case RESOURCES.IRON: return "IRON";
+		case RESOURCES.IHOR: return "IHOR";
+		case RESOURCES.CORPSE: return "CORPSE";
+	}
+
+	return "RESOURCE";
 };
 
 jobs_event_cultist_hp_preview_get = function(_event, _slot_index, _cultist)
@@ -934,9 +958,11 @@ jobs_event_cultist_hp_preview_get = function(_event, _slot_index, _cultist)
 		}
 	}
 
-	// Global sulking and a damaged source building add visible HP costs to every slot.
-	var _sulking_hp_cost = cannon_satisfaction_event_hp_cost_get();
-	var _damaged_building_hp_cost = day_event_damaged_building_hp_cost_get(_event);
+	// Global sulking and building damage are hidden when the event explicitly ignores HP costs.
+	var _ignores_additional_hp_cost = variable_struct_exists(_event, "ignores_additional_hp_cost")
+		&& _event.ignores_additional_hp_cost;
+	var _sulking_hp_cost = _ignores_additional_hp_cost ? 0 : cannon_satisfaction_event_hp_cost_get();
+	var _damaged_building_hp_cost = _ignores_additional_hp_cost ? 0 : day_event_damaged_building_hp_cost_get(_event);
 	var _additional_hp_cost = _sulking_hp_cost + _damaged_building_hp_cost;
 	_hp_loss += _additional_hp_cost;
 	_lethal_hp_loss += _additional_hp_cost;
@@ -1089,9 +1115,10 @@ jobs_cultist_rect_get = function(_cultist)
 				continue;
 			}
 
-			for (var _slot_index = 0; _slot_index < array_length(_event.assigned_cultists); ++_slot_index)
+			for (var _slot_index = 0; _slot_index < array_length(_event.slots); ++_slot_index)
 			{
-				if (_event.assigned_cultists[_slot_index] == _cultist)
+				var _slot = _event.slots[_slot_index];
+				if (_slot.slot_type == "cultist" && _slot.cultist == _cultist)
 				{
 					return jobs_event_slot_rect_get(_event_index, _slot_index);
 				}

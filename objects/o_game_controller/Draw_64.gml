@@ -3997,8 +3997,7 @@ if (WORLD_EVENT_INTERFACE_ENABLED
 		}
 
 		var _construction_site = _construction_event.construction_site;
-		var _construction_slot_count = _construction_event.cultist_cost
-			* _construction_event.activation_limit;
+		var _construction_slot_count = array_length(_construction_event.slots);
 		var _construction_slot_row_width = (_construction_slot_count - 1)
 			* BALANCE_WORLD_EVENT_SLOT_SPACING;
 		var _construction_slot_start_x = _construction_site.x

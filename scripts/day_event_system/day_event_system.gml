@@ -2411,13 +2411,22 @@ function day_event_foundry_event_create(
 	_action_data
 )
 {
+	// Foundry events use one Iron payment instead of Cultist health.
+	var _cost_text_position = string_pos("\n", _description);
+	var _resource_description = _cost_text_position > 0
+		? string_copy(_description, 1, _cost_text_position - 1)
+		: _description;
+	var _foundry_slots = [
+		day_event_resource_slot(RESOURCES.IRON, BALANCE_FOUNDRY_EVENT_IRON_COST)
+	];
 	var _event = new day_event_constructor(
 		_event_id + "_" + string(_foundry),
 		_title,
-		_description,
+		_resource_description,
 		_cultist_cost,
 		1,
-		[new event_action_constructor(_action_type, _action_callback, _action_data)]
+		[new event_action_constructor(_action_type, _action_callback, _action_data)],
+		_foundry_slots
 	);
 	_event.source_building = _foundry;
 	return _event;
@@ -2838,6 +2847,98 @@ function day_event_blood_warpaint_execute(_event, _assigned_cultists, _data)
 	return true;
 }
 
+function day_event_taking_a_bath_execute(_event, _assigned_cultists, _data)
+{
+	var _cultist_count = array_length(_assigned_cultists);
+	var _total_missing_hp = 0;
+
+	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+	{
+		var _cultist = _assigned_cultists[_cultist_index];
+
+		if (instance_exists(_cultist))
+		{
+			_total_missing_hp += max(0, _cultist.max_hp - _cultist.hp);
+		}
+	}
+
+	if (_total_missing_hp <= 0)
+	{
+		return true;
+	}
+
+	var _flesh_required = ceil(
+		_total_missing_hp / BALANCE_BLOOD_BATH_TAKING_A_BATH_HEAL_PER_FLESH
+	);
+	var _flesh_spent = min(global.resources[RESOURCES.FLESH], _flesh_required);
+	var _healing_remaining = min(
+		_total_missing_hp,
+		_flesh_spent * BALANCE_BLOOD_BATH_TAKING_A_BATH_HEAL_PER_FLESH
+	);
+	global.resources[RESOURCES.FLESH] -= _flesh_spent;
+
+	// First split the healing evenly, then redistribute healing that a nearly-full Cultist could not use.
+	var _healing_share = _cultist_count > 0 ? _healing_remaining / _cultist_count : 0;
+
+	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+	{
+		var _cultist = _assigned_cultists[_cultist_index];
+
+		if (!instance_exists(_cultist))
+		{
+			continue;
+		}
+
+		var _hp_before = _cultist.hp;
+		day_event_cultist_heal_apply(_cultist, _healing_share, false);
+		_healing_remaining -= max(0, _cultist.hp - _hp_before);
+	}
+
+	for (var _cultist_index = 0; _cultist_index < _cultist_count && _healing_remaining > 0; ++_cultist_index)
+	{
+		var _cultist = _assigned_cultists[_cultist_index];
+
+		if (!instance_exists(_cultist))
+		{
+			continue;
+		}
+
+		var _hp_before = _cultist.hp;
+		day_event_cultist_heal_apply(_cultist, _healing_remaining, false);
+		_healing_remaining -= max(0, _cultist.hp - _hp_before);
+	}
+
+	return true;
+}
+
+function day_event_taking_a_bath_create(_blood_bath)
+{
+	var _event_slots = [
+		day_event_cultist_slot(true),
+		day_event_cultist_slot(true)
+	];
+	var _event = new day_event_constructor(
+		"taking_a_bath_" + string(_blood_bath),
+		"Taking a bath",
+		"Assign 1 or 2 Cultists. Each Flesh spent restores "
+			+ string(BALANCE_BLOOD_BATH_TAKING_A_BATH_HEAL_PER_FLESH)
+			+ " HP, split between them. Only enough Flesh to heal their missing HP is spent.",
+		BALANCE_BLOOD_BATH_TAKING_A_BATH_CULTIST_LIMIT,
+		1,
+		[
+			new event_action_constructor(
+				"taking_a_bath",
+				day_event_taking_a_bath_execute
+			)
+		],
+		_event_slots
+	);
+	_event.source_building = _blood_bath;
+	_event.minimum_cultist_count = 1;
+	_event.ignores_additional_hp_cost = true;
+	return _event;
+}
+
 function day_event_blood_bath_create(
 	_building,
 	_event_id,
@@ -3115,6 +3216,7 @@ function day_event_building_catalog_get(_building_object)
 			];
 
 		case o_meat_bath:
+			/* Legacy Blood Bath catalog entries disabled with their events.
 			return [
 				_entry(
 					"Crimson Baptism",
@@ -3180,6 +3282,16 @@ function day_event_building_catalog_get(_building_object)
 					"Set every living Cultist to "
 						+ string(BALANCE_BLOOD_WARPAINT_MORNING_HP)
 						+ " HP next morning."
+				)
+			];
+			*/
+			return [
+				_entry(
+					"Taking a bath",
+					"Assign 1 or 2 Cultists. Each Flesh spent restores "
+						+ string(BALANCE_BLOOD_BATH_TAKING_A_BATH_HEAL_PER_FLESH)
+						+ " HP, split between them.",
+					BALANCE_BLOOD_BATH_TAKING_A_BATH_CULTIST_LIMIT
 				)
 			];
 	}
@@ -3278,9 +3390,8 @@ function day_event_building_action_is_available(_event)
 function day_event_has_funded_activation(_event)
 {
 	return is_struct(_event)
-		&& variable_struct_exists(_event, "assigned_cultists")
-		&& variable_struct_exists(_event, "cultist_cost")
-		&& array_length(_event.assigned_cultists) >= _event.cultist_cost;
+		&& variable_struct_exists(_event, "slot_funded_activation_count_get")
+		&& _event.slot_funded_activation_count_get() > 0;
 }
 
 function day_event_assignments_clear(_event)
@@ -3292,6 +3403,11 @@ function day_event_assignments_clear(_event)
 	}
 
 	var _released_count = 0;
+
+	if (variable_struct_exists(_event, "resource_slots_refund"))
+	{
+		_event.resource_slots_refund();
+	}
 
 	for (var _cultist_index = 0; _cultist_index < array_length(_event.assigned_cultists); ++_cultist_index)
 	{
@@ -3305,6 +3421,15 @@ function day_event_assignments_clear(_event)
 	}
 
 	_event.assigned_cultists = [];
+
+	if (variable_struct_exists(_event, "slots"))
+	{
+		for (var _slot_index = 0; _slot_index < array_length(_event.slots); ++_slot_index)
+		{
+			var _slot = _event.slots[_slot_index];
+			if (_slot.slot_type == "cultist") _slot.cultist = noone;
+		}
+	}
 	return _released_count;
 }
 
@@ -4093,6 +4218,7 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 	{
 		var _blood_bath = instance_find(o_meat_bath, _blood_bath_index);
 
+		/* Legacy Blood Bath events disabled in favor of Taking a bath.
 		day_event_add(day_event_blood_bath_create(
 			_blood_bath,
 			"crimson_baptism",
@@ -4212,6 +4338,9 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 			1,
 			day_event_blood_warpaint_execute
 		));
+		*/
+
+		day_event_add(day_event_taking_a_bath_create(_blood_bath));
 	}
 
 	// Invite the Worthy selects one extra unique candidate from each building's full catalog.
@@ -4259,6 +4388,11 @@ function day_event_debug_all_events_generate()
 			|| !variable_struct_exists(_event, "assigned_cultists"))
 		{
 			continue;
+		}
+
+		if (variable_struct_exists(_event, "resource_slots_refund"))
+		{
+			_event.resource_slots_refund();
 		}
 
 		for (var _cultist_index = 0; _cultist_index < array_length(_event.assigned_cultists); ++_cultist_index)
@@ -4370,7 +4504,7 @@ function day_event_finish_day()
 		if (is_struct(_event) && variable_struct_exists(_event, "execute"))
 		{
 			// Funded squad events fall back to the first valid squad when none was selected.
-			if (array_length(_event.assigned_cultists) >= _event.cultist_cost)
+			if (_event.slot_funded_activation_count_get() > 0)
 			{
 				day_event_squad_selection_default_apply(_event);
 			}
@@ -4454,6 +4588,12 @@ function day_event_new_day_reset()
 		if (!is_struct(_event))
 		{
 			continue;
+		}
+
+		// Refund incomplete resource payments. Successfully executed payments were consumed already.
+		if (variable_struct_exists(_event, "resource_slots_refund"))
+		{
+			_event.resource_slots_refund();
 		}
 
 		for (var _cultist_index = 0; _cultist_index < array_length(_event.assigned_cultists); ++_cultist_index)

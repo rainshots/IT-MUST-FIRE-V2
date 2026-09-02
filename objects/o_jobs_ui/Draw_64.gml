@@ -669,10 +669,11 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			);
 		}
 
-		var _slot_count = _display_event.cultist_cost * _display_event.activation_limit;
+		var _slot_count = array_length(_display_event.slots);
 
 		for (var _slot_index = 0; _slot_index < _slot_count; ++_slot_index)
 		{
+			var _event_slot = _display_event.slots[_slot_index];
 			var _slot_rect = jobs_event_slot_rect_get(_event_index, _slot_index, _slot_count);
 			var _slot_x = _slot_rect.x;
 			var _slot_y = _slot_rect.y;
@@ -685,8 +686,34 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 				true
 			);
 
+			if (_event_slot.slot_type == "resource")
+			{
+				var _resource_center_x = _slot_x + (_slot_rect.width * 0.5);
+				var _resource_center_y = _slot_y + (_slot_rect.height * 0.5);
+				draw_set_halign(fa_center);
+				draw_set_valign(fa_middle);
+				draw_set_font(jobs_hp_font);
+				draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+				draw_text_transformed(_resource_center_x, _resource_center_y,
+					jobs_resource_name_get(_event_slot.resource) + "\n" + string(_event_slot.amount), 0.72, 0.72, 0);
+
+				if (_event_slot.paid)
+				{
+					draw_set_color(COLOR_JOBS_RESOURCE_PAID);
+					draw_line_width(_resource_center_x - (10 * _layout.scale), _resource_center_y,
+						_resource_center_x - (3 * _layout.scale), _resource_center_y + (8 * _layout.scale), 3 * _layout.scale);
+					draw_line_width(_resource_center_x - (3 * _layout.scale), _resource_center_y + (8 * _layout.scale),
+						_resource_center_x + (12 * _layout.scale), _resource_center_y - (9 * _layout.scale), 3 * _layout.scale);
+				}
+
+				draw_set_halign(fa_left);
+				draw_set_valign(fa_top);
+				draw_set_color(c_white);
+				continue;
+			}
+
 			// Empty slots show an enlarging plus as direct assignment affordance.
-			if (_slot_index >= array_length(_display_event.assigned_cultists))
+			if (!instance_exists(_event_slot.cultist))
 			{
 				var _slot_key = string(_event_index) + ":" + string(_slot_index);
 				var _plus_scale = jobs_hovered_empty_slot_key == _slot_key ? 1.35 : 1;

@@ -323,11 +323,12 @@ jobs_hovered_event_action_key = _hovered_event_action_key_now;
 for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
 {
 	var _event = global.day_events[_event_index];
-	var _slot_count = _event.cultist_cost * _event.activation_limit;
-	var _assigned_count = array_length(_event.assigned_cultists);
+	var _slot_count = array_length(_event.slots);
 
-	for (var _slot_index = _assigned_count; _slot_index < _slot_count; ++_slot_index)
+	for (var _slot_index = 0; _slot_index < _slot_count; ++_slot_index)
 	{
+		var _slot = _event.slots[_slot_index];
+		if (_slot.slot_type == "cultist" && instance_exists(_slot.cultist)) continue;
 		var _slot_rect = jobs_event_slot_rect_get(_event_index, _slot_index);
 
 		if (_mouse_is_over_event_viewport
@@ -404,8 +405,10 @@ if (mouse_check_button_pressed(mb_right))
 	{
 		var _event = global.day_events[_event_index];
 
-		for (var _slot_index = 0; _slot_index < array_length(_event.assigned_cultists); ++_slot_index)
+		for (var _slot_index = 0; _slot_index < array_length(_event.slots); ++_slot_index)
 		{
+			var _event_slot = _event.slots[_slot_index];
+			if (_event_slot.slot_type != "cultist" || !instance_exists(_event_slot.cultist)) continue;
 			var _slot_rect = jobs_event_slot_rect_get(_event_index, _slot_index);
 
 			if (_mouse_is_over_event_viewport
@@ -418,7 +421,7 @@ if (mouse_check_button_pressed(mb_right))
 					_slot_rect.y + _slot_rect.height
 				))
 			{
-				var _assigned_cultist = _event.assigned_cultists[_slot_index];
+				var _assigned_cultist = _event_slot.cultist;
 
 				if (_event.cultist_unassign(_assigned_cultist)
 					&& variable_global_exists("ui_confirm_sound_play"))
@@ -661,12 +664,23 @@ if (mouse_check_button_pressed(mb_left))
 	{
 		var _separator_position = string_pos(":", jobs_hovered_empty_slot_key);
 		var _event_index_text = string_copy(jobs_hovered_empty_slot_key, 1, _separator_position - 1);
+		var _slot_index_text = string_copy(jobs_hovered_empty_slot_key, _separator_position + 1, string_length(jobs_hovered_empty_slot_key));
 		var _clicked_event_index = real(_event_index_text);
+		var _clicked_slot_index = real(_slot_index_text);
 
 		if (_clicked_event_index >= 0
 			&& _clicked_event_index < array_length(global.day_events))
 		{
 			var _clicked_event = global.day_events[_clicked_event_index];
+			var _clicked_slot = _clicked_event.slots[_clicked_slot_index];
+
+			if (_clicked_slot.slot_type == "resource")
+			{
+				if (_clicked_event.resource_slot_toggle(_clicked_slot_index)
+					&& variable_global_exists("ui_confirm_sound_play")) global.ui_confirm_sound_play();
+				exit;
+			}
+
 			var _is_construction_event = is_struct(_clicked_event)
 				&& variable_struct_exists(_clicked_event, "construction_site");
 			var _auto_assign_cultist = is_struct(_clicked_event)
@@ -674,7 +688,7 @@ if (mouse_check_button_pressed(mb_left))
 				: noone;
 
 			if (instance_exists(_auto_assign_cultist)
-				&& _clicked_event.cultist_assign(_auto_assign_cultist))
+				&& _clicked_event.cultist_assign_to_slot(_auto_assign_cultist, _clicked_slot_index))
 			{
 				// Clicking a plus uses the same Cultist response as a successful drag release.
 				if (variable_global_exists("sound_play_random")
@@ -738,10 +752,12 @@ if (instance_exists(jobs_dragged_cultist) && mouse_check_button_released(mb_left
 	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
 	{
 		var _target_event = global.day_events[_event_index];
-		var _target_slot_count = _target_event.cultist_cost * _target_event.activation_limit;
+		var _target_slot_count = array_length(_target_event.slots);
 
 		for (var _target_slot_index = 0; _target_slot_index < _target_slot_count; ++_target_slot_index)
 		{
+			var _target_slot = _target_event.slots[_target_slot_index];
+			if (_target_slot.slot_type != "cultist") continue;
 			var _target_slot_rect = jobs_event_slot_rect_get(_event_index, _target_slot_index);
 
 			if (!_mouse_is_over_event_viewport
@@ -757,10 +773,7 @@ if (instance_exists(jobs_dragged_cultist) && mouse_check_button_released(mb_left
 				continue;
 			}
 
-			var _target_is_occupied = _target_slot_index < array_length(_target_event.assigned_cultists);
-			var _target_cultist = _target_is_occupied
-				? _target_event.assigned_cultists[_target_slot_index]
-				: noone;
+			var _target_cultist = _target_slot.cultist;
 
 			if (_target_cultist == jobs_dragged_cultist)
 			{
@@ -777,16 +790,18 @@ if (instance_exists(jobs_dragged_cultist) && mouse_check_button_released(mb_left
 				// The displaced cultist takes the dragged cultist's former slot or returns to the pool.
 				if (is_struct(jobs_drag_origin_event) && jobs_drag_origin_slot_index >= 0)
 				{
-					jobs_drag_origin_event.assigned_cultists[jobs_drag_origin_slot_index] = _target_cultist;
+					jobs_drag_origin_event.slots[jobs_drag_origin_slot_index].cultist = _target_cultist;
 					_target_cultist.assigned_event = jobs_drag_origin_event;
+					jobs_drag_origin_event.assigned_cultists_rebuild();
 				}
 				else
 				{
 					_target_cultist.assigned_event = noone;
 				}
 
-				_target_event.assigned_cultists[_target_slot_index] = jobs_dragged_cultist;
+				_target_slot.cultist = jobs_dragged_cultist;
 				jobs_dragged_cultist.assigned_event = _target_event;
+				_target_event.assigned_cultists_rebuild();
 				_drop_was_handled = true;
 			}
 			else
@@ -797,17 +812,14 @@ if (instance_exists(jobs_dragged_cultist) && mouse_check_button_released(mb_left
 					jobs_drag_origin_event.cultist_unassign(jobs_dragged_cultist);
 				}
 
-				_drop_was_handled = _target_event.cultist_assign(jobs_dragged_cultist);
+				_drop_was_handled = _target_event.cultist_assign_to_slot(jobs_dragged_cultist, _target_slot_index);
 
 				// Restore the original slot if the target rejected the cultist.
 				if (!_drop_was_handled && is_struct(jobs_drag_origin_event))
 				{
-					array_insert(
-						jobs_drag_origin_event.assigned_cultists,
-						clamp(jobs_drag_origin_slot_index, 0, array_length(jobs_drag_origin_event.assigned_cultists)),
-						jobs_dragged_cultist
-					);
+					jobs_drag_origin_event.slots[jobs_drag_origin_slot_index].cultist = jobs_dragged_cultist;
 					jobs_dragged_cultist.assigned_event = jobs_drag_origin_event;
+					jobs_drag_origin_event.assigned_cultists_rebuild();
 				}
 			}
 

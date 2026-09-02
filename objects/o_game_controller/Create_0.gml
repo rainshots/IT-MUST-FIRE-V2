@@ -6404,7 +6404,7 @@ day_event_source_find_at_position = function(_world_x, _world_y)
 			&& _world_x <= _source.bbox_right
 			&& _world_y >= _source.bbox_top
 			&& _world_y <= _source.bbox_bottom;
-		var _slot_count = _event.cultist_cost * _event.activation_limit;
+		var _slot_count = array_length(_event.slots);
 		var _slot_row_width = (_slot_count - 1) * BALANCE_WORLD_EVENT_SLOT_SPACING;
 		var _slot_start_x = _source.x - (_slot_row_width * 0.5);
 		var _slot_bottom_y = _source.bbox_bottom + 12;
@@ -6418,6 +6418,12 @@ day_event_source_find_at_position = function(_world_x, _world_y)
 
 		for (var _slot_index = 0; _slot_index < _slot_count; ++_slot_index)
 		{
+			// Resource slots are click-only and must never accept a dragged Cultist.
+			if (_event.slots[_slot_index].slot_type != "cultist")
+			{
+				continue;
+			}
+
 			var _slot_center_x = _slot_start_x + (_slot_index * BALANCE_WORLD_EVENT_SLOT_SPACING);
 			var _slot_left = _slot_center_x - (BALANCE_WORLD_EVENT_SLOT_WIDTH * 0.5);
 			var _slot_top = _slot_bottom_y - BALANCE_WORLD_EVENT_SLOT_HEIGHT;
@@ -6521,13 +6527,14 @@ day_event_worker_position_update = function(_worker)
 	if (_uses_building_slots)
 	{
 		// Building workers occupy the same fixed slots that are drawn in the world.
-		_worker_count = _worker.assigned_event.cultist_cost * _worker.assigned_event.activation_limit;
+		_worker_count = array_length(_worker.assigned_event.slots);
 
-		for (var _assigned_index = 0; _assigned_index < array_length(_worker.assigned_event.assigned_cultists); ++_assigned_index)
+		for (var _slot_index = 0; _slot_index < _worker_count; ++_slot_index)
 		{
-			if (_worker.assigned_event.assigned_cultists[_assigned_index] == _worker)
+			var _slot = _worker.assigned_event.slots[_slot_index];
+			if (_slot.slot_type == "cultist" && _slot.cultist == _worker)
 			{
-				_worker_index = _assigned_index;
+				_worker_index = _slot_index;
 				_worker_was_found = true;
 				break;
 			}
