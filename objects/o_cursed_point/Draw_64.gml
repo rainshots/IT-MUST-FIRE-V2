@@ -164,7 +164,7 @@ for (var _choice_index = 0; _choice_index < array_length(structure_choice_option
 	{
 		draw_text(
 			_tile_x + (structure_choice_tile_width * 0.5),
-			_tile_y + structure_choice_tile_height - 22,
+			_tile_y + structure_choice_tile_height + structure_choice_price_offset_y,
 			_choice_cost_text
 		);
 	}

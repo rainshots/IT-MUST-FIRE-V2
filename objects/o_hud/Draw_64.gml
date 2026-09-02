@@ -23,13 +23,16 @@ var _projectile_queue_stays_visible = global.focus_window == FOCUS_WINDOW.TARGET
 	&& !_tutorial_popup_blocks_hud;
 var _regular_hud_is_visible = global.focus_window == FOCUS_WINDOW.NOONE
 	&& !_tutorial_popup_blocks_hud;
+var _resource_hud_is_visible = _regular_hud_is_visible
+	|| global.focus_window == FOCUS_WINDOW.JOBS
+	|| global.focus_window == FOCUS_WINDOW.CURSED_POINT_STRUCTURE_SELECTION;
 
-if (!_regular_hud_is_visible && !_projectile_queue_stays_visible)
+if (!_resource_hud_is_visible && !_projectile_queue_stays_visible)
 {
 	exit;
 }
 
-if (_regular_hud_is_visible)
+if (_resource_hud_is_visible)
 {
 	var _sidebar_gui_width = display_get_gui_width();
 	var _sidebar_gui_height = display_get_gui_height();
@@ -119,6 +122,15 @@ if (_regular_hud_is_visible)
 		0
 	);
 
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+}
+
+
+if (_regular_hud_is_visible)
+{
 	// Draw squad cards in type order, followed by the available empty slots.
 	if (variable_global_exists("squads") && variable_global_exists("squad_limits"))
 	{
@@ -2608,8 +2620,11 @@ if (_regular_hud_is_visible && variable_global_exists("squads"))
 	}
 }
 
-// Keep all active cheat shortcuts visible without opening the debug menu.
-cheat_hud_draw();
+// Keep cheat shortcuts on the regular HUD and aiming overlay only.
+if (_regular_hud_is_visible || _projectile_queue_stays_visible)
+{
+	cheat_hud_draw();
+}
 
 // Restore default draw state.
 draw_set_halign(fa_left);

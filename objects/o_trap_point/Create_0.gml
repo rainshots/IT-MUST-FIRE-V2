@@ -35,13 +35,25 @@ var _trap_choices = [
 		building_object: o_pumpkin_mine,
 		building_sprite: s_pumpkin_mine,
 		building_name: "Pumpkin Mine",
-		building_description: "Explodes after detecting a group and damages every enemy in its radius."
+		building_description: "Explodes after detecting a group and damages every enemy in its radius.",
+		construction_costs: [
+			{
+				resource: RESOURCES.IRON,
+				cost: BALANCE_CURSED_POINT_PUMPKIN_MINE_BUILD_IRON_COST
+			}
+		]
 	},
 	{
 		building_object: o_steel_trap,
 		building_sprite: s_steel_trap,
 		building_name: "Steel Trap",
-		building_description: "Activates after detecting a group and stuns every enemy in its radius."
+		building_description: "Activates after detecting a group and stuns every enemy in its radius.",
+		construction_costs: [
+			{
+				resource: RESOURCES.IRON,
+				cost: BALANCE_CURSED_POINT_STEEL_TRAP_BUILD_IRON_COST
+			}
+		]
 	}
 ];
 

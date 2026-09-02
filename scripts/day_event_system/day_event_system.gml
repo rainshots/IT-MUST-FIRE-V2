@@ -2406,6 +2406,7 @@ function day_event_foundry_event_create(
 	_title,
 	_description,
 	_cultist_cost,
+	_iron_cost = BALANCE_FOUNDRY_EVENT_IRON_COST,
 	_action_type,
 	_action_callback,
 	_action_data
@@ -2417,7 +2418,7 @@ function day_event_foundry_event_create(
 		? string_copy(_description, 1, _cost_text_position - 1)
 		: _description;
 	var _foundry_slots = [
-		day_event_resource_slot(RESOURCES.IRON, BALANCE_FOUNDRY_EVENT_IRON_COST)
+		day_event_resource_slot(RESOURCES.IRON, _iron_cost)
 	];
 	var _event = new day_event_constructor(
 		_event_id + "_" + string(_foundry),
@@ -2447,6 +2448,7 @@ function day_event_foundry_events_add(_foundry)
 		"Permanently increases the maximum health of all Demons by 10%, excluding Archdemons.\n"
 			+ _demon_health_cost.text,
 		_demon_health_cost.cultist_count,
+		5,
 		"foundry_army_upgrade",
 		day_event_foundry_upgrade_execute,
 		{ upgrade_id: "demon_health", hp_cost: _demon_health_cost.hp_cost }
@@ -2465,6 +2467,7 @@ function day_event_foundry_events_add(_foundry)
 		"Permanently increases the damage of all Demons by 10%, excluding Archdemons.\n"
 			+ _demon_damage_cost.text,
 		_demon_damage_cost.cultist_count,
+		5,
 		"foundry_army_upgrade",
 		day_event_foundry_upgrade_execute,
 		{ upgrade_id: "demon_damage", hp_cost: _demon_damage_cost.hp_cost }
@@ -2483,6 +2486,7 @@ function day_event_foundry_events_add(_foundry)
 		"Permanently increases the maximum health of all Undead units by 10%.\n"
 			+ _undead_health_cost.text,
 		_undead_health_cost.cultist_count,
+		5,
 		"foundry_army_upgrade",
 		day_event_foundry_upgrade_execute,
 		{ upgrade_id: "undead_health", hp_cost: _undead_health_cost.hp_cost }
@@ -2501,6 +2505,7 @@ function day_event_foundry_events_add(_foundry)
 		"Permanently increases the attack speed of all Undead units by 10%.\n"
 			+ _undead_speed_cost.text,
 		_undead_speed_cost.cultist_count,
+		5,
 		"foundry_army_upgrade",
 		day_event_foundry_upgrade_execute,
 		{ upgrade_id: "undead_attack_speed", hp_cost: _undead_speed_cost.hp_cost }
@@ -2516,6 +2521,7 @@ function day_event_foundry_events_add(_foundry)
 			+ "% of their base damage.\n"
 			+ _tower_damage_cost.text,
 		_tower_damage_cost.cultist_count,
+		10,
 		"foundry_tower_damage_upgrade",
 		day_event_foundry_tower_upgrade_execute,
 		{ upgrade_id: "tower_damage", hp_cost: _tower_damage_cost.hp_cost }
@@ -2531,6 +2537,7 @@ function day_event_foundry_events_add(_foundry)
 			+ "% of their base radius.\n"
 			+ _tower_radius_cost.text,
 		_tower_radius_cost.cultist_count,
+		10,
 		"foundry_tower_radius_upgrade",
 		day_event_foundry_tower_upgrade_execute,
 		{ upgrade_id: "tower_radius", hp_cost: _tower_radius_cost.hp_cost }
@@ -2555,6 +2562,7 @@ function day_event_foundry_events_add(_foundry)
 					+ "% of its maximum HP.\n"
 					+ _wall_repair_cost.text,
 				_wall_repair_cost.cultist_count,
+				3,
 				"foundry_wall_repair",
 				day_event_foundry_wall_repair_execute,
 				{ hp_cost: _wall_repair_cost.hp_cost }
@@ -2611,6 +2619,7 @@ function day_event_foundry_events_add(_foundry)
 		"Create a " + _relic_stat_name + " artifact for an Archdemon. It grants +1 "
 			+ _relic_stat_name + ".\nRequires 1 Cultist, who loses 25 HP.",
 		BALANCE_FOUNDRY_RELIC_CULTIST_COUNT,
+		5,
 		"foundry_artifact",
 		day_event_foundry_artifact_execute,
 		{
@@ -2634,6 +2643,7 @@ function day_event_foundry_events_add(_foundry)
 		"Create 2 identical random artifacts for an Archdemon. Their shared attribute is hidden until completion.\n"
 			+ _spoils_cost.text,
 		_spoils_cost.cultist_count,
+		8,
 		"foundry_artifact",
 		day_event_foundry_artifact_execute,
 		{

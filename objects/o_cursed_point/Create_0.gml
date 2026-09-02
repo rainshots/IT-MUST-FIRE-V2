@@ -55,6 +55,7 @@ structure_choice_window_height = 360;
 structure_choice_tile_width = 220;
 structure_choice_tile_height = 214;
 structure_choice_tile_gap = 28;
+structure_choice_price_offset_y = 30;
 structure_choice_sprite_size = 84;
 structure_choice_hover_scale = 2;
 structure_choice_options = [];
@@ -91,7 +92,13 @@ structure_choice_packs = [
 		{
 			building_object: o_tower_damage,
 			building_name: "Damage Tower",
-			building_description: "Shoots enemies with exploding projectiles. Physical damage."
+			building_description: "Shoots enemies with exploding projectiles. Physical damage.",
+			construction_costs: [
+				{
+					resource: RESOURCES.IRON,
+					cost: BALANCE_CURSED_POINT_DAMAGE_TOWER_BUILD_IRON_COST
+				}
+			]
 			/* Previous event-system cost retained for reference:
 			construction_costs: [
 				{
@@ -104,7 +111,13 @@ structure_choice_packs = [
 		{
 			building_object: o_magic_tower,
 			building_name: "Magic Tower",
-			building_description: "Strikes enemies with magic in a huge radius."
+			building_description: "Strikes enemies with magic in a huge radius.",
+			construction_costs: [
+				{
+					resource: RESOURCES.IRON,
+					cost: BALANCE_CURSED_POINT_MAGIC_TOWER_BUILD_IRON_COST
+				}
+			]
 		}
 	]
 ];

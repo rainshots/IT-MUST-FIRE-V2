@@ -9,9 +9,10 @@ corruption = 0;
 
 // Tooltip lines describe projectile reactions for player targeting.
 tooltip_lines = [
-	"Damage: +3 Iron",
+	//"Damage: +3 Iron",
 	"Taint: becomes tainted on tainted ground",
-	"Summon: No effect yet"
+	"When tainted, produces iron every day",
+	//"Summon: No effect yet"
 ];
 
 give_iron_reward = function(_iron_reward)

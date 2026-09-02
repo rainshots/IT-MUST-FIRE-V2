@@ -1,4 +1,5 @@
 // HUD layout in GUI coordinates.
+depth = DEPTH_JOBS_UI - 1;
 hud_margin_x = 18;
 hud_margin_y = 16;
 hud_sidebar_width = 431;

@@ -40,7 +40,13 @@ var _habitat_choices = [
 		building_object: o_orcs_pit,
 		building_sprite: s_orks_hut,
 		building_name: "Orcs Pit",
-		building_description: "Houses two strong allied Orcs that defend the surrounding area."
+		building_description: "Houses two strong allied Orcs that defend the surrounding area.",
+		construction_costs: [
+			{
+				resource: RESOURCES.IRON,
+				cost: BALANCE_CURSED_POINT_ORCS_PIT_BUILD_IRON_COST
+			}
+		]
 	}
 ];
 
