@@ -3595,11 +3595,9 @@ function day_event_blood_bath_create(
 
 function day_event_shell_factory_enchantment_execute(_event, _assigned_cultists, _data)
 {
+	// A funded permanent enchantment remains valid even if its source building changed before day resolution.
 	if (global.shell_factory_taint_enchantment_event_completed
 		|| !is_struct(_event)
-		|| !variable_struct_exists(_event, "source_building")
-		|| !instance_exists(_event.source_building)
-		|| _event.source_building.object_index != o_shell_factory
 		|| !variable_struct_exists(_event, "unit_choice_options")
 		|| !is_array(_event.unit_choice_options)
 		|| !variable_struct_exists(_event, "selected_unit_choice_index"))
@@ -3746,12 +3744,12 @@ function day_event_shell_factory_first_aid_enchantment_create(_shell_factory)
 			label: "Emergency Pull",
 			icon_sprite: s_brute,
 			shell_enchantment: FIRST_AID_MEAT_ENCHANTMENT.EMERGENCY_PULL,
-			description: "Pulls the farthest ally below "
+			description: "Replaces area healing. Pulls the farthest ally below "
 				+ string(BALANCE_FIRST_AID_MEAT_PULL_HP_THRESHOLD * 100)
 				+ "% HP from within " + string(BALANCE_FIRST_AID_MEAT_PULL_RADIUS)
-				+ " pixels. Each completed pull heals "
+				+ " pixels. Each completed pull restores "
 				+ string(BALANCE_FIRST_AID_MEAT_PULL_FINISH_HEAL)
-				+ " additional HP and recharges in "
+				+ " HP and recharges in "
 				+ string(BALANCE_FIRST_AID_MEAT_PULL_COOLDOWN) + " seconds."
 		},
 		{
@@ -3763,6 +3761,185 @@ function day_event_shell_factory_first_aid_enchantment_create(_shell_factory)
 				+ string(BALANCE_FIRST_AID_MEAT_FRESH_SMELL_RADIUS)
 				+ " pixels prioritize the landed shell, which has "
 				+ string(BALANCE_FIRST_AID_MEAT_FRESH_MAX_HP) + " HP."
+		}
+	];
+	_event.selected_unit_choice_index = 0;
+	_event.reroll_is_available = false;
+	return _event;
+}
+
+function day_event_shell_factory_hellcow_enchantment_execute(_event, _assigned_cultists, _data)
+{
+	if (global.shell_factory_hellcow_enchantment_event_completed
+		|| !is_struct(_event)
+		|| !variable_struct_exists(_event, "source_building")
+		|| !instance_exists(_event.source_building)
+		|| _event.source_building.object_index != o_shell_factory
+		|| !variable_struct_exists(_event, "unit_choice_options")
+		|| !is_array(_event.unit_choice_options)
+		|| !variable_struct_exists(_event, "selected_unit_choice_index"))
+	{
+		return false;
+	}
+
+	var _choice_count = array_length(_event.unit_choice_options);
+	var _choice_index = floor(_event.selected_unit_choice_index);
+
+	if (_choice_index < 0 || _choice_index >= _choice_count)
+	{
+		return false;
+	}
+
+	var _choice = _event.unit_choice_options[_choice_index];
+
+	if (!is_struct(_choice)
+		|| !variable_struct_exists(_choice, "shell_enchantment")
+		|| _choice.shell_enchantment == HELLCOW_ENCHANTMENT.NONE)
+	{
+		return false;
+	}
+
+	global.shell_factory_hellcow_enchantment = _choice.shell_enchantment;
+	global.shell_factory_hellcow_enchantment_event_completed = true;
+	day_event_cultist_hp_cost_apply(_assigned_cultists, _data.hp_cost);
+	return true;
+}
+
+function day_event_shell_factory_hellcow_enchantment_create(_shell_factory)
+{
+	if (!instance_exists(_shell_factory)
+		|| _shell_factory.object_index != o_shell_factory
+		|| global.shell_factory_hellcow_enchantment_event_completed)
+	{
+		return noone;
+	}
+
+	var _event = new day_event_constructor(
+		"shell_factory_hellcow_enchantment_" + string(_shell_factory),
+		"HellCow Shell Enchantment",
+		"Choose one permanent enchantment for HellCow shells. Hover an option to inspect its effect.",
+		BALANCE_SHELL_FACTORY_ENCHANTMENT_CULTIST_COUNT,
+		1,
+		[
+			new event_action_constructor(
+				"enchant_hellcow_shells",
+				day_event_shell_factory_hellcow_enchantment_execute,
+				{ hp_cost: BALANCE_SHELL_FACTORY_ENCHANTMENT_CULTIST_HP_COST }
+			)
+		]
+	);
+	_event.source_building = _shell_factory;
+	_event.unit_choice_options = [
+		{
+			title: "Final Moo",
+			label: "Final Moo",
+			icon_sprite: s_cow,
+			shell_enchantment: HELLCOW_ENCHANTMENT.FINAL_MOO,
+			description: "At the end of its charge, HellCow creates a harmless explosion that stuns enemies within "
+				+ string(BALANCE_PROJECTILE_HELLCOW_FINAL_MOO_RADIUS)
+				+ " pixels for " + string(BALANCE_PROJECTILE_HELLCOW_FINAL_MOO_STUN_TIME)
+				+ " seconds. Stuns from multiple cows do not stack."
+		},
+		{
+			title: "Sticky Trail",
+			label: "Sticky Trail",
+			icon_sprite: s_cow,
+			shell_enchantment: HELLCOW_ENCHANTMENT.STICKY_TRAIL,
+			description: "HellCow leaves a visible sticky trail for "
+				+ string(BALANCE_PROJECTILE_HELLCOW_STICKY_TRAIL_LIFETIME)
+				+ " seconds. Enemies inside are slowed by "
+				+ string(BALANCE_PROJECTILE_HELLCOW_STICKY_TRAIL_SLOW_AMOUNT * 100)
+				+ "%. The slow does not stack."
+		}
+	];
+	_event.selected_unit_choice_index = 0;
+	_event.reroll_is_available = false;
+	return _event;
+}
+
+function day_event_shell_factory_doom_bell_enchantment_execute(_event, _assigned_cultists, _data)
+{
+	if (global.shell_factory_doom_bell_enchantment_event_completed
+		|| !is_struct(_event)
+		|| !variable_struct_exists(_event, "source_building")
+		|| !instance_exists(_event.source_building)
+		|| _event.source_building.object_index != o_shell_factory
+		|| !variable_struct_exists(_event, "unit_choice_options")
+		|| !is_array(_event.unit_choice_options)
+		|| !variable_struct_exists(_event, "selected_unit_choice_index"))
+	{
+		return false;
+	}
+
+	var _choice_count = array_length(_event.unit_choice_options);
+	var _choice_index = floor(_event.selected_unit_choice_index);
+
+	if (_choice_index < 0 || _choice_index >= _choice_count)
+	{
+		return false;
+	}
+
+	var _choice = _event.unit_choice_options[_choice_index];
+
+	if (!is_struct(_choice)
+		|| !variable_struct_exists(_choice, "shell_enchantment")
+		|| _choice.shell_enchantment == DOOM_BELL_ENCHANTMENT.NONE)
+	{
+		return false;
+	}
+
+	global.shell_factory_doom_bell_enchantment = _choice.shell_enchantment;
+	global.shell_factory_doom_bell_enchantment_event_completed = true;
+	day_event_cultist_hp_cost_apply(_assigned_cultists, _data.hp_cost);
+	return true;
+}
+
+function day_event_shell_factory_doom_bell_enchantment_create(_shell_factory)
+{
+	if (!instance_exists(_shell_factory)
+		|| _shell_factory.object_index != o_shell_factory
+		|| global.shell_factory_doom_bell_enchantment_event_completed)
+	{
+		return noone;
+	}
+
+	var _event = new day_event_constructor(
+		"shell_factory_doom_bell_enchantment_" + string(_shell_factory),
+		"Doom Bell Shell Enchantment",
+		"Choose one permanent enchantment for Doom Bell shells. Hover an option to inspect its effect.",
+		BALANCE_SHELL_FACTORY_ENCHANTMENT_CULTIST_COUNT,
+		1,
+		[
+			new event_action_constructor(
+				"enchant_doom_bell_shells",
+				day_event_shell_factory_doom_bell_enchantment_execute,
+				{ hp_cost: BALANCE_SHELL_FACTORY_ENCHANTMENT_CULTIST_HP_COST }
+			)
+		]
+	);
+	_event.source_building = _shell_factory;
+	_event.unit_choice_options = [
+		{
+			title: "Funeral Pause",
+			label: "Funeral Pause",
+			icon_sprite: s_mega_bell,
+			shell_enchantment: DOOM_BELL_ENCHANTMENT.FUNERAL_PAUSE,
+			description: "Enemies hit by Doom Bell enter stasis for up to "
+				+ string(BALANCE_DOOM_BELL_FUNERAL_PAUSE_DURATION)
+				+ " seconds: they cannot move or take damage, and player squads ignore them. The landed bell can be destroyed or clicked to release them early. Doom Bell reload is increased by "
+				+ string(BALANCE_DOOM_BELL_FUNERAL_PAUSE_RELOAD_PENALTY) + " seconds."
+		},
+		{
+			title: "Dead Silence",
+			label: "Dead Silence",
+			icon_sprite: s_mega_bell,
+			shell_enchantment: DOOM_BELL_ENCHANTMENT.DEAD_SILENCE,
+			description: "The landed bell creates a "
+				+ string(BALANCE_DOOM_BELL_DEAD_SILENCE_RADIUS)
+				+ " pixel silence zone for up to " + string(BALANCE_DOOM_BELL_DEAD_SILENCE_DURATION)
+				+ " seconds. Ranged units inside the zone cannot shoot. Units with attack range above "
+				+ string(BALANCE_DOOM_BELL_RANGED_ATTACK_RADIUS_MINIMUM)
+				+ " pixels count as ranged. The bell can be destroyed or clicked to end the effect early."
 		}
 	];
 	_event.selected_unit_choice_index = 0;
@@ -3807,6 +3984,16 @@ function day_event_building_catalog_get(_building_object)
 				_entry(
 					"First Aid Meat Shell Enchantment",
 					"Choose Emergency Pull or Fresh Meat as a permanent First Aid Meat enchantment. Can be completed once per match.",
+					BALANCE_SHELL_FACTORY_ENCHANTMENT_CULTIST_COUNT
+				),
+				_entry(
+					"HellCow Shell Enchantment",
+					"Choose Final Moo or Sticky Trail as a permanent HellCow enchantment. Can be completed once per match.",
+					BALANCE_SHELL_FACTORY_ENCHANTMENT_CULTIST_COUNT
+				),
+				_entry(
+					"Doom Bell Shell Enchantment",
+					"Choose Funeral Pause or Dead Silence as a permanent Doom Bell enchantment. Can be completed once per match.",
 					BALANCE_SHELL_FACTORY_ENCHANTMENT_CULTIST_COUNT
 				)
 			];
@@ -4554,7 +4741,7 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 	// World jobs are available without owning a source building.
 	day_event_world_jobs_generate();
 
-	// Shell Factory offers two independent, match-long shell enchantment choices.
+	// Shell Factory offers four independent, match-long shell enchantment choices.
 	if (instance_exists(o_shell_factory))
 	{
 		var _shell_factory = instance_find(o_shell_factory, 0);
@@ -4576,6 +4763,26 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 			if (is_struct(_first_aid_enchantment_event))
 			{
 				day_event_add(_first_aid_enchantment_event);
+			}
+		}
+
+		if (!global.shell_factory_hellcow_enchantment_event_completed)
+		{
+			var _hellcow_enchantment_event = day_event_shell_factory_hellcow_enchantment_create(_shell_factory);
+
+			if (is_struct(_hellcow_enchantment_event))
+			{
+				day_event_add(_hellcow_enchantment_event);
+			}
+		}
+
+		if (!global.shell_factory_doom_bell_enchantment_event_completed)
+		{
+			var _doom_bell_enchantment_event = day_event_shell_factory_doom_bell_enchantment_create(_shell_factory);
+
+			if (is_struct(_doom_bell_enchantment_event))
+			{
+				day_event_add(_doom_bell_enchantment_event);
 			}
 		}
 	}

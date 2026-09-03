@@ -247,6 +247,21 @@ if (hp <= 0)
 	exit;
 }
 
+// Funeral Pause stasis freezes every action while its owning bell remains intact.
+if (doom_bell_stasis_is_active())
+{
+	target_instance = noone;
+	alert_target = noone;
+	forced_attack_target = noone;
+	forced_attack_target_timer = 0;
+	is_attacking_target = false;
+	is_walking = false;
+	visual_attack_offset_x = 0;
+	visual_attack_offset_y = 0;
+	update_walk_sway();
+	exit;
+}
+
 // Holy ground slowly restores enemy units standing on it.
 enemy_saint_ground_heal_update();
 
@@ -538,14 +553,30 @@ else if (!_special_behavior_handled && _should_search_target && _is_enemy_unit)
 			{
 				target_instance = _tumor_target;
 			}
-			// Without a lure or combat alert, attack the first building that blocks the cannon route.
-			else if (!_has_alert_target && unit_can_attack_cannon)
+			else if (!_has_alert_target)
 			{
-				var _blocking_building = find_player_building_on_cannon_path();
+				// Keep pursuing a chosen structure after its short damage alert expires.
+				var _nearby_player_structure = player_structure_can_be_targeted(target_instance)
+					? target_instance
+					: find_nearest_attackable_player_structure(target_detection_radius);
 
-				if (instance_exists(_blocking_building))
+				if (instance_exists(_nearby_player_structure))
 				{
-					target_instance = _blocking_building;
+					target_instance = _nearby_player_structure;
+				}
+				else if (unit_can_attack_cannon)
+				{
+					// Farther structures still intercept enemies when they physically block the cannon route.
+					var _blocking_building = find_player_building_on_cannon_path();
+
+					if (instance_exists(_blocking_building))
+					{
+						target_instance = _blocking_building;
+					}
+					else if (player_structure_can_be_targeted(target_instance))
+					{
+						target_instance = noone;
+					}
 				}
 				else if (player_structure_can_be_targeted(target_instance))
 				{

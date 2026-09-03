@@ -18,7 +18,7 @@ gameplay_time_scale = variable_global_exists("gameplay_time_scale")
 	? global.gameplay_time_scale
 	: 1;
 
-// A landed Hellcow owns its brief brace, charge, push, and final explosion here.
+// A landed Hellcow owns its brief brace, charge, and push here.
 if (projectile_type == PROJECTILE_TYPE.BOMB && hellcow_charge_active)
 {
 	hellcow_charge_update();
@@ -32,7 +32,8 @@ if (launch_delay_timer > 0)
 	exit;
 }
 
-flight_timer += gameplay_time_scale;
+// A shared multiplier accelerates every projectile without changing volley launch spacing.
+flight_timer += gameplay_time_scale * flight_speed_multiplier;
 
 var _flight_progress = clamp(flight_timer / flight_time, 0, 1);
 var _arc_offset = -sin(_flight_progress * pi) * arc_height;
@@ -374,14 +375,27 @@ if (_flight_progress >= 1)
 	}
 	else if (projectile_type == PROJECTILE_TYPE.DOOM_BELL)
 	{
-		// Doom Bell is crowd control only: it neither damages nor taints the ground.
-		with (o_enemy_units)
+		if (doom_bell_enchantment == DOOM_BELL_ENCHANTMENT.NONE)
 		{
-			if (hp > 0
-				&& point_distance(x, y, other.target_x, other.target_y) <= other.effect_radius
-				&& variable_instance_exists(id, "stun_apply"))
+			// An unenchanted Doom Bell stuns every living combat unit regardless of faction.
+			with (o_units_parent)
 			{
-				stun_apply(BALANCE_PROJECTILE_DOOM_BELL_STUN_TIME);
+				if (hp > 0
+					&& point_distance(x, y, other.target_x, other.target_y) <= other.effect_radius
+					&& variable_instance_exists(id, "stun_apply"))
+				{
+					stun_apply(BALANCE_PROJECTILE_DOOM_BELL_STUN_TIME);
+				}
+			}
+		}
+		else
+		{
+			// Enchanted shells leave a destructible bell that owns their temporary effect.
+			var _doom_bell = instance_create_layer(target_x, target_y, particle_layer_name, o_doom_bell);
+
+			if (instance_exists(_doom_bell))
+			{
+				_doom_bell.doom_bell_activate(doom_bell_enchantment, effect_radius);
 			}
 		}
 	}
@@ -536,7 +550,13 @@ if (_flight_progress >= 1)
 						{
 							if (variable_instance_exists(id, "unit_damage_receive"))
 							{
-								unit_damage_receive(_damage_amount, UNIT_FACTION.NOONE, false, true, other.source_instance);
+								unit_damage_receive(
+									_damage_amount,
+									other.damage_faction,
+									false,
+									true,
+									other.source_instance
+								);
 							}
 							else
 							{

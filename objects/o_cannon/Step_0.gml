@@ -159,6 +159,7 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 				_projectile.effect_radius = BALANCE_PROJECTILE_HELLCOW_RADIUS;
 				_projectile.damage_amount = cannon_projectile_bomb_damage_get();
 				_projectile.projectile_sprite = s_cow;
+				_projectile.hellcow_enchantment = global.shell_factory_hellcow_enchantment;
 			}
 			else if (target_projectile_type == PROJECTILE_TYPE.CORRUPTION)
 			{
@@ -174,6 +175,7 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 				_projectile.effect_radius = BALANCE_PROJECTILE_DOOM_BELL_RADIUS;
 				_projectile.projectile_sprite = s_mega_bell;
 				_projectile.projectile_sprite_scale *= BALANCE_PROJECTILE_DOOM_BELL_VISUAL_SCALE_MULTIPLIER;
+				_projectile.doom_bell_enchantment = global.shell_factory_doom_bell_enchantment;
 			}
 			else if (target_projectile_type == PROJECTILE_TYPE.SKELETONS)
 			{

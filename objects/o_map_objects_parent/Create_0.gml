@@ -29,6 +29,25 @@ transform_object = noone;
 building_constructed_by_shell = false;
 building_constructed_by_cursed_point = false;
 
+// Selected player map buildings remain as inert ruins at zero HP and recover in the morning.
+player_map_building_ruins_enabled = false;
+player_map_building_is_ruined = false;
+player_map_building_active_sprite = sprite_index;
+player_map_building_active_image_speed = image_speed;
+player_map_building_original_mask_index = mask_index;
+player_map_building_active_collision_mask = mask_index == -1 ? sprite_index : mask_index;
+player_map_building_active_is_captured = false;
+player_map_building_destroyed_sprite = s_tower_ruins;
+
+// Children override these hooks when entering or leaving ruins needs extra cleanup.
+player_map_building_ruins_enter = function()
+{
+};
+
+player_map_building_ruins_exit = function()
+{
+};
+
 // Cleansed captured and shell-built structures lose part of their max HP.
 // Structures built on special construction points are exempt and fully repair each morning.
 player_building_cleansed_max_hp_share = BALANCE_PLAYER_BUILDING_CLEANSED_MAX_HP_SHARE;
@@ -470,6 +489,119 @@ player_building_destroy_effect_create = function()
 	}
 };
 
+player_map_building_destroyed_visual_set = function(_is_destroyed)
+{
+	if (!player_map_building_ruins_enabled)
+	{
+		return false;
+	}
+
+	if (_is_destroyed)
+	{
+		// Save the exact tower appearance and ownership before replacing it with ruins.
+		if (!player_map_building_is_ruined)
+		{
+			player_map_building_active_sprite = sprite_index;
+			player_map_building_active_image_speed = image_speed;
+			player_map_building_original_mask_index = mask_index;
+			player_map_building_active_collision_mask = mask_index == -1 ? sprite_index : mask_index;
+
+			if (variable_instance_exists(id, "is_captured"))
+			{
+				player_map_building_active_is_captured = is_captured;
+			}
+		}
+
+		player_map_building_is_ruined = true;
+		sprite_index = player_map_building_destroyed_sprite;
+		image_index = 0;
+		image_speed = 0;
+		mask_index = player_map_building_active_collision_mask;
+
+		if (variable_instance_exists(id, "is_captured"))
+		{
+			is_captured = false;
+		}
+
+		if (variable_instance_exists(id, "target_instance"))
+		{
+			target_instance = noone;
+		}
+
+		if (variable_instance_exists(id, "attack_feedback_timer"))
+		{
+			attack_feedback_timer = 0;
+		}
+
+		building_warning_timer = 0;
+		player_map_building_ruins_enter();
+		return true;
+	}
+
+	player_map_building_is_ruined = false;
+	sprite_index = player_map_building_active_sprite;
+	image_index = 0;
+	image_speed = player_map_building_active_image_speed;
+	mask_index = player_map_building_original_mask_index;
+
+	if (variable_instance_exists(id, "is_captured"))
+	{
+		is_captured = player_map_building_active_is_captured;
+	}
+
+	player_map_building_ruins_exit();
+	return true;
+};
+
+player_map_building_is_owned_by_player = function()
+{
+	return player_map_building_ruins_enabled
+		&& (building_constructed_by_shell
+			|| building_constructed_by_cursed_point
+			|| (variable_instance_exists(id, "is_captured") && is_captured)
+			|| (player_map_building_is_ruined && player_map_building_active_is_captured));
+};
+
+player_map_building_destroy_if_needed = function()
+{
+	if (hp > 0 || !player_map_building_is_owned_by_player())
+	{
+		return false;
+	}
+
+	if (!player_map_building_is_ruined)
+	{
+		player_building_destroy_effect_create();
+		player_map_building_destroyed_visual_set(true);
+	}
+
+	return true;
+};
+
+player_map_building_morning_repair = function()
+{
+	if (!player_map_building_ruins_enabled)
+	{
+		return 0;
+	}
+
+	if (!player_map_building_is_owned_by_player() || hp >= max_hp)
+	{
+		return 0;
+	}
+
+	var _repair_amount = max_hp * BALANCE_PLAYER_BUILDING_MORNING_REPAIR_SHARE;
+	var _previous_hp = hp;
+	hp = min(max_hp, hp + _repair_amount);
+
+	if (_previous_hp <= 0 && hp > 0)
+	{
+		player_map_building_destroyed_visual_set(false);
+	}
+
+	return hp - _previous_hp;
+};
+
 player_building_restore_point_create = function()
 {
 	if (!building_constructed_by_cursed_point
@@ -510,16 +642,25 @@ player_building_is_owned_by_player = function()
 
 	return building_constructed_by_shell
 		|| building_constructed_by_cursed_point
-		|| (variable_instance_exists(id, "is_captured") && is_captured);
+		|| (variable_instance_exists(id, "is_captured") && is_captured)
+		|| (player_map_building_ruins_enabled
+			&& player_map_building_is_ruined
+			&& player_map_building_active_is_captured);
 };
 
 // Restore the permanent maximum and fully repair a player building.
 player_building_health_restore_full = function()
 {
+	var _was_ruined = player_map_building_ruins_enabled && hp <= 0;
 	player_building_cleansed_base_max_hp = max(player_building_cleansed_base_max_hp, max_hp);
 	max_hp = player_building_cleansed_base_max_hp;
 	hp = max_hp;
 	player_building_cleansed_hp_penalty_applied = false;
+
+	if (_was_ruined)
+	{
+		player_map_building_destroyed_visual_set(false);
+	}
 };
 
 player_building_ground_state_update = function()
@@ -567,9 +708,16 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 
 	if (_is_player_structure && hp <= 0)
 	{
-		player_building_destroy_effect_create();
-		player_building_restore_point_create();
-		instance_destroy();
+		if (player_map_building_ruins_enabled)
+		{
+			player_map_building_destroy_if_needed();
+		}
+		else
+		{
+			player_building_destroy_effect_create();
+			player_building_restore_point_create();
+			instance_destroy();
+		}
 	}
 
 	return _applied_damage;

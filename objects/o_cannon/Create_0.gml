@@ -126,6 +126,7 @@ cannon_reload_projectile_type = PROJECTILE_TYPE.DAMAGE;
 cannon_reload_time_get = function(_projectile_type)
 {
 	var _reload_time = BALANCE_CANNON_RELOAD_DEFAULT_TIME;
+	var _reload_penalty = 0;
 
 	if (_projectile_type == PROJECTILE_TYPE.BOMB)
 	{
@@ -138,6 +139,12 @@ cannon_reload_time_get = function(_projectile_type)
 	else if (_projectile_type == PROJECTILE_TYPE.DOOM_BELL)
 	{
 		_reload_time = BALANCE_CANNON_RELOAD_DOOM_BELL_TIME;
+
+		if (variable_global_exists("shell_factory_doom_bell_enchantment")
+			&& global.shell_factory_doom_bell_enchantment == DOOM_BELL_ENCHANTMENT.FUNERAL_PAUSE)
+		{
+			_reload_penalty = BALANCE_DOOM_BELL_FUNERAL_PAUSE_RELOAD_PENALTY;
+		}
 	}
 	else if (_projectile_type == PROJECTILE_TYPE.CULTIST
 		|| _projectile_type == PROJECTILE_TYPE.SKELETONS)
@@ -145,7 +152,7 @@ cannon_reload_time_get = function(_projectile_type)
 		_reload_time = BALANCE_CANNON_RELOAD_SQUAD_TIME;
 	}
 
-	return _reload_time * cannon_satisfaction_reload_time_multiplier_get();
+	return (_reload_time * cannon_satisfaction_reload_time_multiplier_get()) + _reload_penalty;
 };
 
 cannon_reload_is_ready = function()
@@ -257,6 +264,7 @@ cannon_agony_projectile_create = function(_target_x, _target_y, _projectile_type
 		_projectile.effect_radius = BALANCE_PROJECTILE_HELLCOW_RADIUS;
 		_projectile.damage_amount = cannon_projectile_bomb_damage_get();
 		_projectile.projectile_sprite = s_cow;
+		_projectile.hellcow_enchantment = global.shell_factory_hellcow_enchantment;
 	}
 	else if (_projectile_type == PROJECTILE_TYPE.SKELETONS)
 	{

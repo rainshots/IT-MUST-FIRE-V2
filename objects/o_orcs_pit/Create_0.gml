@@ -1,5 +1,7 @@
 // Initialize shared player map-building state.
 event_inherited();
+player_map_building_ruins_enabled = true;
+player_map_building_destroyed_sprite = s_house2_destroyed;
 
 // Orcs Pit durability and captured appearance.
 max_hp = BALANCE_ORCS_PIT_MAX_HP;
@@ -69,6 +71,23 @@ orcs_pit_unit_create = function(_slot_index)
 	return _orc;
 };
 
+orcs_pit_owned_units_destroy = function()
+{
+	var _owned_orc_count = array_length(owned_orcs);
+
+	for (var _slot_index = 0; _slot_index < _owned_orc_count; ++_slot_index)
+	{
+		var _orc = owned_orcs[_slot_index];
+
+		if (orcs_pit_unit_is_bound(_orc))
+		{
+			instance_destroy(_orc);
+		}
+
+		owned_orcs[_slot_index] = noone;
+	}
+};
+
 orcs_pit_morning_restore = function()
 {
 	for (var _slot_index = 0; _slot_index < habitat_unit_count; ++_slot_index)
@@ -87,36 +106,10 @@ orcs_pit_morning_restore = function()
 	}
 };
 
-// Destroyed habitats restore their own point type instead of a generic Cursed Point.
-player_building_restore_point_create = function()
+// Resident Orcs disappear with the destroyed habitat and return after its morning repair.
+player_map_building_ruins_enter = function()
 {
-	if (!building_constructed_by_cursed_point
-		|| !variable_instance_exists(id, "cursed_point_restore_choice")
-		|| !is_struct(cursed_point_restore_choice))
-	{
-		return noone;
-	}
-
-	var _restore_point = instance_create_layer(x, y, "Instances", o_habit_point);
-
-	if (!instance_exists(_restore_point))
-	{
-		return noone;
-	}
-
-	var _ground_is_tainted = ground_cell_corruption_get(x, y) > 0;
-	_restore_point.is_captured = _ground_is_tainted;
-	_restore_point.restore_structure_choice = cursed_point_restore_choice;
-	_restore_point.structure_choice_options = [cursed_point_restore_choice];
-	_restore_point.structure_choice_options_rolled = true;
-	_restore_point.corruption = _ground_is_tainted ? _restore_point.max_corruption : 0;
-	_restore_point.sprite_index = _ground_is_tainted
-		? _restore_point.captured_sprite_index
-		: _restore_point.uncaptured_sprite_index;
-	_restore_point.image_index = 0;
-	_restore_point.image_speed = 0;
-
-	return _restore_point;
+	orcs_pit_owned_units_destroy();
 };
 
 // A newly constructed habitat starts with its complete healthy population.

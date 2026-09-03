@@ -1312,16 +1312,18 @@ projectile_descriptions[PROJECTILE_TYPE.HEAL] = "Remains on the ground for "
 	+ string(BALANCE_FIRST_AID_MEAT_HEAL_AMOUNT)
 	+ " health to all friendly units inside a "
 	+ string(BALANCE_FIRST_AID_MEAT_HEAL_RADIUS)
-	+ " pixel base radius. Payload Mastery improves each pulse.";
+	+ " pixel base radius. Payload Mastery improves each pulse. Emergency Pull replaces area healing with rescues of allies below "
+	+ string(BALANCE_FIRST_AID_MEAT_PULL_HP_THRESHOLD * 100)
+	+ "% HP, restoring "
+	+ string(BALANCE_FIRST_AID_MEAT_PULL_FINISH_HEAL)
+	+ " HP after each pull.";
 projectile_descriptions[PROJECTILE_TYPE.BOMB] = "Hold and drag from the landing point to aim a "
 	+ string(BALANCE_PROJECTILE_HELLCOW_CORRIDOR_WIDTH)
-	+ "px-wide Hellcow charge. It pushes enemies along the arrow, then explodes for "
-	+ string(BALANCE_PROJECTILE_HELLCOW_DAMAGE_AMOUNT)
-	+ " damage. Payload Mastery improves the explosion.";
+	+ "px-wide HellCow charge. It pushes enemies along the arrow. Shell Factory enchantments add a final stun or a slowing trail.";
 projectile_descriptions[PROJECTILE_TYPE.SKELETONS] = "Summons " + string(BALANCE_PROJECTILE_SKELETON_COUNT) + " skeleton inside a " + string(BALANCE_PROJECTILE_SKELETON_RADIUS) + " pixel radius. Payload Mastery improves it.";
 projectile_descriptions[PROJECTILE_TYPE.BUILDING_SHELL] = "Builds its stored structure where it lands. Must be fired onto tainted ground.";
 projectile_descriptions[PROJECTILE_TYPE.CLEANSE] = "Enemy projectile that removes Taint where it lands.";
-projectile_descriptions[PROJECTILE_TYPE.DOOM_BELL] = "Stuns all enemies inside a "
+projectile_descriptions[PROJECTILE_TYPE.DOOM_BELL] = "Stuns all friendly and enemy units inside a "
 	+ string(BALANCE_PROJECTILE_DOOM_BELL_RADIUS)
 	+ " pixel radius for "
 	+ string(BALANCE_PROJECTILE_DOOM_BELL_STUN_TIME)

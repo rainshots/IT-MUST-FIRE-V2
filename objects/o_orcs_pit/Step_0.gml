@@ -7,11 +7,8 @@ if (global.pause)
 	exit;
 }
 
-// Handle damage sources that set HP directly instead of using unit_damage_receive().
-if (hp <= 0)
+// A destroyed habitat stays inert until its morning repair.
+if (player_map_building_destroy_if_needed())
 {
-	player_building_destroy_effect_create();
-	player_building_restore_point_create();
-	instance_destroy();
 	exit;
 }

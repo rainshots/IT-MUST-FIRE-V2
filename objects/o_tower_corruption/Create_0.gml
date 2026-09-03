@@ -1,5 +1,6 @@
 // Initialize shared map object state.
 event_inherited();
+player_map_building_ruins_enabled = true;
 
 // Capture state changes the tower sprite and unlocks the passive effect.
 tower_capture_enabled = true;

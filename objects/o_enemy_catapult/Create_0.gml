@@ -205,6 +205,13 @@ catapult_behavior_update = function()
 			return true;
 		}
 
+		// Dead Silence blocks the Catapult's custom projectile path.
+		if (doom_bell_silence_is_active())
+		{
+			is_attacking_target = false;
+			return true;
+		}
+
 		catapult_projectile_create(target_instance);
 		reload_timer = reload_time * unit_attack_reload_multiplier_get();
 		return true;

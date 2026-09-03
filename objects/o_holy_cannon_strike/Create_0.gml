@@ -9,7 +9,7 @@ stun_time = BALANCE_HOLY_CANNON_STUN_TIME;
 // The countdown includes the final visible projectile flight.
 impact_duration = BALANCE_HOLY_CANNON_WARNING_TIME * room_speed;
 impact_timer = impact_duration;
-flight_duration = BALANCE_HOLY_CANNON_PROJECTILE_FLIGHT_TIME * room_speed;
+flight_duration = (BALANCE_HOLY_CANNON_PROJECTILE_FLIGHT_TIME / BALANCE_PROJECTILE_FLIGHT_SPEED_MULTIPLIER) * room_speed;
 projectile_spawn_offset_y = BALANCE_HOLY_CANNON_PROJECTILE_SPAWN_OFFSET_Y;
 projectile_radius = BALANCE_HOLY_CANNON_PROJECTILE_RADIUS;
 projectile_trail_length = BALANCE_HOLY_CANNON_PROJECTILE_TRAIL_LENGTH;

@@ -22,10 +22,13 @@ if (_extra_radius > 0)
 	draw_circle(x, y, _extra_radius, true);
 }
 
-// Show the area that receives each healing pulse.
-draw_set_color(COLOR_PROJECTILE_HEAL);
-draw_set_alpha(radius_outline_alpha);
-draw_circle(x, y, heal_radius, true);
+// Emergency Pull has no healing area, so only its rescue radius is shown.
+if (first_aid_meat_enchantment != FIRST_AID_MEAT_ENCHANTMENT.EMERGENCY_PULL)
+{
+	draw_set_color(COLOR_PROJECTILE_HEAL);
+	draw_set_alpha(radius_outline_alpha);
+	draw_circle(x, y, heal_radius, true);
+}
 
 // Emergency Pull uses the same layered chain treatment as Butcher Chains.
 if (instance_exists(pull_target))

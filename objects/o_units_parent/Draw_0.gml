@@ -74,11 +74,16 @@ if (sprite_exists(sprite_index))
 		shader_reset();
 	}
 
-	// Roar immortality is a yellow body overlay; sprite origin math accounts for bottom pivots.
-	if (global.day_phase == DAY_PHASE.NIGHT
+	// Roar immortality and Doom Bell stasis share the same yellow body marker.
+	var _roar_immortality_is_visible = global.day_phase == DAY_PHASE.NIGHT
 		&& unit_faction == UNIT_FACTION.FRIENDLY
 		&& hp > 0
-		&& unholy_abyss_immortality_timer > 0)
+		&& unholy_abyss_immortality_timer > 0;
+	var _doom_bell_stasis_is_visible = unit_faction == UNIT_FACTION.ENEMY
+		&& hp > 0
+		&& doom_bell_stasis_active;
+
+	if (_roar_immortality_is_visible || _doom_bell_stasis_is_visible)
 	{
 		var _immortality_sprite_width = sprite_get_width(sprite_index);
 		var _immortality_sprite_height = sprite_get_height(sprite_index);
@@ -96,7 +101,11 @@ if (sprite_exists(sprite_index))
 				* BALANCE_UNHOLY_SHRINE_ROAR_IMMORTALITY_CIRCLE_RADIUS_SHARE
 		);
 
-		draw_set_color(COLOR_UNHOLY_ROAR_IMMORTALITY);
+		var _immortality_color = _doom_bell_stasis_is_visible
+			? COLOR_DOOM_BELL_STASIS
+			: COLOR_UNHOLY_ROAR_IMMORTALITY;
+
+		draw_set_color(_immortality_color);
 		draw_set_alpha(BALANCE_UNHOLY_SHRINE_ROAR_IMMORTALITY_OVERLAY_ALPHA);
 		draw_circle(_immortality_center_x, _immortality_center_y, _immortality_radius, false);
 		draw_set_color(c_white);

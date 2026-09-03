@@ -16,6 +16,8 @@ taint_compost_enchantment_primary = false;
 taint_compost_enchantment_x = x;
 taint_compost_enchantment_y = y;
 first_aid_meat_enchantment = FIRST_AID_MEAT_ENCHANTMENT.NONE;
+hellcow_enchantment = HELLCOW_ENCHANTMENT.NONE;
+doom_bell_enchantment = DOOM_BELL_ENCHANTMENT.NONE;
 
 // Explosion and effect settings.
 effect_radius = BALANCE_PROJECTILE_EFFECT_RADIUS;
@@ -38,6 +40,7 @@ particle_layer_name = "Instances";
 // Flight settings.
 projectile_speed = BALANCE_PROJECTILE_SPEED;
 gameplay_time_scale = 1; // Updated from the global simulation scale every Step.
+flight_speed_multiplier = BALANCE_PROJECTILE_FLIGHT_SPEED_MULTIPLIER;
 minimum_flight_time = BALANCE_PROJECTILE_MIN_FLIGHT_TIME;
 maximum_flight_time = BALANCE_PROJECTILE_MAX_FLIGHT_TIME;
 launch_delay_timer = 0;
@@ -64,8 +67,33 @@ projectile_smoke_trail_create = function(_trail_x, _trail_y)
 
 taint_compost_enchantment_apply = function()
 {
-	if (!taint_compost_enchantment_primary
-		|| taint_compost_enchantment == TAINT_COMPOST_ENCHANTMENT.NONE)
+	// The center projectile owns the one-per-volley enchantment effect.
+	var _center_impact_tolerance = 1;
+	var _is_center_impact = taint_compost_enchantment_primary
+		|| point_distance(
+			target_x,
+			target_y,
+			taint_compost_enchantment_x,
+			taint_compost_enchantment_y
+		) <= _center_impact_tolerance;
+	var _source_is_cannon = instance_exists(source_instance)
+		&& source_instance.object_index == o_cannon;
+
+	if (!_is_center_impact || !_source_is_cannon)
+	{
+		return false;
+	}
+
+	// Resolve against the current match state at impact as a fallback if a projectile snapshot was lost.
+	var _enchantment = taint_compost_enchantment;
+
+	if (_enchantment == TAINT_COMPOST_ENCHANTMENT.NONE
+		&& variable_global_exists("shell_factory_taint_enchantment"))
+	{
+		_enchantment = global.shell_factory_taint_enchantment;
+	}
+
+	if (_enchantment == TAINT_COMPOST_ENCHANTMENT.NONE)
 	{
 		return false;
 	}
@@ -73,12 +101,12 @@ taint_compost_enchantment_apply = function()
 	var _effect_x = taint_compost_enchantment_x;
 	var _effect_y = taint_compost_enchantment_y;
 
-	if (taint_compost_enchantment == TAINT_COMPOST_ENCHANTMENT.EXPLOSIVE_FERTILIZER)
+	if (_enchantment == TAINT_COMPOST_ENCHANTMENT.EXPLOSIVE_FERTILIZER)
 	{
 		var _mine_count = BALANCE_TAINT_COMPOST_PUMPKIN_MINE_COUNT;
 		var _full_circle_degrees = 360;
 
-		// A compact ring keeps all four mines visible at the center of the impact area.
+		// A readable ring keeps all four mines distinct near the center of the impact area.
 		for (var _mine_index = 0; _mine_index < _mine_count; ++_mine_index)
 		{
 			var _mine_direction = (_mine_index / _mine_count) * _full_circle_degrees;
@@ -91,13 +119,18 @@ taint_compost_enchantment_apply = function()
 				// No Trap Point owns these mines, so they are never restored after destruction.
 				_mine.owner_trap_point = noone;
 				_mine.trap_point_slot_index = -1;
+
+				// Apply world sorting immediately and make impact-created mines easy to read.
+				_mine.depth = -floor(_mine.y);
+				_mine.image_xscale = BALANCE_TAINT_COMPOST_PUMPKIN_MINE_VISUAL_SCALE;
+				_mine.image_yscale = BALANCE_TAINT_COMPOST_PUMPKIN_MINE_VISUAL_SCALE;
 			}
 		}
 
 		return true;
 	}
 
-	if (taint_compost_enchantment == TAINT_COMPOST_ENCHANTMENT.SWEET_ROT)
+	if (_enchantment == TAINT_COMPOST_ENCHANTMENT.SWEET_ROT)
 	{
 		instance_create_layer(_effect_x, _effect_y, particle_layer_name, o_taint_shell_tumor);
 		return true;
@@ -121,6 +154,22 @@ hellcow_brace_timer = 0;
 hellcow_distance_remaining = BALANCE_PROJECTILE_HELLCOW_CHARGE_DISTANCE;
 hellcow_trail_timer = 0;
 hellcow_start_collision_instances = [];
+hellcow_sticky_trail = noone;
+
+hellcow_structure_collision_can_stop = function(_candidate)
+{
+	if (!instance_exists(_candidate))
+	{
+		return false;
+	}
+
+	// Construction, trap, and habitat points share the map-object parent but are not obstacles.
+	var _candidate_object = _candidate.object_index;
+	var _is_construction_point = _candidate_object == o_cursed_point
+		|| object_is_ancestor(_candidate_object, o_cursed_point);
+
+	return !_is_construction_point;
+};
 
 hellcow_start_collisions_cache = function()
 {
@@ -139,7 +188,12 @@ hellcow_start_collisions_cache = function()
 
 	for (var _overlap_index = 0; _overlap_index < _overlap_count; ++_overlap_index)
 	{
-		array_push(hellcow_start_collision_instances, _overlap_list[| _overlap_index]);
+		var _overlap = _overlap_list[| _overlap_index];
+
+		if (hellcow_structure_collision_can_stop(_overlap))
+		{
+			array_push(hellcow_start_collision_instances, _overlap);
+		}
 	}
 
 	ds_list_destroy(_overlap_list);
@@ -164,6 +218,12 @@ hellcow_new_structure_collision_find = function()
 	for (var _collision_index = 0; _collision_index < _collision_count; ++_collision_index)
 	{
 		var _candidate = _collision_list[| _collision_index];
+
+		if (!hellcow_structure_collision_can_stop(_candidate))
+		{
+			continue;
+		}
+
 		var _candidate_is_ignored = false;
 
 		for (var _ignored_index = 0; _ignored_index < _ignored_count; ++_ignored_index)
@@ -198,6 +258,25 @@ hellcow_charge_start = function()
 
 	// Landing overlaps are not new impacts; let the cow leave them before checking its path.
 	hellcow_start_collisions_cache();
+
+	if (hellcow_enchantment == HELLCOW_ENCHANTMENT.STICKY_TRAIL)
+	{
+		var _trail_layer_id = layer_get_id(particle_layer_name);
+		hellcow_sticky_trail = instance_create_layer(x, y, particle_layer_name, o_hellcow_sticky_trail);
+
+		if (instance_exists(hellcow_sticky_trail))
+		{
+			hellcow_sticky_trail.trail_owner = id;
+			hellcow_sticky_trail.hellcow_sticky_trail_corridor_set(x, y, hellcow_charge_direction);
+
+			// Draw above the ground art and below instances on the combat layer.
+			if (_trail_layer_id != -1)
+			{
+				hellcow_sticky_trail.depth = layer_get_depth(_trail_layer_id)
+					+ BALANCE_PROJECTILE_HELLCOW_STICKY_TRAIL_GROUND_DEPTH_OFFSET;
+			}
+		}
+	}
 };
 
 hellcow_enemies_push = function(_move_distance)
@@ -235,63 +314,41 @@ hellcow_enemies_push = function(_move_distance)
 	}
 };
 
-hellcow_explode = function()
+hellcow_charge_finish = function()
 {
-	if (variable_global_exists("explosion_sounds") && variable_global_exists("sound_play_random"))
+	if (hellcow_enchantment == HELLCOW_ENCHANTMENT.FINAL_MOO)
 	{
-		global.sound_play_random(global.explosion_sounds);
-	}
-
-	instance_create_layer(x, y, particle_layer_name, o_particle_explosion);
-
-	for (var _smoke_index = 0; _smoke_index < smoke_particle_count; ++_smoke_index)
-	{
-		var _smoke_direction = random(360);
-		var _smoke_distance = sqrt(random(1)) * effect_radius;
-		var _smoke_x = x + lengthdir_x(_smoke_distance, _smoke_direction);
-		var _smoke_y = y + lengthdir_y(_smoke_distance, _smoke_direction);
-
-		instance_create_layer(_smoke_x, _smoke_y, particle_layer_name, o_particle_smoke);
-	}
-
-	// The final blast keeps Hellcow's upgradeable damage while the charge itself only displaces.
-	with (o_enemy_units)
-	{
-		if (variable_instance_exists(id, "hp")
-			&& hp > 0
-			&& point_distance(x, y, other.x, other.y) <= other.effect_radius)
+		// Final Moo is a harmless shockwave whose stun refreshes rather than stacking.
+		if (variable_global_exists("explosion_sounds") && variable_global_exists("sound_play_random"))
 		{
-			if (variable_instance_exists(id, "unit_damage_receive"))
+			global.sound_play_random(global.explosion_sounds);
+		}
+
+		var _explosion = instance_create_layer(x, y, particle_layer_name, o_particle_explosion);
+
+		if (instance_exists(_explosion))
+		{
+			_explosion.end_radius = BALANCE_PROJECTILE_HELLCOW_FINAL_MOO_RADIUS;
+		}
+
+		with (o_enemy_units)
+		{
+			if (hp > 0
+				&& point_distance(x, y, other.x, other.y)
+					<= BALANCE_PROJECTILE_HELLCOW_FINAL_MOO_RADIUS
+				&& variable_instance_exists(id, "stun_apply"))
 			{
-				unit_damage_receive(
-					other.damage_amount,
-					other.damage_faction,
-					false,
-					true,
-					other.source_instance
-				);
-			}
-			else
-			{
-				hp = max(hp - other.damage_amount, 0);
-				damage_popup_create(x, y, other.damage_amount, unit_faction);
+				stun_apply(BALANCE_PROJECTILE_HELLCOW_FINAL_MOO_STUN_TIME);
 			}
 		}
 	}
 
-	if (instance_exists(o_camera_controller))
+	if (instance_exists(hellcow_sticky_trail))
 	{
-		var _camera_controller = instance_find(o_camera_controller, 0);
-
-		if (variable_instance_exists(_camera_controller, "camera_shake_start"))
-		{
-			_camera_controller.camera_shake_start(
-				BALANCE_CANNON_SHOT_SHAKE_TIME,
-				BALANCE_CANNON_SHOT_SHAKE_STRENGTH
-			);
-		}
+		hellcow_sticky_trail.hellcow_sticky_trail_finish();
 	}
 
+	// An unenchanted charge still ends without damage or explosion feedback.
 	instance_destroy();
 };
 
@@ -334,7 +391,7 @@ hellcow_charge_update = function()
 
 	if (hellcow_distance_remaining <= 0 || instance_exists(_hit_structure) || _left_room)
 	{
-		hellcow_explode();
+		hellcow_charge_finish();
 	}
 
 	return true;

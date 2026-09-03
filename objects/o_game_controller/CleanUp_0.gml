@@ -52,6 +52,12 @@ if (variable_global_exists("particle_type_status_web_red") && global.particle_ty
 	global.particle_type_status_web_red = noone;
 }
 
+if (variable_global_exists("particle_type_status_slow") && global.particle_type_status_slow != noone)
+{
+	part_type_destroy(global.particle_type_status_slow);
+	global.particle_type_status_slow = noone;
+}
+
 if (variable_global_exists("particle_type_status_soul_mark") && global.particle_type_status_soul_mark != noone)
 {
 	part_type_destroy(global.particle_type_status_soul_mark);

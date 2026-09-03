@@ -1253,6 +1253,7 @@ global.particle_type_frenzy = part_type_create();
 global.particle_type_blood_rage = part_type_create();
 global.particle_type_status_bleed = part_type_create();
 global.particle_type_status_web_red = part_type_create();
+global.particle_type_status_slow = part_type_create();
 global.particle_type_status_soul_mark = part_type_create();
 global.particle_type_status_curse = part_type_create();
 global.particle_type_status_stun = part_type_create();
@@ -1367,6 +1368,26 @@ part_type_speed(
 );
 part_type_direction(global.particle_type_status_web_red, 250, 290, 0, 0);
 part_type_life(global.particle_type_status_web_red, BALANCE_STATUS_PARTICLE_LIFE_MIN, BALANCE_STATUS_PARTICLE_LIFE_MAX);
+
+part_type_sprite(global.particle_type_status_slow, s_slow_particle, false, false, true);
+part_type_size(
+	global.particle_type_status_slow,
+	BALANCE_STATUS_PARTICLE_SIZE_MIN,
+	BALANCE_STATUS_PARTICLE_SIZE_MAX,
+	-0.005,
+	0
+);
+part_type_color1(global.particle_type_status_slow, COLOR_HELLCOW_STICKY_TRAIL);
+part_type_alpha2(global.particle_type_status_slow, 0.9, 0);
+part_type_speed(
+	global.particle_type_status_slow,
+	BALANCE_STATUS_PARTICLE_SPEED_MIN,
+	BALANCE_STATUS_PARTICLE_SPEED_MAX,
+	-0.01,
+	0
+);
+part_type_direction(global.particle_type_status_slow, 250, 290, 0, 0);
+part_type_life(global.particle_type_status_slow, BALANCE_STATUS_PARTICLE_LIFE_MIN, BALANCE_STATUS_PARTICLE_LIFE_MAX);
 
 part_type_sprite(global.particle_type_status_soul_mark, s_sight_particle, false, false, true);
 part_type_size(
@@ -1650,6 +1671,12 @@ global.shell_factory_taint_enchantment_event_completed = false;
 // First Aid Meat has its own independent match-long enchantment choice.
 global.shell_factory_first_aid_enchantment = FIRST_AID_MEAT_ENCHANTMENT.NONE;
 global.shell_factory_first_aid_enchantment_event_completed = false;
+// HellCow has its own independent match-long enchantment choice.
+global.shell_factory_hellcow_enchantment = HELLCOW_ENCHANTMENT.NONE;
+global.shell_factory_hellcow_enchantment_event_completed = false;
+// Doom Bell has its own independent match-long enchantment choice.
+global.shell_factory_doom_bell_enchantment = DOOM_BELL_ENCHANTMENT.NONE;
+global.shell_factory_doom_bell_enchantment_event_completed = false;
 
 // Global one-shot sound groups used by gameplay feedback.
 global.night_start_sounds = [
@@ -11741,6 +11768,15 @@ start_day_phase = function()
 		if (variable_instance_exists(id, "player_building_morning_repair"))
 		{
 			player_building_morning_repair();
+		}
+	}
+
+	// Player map buildings with persistent ruins recover half of Max HP each morning.
+	with (o_map_objects_parent)
+	{
+		if (variable_instance_exists(id, "player_map_building_morning_repair"))
+		{
+			player_map_building_morning_repair();
 		}
 	}
 

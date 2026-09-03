@@ -277,6 +277,112 @@ stun_bar_width = 44;
 stun_bar_height = 4;
 stun_bar_gap = 4;
 
+// Persistent Doom Bells own stasis and silence through removable source references.
+doom_bell_stasis_sources = [];
+doom_bell_stasis_active = false;
+doom_bell_silence_sources = [];
+doom_bell_silence_active = false;
+
+doom_bell_stasis_source_add = function(_source)
+{
+	if (!instance_exists(_source))
+	{
+		return false;
+	}
+
+	var _source_count = array_length(doom_bell_stasis_sources);
+
+	for (var _source_index = 0; _source_index < _source_count; ++_source_index)
+	{
+		if (doom_bell_stasis_sources[_source_index] == _source)
+		{
+			return false;
+		}
+	}
+
+	array_push(doom_bell_stasis_sources, _source);
+	doom_bell_stasis_active = true;
+	return true;
+};
+
+doom_bell_stasis_source_remove = function(_source)
+{
+	for (var _source_index = array_length(doom_bell_stasis_sources) - 1; _source_index >= 0; --_source_index)
+	{
+		if (doom_bell_stasis_sources[_source_index] == _source)
+		{
+			array_delete(doom_bell_stasis_sources, _source_index, 1);
+		}
+	}
+
+	doom_bell_stasis_active = array_length(doom_bell_stasis_sources) > 0;
+	return doom_bell_stasis_active;
+};
+
+doom_bell_stasis_is_active = function()
+{
+	for (var _source_index = array_length(doom_bell_stasis_sources) - 1; _source_index >= 0; --_source_index)
+	{
+		if (!instance_exists(doom_bell_stasis_sources[_source_index]))
+		{
+			array_delete(doom_bell_stasis_sources, _source_index, 1);
+		}
+	}
+
+	doom_bell_stasis_active = array_length(doom_bell_stasis_sources) > 0;
+	return doom_bell_stasis_active;
+};
+
+doom_bell_silence_source_add = function(_source)
+{
+	if (!instance_exists(_source))
+	{
+		return false;
+	}
+
+	var _source_count = array_length(doom_bell_silence_sources);
+
+	for (var _source_index = 0; _source_index < _source_count; ++_source_index)
+	{
+		if (doom_bell_silence_sources[_source_index] == _source)
+		{
+			return false;
+		}
+	}
+
+	array_push(doom_bell_silence_sources, _source);
+	doom_bell_silence_active = true;
+	return true;
+};
+
+doom_bell_silence_source_remove = function(_source)
+{
+	for (var _source_index = array_length(doom_bell_silence_sources) - 1; _source_index >= 0; --_source_index)
+	{
+		if (doom_bell_silence_sources[_source_index] == _source)
+		{
+			array_delete(doom_bell_silence_sources, _source_index, 1);
+		}
+	}
+
+	doom_bell_silence_active = array_length(doom_bell_silence_sources) > 0;
+	return doom_bell_silence_active;
+};
+
+doom_bell_silence_is_active = function()
+{
+	for (var _source_index = array_length(doom_bell_silence_sources) - 1; _source_index >= 0; --_source_index)
+	{
+		if (!instance_exists(doom_bell_silence_sources[_source_index]))
+		{
+			array_delete(doom_bell_silence_sources, _source_index, 1);
+		}
+	}
+
+	doom_bell_silence_active = array_length(doom_bell_silence_sources) > 0;
+	return doom_bell_silence_active;
+};
+
 // Status effects store one active slot per status type.
 status_effect_timers = array_create(STATUS_EFFECT.COUNT, 0);
 status_effect_durations = array_create(STATUS_EFFECT.COUNT, 0);
@@ -448,6 +554,14 @@ target_can_be_attacked = function(_target)
 		return false;
 	}
 
+	// Friendly squads ignore enemies held by a Funeral Pause bell.
+	if (unit_faction == UNIT_FACTION.FRIENDLY
+		&& variable_instance_exists(_target, "doom_bell_stasis_active")
+		&& _target.doom_bell_stasis_active)
+	{
+		return false;
+	}
+
 	if (unit_faction == UNIT_FACTION.ENEMY
 		&& variable_instance_exists(_target, "ignored_by_enemies")
 		&& _target.ignored_by_enemies)
@@ -491,7 +605,8 @@ status_effect_is_negative = function(_status_type)
 		|| _status_type == STATUS_EFFECT.FEAR
 		|| _status_type == STATUS_EFFECT.SOUL_MARK
 		|| _status_type == STATUS_EFFECT.CURSE
-		|| _status_type == STATUS_EFFECT.STUN;
+		|| _status_type == STATUS_EFFECT.STUN
+		|| _status_type == STATUS_EFFECT.SLOW;
 };
 
 status_effect_has = function(_status_type)
@@ -819,13 +934,20 @@ status_effect_clear = function(_status_type)
 
 status_effect_movement_multiplier = function()
 {
-	if (!status_effect_has(STATUS_EFFECT.FEAR))
+	var _slow_amount = 0;
+
+	if (status_effect_has(STATUS_EFFECT.FEAR))
 	{
-		return 1;
+		_slow_amount = max(_slow_amount, status_effect_strengths[STATUS_EFFECT.FEAR]);
 	}
 
-	var _slow_amount = clamp(status_effect_strengths[STATUS_EFFECT.FEAR], 0, 0.95);
-	return 1 - _slow_amount;
+	if (status_effect_has(STATUS_EFFECT.SLOW))
+	{
+		// Independent slows use the strongest value instead of multiplying together.
+		_slow_amount = max(_slow_amount, status_effect_strengths[STATUS_EFFECT.SLOW]);
+	}
+
+	return 1 - clamp(_slow_amount, 0, 0.95);
 };
 
 status_effect_attack_reload_multiplier = function()
@@ -985,6 +1107,14 @@ enemy_march_defense_is_near = function()
 
 enemy_march_update = function()
 {
+	// Keep the march multiplier neutral while the feature is disabled in balance.
+	if (!BALANCE_ENEMY_MARCH_ENABLED)
+	{
+		enemy_march_current_multiplier = 1;
+		enemy_march_combat_reached = true;
+		return;
+	}
+
 	var _can_march = unit_faction == UNIT_FACTION.ENEMY
 		&& is_night_attack_unit
 		&& unit_can_attack_cannon
@@ -1133,6 +1263,10 @@ status_effect_particle_type_get = function(_status_type)
 	else if (_status_type == STATUS_EFFECT.FEAR && variable_global_exists("particle_type_status_web_red"))
 	{
 		return global.particle_type_status_web_red;
+	}
+	else if (_status_type == STATUS_EFFECT.SLOW && variable_global_exists("particle_type_status_slow"))
+	{
+		return global.particle_type_status_slow;
 	}
 	else if (_status_type == STATUS_EFFECT.SOUL_MARK && variable_global_exists("particle_type_status_soul_mark"))
 	{
@@ -1341,6 +1475,12 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 		return 0;
 	}
 
+	// Funeral Pause stasis blocks all incoming damage until its bell releases this unit.
+	if (doom_bell_stasis_is_active())
+	{
+		return 0;
+	}
+
 	// The Roar still allows damage but prevents a surviving squad member from dying.
 	var _minimum_hp = 0;
 
@@ -1453,8 +1593,16 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 		var _has_combat_target = target_can_be_attacked(target_instance);
 		var _source_has_faction = instance_exists(_source_instance)
 			&& variable_instance_exists(_source_instance, "unit_faction");
-		var _source_is_hostile = _source_has_faction
+		var _source_faction_is_hostile = _source_faction != UNIT_FACTION.NOONE
+			&& _source_faction != unit_faction;
+		var _source_instance_is_hostile = _source_has_faction
 			&& _source_instance.unit_faction != unit_faction;
+		var _source_is_player_structure = unit_faction == UNIT_FACTION.ENEMY
+			&& player_structure_can_be_targeted(_source_instance);
+		var _source_is_hostile = instance_exists(_source_instance)
+			&& (_source_faction_is_hostile
+				|| _source_instance_is_hostile
+				|| _source_is_player_structure);
 
 		if (!_has_combat_target
 			&& _source_is_hostile
@@ -4445,6 +4593,14 @@ attack_target = function(_target)
 	if (reload_timer > 0)
 	{
 		reload_timer -= gameplay_time_scale;
+		return;
+	}
+
+	// Dead Silence prevents ranged attacks while allowing movement and reload recovery.
+	if (attack_radius > BALANCE_DOOM_BELL_RANGED_ATTACK_RADIUS_MINIMUM
+		&& doom_bell_silence_is_active())
+	{
+		is_attacking_target = false;
 		return;
 	}
 

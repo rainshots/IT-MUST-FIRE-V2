@@ -781,7 +781,7 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 				: COLOR_STATUS_NEGATIVE_RED;
 			var _first_aid_extra_draw_radius = _first_aid_extra_radius * _radius_scale;
 
-			// The outer enchantment radius sits behind the unchanged healing radius.
+			// Emergency Pull shows only rescue range; Fresh Meat adds smell range to healing.
 			draw_set_color(_first_aid_extra_color);
 			draw_set_alpha(BALANCE_FIRST_AID_MEAT_EXTRA_RADIUS_FILL_ALPHA);
 			draw_circle(_mouse_x, _mouse_y, _first_aid_extra_draw_radius, false);
@@ -801,11 +801,17 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 			draw_circle(_mouse_x, _mouse_y, _sweet_rot_draw_radius, true);
 		}
 
-		draw_set_color(_target_color);
-		draw_set_alpha(target_selection_alpha);
-		draw_circle(_mouse_x, _mouse_y, _draw_radius, false);
-		draw_set_alpha(target_selection_outline_alpha);
-		draw_circle(_mouse_x, _mouse_y, _draw_radius, true);
+		var _draw_primary_radius = target_selection_projectile_type != PROJECTILE_TYPE.HEAL
+			|| global.shell_factory_first_aid_enchantment != FIRST_AID_MEAT_ENCHANTMENT.EMERGENCY_PULL;
+
+		if (_draw_primary_radius)
+		{
+			draw_set_color(_target_color);
+			draw_set_alpha(target_selection_alpha);
+			draw_circle(_mouse_x, _mouse_y, _draw_radius, false);
+			draw_set_alpha(target_selection_outline_alpha);
+			draw_circle(_mouse_x, _mouse_y, _draw_radius, true);
+		}
 	}
 
 	if (target_selection_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)

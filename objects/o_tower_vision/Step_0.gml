@@ -7,5 +7,11 @@ if (global.pause)
 	exit;
 }
 
+// A destroyed tower stays inert until its morning repair.
+if (player_map_building_destroy_if_needed())
+{
+	exit;
+}
+
 // Check whether the ground under the tower has fully corrupted.
 tower_capture_update();

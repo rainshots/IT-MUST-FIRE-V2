@@ -2,6 +2,13 @@
 gameplay_time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
 var _time_scale = gameplay_time_scale;
 
+// Funeral Pause also freezes Griffith's child-owned summons and leap sequence.
+if (doom_bell_stasis_is_active())
+{
+	event_inherited();
+	exit;
+}
+
 if (!global.pause)
 {
 	griffith_summon_update();

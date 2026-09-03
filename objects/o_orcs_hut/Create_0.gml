@@ -1,5 +1,7 @@
 // Initialize shared map object state.
 event_inherited();
+player_map_building_ruins_enabled = true;
+player_map_building_destroyed_sprite = s_house2_destroyed;
 
 // Capture state changes the hut sprite and unlocks neutral orc workers.
 tower_capture_enabled = true;
@@ -101,4 +103,27 @@ orcs_hut_recall_orcs = function()
 			_orc.home_y = _home_position[1];
 		}
 	}
+};
+
+orcs_hut_owned_units_destroy = function()
+{
+	var _owned_orc_count = array_length(owned_orcs);
+
+	for (var _orc_index = 0; _orc_index < _owned_orc_count; ++_orc_index)
+	{
+		var _orc = owned_orcs[_orc_index];
+
+		if (instance_exists(_orc))
+		{
+			instance_destroy(_orc);
+		}
+
+		owned_orcs[_orc_index] = noone;
+	}
+};
+
+// Hut workers disappear with the destroyed hut and are recreated after its repair.
+player_map_building_ruins_enter = function()
+{
+	orcs_hut_owned_units_destroy();
 };
