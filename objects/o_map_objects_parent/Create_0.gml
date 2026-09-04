@@ -891,9 +891,9 @@ tower_capture_update = function()
 	}
 };
 
-tower_range_draw = function(_radius, _color)
+map_object_range_draw = function(_radius, _color)
 {
-	if (!is_captured || !map_object_is_hovered())
+	if (!map_object_is_hovered())
 	{
 		return;
 	}
@@ -915,4 +915,14 @@ tower_range_draw = function(_radius, _color)
 
 	draw_set_color(c_white);
 	draw_set_alpha(1);
+};
+
+tower_range_draw = function(_radius, _color)
+{
+	if (!is_captured)
+	{
+		return;
+	}
+
+	map_object_range_draw(_radius, _color);
 };

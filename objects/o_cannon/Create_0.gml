@@ -122,6 +122,15 @@ projectile_layer_name = "Instances";
 cannon_reload_timer = 0;
 cannon_reload_duration = 0;
 cannon_reload_projectile_type = PROJECTILE_TYPE.DAMAGE;
+cannon_opening_barrage_free_shots_remaining = 0;
+
+cannon_opening_barrage_night_start = function()
+{
+	cannon_opening_barrage_free_shots_remaining = variable_global_exists("shell_factory_opening_barrage_event_completed")
+		&& global.shell_factory_opening_barrage_event_completed
+		? BALANCE_SHELL_FACTORY_OPENING_BARRAGE_FREE_SHOT_COUNT
+		: 0;
+};
 
 cannon_reload_time_get = function(_projectile_type)
 {
@@ -152,7 +161,17 @@ cannon_reload_time_get = function(_projectile_type)
 		_reload_time = BALANCE_CANNON_RELOAD_SQUAD_TIME;
 	}
 
-	return (_reload_time * cannon_satisfaction_reload_time_multiplier_get()) + _reload_penalty;
+	_reload_time = (_reload_time * cannon_satisfaction_reload_time_multiplier_get()) + _reload_penalty;
+
+	if (variable_global_exists("shell_factory_favored_ammunition_event_completed")
+		&& global.shell_factory_favored_ammunition_event_completed
+		&& variable_global_exists("shell_factory_favored_ammunition_projectile_type")
+		&& global.shell_factory_favored_ammunition_projectile_type == _projectile_type)
+	{
+		_reload_time *= BALANCE_SHELL_FACTORY_FAVORED_AMMUNITION_RELOAD_TIME_MULTIPLIER;
+	}
+
+	return _reload_time;
 };
 
 cannon_reload_is_ready = function()
@@ -177,6 +196,17 @@ cannon_reload_remaining_seconds_get = function()
 
 cannon_reload_start = function(_projectile_type)
 {
+	// Opening Barrage skips the complete reload after the first shots of each night.
+	if (global.day_phase == DAY_PHASE.NIGHT
+		&& cannon_opening_barrage_free_shots_remaining > 0)
+	{
+		cannon_opening_barrage_free_shots_remaining--;
+		cannon_reload_projectile_type = _projectile_type;
+		cannon_reload_duration = 0;
+		cannon_reload_timer = 0;
+		return;
+	}
+
 	var _reload_seconds = max(0, cannon_reload_time_get(_projectile_type));
 
 	cannon_reload_projectile_type = _projectile_type;
@@ -866,7 +896,16 @@ cannon_morning_skeleton_count_range_get = function()
 
 cannon_taint_compost_radius_get = function()
 {
-	return round(BALANCE_PROJECTILE_TAINT_COMPOST_RADIUS * cannon_payload_mastery_taint_multiplier_get());
+	var _taint_bloom_multiplier = variable_global_exists("shell_factory_taint_bloom_event_completed")
+		&& global.shell_factory_taint_bloom_event_completed
+		? BALANCE_SHELL_FACTORY_TAINT_BLOOM_RADIUS_MULTIPLIER
+		: 1;
+
+	return round(
+		BALANCE_PROJECTILE_TAINT_COMPOST_RADIUS
+			* cannon_payload_mastery_taint_multiplier_get()
+			* _taint_bloom_multiplier
+	);
 };
 
 cannon_taint_compost_projectile_count_get = function()

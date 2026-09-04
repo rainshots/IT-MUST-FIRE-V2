@@ -2128,9 +2128,7 @@ if (variable_global_exists("cannon_projectile_queue")
 				&& variable_instance_exists(_description_payload, "cultist_points");
 		}
 
-		var _description_x = (_gui_width - projectile_description_width) * 0.5;
-		var _description_y = _projectile_base_y
-			- projectile_description_height
+		var _description_bottom_y = _projectile_base_y
 			- projectile_description_gap
 			- _selected_projectile_matchup_height
 			- _reload_ui_reserved_height;
@@ -2158,22 +2156,27 @@ if (variable_global_exists("cannon_projectile_queue")
 		}
 		else
 		{
-			draw_set_halign(fa_left);
-			draw_set_valign(fa_top);
-			draw_set_alpha(0.84 * _description_draw_alpha);
-			draw_set_color(COLOR_HUD_BACKGROUND);
-			draw_rectangle(
-				_description_x,
-				_description_y,
-				_description_x + projectile_description_width,
-				_description_y + projectile_description_height,
-				false
+			var _description_width = min(
+				projectile_description_width,
+				_gui_width - (projectile_description_screen_margin * 2)
 			);
-
-			draw_set_alpha(_description_draw_alpha);
-			draw_set_color(COLOR_HUD_TEXT);
+			var _description_text_width = _description_width - (projectile_description_padding * 2);
 			var _description_name = projectile_names[_description_type];
+			var _description_text = projectile_descriptions[_description_type];
+			var _enchantment_description = projectile_enchantment_description_get(_description_type);
+			var _upgrade_description = projectile_shell_factory_upgrade_description_get(_description_type);
 
+			if (_enchantment_description != "")
+			{
+				_description_text += "\n\n" + _enchantment_description;
+			}
+
+			if (_upgrade_description != "")
+			{
+				_description_text += "\n\n" + _upgrade_description;
+			}
+
+			// Payload shells use the stored unit or structure name as their title.
 			if (_description_type == PROJECTILE_TYPE.CULTIST
 				&& variable_global_exists("cannon_projectile_payload_queue")
 				&& _description_queue_index >= 0
@@ -2209,15 +2212,54 @@ if (variable_global_exists("cannon_projectile_queue")
 				}
 			}
 
-			draw_text(_description_x + 10, _description_y + 8, _description_name);
+			// Measure wrapped content first so the frame grows upward from a stable bottom edge.
+			var _description_title_height = string_height(_description_name);
+			var _description_text_height = string_height_ext(
+				_description_text,
+				projectile_description_line_separation,
+				_description_text_width
+			);
+			var _description_height = max(
+				projectile_description_minimum_height,
+				(projectile_description_padding * 2)
+					+ _description_title_height
+					+ projectile_description_title_gap
+					+ _description_text_height
+			);
+			var _description_x = (_gui_width - _description_width) * 0.5;
+			var _description_y = _description_bottom_y - _description_height;
+			var _description_text_y = _description_y
+				+ projectile_description_padding
+				+ _description_title_height
+				+ projectile_description_title_gap;
+
+			draw_set_halign(fa_left);
+			draw_set_valign(fa_top);
+			draw_set_alpha(0.84 * _description_draw_alpha);
+			draw_set_color(COLOR_HUD_BACKGROUND);
+			draw_rectangle(
+				_description_x,
+				_description_y,
+				_description_x + _description_width,
+				_description_bottom_y,
+				false
+			);
+
+			draw_set_alpha(_description_draw_alpha);
+			draw_set_color(COLOR_HUD_TEXT);
+			draw_text(
+				_description_x + projectile_description_padding,
+				_description_y + projectile_description_padding,
+				_description_name
+			);
 
 			draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
 			draw_text_ext(
-				_description_x + 10,
-				_description_y + 28,
-				projectile_descriptions[_description_type],
+				_description_x + projectile_description_padding,
+				_description_text_y,
+				_description_text,
 				projectile_description_line_separation,
-				projectile_description_width - 20
+				_description_text_width
 			);
 		}
 	}

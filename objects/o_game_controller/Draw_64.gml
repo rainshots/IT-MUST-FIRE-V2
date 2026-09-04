@@ -499,7 +499,10 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 	}
 	else if (target_selection_projectile_type == PROJECTILE_TYPE.HEAL)
 	{
-		_target_color = COLOR_PROJECTILE_HEAL;
+		_target_color = global.shell_factory_first_aid_enchantment
+			== FIRST_AID_MEAT_ENCHANTMENT.NECROMEDIC
+			? COLOR_PROJECTILE_SKELETONS
+			: COLOR_PROJECTILE_HEAL;
 	}
 	else if (target_selection_projectile_type == PROJECTILE_TYPE.BOMB)
 	{
@@ -769,19 +772,13 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 	else
 	{
 		if (target_selection_projectile_type == PROJECTILE_TYPE.HEAL
-			&& global.shell_factory_first_aid_enchantment != FIRST_AID_MEAT_ENCHANTMENT.NONE)
+			&& global.shell_factory_first_aid_enchantment == FIRST_AID_MEAT_ENCHANTMENT.EMERGENCY_PULL)
 		{
-			var _first_aid_extra_radius = global.shell_factory_first_aid_enchantment
-				== FIRST_AID_MEAT_ENCHANTMENT.EMERGENCY_PULL
-				? BALANCE_FIRST_AID_MEAT_PULL_RADIUS
-				: BALANCE_FIRST_AID_MEAT_FRESH_SMELL_RADIUS;
-			var _first_aid_extra_color = global.shell_factory_first_aid_enchantment
-				== FIRST_AID_MEAT_ENCHANTMENT.EMERGENCY_PULL
-				? COLOR_COOLDOWN_BRUTE_BUTCHER_CHAINS
-				: COLOR_STATUS_NEGATIVE_RED;
+			var _first_aid_extra_radius = BALANCE_FIRST_AID_MEAT_PULL_RADIUS;
+			var _first_aid_extra_color = COLOR_COOLDOWN_BRUTE_BUTCHER_CHAINS;
 			var _first_aid_extra_draw_radius = _first_aid_extra_radius * _radius_scale;
 
-			// Emergency Pull shows only rescue range; Fresh Meat adds smell range to healing.
+			// Emergency Pull shows its rescue range instead of a landing effect radius.
 			draw_set_color(_first_aid_extra_color);
 			draw_set_alpha(BALANCE_FIRST_AID_MEAT_EXTRA_RADIUS_FILL_ALPHA);
 			draw_circle(_mouse_x, _mouse_y, _first_aid_extra_draw_radius, false);
@@ -812,6 +809,41 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 			draw_set_alpha(target_selection_outline_alpha);
 			draw_circle(_mouse_x, _mouse_y, _draw_radius, true);
 		}
+	}
+
+	// Necromedic previews the exact number of Bonelets created at the aimed position.
+	if (target_selection_projectile_type == PROJECTILE_TYPE.HEAL
+		&& global.shell_factory_first_aid_enchantment == FIRST_AID_MEAT_ENCHANTMENT.NECROMEDIC)
+	{
+		var _necromedic_bonelet_count = corpse_count_inside_radius_get(
+			_mouse_world_x,
+			_mouse_world_y,
+			target_selection_radius,
+			BALANCE_FIRST_AID_MEAT_NECROMEDIC_MAX_CORPSES
+		);
+		var _necromedic_count_text = "Bonelets: " + string(_necromedic_bonelet_count);
+		var _necromedic_count_padding_x = 8;
+		var _necromedic_count_padding_y = 5;
+		var _necromedic_count_width = string_width(_necromedic_count_text)
+			+ (_necromedic_count_padding_x * 2);
+		var _necromedic_count_height = string_height(_necromedic_count_text)
+			+ (_necromedic_count_padding_y * 2);
+
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_middle);
+		draw_set_alpha(0.86);
+		draw_set_color(COLOR_HUD_BACKGROUND);
+		draw_rectangle(
+			_mouse_x - (_necromedic_count_width * 0.5),
+			_mouse_y - (_necromedic_count_height * 0.5),
+			_mouse_x + (_necromedic_count_width * 0.5),
+			_mouse_y + (_necromedic_count_height * 0.5),
+			false
+		);
+
+		draw_set_alpha(1);
+		draw_set_color(COLOR_PROJECTILE_SKELETONS);
+		draw_text(_mouse_x, _mouse_y, _necromedic_count_text);
 	}
 
 	if (target_selection_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)

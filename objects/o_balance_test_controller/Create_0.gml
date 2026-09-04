@@ -71,6 +71,7 @@ demon_test_configs = [
 optional_test_configs = [
 	{ option_id: "skeleton_healer", label: "2 Skeleton Healers", enabled: false, object_index: o_skeleton_healer, option_type: "unit", count: 2 },
 	{ option_id: "demon_wizard", label: "2 Demon Wizards", enabled: false, object_index: o_demon_wizard, option_type: "unit", count: 2 },
+	{ option_id: "bone_bannerman", label: "2 Bone Bannermen", enabled: false, object_index: o_bone_bannerman, option_type: "unit", count: 2 },
 	{ option_id: "heal_tower", label: "1 Heal Tower", enabled: false, object_index: o_tower_heal, option_type: "tower" },
 	{ option_id: "damage_tower", label: "1 Damage Tower", enabled: false, object_index: o_tower_damage, option_type: "tower" },
 	{ option_id: "magic_tower", label: "1 Magic Tower", enabled: false, object_index: o_magic_tower, option_type: "tower" }

@@ -397,6 +397,21 @@ status_effect_particle_timers = array_create(STATUS_EFFECT.COUNT, 0);
 // Friendly support effects keep separate entries for every caster.
 support_buff_effects = [];
 support_heal_effects = [];
+bone_bannerman_buff_timer = 0; // A single shared timer prevents multiple banner auras from stacking.
+
+bone_bannerman_buff_apply = function(_duration)
+{
+	bone_bannerman_buff_timer = max(
+		bone_bannerman_buff_timer,
+		max(1, floor(_duration))
+	);
+	return true;
+};
+
+bone_bannerman_buff_is_active = function()
+{
+	return bone_bannerman_buff_timer > 0;
+};
 
 support_buff_has_source = function(_source)
 {
@@ -462,6 +477,11 @@ support_heal_add = function(_source, _duration, _interval, _heal_amount)
 
 support_effects_update = function()
 {
+	if (bone_bannerman_buff_timer > 0)
+	{
+		bone_bannerman_buff_timer = max(0, bone_bannerman_buff_timer - gameplay_time_scale);
+	}
+
 	for (var _effect_index = array_length(support_buff_effects) - 1; _effect_index >= 0; --_effect_index)
 	{
 		var _buff = support_buff_effects[_effect_index];
@@ -976,6 +996,12 @@ unit_attack_reload_multiplier_get = function()
 	var _reload_multiplier = status_effect_attack_reload_multiplier()
 		* demonic_infusion_reload_multiplier_get();
 
+	// Banner attack speed is reciprocal because this function returns reload duration.
+	if (unit_faction == UNIT_FACTION.FRIENDLY && bone_bannerman_buff_is_active())
+	{
+		_reload_multiplier /= BALANCE_BONE_BANNERMAN_ATTACK_SPEED_MULTIPLIER;
+	}
+
 	if (unit_faction == UNIT_FACTION.FRIENDLY && !unit_is_on_tainted_ground())
 	{
 		_reload_multiplier /= BALANCE_TAINT_FRIENDLY_ATTACK_SPEED_MULTIPLIER;
@@ -1011,6 +1037,11 @@ ability_cooldown_time_get = function(_base_cooldown)
 unit_move_speed_multiplier_get = function()
 {
 	var _move_multiplier = status_effect_movement_multiplier();
+
+	if (unit_faction == UNIT_FACTION.FRIENDLY && bone_bannerman_buff_is_active())
+	{
+		_move_multiplier *= BALANCE_BONE_BANNERMAN_MOVE_SPEED_MULTIPLIER;
+	}
 
 	if (unit_faction == UNIT_FACTION.FRIENDLY && !unit_is_on_tainted_ground())
 	{
@@ -2835,68 +2866,6 @@ taint_shell_tumor_is_valid = function(_target)
 {
 	return target_can_be_attacked(_target)
 		&& _target.object_index == o_taint_shell_tumor;
-};
-
-first_aid_meat_fresh_target_is_valid = function(_target)
-{
-	if (!target_can_be_attacked(_target)
-		|| _target.object_index != o_first_aid_meat
-		|| !variable_instance_exists(_target, "first_aid_meat_enchantment")
-		|| _target.first_aid_meat_enchantment != FIRST_AID_MEAT_ENCHANTMENT.FRESH_MEAT)
-	{
-		return false;
-	}
-
-	// Deterministic balance matches must not attract enemies from another simulated match.
-	if (variable_instance_exists(_target, "balance_test_match_id")
-		&& _target.balance_test_match_id >= 0
-		&& (!variable_instance_exists(id, "balance_test_match_id")
-			|| balance_test_match_id != _target.balance_test_match_id))
-	{
-		return false;
-	}
-
-	return true;
-};
-
-first_aid_meat_fresh_target_find = function()
-{
-	// Once attracted, keep attacking the same meat while it survives.
-	if (first_aid_meat_fresh_target_is_valid(target_instance))
-	{
-		return target_instance;
-	}
-
-	var _nearest_meat = noone;
-	var _nearest_distance_squared = infinity;
-	var _meat_count = instance_number(o_first_aid_meat);
-
-	for (var _meat_index = 0; _meat_index < _meat_count; ++_meat_index)
-	{
-		var _meat = instance_find(o_first_aid_meat, _meat_index);
-
-		if (!first_aid_meat_fresh_target_is_valid(_meat))
-		{
-			continue;
-		}
-
-		var _distance_x = _meat.x - x;
-		var _distance_y = _meat.y - y;
-		var _distance_squared = (_distance_x * _distance_x) + (_distance_y * _distance_y);
-		var _smell_radius = variable_instance_exists(_meat, "fresh_smell_radius")
-			? _meat.fresh_smell_radius
-			: BALANCE_FIRST_AID_MEAT_FRESH_SMELL_RADIUS;
-		var _smell_radius_squared = _smell_radius * _smell_radius;
-
-		if (_distance_squared <= _smell_radius_squared
-			&& _distance_squared < _nearest_distance_squared)
-		{
-			_nearest_meat = _meat;
-			_nearest_distance_squared = _distance_squared;
-		}
-	}
-
-	return _nearest_meat;
 };
 
 taint_shell_tumor_target_find = function()

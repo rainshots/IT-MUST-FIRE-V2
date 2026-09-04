@@ -40,6 +40,39 @@ if (unholy_savage_leap_active)
 	draw_set_alpha(1);
 }
 
+// Banner-buffed units carry one red ground aura regardless of the number of sources.
+if (unit_faction == UNIT_FACTION.FRIENDLY
+	&& hp > 0
+	&& bone_bannerman_buff_is_active())
+{
+	var _banner_aura_pulse = sin(current_time * BALANCE_BONE_BANNERMAN_UNIT_AURA_PULSE_SPEED)
+		* BALANCE_BONE_BANNERMAN_UNIT_AURA_PULSE_AMOUNT;
+	var _banner_aura_radius_x = BALANCE_BONE_BANNERMAN_UNIT_AURA_RADIUS_X + _banner_aura_pulse;
+	var _banner_aura_radius_y = BALANCE_BONE_BANNERMAN_UNIT_AURA_RADIUS_Y + (_banner_aura_pulse * 0.4);
+
+	draw_set_color(COLOR_BONE_BANNERMAN_AURA);
+	draw_set_alpha(BALANCE_BONE_BANNERMAN_UNIT_AURA_ALPHA);
+	draw_ellipse(
+		x - _banner_aura_radius_x,
+		y - _banner_aura_radius_y,
+		x + _banner_aura_radius_x,
+		y + _banner_aura_radius_y,
+		false
+	);
+	draw_set_alpha(BALANCE_BONE_BANNERMAN_UNIT_AURA_OUTLINE_ALPHA);
+	draw_ellipse(
+		x - _banner_aura_radius_x,
+		y - _banner_aura_radius_y,
+		x + _banner_aura_radius_x,
+		y + _banner_aura_radius_y,
+		true
+	);
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+}
+
 // Draw unit sprite with combat offset and a small whip panic shake while boosted.
 var _whip_shake_x = 0;
 

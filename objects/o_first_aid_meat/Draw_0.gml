@@ -1,4 +1,4 @@
-// Enchanted shells show their additional rescue or smell radius behind the heal radius.
+// Emergency Pull shows its rescue radius behind the shell.
 var _extra_radius = 0;
 var _extra_radius_color = c_white;
 
@@ -6,11 +6,6 @@ if (first_aid_meat_enchantment == FIRST_AID_MEAT_ENCHANTMENT.EMERGENCY_PULL)
 {
 	_extra_radius = pull_radius;
 	_extra_radius_color = COLOR_COOLDOWN_BRUTE_BUTCHER_CHAINS;
-}
-else if (first_aid_meat_enchantment == FIRST_AID_MEAT_ENCHANTMENT.FRESH_MEAT)
-{
-	_extra_radius = fresh_smell_radius;
-	_extra_radius_color = COLOR_STATUS_NEGATIVE_RED;
 }
 
 if (_extra_radius > 0)
@@ -46,33 +41,6 @@ if (instance_exists(pull_target))
 draw_set_color(c_white);
 draw_set_alpha(1);
 draw_self();
-
-// Fresh Meat exposes its remaining durability above the shell.
-if (first_aid_meat_enchantment == FIRST_AID_MEAT_ENCHANTMENT.FRESH_MEAT && max_hp > 0)
-{
-	var _health_progress = clamp(hp / max_hp, 0, 1);
-	var _health_bar_left = x - (BALANCE_FIRST_AID_MEAT_HEALTH_BAR_WIDTH * 0.5);
-	var _health_bar_top = y - BALANCE_FIRST_AID_MEAT_HEALTH_BAR_OFFSET_Y;
-
-	draw_set_alpha(0.75);
-	draw_set_color(c_black);
-	draw_rectangle(
-		_health_bar_left,
-		_health_bar_top,
-		_health_bar_left + BALANCE_FIRST_AID_MEAT_HEALTH_BAR_WIDTH,
-		_health_bar_top + BALANCE_FIRST_AID_MEAT_HEALTH_BAR_HEIGHT,
-		false
-	);
-	draw_set_alpha(1);
-	draw_set_color(c_lime);
-	draw_rectangle(
-		_health_bar_left,
-		_health_bar_top,
-		_health_bar_left + (BALANCE_FIRST_AID_MEAT_HEALTH_BAR_WIDTH * _health_progress),
-		_health_bar_top + BALANCE_FIRST_AID_MEAT_HEALTH_BAR_HEIGHT,
-		false
-	);
-}
 
 // Restore the project's default draw state.
 draw_set_halign(fa_left);

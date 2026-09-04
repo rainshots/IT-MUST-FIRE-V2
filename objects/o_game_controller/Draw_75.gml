@@ -364,6 +364,8 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 		var _hover_width = 260;
 		var _hover_height = 248;
 		var _is_goblin_hovered = _hovered_unit.object_index == o_goblin;
+		var _has_aoe_radius = variable_instance_exists(_hovered_unit, "aoe_radius")
+			&& _hovered_unit.aoe_radius > 0;
 		var _strong_count = array_length(_strong_against);
 		var _weak_count = array_length(_weak_against);
 		var _matchup_row_count = (_strong_count > 0 ? 1 : 0) + (_weak_count > 0 ? 1 : 0);
@@ -372,6 +374,11 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 		{
 			var _matchup_row_height = 48;
 			_hover_height += 12 + (_matchup_row_height * _matchup_row_count);
+		}
+
+		if (_has_aoe_radius)
+		{
+			_hover_height += 20;
 		}
 
 		if (_is_goblin_hovered)
@@ -425,6 +432,18 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 		else if (_hovered_unit.object_index == o_skeleton)
 		{
 			_unit_name = "Skeleton";
+		}
+		else if (_hovered_unit.object_index == o_ripcage_cannon)
+		{
+			_unit_name = "Ripcage Cannon";
+		}
+		else if (_hovered_unit.object_index == o_bone_bannerman)
+		{
+			_unit_name = "Bone Bannerman";
+		}
+		else if (_hovered_unit.object_index == o_provocateur)
+		{
+			_unit_name = "Provocateur";
 		}
 		else if (_hovered_unit.object_index == o_zombie)
 		{
@@ -526,6 +545,13 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 			_extra_line_y += 20;
 			draw_text(_hover_x + _hover_padding, _hover_y + _extra_line_y, "Attack radius: " + string_format(_hovered_unit.attack_radius, 0, 0));
 			_extra_line_y += 20;
+
+			if (_has_aoe_radius)
+			{
+				draw_text(_hover_x + _hover_padding, _hover_y + _extra_line_y, "AOE radius: " + string_format(_hovered_unit.aoe_radius, 0, 0));
+				_extra_line_y += 20;
+			}
+
 			draw_text(_hover_x + _hover_padding, _hover_y + _extra_line_y, "Move speed: " + string_format(_hovered_unit.move_speed, 0, 2));
 			_extra_line_y += 20;
 			draw_text(_hover_x + _hover_padding, _hover_y + _extra_line_y, _armor_text);

@@ -1677,6 +1677,11 @@ global.shell_factory_hellcow_enchantment_event_completed = false;
 // Doom Bell has its own independent match-long enchantment choice.
 global.shell_factory_doom_bell_enchantment = DOOM_BELL_ENCHANTMENT.NONE;
 global.shell_factory_doom_bell_enchantment_event_completed = false;
+// Shell Factory upgrades are permanent and each event can be completed once per match.
+global.shell_factory_taint_bloom_event_completed = false;
+global.shell_factory_opening_barrage_event_completed = false;
+global.shell_factory_favored_ammunition_projectile_type = noone;
+global.shell_factory_favored_ammunition_event_completed = false;
 
 // Global one-shot sound groups used by gameplay feedback.
 global.night_start_sounds = [
@@ -2469,6 +2474,102 @@ corpse_nearest_take = function(_origin_x, _origin_y)
 	return _nearest_corpse;
 };
 
+corpse_count_inside_radius_get = function(_origin_x, _origin_y, _radius, _maximum_count)
+{
+	var _count_limit = max(0, floor(_maximum_count));
+	var _radius_squared = _radius * _radius;
+	var _corpse_count = array_length(corpse_draw_data);
+	var _inside_count = 0;
+
+	if (_count_limit <= 0)
+	{
+		return 0;
+	}
+
+	// Stop at the summon limit because additional corpses do not affect the preview.
+	for (var _corpse_index = 0; _corpse_index < _corpse_count; ++_corpse_index)
+	{
+		var _corpse = corpse_draw_data[_corpse_index];
+		var _distance_x = _corpse.x - _origin_x;
+		var _distance_y = _corpse.y - _origin_y;
+		var _distance_squared = (_distance_x * _distance_x) + (_distance_y * _distance_y);
+
+		if (_distance_squared <= _radius_squared)
+		{
+			_inside_count++;
+
+			if (_inside_count >= _count_limit)
+			{
+				break;
+			}
+		}
+	}
+
+	return _inside_count;
+};
+
+corpse_bonelets_raise_in_radius = function(_origin_x, _origin_y, _radius, _maximum_count)
+{
+	var _raise_limit = max(0, floor(_maximum_count));
+	var _radius_squared = _radius * _radius;
+	var _raised_count = 0;
+
+	// Consume the nearest corpse in the impact area for each temporary Bonelet.
+	for (var _raise_index = 0; _raise_index < _raise_limit; ++_raise_index)
+	{
+		var _nearest_corpse_index = -1;
+		var _nearest_distance_squared = infinity;
+		var _corpse_count = array_length(corpse_draw_data);
+
+		for (var _corpse_index = 0; _corpse_index < _corpse_count; ++_corpse_index)
+		{
+			var _corpse = corpse_draw_data[_corpse_index];
+			var _distance_x = _corpse.x - _origin_x;
+			var _distance_y = _corpse.y - _origin_y;
+			var _distance_squared = (_distance_x * _distance_x) + (_distance_y * _distance_y);
+
+			if (_distance_squared <= _radius_squared
+				&& _distance_squared < _nearest_distance_squared)
+			{
+				_nearest_corpse_index = _corpse_index;
+				_nearest_distance_squared = _distance_squared;
+			}
+		}
+
+		if (_nearest_corpse_index < 0)
+		{
+			break;
+		}
+
+		var _chosen_corpse = corpse_draw_data[_nearest_corpse_index];
+		var _bonelet = instance_create_layer(
+			_chosen_corpse.x,
+			_chosen_corpse.y,
+			"Instances",
+			o_skeleton_bonelet
+		);
+
+		if (!instance_exists(_bonelet))
+		{
+			break;
+		}
+
+		// Necromedic summons are independent and expire during morning cleanup.
+		_bonelet.squad = noone;
+		_bonelet.squad_unit_index = -1;
+		_bonelet.projectile_skeleton_dies_at_morning = true;
+		_bonelet.regroup_is_active = false;
+		_bonelet.rally_is_active = false;
+		_bonelet.target_instance = noone;
+		_bonelet.alert_target = noone;
+
+		array_delete(corpse_draw_data, _nearest_corpse_index, 1);
+		_raised_count++;
+	}
+
+	return _raised_count;
+};
+
 corpse_index_find = function(_corpse_id)
 {
 	var _corpse_count = array_length(corpse_draw_data);
@@ -2824,12 +2925,12 @@ building_choices = [
 		iron_cost: BALANCE_BUILDING_IRON_COST
 	},
 	{
-		building_object: o_ritual_circle,
+		building_object: o_summoning_grounds,
 		building_sprite: s_ritual_circle,
-		building_name: "Ritual Circle",
+		building_name: "Summoning Grounds",
 		building_group: "Other",
-		building_description: "Allows performing rituals that affect the next night.",
-		iron_cost: BALANCE_RITUAL_CIRCLE_BUILDING_IRON_COST
+		building_description: "Summons specialist units directly into selected squads.",
+		iron_cost: BALANCE_SUMMONING_GROUNDS_BUILDING_IRON_COST
 	},
 	{
 		building_object: o_unholy_shrine,
@@ -2844,7 +2945,7 @@ building_choices = [
 		building_sprite: s_shell_factory,
 		building_name: "Shell Factory",
 		building_group: "Other",
-		building_description: "Produces squad shells while staffed and offers permanent shell enchantments.",
+		building_description: "Produces squad shells while staffed and offers permanent shell improvements.",
 		iron_cost: BALANCE_BUILDING_IRON_COST
 	},
 	{
@@ -3033,6 +3134,18 @@ debug_unit_choices = [
 		unit_object: o_skeleton_warrior
 	},
 	{
+		label: "Ripcage Cannon",
+		unit_object: o_ripcage_cannon
+	},
+	{
+		label: "Bone Bannerman",
+		unit_object: o_bone_bannerman
+	},
+	{
+		label: "Provocateur",
+		unit_object: o_provocateur
+	},
+	{
 		label: "Zombie",
 		unit_object: o_zombie
 	},
@@ -3088,6 +3201,8 @@ debug_squad_choices = [
 	{ label: "BONE ARCHER", unit_object: o_skeleton_archer, squad_type: SQUAD_TYPE.UNDEAD, unit_count: BALANCE_SQUAD_SKELETON_COUNT },
 	{ label: "BONE MAGE", unit_object: o_skeleton_mage, squad_type: SQUAD_TYPE.UNDEAD, unit_count: BALANCE_SQUAD_SKELETON_COUNT },
 	{ label: "SKEL HEALER", unit_object: o_skeleton_healer, squad_type: SQUAD_TYPE.UNDEAD, unit_count: BALANCE_SQUAD_SKELETON_COUNT },
+	{ label: "RIPCAGE CANNON", unit_object: o_ripcage_cannon, squad_type: SQUAD_TYPE.UNDEAD, unit_count: BALANCE_SQUAD_SKELETON_COUNT },
+	{ label: "BONE BANNERMAN", unit_object: o_bone_bannerman, squad_type: SQUAD_TYPE.UNDEAD, unit_count: BALANCE_SQUAD_SKELETON_COUNT },
 	{ label: "MAWLING", unit_object: o_mawling, squad_type: SQUAD_TYPE.DEMON, unit_count: BALANCE_SQUAD_PITLING_COUNT },
 	{ label: "DEMON WIZARD", unit_object: o_demon_wizard, squad_type: SQUAD_TYPE.DEMON, unit_count: BALANCE_SQUAD_PITLING_COUNT },
 	{ label: "PITLING", unit_object: o_pitling, squad_type: SQUAD_TYPE.DEMON, unit_count: BALANCE_SQUAD_PITLING_COUNT },
@@ -9677,7 +9792,9 @@ combat_unit_matchup_get = function(_unit_object)
 		_strong_against = [o_enemy_knight, o_enemy_mage];
 		_weak_against = [o_enemy_peasant, o_enemy_catapult];
 	}
-	else if (_unit_object == o_skeleton_healer || _unit_object == o_demon_wizard)
+	else if (_unit_object == o_skeleton_healer
+		|| _unit_object == o_bone_bannerman
+		|| _unit_object == o_demon_wizard)
 	{
 		_strong_against = [o_enemy_mage];
 		_weak_against = [o_enemy_peasant, o_enemy_catapult];
@@ -11607,6 +11724,11 @@ start_night_phase = function()
 	if (instance_exists(o_cannon))
 	{
 		var _cannon = instance_find(o_cannon, 0);
+
+		if (variable_instance_exists(_cannon, "cannon_opening_barrage_night_start"))
+		{
+			_cannon.cannon_opening_barrage_night_start();
+		}
 
 		if (global.ritual_lesser_gate_active && !instance_exists(o_lesser_gate))
 		{

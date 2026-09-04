@@ -284,6 +284,21 @@ hud_unit_display_name_get = function(_unit_object)
 		return "Skeleton";
 	}
 
+	if (_unit_object == o_ripcage_cannon)
+	{
+		return "Ripcage Cannon";
+	}
+
+	if (_unit_object == o_bone_bannerman)
+	{
+		return "Bone Bannerman";
+	}
+
+	if (_unit_object == o_provocateur)
+	{
+		return "Provocateur";
+	}
+
 	if (_unit_object == o_mawling)
 	{
 		return "Mawling";
@@ -382,6 +397,18 @@ hud_unit_base_stats_get = function(_unit_object)
 	else if (_unit_object == o_skeleton)
 	{
 		_stats = hud_unit_base_stats_create(BALANCE_SKELETON_HP, BALANCE_SKELETON_ARMOR, BALANCE_SKELETON_MAGIC_RESISTANCE, BALANCE_SKELETON_DAMAGE, 0, BALANCE_SKELETON_RELOAD_TIME, BALANCE_SKELETON_ATTACK_RADIUS, BALANCE_SKELETON_MOVE_SPEED);
+	}
+	else if (_unit_object == o_ripcage_cannon)
+	{
+		_stats = hud_unit_base_stats_create(BALANCE_RIPCAGE_CANNON_HP, BALANCE_RIPCAGE_CANNON_ARMOR, BALANCE_RIPCAGE_CANNON_MAGIC_RESISTANCE, BALANCE_RIPCAGE_CANNON_DAMAGE, 0, BALANCE_RIPCAGE_CANNON_RELOAD_TIME, BALANCE_RIPCAGE_CANNON_ATTACK_RADIUS, BALANCE_RIPCAGE_CANNON_MOVE_SPEED);
+	}
+	else if (_unit_object == o_bone_bannerman)
+	{
+		_stats = hud_unit_base_stats_create(BALANCE_BONE_BANNERMAN_HP, BALANCE_BONE_BANNERMAN_ARMOR, BALANCE_BONE_BANNERMAN_MAGIC_RESISTANCE, BALANCE_BONE_BANNERMAN_DAMAGE, BALANCE_BONE_BANNERMAN_MAGIC_DAMAGE, BALANCE_BONE_BANNERMAN_RELOAD_TIME, BALANCE_BONE_BANNERMAN_ATTACK_RADIUS, BALANCE_BONE_BANNERMAN_MOVE_SPEED);
+	}
+	else if (_unit_object == o_provocateur)
+	{
+		_stats = hud_unit_base_stats_create(BALANCE_PROVOCATEUR_HP, BALANCE_PROVOCATEUR_ARMOR, BALANCE_PROVOCATEUR_MAGIC_RESISTANCE, BALANCE_PROVOCATEUR_DAMAGE, BALANCE_PROVOCATEUR_MAGIC_DAMAGE, BALANCE_PROVOCATEUR_RELOAD_TIME, BALANCE_PROVOCATEUR_ATTACK_RADIUS, BALANCE_PROVOCATEUR_MOVE_SPEED);
 	}
 	else if (_unit_object == o_mawling)
 	{
@@ -1051,9 +1078,12 @@ projectile_aim_prompt_gap = 6;
 projectile_key_prompt_prefix = "Press ";
 projectile_day_alpha = 0.45;
 projectile_description_width = 330;
-projectile_description_height = 58;
+projectile_description_minimum_height = 58;
 projectile_description_gap = 8;
 projectile_description_line_separation = 16;
+projectile_description_padding = 10;
+projectile_description_title_gap = 4;
+projectile_description_screen_margin = 12;
 projectile_matchup_icon_radius = 18;
 projectile_matchup_icon_gap = 42;
 projectile_matchup_row_gap = 42;
@@ -1312,14 +1342,10 @@ projectile_descriptions[PROJECTILE_TYPE.HEAL] = "Remains on the ground for "
 	+ string(BALANCE_FIRST_AID_MEAT_HEAL_AMOUNT)
 	+ " health to all friendly units inside a "
 	+ string(BALANCE_FIRST_AID_MEAT_HEAL_RADIUS)
-	+ " pixel base radius. Payload Mastery improves each pulse. Emergency Pull replaces area healing with rescues of allies below "
-	+ string(BALANCE_FIRST_AID_MEAT_PULL_HP_THRESHOLD * 100)
-	+ "% HP, restoring "
-	+ string(BALANCE_FIRST_AID_MEAT_PULL_FINISH_HEAL)
-	+ " HP after each pull.";
+	+ " pixel base radius. Payload Mastery improves each pulse.";
 projectile_descriptions[PROJECTILE_TYPE.BOMB] = "Hold and drag from the landing point to aim a "
 	+ string(BALANCE_PROJECTILE_HELLCOW_CORRIDOR_WIDTH)
-	+ "px-wide HellCow charge. It pushes enemies along the arrow. Shell Factory enchantments add a final stun or a slowing trail.";
+	+ "px-wide HellCow charge. It pushes enemies along the arrow.";
 projectile_descriptions[PROJECTILE_TYPE.SKELETONS] = "Summons " + string(BALANCE_PROJECTILE_SKELETON_COUNT) + " skeleton inside a " + string(BALANCE_PROJECTILE_SKELETON_RADIUS) + " pixel radius. Payload Mastery improves it.";
 projectile_descriptions[PROJECTILE_TYPE.BUILDING_SHELL] = "Builds its stored structure where it lands. Must be fired onto tainted ground.";
 projectile_descriptions[PROJECTILE_TYPE.CLEANSE] = "Enemy projectile that removes Taint where it lands.";
@@ -1328,3 +1354,118 @@ projectile_descriptions[PROJECTILE_TYPE.DOOM_BELL] = "Stuns all friendly and ene
 	+ " pixel radius for "
 	+ string(BALANCE_PROJECTILE_DOOM_BELL_STUN_TIME)
 	+ " seconds. Deals no damage.";
+
+projectile_enchantment_description_get = function(_projectile_type)
+{
+	// Taint Compost enchantments add a persistent object at the impact point.
+	if (_projectile_type == PROJECTILE_TYPE.CORRUPTION
+		&& variable_global_exists("shell_factory_taint_enchantment"))
+	{
+		if (global.shell_factory_taint_enchantment == TAINT_COMPOST_ENCHANTMENT.EXPLOSIVE_FERTILIZER)
+		{
+			return "Enchantment: Explosive Fertilizer\nCreates "
+				+ string(BALANCE_TAINT_COMPOST_PUMPKIN_MINE_COUNT)
+				+ " Pumpkin Mines at the center of the impact area.";
+		}
+
+		if (global.shell_factory_taint_enchantment == TAINT_COMPOST_ENCHANTMENT.SWEET_ROT)
+		{
+			return "Enchantment: Sweet Rot\nCreates a tumor that attracts enemies outside combat within "
+				+ string(BALANCE_TAINT_COMPOST_SWEET_ROT_RADIUS) + " pixels.";
+		}
+	}
+
+	// First Aid Meat enchantments replace its normal healing behavior.
+	if (_projectile_type == PROJECTILE_TYPE.HEAL
+		&& variable_global_exists("shell_factory_first_aid_enchantment"))
+	{
+		if (global.shell_factory_first_aid_enchantment == FIRST_AID_MEAT_ENCHANTMENT.EMERGENCY_PULL)
+		{
+			return "Enchantment: Emergency Pull\nReplaces area healing. Pulls the farthest ally below "
+				+ string(BALANCE_FIRST_AID_MEAT_PULL_HP_THRESHOLD * 100)
+				+ "% HP from within " + string(BALANCE_FIRST_AID_MEAT_PULL_RADIUS)
+				+ " pixels and restores " + string(BALANCE_FIRST_AID_MEAT_PULL_FINISH_HEAL)
+				+ " HP after each pull.";
+		}
+
+		if (global.shell_factory_first_aid_enchantment == FIRST_AID_MEAT_ENCHANTMENT.NECROMEDIC)
+		{
+			return "Enchantment: Necromedic\nReplaces the normal ground effect. Instantly consumes up to "
+				+ string(BALANCE_FIRST_AID_MEAT_NECROMEDIC_MAX_CORPSES)
+				+ " corpses in the impact area. Each corpse becomes an independent Bonelet that dies in the morning.";
+		}
+	}
+
+	// HellCow enchantments add a charge-end effect or a slowing trail.
+	if (_projectile_type == PROJECTILE_TYPE.BOMB
+		&& variable_global_exists("shell_factory_hellcow_enchantment"))
+	{
+		if (global.shell_factory_hellcow_enchantment == HELLCOW_ENCHANTMENT.FINAL_MOO)
+		{
+			return "Enchantment: Final Moo\nThe end of the charge stuns enemies within "
+				+ string(BALANCE_PROJECTILE_HELLCOW_FINAL_MOO_RADIUS)
+				+ " pixels for " + string(BALANCE_PROJECTILE_HELLCOW_FINAL_MOO_STUN_TIME)
+				+ " seconds.";
+		}
+
+		if (global.shell_factory_hellcow_enchantment == HELLCOW_ENCHANTMENT.STICKY_TRAIL)
+		{
+			return "Enchantment: Sticky Trail\nLeaves a trail for "
+				+ string(BALANCE_PROJECTILE_HELLCOW_STICKY_TRAIL_LIFETIME)
+				+ " seconds that slows enemies by "
+				+ string(BALANCE_PROJECTILE_HELLCOW_STICKY_TRAIL_SLOW_AMOUNT * 100) + "%.";
+		}
+	}
+
+	// Doom Bell enchantments replace its normal impact stun with a landed bell.
+	if (_projectile_type == PROJECTILE_TYPE.DOOM_BELL
+		&& variable_global_exists("shell_factory_doom_bell_enchantment"))
+	{
+		if (global.shell_factory_doom_bell_enchantment == DOOM_BELL_ENCHANTMENT.FUNERAL_PAUSE)
+		{
+			return "Enchantment: Funeral Pause\nReplaces the normal stun with enemy stasis for up to "
+				+ string(BALANCE_DOOM_BELL_FUNERAL_PAUSE_DURATION)
+				+ " seconds. Reload takes "
+				+ string(BALANCE_DOOM_BELL_FUNERAL_PAUSE_RELOAD_PENALTY) + " seconds longer.";
+		}
+
+		if (global.shell_factory_doom_bell_enchantment == DOOM_BELL_ENCHANTMENT.DEAD_SILENCE)
+		{
+			return "Enchantment: Dead Silence\nReplaces the normal stun with a "
+				+ string(BALANCE_DOOM_BELL_DEAD_SILENCE_RADIUS)
+				+ "-pixel silence zone for up to "
+				+ string(BALANCE_DOOM_BELL_DEAD_SILENCE_DURATION) + " seconds.";
+		}
+	}
+
+	return "";
+};
+
+projectile_shell_factory_upgrade_description_get = function(_projectile_type)
+{
+	var _description = "";
+
+	if (_projectile_type == PROJECTILE_TYPE.CORRUPTION
+		&& variable_global_exists("shell_factory_taint_bloom_event_completed")
+		&& global.shell_factory_taint_bloom_event_completed)
+	{
+		_description = "Upgrade: Taint Bloom\nEffect radius increased by "
+			+ string(round((BALANCE_SHELL_FACTORY_TAINT_BLOOM_RADIUS_MULTIPLIER - 1) * 100))
+			+ "%.";
+	}
+
+	if (variable_global_exists("shell_factory_favored_ammunition_event_completed")
+		&& global.shell_factory_favored_ammunition_event_completed
+		&& variable_global_exists("shell_factory_favored_ammunition_projectile_type")
+		&& global.shell_factory_favored_ammunition_projectile_type == _projectile_type)
+	{
+		var _reload_reduction = round(
+			(1 - BALANCE_SHELL_FACTORY_FAVORED_AMMUNITION_RELOAD_TIME_MULTIPLIER) * 100
+		);
+		var _favored_description = "Upgrade: Favored Ammunition\nReload time reduced by "
+			+ string(_reload_reduction) + "%.";
+		_description += (_description == "" ? "" : "\n\n") + _favored_description;
+	}
+
+	return _description;
+};

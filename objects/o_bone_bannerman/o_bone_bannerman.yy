@@ -1,20 +1,21 @@
 {
   "$GMObject":"",
-  "%Name":"o_taint_shell_tumor",
+  "%Name":"o_bone_bannerman",
   "eventList":[
     {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":0,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
+    {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":3,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
     {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":8,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
   ],
   "managed":true,
-  "name":"o_taint_shell_tumor",
+  "name":"o_bone_bannerman",
   "overriddenProperties":[],
   "parent":{
-    "name":"map_objects",
-    "path":"folders/Objects/map_objects.yy",
+    "name":"Friendly",
+    "path":"folders/Objects/Units/Friendly.yy",
   },
   "parentObjectId":{
-    "name":"o_map_objects_parent",
-    "path":"objects/o_map_objects_parent/o_map_objects_parent.yy",
+    "name":"o_friendly_units",
+    "path":"objects/o_friendly_units/o_friendly_units.yy",
   },
   "persistent":false,
   "physicsAngularDamping":0.1,
@@ -34,8 +35,8 @@
   "resourceVersion":"2.0",
   "solid":false,
   "spriteId":{
-    "name":"s_taint_shell",
-    "path":"sprites/s_taint_shell/s_taint_shell.yy",
+    "name":"s_bone_bannerman",
+    "path":"sprites/s_bone_bannerman/s_bone_bannerman.yy",
   },
   "spriteMaskId":null,
   "visible":true,

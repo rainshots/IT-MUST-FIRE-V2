@@ -3542,6 +3542,100 @@ function day_event_ritual_events_add(_ritual_circle)
 	day_event_add(day_event_squad_selection_add(_hell_event, _eligible_squads));
 }
 
+function day_event_summoning_grounds_events_add(_summoning_grounds)
+{
+	if (!instance_exists(_summoning_grounds) || array_length(global.squads) <= 0)
+	{
+		return;
+	}
+
+	var _eligible_squads = [];
+	array_copy(_eligible_squads, 0, global.squads, 0, array_length(global.squads));
+
+	// Every Summoning Grounds ritual may reinforce any currently active player squad.
+	var _ripcage_event = day_event_squad_create(
+		_summoning_grounds,
+		"summon_ripcage_cannon",
+		"Summon Ripcage Cannon",
+		"Summon one Ripcage Cannon into the selected squad. It has a very long-range, slow AOE attack and is recommended for ranged squads.",
+		BALANCE_SUMMONING_GROUNDS_EVENT_CULTIST_COUNT,
+		"add_ripcage_cannon_to_squad",
+		day_event_squad_unit_add_execute,
+		{
+			unit_object: o_ripcage_cannon,
+			unit_count: BALANCE_SUMMONING_GROUNDS_EVENT_UNIT_COUNT,
+			hp_cost: BALANCE_SUMMONING_GROUNDS_EVENT_HP_COST
+		}
+	);
+	day_event_add(day_event_squad_selection_add(_ripcage_event, _eligible_squads));
+
+	var _bannerman_event = day_event_squad_create(
+		_summoning_grounds,
+		"summon_bone_bannerman",
+		"Summon Bone Bannerman",
+		"Summon one Bone Bannerman into the selected squad. Its aura grants nearby units +20% movement speed and +15% attack speed.",
+		BALANCE_SUMMONING_GROUNDS_EVENT_CULTIST_COUNT,
+		"add_bone_bannerman_to_squad",
+		day_event_squad_unit_add_execute,
+		{
+			unit_object: o_bone_bannerman,
+			unit_count: BALANCE_SUMMONING_GROUNDS_EVENT_UNIT_COUNT,
+			hp_cost: BALANCE_SUMMONING_GROUNDS_EVENT_HP_COST
+		}
+	);
+	day_event_add(day_event_squad_selection_add(_bannerman_event, _eligible_squads));
+
+	var _provocateur_event = day_event_squad_create(
+		_summoning_grounds,
+		"summon_provocateur",
+		"Summon Provocateur",
+		"Summon one Provocateur into the selected squad. It has high health and forces nearby enemies to attack it instead of your other units, but cannot attack.",
+		BALANCE_SUMMONING_GROUNDS_EVENT_CULTIST_COUNT,
+		"add_provocateur_to_squad",
+		day_event_squad_unit_add_execute,
+		{
+			unit_object: o_provocateur,
+			unit_count: BALANCE_SUMMONING_GROUNDS_EVENT_UNIT_COUNT,
+			hp_cost: BALANCE_SUMMONING_GROUNDS_PROVOCATEUR_HP_COST
+		}
+	);
+	day_event_add(day_event_squad_selection_add(_provocateur_event, _eligible_squads));
+
+	var _healer_event = day_event_squad_create(
+		_summoning_grounds,
+		"summon_skeleton_healers",
+		"Summon Skeleton Healers",
+		"Summon " + string(BALANCE_SUMMONING_GROUNDS_SUPPORT_EVENT_UNIT_COUNT)
+			+ " Skeleton Healers in any squad. They will heal all units in the squad.",
+		BALANCE_SUMMONING_GROUNDS_SUPPORT_EVENT_CULTIST_COUNT,
+		"add_skeleton_healers_to_squad",
+		day_event_squad_unit_add_execute,
+		{
+			unit_object: o_skeleton_healer,
+			unit_count: BALANCE_SUMMONING_GROUNDS_SUPPORT_EVENT_UNIT_COUNT,
+			hp_cost: BALANCE_SUMMONING_GROUNDS_SUPPORT_EVENT_HP_COST
+		}
+	);
+	day_event_add(day_event_squad_selection_add(_healer_event, _eligible_squads));
+
+	var _wizard_event = day_event_squad_create(
+		_summoning_grounds,
+		"summon_demon_wizards",
+		"Summon Demon Wizards",
+		"Summon " + string(BALANCE_SUMMONING_GROUNDS_SUPPORT_EVENT_UNIT_COUNT)
+			+ " Demon Wizards in any squad. They will buff damage and speed of squad units.",
+		BALANCE_SUMMONING_GROUNDS_SUPPORT_EVENT_CULTIST_COUNT,
+		"add_demon_wizards_to_squad",
+		day_event_squad_unit_add_execute,
+		{
+			unit_object: o_demon_wizard,
+			unit_count: BALANCE_SUMMONING_GROUNDS_SUPPORT_EVENT_UNIT_COUNT,
+			hp_cost: BALANCE_SUMMONING_GROUNDS_SUPPORT_EVENT_HP_COST
+		}
+	);
+	day_event_add(day_event_squad_selection_add(_wizard_event, _eligible_squads));
+}
+
 function day_event_blood_warpaint_execute(_event, _assigned_cultists, _data)
 {
 	global.blood_bath_warpaint_morning_pending = true;
@@ -3753,14 +3847,14 @@ function day_event_shell_factory_first_aid_enchantment_create(_shell_factory)
 				+ string(BALANCE_FIRST_AID_MEAT_PULL_COOLDOWN) + " seconds."
 		},
 		{
-			title: "Fresh Meat",
-			label: "Fresh Meat",
-			icon_sprite: s_heal_meat,
-			shell_enchantment: FIRST_AID_MEAT_ENCHANTMENT.FRESH_MEAT,
-			description: "Enemies within "
-				+ string(BALANCE_FIRST_AID_MEAT_FRESH_SMELL_RADIUS)
-				+ " pixels prioritize the landed shell, which has "
-				+ string(BALANCE_FIRST_AID_MEAT_FRESH_MAX_HP) + " HP."
+			title: "Necromedic",
+			label: "Necromedic",
+			icon_sprite: s_skeleton,
+			shell_enchantment: FIRST_AID_MEAT_ENCHANTMENT.NECROMEDIC,
+			description: "Replaces area healing. Resurrects up to "
+				+ string(BALANCE_FIRST_AID_MEAT_NECROMEDIC_MAX_CORPSES)
+				+ " corpses in the impact area as temporary Bonelets. Corpses are consumed. "
+				+ "The shell does not remain on the ground. Raised Bonelets are not part of a squad and die in the morning."
 		}
 	];
 	_event.selected_unit_choice_index = 0;
@@ -3947,6 +4041,183 @@ function day_event_shell_factory_doom_bell_enchantment_create(_shell_factory)
 	return _event;
 }
 
+function day_event_shell_factory_taint_bloom_execute(_event, _assigned_cultists, _data)
+{
+	if (global.shell_factory_taint_bloom_event_completed)
+	{
+		return false;
+	}
+
+	global.shell_factory_taint_bloom_event_completed = true;
+	day_event_cultist_hp_cost_apply(_assigned_cultists, _data.hp_cost);
+	return true;
+}
+
+function day_event_shell_factory_taint_bloom_create(_shell_factory)
+{
+	if (!instance_exists(_shell_factory)
+		|| _shell_factory.object_index != o_shell_factory
+		|| global.shell_factory_taint_bloom_event_completed)
+	{
+		return noone;
+	}
+
+	var _radius_bonus = round((BALANCE_SHELL_FACTORY_TAINT_BLOOM_RADIUS_MULTIPLIER - 1) * 100);
+	var _event = new day_event_constructor(
+		"shell_factory_taint_bloom_" + string(_shell_factory),
+		"Taint Bloom",
+		"Permanently increases the Taint Compost Shell's effect radius by "
+			+ string(_radius_bonus) + "%.",
+		BALANCE_SHELL_FACTORY_UPGRADE_CULTIST_COUNT,
+		1,
+		[
+			new event_action_constructor(
+				"shell_factory_taint_bloom",
+				day_event_shell_factory_taint_bloom_execute,
+				{ hp_cost: BALANCE_SHELL_FACTORY_UPGRADE_CULTIST_HP_COST }
+			)
+		]
+	);
+	_event.source_building = _shell_factory;
+	_event.reroll_is_available = false;
+	return _event;
+}
+
+function day_event_shell_factory_opening_barrage_execute(_event, _assigned_cultists, _data)
+{
+	if (global.shell_factory_opening_barrage_event_completed)
+	{
+		return false;
+	}
+
+	global.shell_factory_opening_barrage_event_completed = true;
+	day_event_cultist_hp_cost_apply(_assigned_cultists, _data.hp_cost);
+	return true;
+}
+
+function day_event_shell_factory_opening_barrage_create(_shell_factory)
+{
+	if (!instance_exists(_shell_factory)
+		|| _shell_factory.object_index != o_shell_factory
+		|| global.shell_factory_opening_barrage_event_completed)
+	{
+		return noone;
+	}
+
+	var _event = new day_event_constructor(
+		"shell_factory_opening_barrage_" + string(_shell_factory),
+		"Opening Barrage",
+		"The Cannon does not need to reload after its first "
+			+ string(BALANCE_SHELL_FACTORY_OPENING_BARRAGE_FREE_SHOT_COUNT)
+			+ " shots each night.",
+		BALANCE_SHELL_FACTORY_UPGRADE_CULTIST_COUNT,
+		1,
+		[
+			new event_action_constructor(
+				"shell_factory_opening_barrage",
+				day_event_shell_factory_opening_barrage_execute,
+				{ hp_cost: BALANCE_SHELL_FACTORY_UPGRADE_CULTIST_HP_COST }
+			)
+		]
+	);
+	_event.source_building = _shell_factory;
+	_event.reroll_is_available = false;
+	return _event;
+}
+
+function day_event_shell_factory_favored_ammunition_execute(_event, _assigned_cultists, _data)
+{
+	if (global.shell_factory_favored_ammunition_event_completed
+		|| !is_struct(_event)
+		|| !variable_struct_exists(_event, "unit_choice_options")
+		|| !is_array(_event.unit_choice_options)
+		|| !variable_struct_exists(_event, "selected_unit_choice_index"))
+	{
+		return false;
+	}
+
+	var _choice_count = array_length(_event.unit_choice_options);
+	var _choice_index = floor(_event.selected_unit_choice_index);
+
+	if (_choice_index < 0 || _choice_index >= _choice_count)
+	{
+		return false;
+	}
+
+	var _choice = _event.unit_choice_options[_choice_index];
+
+	if (!is_struct(_choice)
+		|| !variable_struct_exists(_choice, "projectile_type")
+		|| (_choice.projectile_type != PROJECTILE_TYPE.DOOM_BELL
+			&& _choice.projectile_type != PROJECTILE_TYPE.HEAL
+			&& _choice.projectile_type != PROJECTILE_TYPE.BOMB))
+	{
+		return false;
+	}
+
+	global.shell_factory_favored_ammunition_projectile_type = _choice.projectile_type;
+	global.shell_factory_favored_ammunition_event_completed = true;
+	day_event_cultist_hp_cost_apply(_assigned_cultists, _data.hp_cost);
+	return true;
+}
+
+function day_event_shell_factory_favored_ammunition_create(_shell_factory)
+{
+	if (!instance_exists(_shell_factory)
+		|| _shell_factory.object_index != o_shell_factory
+		|| global.shell_factory_favored_ammunition_event_completed)
+	{
+		return noone;
+	}
+
+	var _reload_reduction = round(
+		(1 - BALANCE_SHELL_FACTORY_FAVORED_AMMUNITION_RELOAD_TIME_MULTIPLIER) * 100
+	);
+	var _option_description = "Permanently reduces this shell's reload time by "
+		+ string(_reload_reduction) + "%.";
+	var _event = new day_event_constructor(
+		"shell_factory_favored_ammunition_" + string(_shell_factory),
+		"Favored Ammunition",
+		"Choose Doom Bell, First Aid Meat, or HellCow. Hover an option to inspect the selected shell.",
+		BALANCE_SHELL_FACTORY_UPGRADE_CULTIST_COUNT,
+		1,
+		[
+			new event_action_constructor(
+				"shell_factory_favored_ammunition",
+				day_event_shell_factory_favored_ammunition_execute,
+				{ hp_cost: BALANCE_SHELL_FACTORY_UPGRADE_CULTIST_HP_COST }
+			)
+		]
+	);
+	_event.source_building = _shell_factory;
+	_event.unit_choice_options = [
+		{
+			title: "Doom Bell",
+			label: "Doom Bell",
+			icon_sprite: s_mega_bell,
+			projectile_type: PROJECTILE_TYPE.DOOM_BELL,
+			description: _option_description
+		},
+		{
+			title: "First Aid Meat",
+			label: "First Aid",
+			icon_sprite: s_heal_meat,
+			projectile_type: PROJECTILE_TYPE.HEAL,
+			description: _option_description
+		},
+		{
+			title: "HellCow",
+			label: "HellCow",
+			icon_sprite: s_cow,
+			projectile_type: PROJECTILE_TYPE.BOMB,
+			description: _option_description
+		}
+	];
+	_event.selected_unit_choice_index = 0;
+	_event.reroll_is_available = false;
+	return _event;
+}
+
 function day_event_building_catalog_get(_building_object)
 {
 	var _entry = function(_title, _description, _cultist_cost = 1)
@@ -3983,7 +4254,7 @@ function day_event_building_catalog_get(_building_object)
 				),
 				_entry(
 					"First Aid Meat Shell Enchantment",
-					"Choose Emergency Pull or Fresh Meat as a permanent First Aid Meat enchantment. Can be completed once per match.",
+					"Choose Emergency Pull or Necromedic as a permanent First Aid Meat enchantment. Can be completed once per match.",
 					BALANCE_SHELL_FACTORY_ENCHANTMENT_CULTIST_COUNT
 				),
 				_entry(
@@ -3995,6 +4266,27 @@ function day_event_building_catalog_get(_building_object)
 					"Doom Bell Shell Enchantment",
 					"Choose Funeral Pause or Dead Silence as a permanent Doom Bell enchantment. Can be completed once per match.",
 					BALANCE_SHELL_FACTORY_ENCHANTMENT_CULTIST_COUNT
+				),
+				_entry(
+					"Taint Bloom",
+					"Permanently increases the Taint Compost Shell's effect radius by "
+						+ string(round((BALANCE_SHELL_FACTORY_TAINT_BLOOM_RADIUS_MULTIPLIER - 1) * 100))
+						+ "%. Can be completed once per match.",
+					BALANCE_SHELL_FACTORY_UPGRADE_CULTIST_COUNT
+				),
+				_entry(
+					"Opening Barrage",
+					"The Cannon skips reloading after its first "
+						+ string(BALANCE_SHELL_FACTORY_OPENING_BARRAGE_FREE_SHOT_COUNT)
+						+ " shots each night. Can be completed once per match.",
+					BALANCE_SHELL_FACTORY_UPGRADE_CULTIST_COUNT
+				),
+				_entry(
+					"Favored Ammunition",
+					"Choose Doom Bell, First Aid Meat, or HellCow. Permanently reduces the selected shell's reload time by "
+						+ string(round((1 - BALANCE_SHELL_FACTORY_FAVORED_AMMUNITION_RELOAD_TIME_MULTIPLIER) * 100))
+						+ "%. Can be completed once per match.",
+					BALANCE_SHELL_FACTORY_UPGRADE_CULTIST_COUNT
 				)
 			];
 
@@ -4016,6 +4308,37 @@ function day_event_building_catalog_get(_building_object)
 				_entry("Archdemon Training", "Grant one randomly selected Archdemon +1 level."),
 				_entry("Relics of Great Power", "Create one artifact granting +1 Body, Fervor, or Spirit."),
 				_entry("Spoils of the Abyss", "Create 2 identical random artifacts for an Archdemon.")
+			];
+
+		case o_summoning_grounds:
+			return [
+				_entry(
+					"Summon Ripcage Cannon",
+					"Summon one Ripcage Cannon into the selected squad. It has a very long-range, slow AOE attack and is recommended for ranged squads.",
+					BALANCE_SUMMONING_GROUNDS_EVENT_CULTIST_COUNT
+				),
+				_entry(
+					"Summon Bone Bannerman",
+					"Summon one Bone Bannerman into the selected squad. Its aura grants nearby units +20% movement speed and +15% attack speed.",
+					BALANCE_SUMMONING_GROUNDS_EVENT_CULTIST_COUNT
+				),
+				_entry(
+					"Summon Provocateur",
+					"Summon one Provocateur into the selected squad. It has high health and forces nearby enemies to attack it instead of your other units, but cannot attack.",
+					BALANCE_SUMMONING_GROUNDS_EVENT_CULTIST_COUNT
+				),
+				_entry(
+					"Summon Skeleton Healers",
+					"Summon " + string(BALANCE_SUMMONING_GROUNDS_SUPPORT_EVENT_UNIT_COUNT)
+						+ " Skeleton Healers in any squad. They will heal all units in the squad.",
+					BALANCE_SUMMONING_GROUNDS_SUPPORT_EVENT_CULTIST_COUNT
+				),
+				_entry(
+					"Summon Demon Wizards",
+					"Summon " + string(BALANCE_SUMMONING_GROUNDS_SUPPORT_EVENT_UNIT_COUNT)
+						+ " Demon Wizards in any squad. They will buff damage and speed of squad units.",
+					BALANCE_SUMMONING_GROUNDS_SUPPORT_EVENT_CULTIST_COUNT
+				)
 			];
 
 		case o_ritual_circle:
@@ -4080,32 +4403,13 @@ function day_event_building_catalog_get(_building_object)
 		case o_pitlings_pit2:
 			return [
 				_entry("Fill the Ranks", "Add " + string(BALANCE_DEMONS_PIT_FILL_UNIT_COUNT) + " units of the most common type to a selected Demon squad."),
-				_entry("Summon Mawlings", "Summon a new squad of " + string(BALANCE_SQUAD_PITLING_COUNT) + " Mawlings."),
-				_entry("Mawling Specialization", "Choose whether all Mawlings in a selected squad become Balgors, Succubi, or Pitlings."),
-				_entry(
-					"Summon Demon Wizard",
-					"Summon " + string(BALANCE_SUPPORT_SUMMON_UNIT_COUNT)
-						+ " Demon Wizards in any squad. They move toward squad units and buff damage and speed within "
-						+ string(BALANCE_DEMON_WIZARD_BUFF_RADIUS) + " pixels. "
-				),
-				_entry("Demon Draft", "Add " + string(BALANCE_DEMONS_PIT_DRAFT_UNIT_COUNT) + " units of the most common type to a selected Demon squad."),
-				_entry("Infernal Fury", "Permanently increase damage of a selected Demon squad by 15%."),
-				_entry("Infernal Vitality", "Permanently increase health of a selected Demon squad by 15%.")
+				_entry("Mawling Specialization", "Choose whether all Mawlings in a selected squad become Balgors, Succubi, or Pitlings.")
 			];
 
 		case o_graveyard2:
 			return [
-				_entry("Raise Bonelets Squad", "Summon a new squad of " + string(BALANCE_SQUAD_SKELETON_COUNT) + " Bonelets."),
 				_entry("Bonelet Specialization", "Choose whether all Bonelets in a selected squad become Bone Warriors, Bone Mages, or Bone Archers."),
-				_entry(
-					"Summon Skeleton Healer",
-					"Summon " + string(BALANCE_SUPPORT_SUMMON_UNIT_COUNT)
-						+ " Skeleton Healers in any squad. They move toward wounded squad units and heal them within "
-						+ string(BALANCE_SKELETON_HEALER_HEAL_RADIUS) + " pixels. "
-				),
-				_entry("Skeleton Draft", "Add " + string(BALANCE_GRAVEYARD_DRAFT_UNIT_COUNT) + " units of the most common type to a selected Undead squad."),
-				_entry("Deadlier Bones", "Permanently increase damage of a selected Undead squad by 15%."),
-				_entry("Reinforced Remains", "Permanently increase health of a selected Undead squad by 15%.")
+				_entry("Skeleton Draft", "Add " + string(BALANCE_GRAVEYARD_DRAFT_UNIT_COUNT) + " units of the most common type to a selected Undead squad.")
 			];
 
 		case o_meat_bath:
@@ -4741,7 +5045,7 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 	// World jobs are available without owning a source building.
 	day_event_world_jobs_generate();
 
-	// Shell Factory offers four independent, match-long shell enchantment choices.
+	// Shell Factory offers independent, match-long shell enchantments and upgrades.
 	if (instance_exists(o_shell_factory))
 	{
 		var _shell_factory = instance_find(o_shell_factory, 0);
@@ -4785,6 +5089,36 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 				day_event_add(_doom_bell_enchantment_event);
 			}
 		}
+
+		if (!global.shell_factory_taint_bloom_event_completed)
+		{
+			var _taint_bloom_event = day_event_shell_factory_taint_bloom_create(_shell_factory);
+
+			if (is_struct(_taint_bloom_event))
+			{
+				day_event_add(_taint_bloom_event);
+			}
+		}
+
+		if (!global.shell_factory_opening_barrage_event_completed)
+		{
+			var _opening_barrage_event = day_event_shell_factory_opening_barrage_create(_shell_factory);
+
+			if (is_struct(_opening_barrage_event))
+			{
+				day_event_add(_opening_barrage_event);
+			}
+		}
+
+		if (!global.shell_factory_favored_ammunition_event_completed)
+		{
+			var _favored_ammunition_event = day_event_shell_factory_favored_ammunition_create(_shell_factory);
+
+			if (is_struct(_favored_ammunition_event))
+			{
+				day_event_add(_favored_ammunition_event);
+			}
+		}
 	}
 
 	var _foundry_count = instance_number(o_foundry);
@@ -4796,6 +5130,18 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 		if (instance_exists(_foundry))
 		{
 			day_event_foundry_events_add(_foundry);
+		}
+	}
+
+	var _summoning_grounds_count = instance_number(o_summoning_grounds);
+
+	for (var _grounds_index = 0; _grounds_index < _summoning_grounds_count; ++_grounds_index)
+	{
+		var _summoning_grounds = instance_find(o_summoning_grounds, _grounds_index);
+
+		if (instance_exists(_summoning_grounds))
+		{
+			day_event_summoning_grounds_events_add(_summoning_grounds);
 		}
 	}
 
@@ -4896,10 +5242,6 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 		var _pit = instance_find(o_pitlings_pit2, _pit_index);
 		var _mawling_squads = day_event_squads_get(SQUAD_TYPE.DEMON, o_mawling);
 		var _demon_squads = day_event_squads_get(SQUAD_TYPE.DEMON);
-		var _pit_eligible_squads = [];
-		// Support and upgrade events unlock after a Demon squad is recruited at a Squad Point.
-		var _pit_support_summon_is_available = array_length(_demon_squads) > 0;
-		array_copy(_pit_eligible_squads, 0, global.squads, 0, array_length(global.squads));
 
 		// Mawlings must be specialized before Demons Pit can offer its normal event pool again.
 		if (array_length(_mawling_squads) > 0)
@@ -4941,64 +5283,6 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 			);
 			day_event_add(day_event_squad_selection_add(_fill_event, _demon_squads));
 		}
-
-		if (_pit_support_summon_is_available)
-		{
-			var _wizard_cost = day_event_support_summon_cost_get();
-			var _wizard_event = day_event_squad_create(
-				_pit,
-				"summon_demon_wizard",
-				"Summon Demon Wizard",
-				"Summon " + string(BALANCE_SUPPORT_SUMMON_UNIT_COUNT)
-					+ " Demon Wizards in any squad. They move toward squad units and buff damage and speed within "
-					+ string(BALANCE_DEMON_WIZARD_BUFF_RADIUS) + " pixels.",
-				_wizard_cost.cultist_count,
-				"add_demon_wizard_to_squad",
-				day_event_squad_unit_add_execute,
-				{ unit_object: o_demon_wizard, unit_count: BALANCE_SUPPORT_SUMMON_UNIT_COUNT, hp_cost: _wizard_cost.hp_cost }
-			);
-			day_event_add(day_event_squad_selection_add(_wizard_event, _pit_eligible_squads));
-		}
-
-		if (array_length(_demon_squads) > 0)
-		{
-			var _demon_draft_event = day_event_squad_create(
-				_pit,
-				"demon_draft",
-				"Demon Draft",
-				"Add " + string(BALANCE_DEMONS_PIT_DRAFT_UNIT_COUNT)
-					+ " units of the most common unit type in the selected demon squad.",
-				BALANCE_DEMONS_PIT_DRAFT_CULTIST_COUNT,
-				"draft_demons",
-				day_event_squad_draft_execute,
-				{ hp_cost: BALANCE_DEMONS_PIT_DRAFT_HP_COST, unit_count: BALANCE_DEMONS_PIT_DRAFT_UNIT_COUNT }
-			);
-			day_event_add(day_event_squad_selection_add(_demon_draft_event, _demon_squads));
-
-			var _infernal_fury_event = day_event_squad_create(
-				_pit,
-				"infernal_fury",
-				"Infernal Fury",
-				"Permanently increase the damage of the selected Demon Squad by 15%.",
-				BALANCE_SQUAD_PERMANENT_UPGRADE_CULTIST_COUNT,
-				"increase_demon_squad_damage",
-				day_event_squad_permanent_upgrade_execute,
-				{ property_name: "damage_multiplier", multiplier: BALANCE_SQUAD_PERMANENT_UPGRADE_MULTIPLIER, hp_cost: BALANCE_SQUAD_PERMANENT_UPGRADE_HP_COST }
-			);
-			day_event_add(day_event_squad_selection_add(_infernal_fury_event, _demon_squads));
-
-			var _infernal_vitality_event = day_event_squad_create(
-				_pit,
-				"infernal_vitality",
-				"Infernal Vitality",
-				"Permanently increase the max health of the selected Demon Squad by 15%.",
-				BALANCE_SQUAD_PERMANENT_UPGRADE_CULTIST_COUNT,
-				"increase_demon_squad_health",
-				day_event_squad_permanent_upgrade_execute,
-				{ property_name: "health_multiplier", multiplier: BALANCE_SQUAD_PERMANENT_UPGRADE_MULTIPLIER, hp_cost: BALANCE_SQUAD_PERMANENT_UPGRADE_HP_COST }
-			);
-			day_event_add(day_event_squad_selection_add(_infernal_vitality_event, _demon_squads));
-		}
 	}
 
 	var _graveyard_count = instance_number(o_graveyard2);
@@ -5008,10 +5292,6 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 		var _graveyard = instance_find(o_graveyard2, _graveyard_index);
 		var _bonelet_squads = day_event_squads_get(SQUAD_TYPE.UNDEAD, o_skeleton_bonelet);
 		var _undead_squads = day_event_squads_get(SQUAD_TYPE.UNDEAD);
-		var _all_squads = [];
-		// Support and upgrade events unlock after an Undead squad is recruited at a Squad Point.
-		var _graveyard_support_summon_is_available = array_length(_undead_squads) > 0;
-		array_copy(_all_squads, 0, global.squads, 0, array_length(global.squads));
 
 		// Bonelets must be specialized before Graveyard can offer its normal event pool again.
 		if (array_length(_bonelet_squads) > 0)
@@ -5038,24 +5318,6 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 			continue;
 		}
 
-		if (_graveyard_support_summon_is_available)
-		{
-			var _healer_cost = day_event_support_summon_cost_get();
-			var _healer_event = day_event_squad_create(
-				_graveyard,
-				"summon_skeleton_healer",
-				"Summon Skeleton Healer",
-				"Summon " + string(BALANCE_SUPPORT_SUMMON_UNIT_COUNT)
-					+ " Skeleton Healers in any squad. They move toward wounded squad units and heal them within "
-					+ string(BALANCE_SKELETON_HEALER_HEAL_RADIUS) + " pixels.",
-				_healer_cost.cultist_count,
-				"add_skeleton_healer_to_squad",
-				day_event_squad_unit_add_execute,
-				{ unit_object: o_skeleton_healer, unit_count: BALANCE_SUPPORT_SUMMON_UNIT_COUNT, hp_cost: _healer_cost.hp_cost }
-			);
-			day_event_add(day_event_squad_selection_add(_healer_event, _all_squads));
-		}
-
 		if (array_length(_undead_squads) > 0)
 		{
 			var _draft_event = day_event_squad_create(
@@ -5070,30 +5332,6 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 				{ hp_cost: BALANCE_GRAVEYARD_DRAFT_HP_COST, unit_count: BALANCE_GRAVEYARD_DRAFT_UNIT_COUNT }
 			);
 			day_event_add(day_event_squad_selection_add(_draft_event, _undead_squads));
-
-			var _deadlier_bones_event = day_event_squad_create(
-				_graveyard,
-				"deadlier_bones",
-				"Deadlier Bones",
-				"Permanently increase the damage of the selected Undead Squad by 15%.",
-				BALANCE_SQUAD_PERMANENT_UPGRADE_CULTIST_COUNT,
-				"increase_undead_squad_damage",
-				day_event_squad_permanent_upgrade_execute,
-				{ property_name: "damage_multiplier", multiplier: BALANCE_SQUAD_PERMANENT_UPGRADE_MULTIPLIER, hp_cost: BALANCE_SQUAD_PERMANENT_UPGRADE_HP_COST }
-			);
-			day_event_add(day_event_squad_selection_add(_deadlier_bones_event, _undead_squads));
-
-			var _reinforced_remains_event = day_event_squad_create(
-				_graveyard,
-				"reinforced_remains",
-				"Reinforced Remains",
-				"Permanently increase the health of the selected Undead Squad by 15%.",
-				BALANCE_SQUAD_PERMANENT_UPGRADE_CULTIST_COUNT,
-				"increase_undead_squad_health",
-				day_event_squad_permanent_upgrade_execute,
-				{ property_name: "health_multiplier", multiplier: BALANCE_SQUAD_PERMANENT_UPGRADE_MULTIPLIER, hp_cost: BALANCE_SQUAD_PERMANENT_UPGRADE_HP_COST }
-			);
-			day_event_add(day_event_squad_selection_add(_reinforced_remains_event, _undead_squads));
 		}
 	}
 

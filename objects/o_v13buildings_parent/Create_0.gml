@@ -592,6 +592,11 @@ building_display_name_get = function()
 		return "Ritual Circle";
 	}
 
+	if (object_index == o_summoning_grounds)
+	{
+		return "Summoning Grounds";
+	}
+
 	if (object_index == o_unholy_shrine)
 	{
 		return "Unholy Shrine";
@@ -941,6 +946,13 @@ else if (object_index == o_ritual_circle)
 	building_upgrade_resources[1] = RESOURCES.SOULS;
 	building_upgrade_costs[1] = BALANCE_ENDLESS_CHANT_UPGRADE_SOUL_COST;
 }
+else if (object_index == o_summoning_grounds)
+{
+	building_tooltip_title = "Squad Reinforcements";
+	building_tooltip_description = "Summons specialist units directly into selected squads.";
+	building_tooltip_detail = "Open Events, choose a summon, then select the squad that receives the summoned units.";
+	building_tooltip_detail_color = COLOR_PROJECTILE_SUMMON;
+}
 else if (object_index == o_unholy_shrine)
 {
 	building_tooltip_title = "Unholy Rites";
@@ -1082,7 +1094,7 @@ else if (object_index == o_pitlings_pit2)
 	summon_duration = BALANCE_PITLINGS_PIT2_PITLING_PRODUCTION_TIME;
 	building_tooltip_title = "Demon Events";
 	building_tooltip_description = "Allows summoning and upgrading demons.";
-	building_tooltip_detail = "Summon Mawlings, transform them, or reinforce existing demon squads.";
+	building_tooltip_detail = "Specialize Mawlings or reinforce existing Demon squads.";
 	building_tooltip_detail_color = production_bonus_stat_color;
 	building_has_upgrades = true;
 	production_speed_upgrade_index = noone;
@@ -2181,9 +2193,9 @@ building_tooltip_detail_get = function()
 		{
 			_first_aid_enchantment_name = "Emergency Pull";
 		}
-		else if (global.shell_factory_first_aid_enchantment == FIRST_AID_MEAT_ENCHANTMENT.FRESH_MEAT)
+		else if (global.shell_factory_first_aid_enchantment == FIRST_AID_MEAT_ENCHANTMENT.NECROMEDIC)
 		{
-			_first_aid_enchantment_name = "Fresh Meat";
+			_first_aid_enchantment_name = "Necromedic";
 		}
 
 		return "Uses " + string(BALANCE_SHELL_FACTORY_SOUL_COST) + " Souls + "

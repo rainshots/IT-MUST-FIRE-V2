@@ -851,6 +851,9 @@ function squad_name_create(_primary_unit_object)
 	else if (_primary_unit_object == o_skeleton_archer) _base_name = "Bone Archers";
 	else if (_primary_unit_object == o_skeleton_mage) _base_name = "Bone Mages";
 	else if (_primary_unit_object == o_skeleton_healer) _base_name = "Skeleton Healers";
+	else if (_primary_unit_object == o_ripcage_cannon) _base_name = "Ripcage Cannons";
+	else if (_primary_unit_object == o_bone_bannerman) _base_name = "Bone Bannermen";
+	else if (_primary_unit_object == o_provocateur) _base_name = "Provocateurs";
 	else if (_primary_unit_object == o_mawling) _base_name = "Mawlings";
 	else if (_primary_unit_object == o_demon_wizard) _base_name = "Demon Wizards";
 	else if (_primary_unit_object == o_pitling) _base_name = "Pitlings";
@@ -903,6 +906,8 @@ function foundry_unit_squad_type_get(_unit)
 		|| _unit_object == o_skeleton_archer
 		|| _unit_object == o_skeleton_mage
 		|| _unit_object == o_skeleton_healer
+		|| _unit_object == o_ripcage_cannon
+		|| _unit_object == o_bone_bannerman
 		|| _unit_object == o_zombie)
 	{
 		return SQUAD_TYPE.UNDEAD;
@@ -1392,6 +1397,45 @@ function squad_march_enemy_is_nearby(_squad)
 	return false;
 }
 
+function squad_march_marker_enemy_is_nearby(_squad)
+{
+	if (!is_struct(_squad)
+		|| !variable_struct_exists(_squad.properties, "marker_x")
+		|| !variable_struct_exists(_squad.properties, "marker_y"))
+	{
+		return false;
+	}
+
+	var _check_radius_squared = BALANCE_SQUAD_MARCH_COMPLETE_ENEMY_CHECK_RADIUS
+		* BALANCE_SQUAD_MARCH_COMPLETE_ENEMY_CHECK_RADIUS;
+	var _enemy_count = instance_number(o_enemy_units);
+
+	// Only living visible enemies near the destination keep the larger arrival radius.
+	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	{
+		var _enemy = instance_find(o_enemy_units, _enemy_index);
+
+		if (!instance_exists(_enemy)
+			|| !variable_instance_exists(_enemy, "hp")
+			|| _enemy.hp <= 0
+			|| !_enemy.visible)
+		{
+			continue;
+		}
+
+		var _distance_x = _enemy.x - _squad.properties.marker_x;
+		var _distance_y = _enemy.y - _squad.properties.marker_y;
+		var _distance_squared = (_distance_x * _distance_x) + (_distance_y * _distance_y);
+
+		if (_distance_squared <= _check_radius_squared)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
 function squad_march_speed_bonus_update(_squad)
 {
 	if (!squad_is_marching(_squad))
@@ -1514,6 +1558,11 @@ function squad_march_update(_squad)
 	}
 
 	var _living_unit_count = 0;
+	var _all_units_inside_safe_radius = true;
+	var _complete_radius_squared = BALANCE_SQUAD_MARCH_COMPLETE_RADIUS
+		* BALANCE_SQUAD_MARCH_COMPLETE_RADIUS;
+	var _safe_complete_radius_squared = BALANCE_SQUAD_MARCH_SAFE_COMPLETE_RADIUS
+		* BALANCE_SQUAD_MARCH_SAFE_COMPLETE_RADIUS;
 
 	for (var _unit_index = 0; _unit_index < array_length(_squad.units); ++_unit_index)
 	{
@@ -1529,15 +1578,26 @@ function squad_march_update(_squad)
 
 		_living_unit_count++;
 
-		if (point_distance(
-			_unit.x,
-			_unit.y,
-			_squad.properties.marker_x,
-			_squad.properties.marker_y
-		) > BALANCE_SQUAD_MARCH_COMPLETE_RADIUS)
+		var _distance_x = _unit.x - _squad.properties.marker_x;
+		var _distance_y = _unit.y - _squad.properties.marker_y;
+		var _distance_squared = (_distance_x * _distance_x) + (_distance_y * _distance_y);
+
+		if (_distance_squared > _complete_radius_squared)
 		{
 			return true;
 		}
+
+		if (_distance_squared > _safe_complete_radius_squared)
+		{
+			_all_units_inside_safe_radius = false;
+		}
+	}
+
+	// Without nearby enemies, gather the whole squad closer before ending the march.
+	if (!_all_units_inside_safe_radius
+		&& !squad_march_marker_enemy_is_nearby(_squad))
+	{
+		return true;
 	}
 
 	// No surviving members or a fully gathered squad no longer needs a march target.

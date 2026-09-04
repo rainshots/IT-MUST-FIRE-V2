@@ -1088,15 +1088,15 @@ if (global.cheats_enabled)
 	}
 	else if (keyboard_check_pressed(vk_numpad7))
 	{
-		_debug_spawn_unit_object = o_boss_griffith;
+		_debug_spawn_unit_object = o_provocateur;
 	}
 	else if (keyboard_check_pressed(vk_numpad8))
 	{
-		_debug_spawn_unit_object = o_skeleton;
+		_debug_spawn_unit_object = o_ripcage_cannon;
 	}
 	else if (keyboard_check_pressed(vk_numpad9))
 	{
-		_debug_spawn_unit_object = o_pitling;
+		_debug_spawn_unit_object = o_bone_bannerman;
 	}
 
 	if (_debug_spawn_unit_object != noone

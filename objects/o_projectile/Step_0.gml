@@ -246,24 +246,49 @@ if (_flight_progress >= 1)
 	}
 	else if (projectile_type == PROJECTILE_TYPE.HEAL)
 	{
-		// First Aid Meat becomes a persistent ground effect instead of healing on impact.
-		var _first_aid_meat = instance_create_layer(
-			target_x,
-			target_y,
-			particle_layer_name,
-			o_first_aid_meat
-		);
-		_first_aid_meat.heal_radius = effect_radius;
-		_first_aid_meat.heal_amount = damage_amount;
-
-		if (variable_instance_exists(_first_aid_meat, "first_aid_meat_enchantment_set"))
+		if (first_aid_meat_enchantment == FIRST_AID_MEAT_ENCHANTMENT.NECROMEDIC)
 		{
-			_first_aid_meat.first_aid_meat_enchantment_set(first_aid_meat_enchantment);
+			// Necromedic consumes nearby corpses immediately instead of leaving healing meat.
+			if (instance_exists(o_game_controller))
+			{
+				var _game_controller = instance_find(o_game_controller, 0);
+
+				if (variable_instance_exists(_game_controller, "corpse_bonelets_raise_in_radius"))
+				{
+					_game_controller.corpse_bonelets_raise_in_radius(
+						target_x,
+						target_y,
+						effect_radius,
+						BALANCE_FIRST_AID_MEAT_NECROMEDIC_MAX_CORPSES
+					);
+				}
+			}
 		}
-
-		if (variable_instance_exists(id, "balance_test_match_id"))
+		else
 		{
-			_first_aid_meat.balance_test_match_id = balance_test_match_id;
+			// Ordinary and Emergency Pull shells remain active on the ground.
+			var _first_aid_meat = instance_create_layer(
+				target_x,
+				target_y,
+				particle_layer_name,
+				o_first_aid_meat
+			);
+
+			if (instance_exists(_first_aid_meat))
+			{
+				_first_aid_meat.heal_radius = effect_radius;
+				_first_aid_meat.heal_amount = damage_amount;
+
+				if (variable_instance_exists(_first_aid_meat, "first_aid_meat_enchantment_set"))
+				{
+					_first_aid_meat.first_aid_meat_enchantment_set(first_aid_meat_enchantment);
+				}
+
+				if (variable_instance_exists(id, "balance_test_match_id"))
+				{
+					_first_aid_meat.balance_test_match_id = balance_test_match_id;
+				}
+			}
 		}
 	}
 	else if (projectile_type == PROJECTILE_TYPE.ARTILLERY)
@@ -480,6 +505,7 @@ if (_flight_progress >= 1)
 				id != other.id
 				&& id != other.source_instance
 				&& id != other.cultist_payload
+				&& (!other.damage_units_only || variable_instance_exists(id, "unit_faction"))
 				&& object_index != o_projectile
 				&& object_index != o_particle_smoke
 				&& object_index != o_particle_explosion
@@ -553,7 +579,7 @@ if (_flight_progress >= 1)
 								unit_damage_receive(
 									_damage_amount,
 									other.damage_faction,
-									false,
+									other.damage_is_critical_hit,
 									true,
 									other.source_instance
 								);
@@ -564,7 +590,13 @@ if (_flight_progress >= 1)
 
 								if (variable_instance_exists(id, "unit_faction"))
 								{
-									damage_popup_create(x, y, _damage_amount, unit_faction);
+									damage_popup_create(
+										x,
+										y,
+										_damage_amount,
+										unit_faction,
+										other.damage_is_critical_hit
+									);
 								}
 							}
 

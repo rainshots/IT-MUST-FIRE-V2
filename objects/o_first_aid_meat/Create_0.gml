@@ -4,7 +4,7 @@ heal_radius = BALANCE_FIRST_AID_MEAT_HEAL_RADIUS;
 heal_interval = BALANCE_FIRST_AID_MEAT_HEAL_INTERVAL * room_speed;
 heal_timer = 0;
 
-// Shell Factory enchantments add either an allied rescue chain or an enemy lure.
+// Shell Factory enchantments can replace healing with an allied rescue chain.
 first_aid_meat_enchantment = FIRST_AID_MEAT_ENCHANTMENT.NONE;
 pull_radius = BALANCE_FIRST_AID_MEAT_PULL_RADIUS;
 pull_hp_threshold = BALANCE_FIRST_AID_MEAT_PULL_HP_THRESHOLD;
@@ -15,10 +15,6 @@ pull_target = noone;
 pull_chain_is_outbound = false;
 pull_chain_tip_x = x;
 pull_chain_tip_y = y;
-fresh_smell_radius = BALANCE_FIRST_AID_MEAT_FRESH_SMELL_RADIUS;
-max_hp = 0;
-hp = 0;
-unit_faction = UNIT_FACTION.FRIENDLY;
 
 // The meat remains active on the ground for a fixed amount of gameplay time.
 life_duration = BALANCE_FIRST_AID_MEAT_LIFETIME * room_speed;
@@ -35,12 +31,6 @@ particle_layer_name = "Instances";
 first_aid_meat_enchantment_set = function(_enchantment)
 {
 	first_aid_meat_enchantment = _enchantment;
-
-	if (first_aid_meat_enchantment == FIRST_AID_MEAT_ENCHANTMENT.FRESH_MEAT)
-	{
-		max_hp = BALANCE_FIRST_AID_MEAT_FRESH_MAX_HP;
-		hp = max_hp;
-	}
 };
 
 first_aid_meat_target_can_heal = function(_target)
@@ -309,26 +299,4 @@ first_aid_meat_pull_update = function(_time_scale)
 		lengthdir_x(_pull_distance, _pull_direction),
 		lengthdir_y(_pull_distance, _pull_direction)
 	);
-};
-
-unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true, _source_instance = noone)
-{
-	if (first_aid_meat_enchantment != FIRST_AID_MEAT_ENCHANTMENT.FRESH_MEAT
-		|| hp <= 0
-		|| _damage_amount <= 0)
-	{
-		return 0;
-	}
-
-	var _applied_damage = min(_damage_amount, hp);
-	hp = max(0, hp - _damage_amount);
-	damage_popup_create(x, y, _applied_damage, unit_faction, _is_critical);
-
-	if (hp <= 0)
-	{
-		instance_create_layer(x, y, particle_layer_name, o_particle_explosion);
-		instance_destroy();
-	}
-
-	return _applied_damage;
 };
