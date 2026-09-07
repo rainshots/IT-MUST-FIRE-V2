@@ -318,6 +318,8 @@
     {"id":{"name":"s_day_night_pannel","path":"sprites/s_day_night_pannel/s_day_night_pannel.yy",},},
     {"id":{"name":"s_defense_down_particle","path":"sprites/s_defense_down_particle/s_defense_down_particle.yy",},},
     {"id":{"name":"s_defense_particle","path":"sprites/s_defense_particle/s_defense_particle.yy",},},
+    {"id":{"name":"s_defense_tower_close","path":"sprites/s_defense_tower_close/s_defense_tower_close.yy",},},
+    {"id":{"name":"s_defense_tower_long","path":"sprites/s_defense_tower_long/s_defense_tower_long.yy",},},
     {"id":{"name":"s_demon_regular","path":"sprites/s_demon_regular/s_demon_regular.yy",},},
     {"id":{"name":"s_demon_wizard","path":"sprites/s_demon_wizard/s_demon_wizard.yy",},},
     {"id":{"name":"s_demon","path":"sprites/s_demon/s_demon.yy",},},

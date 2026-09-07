@@ -8,13 +8,13 @@ if (is_destroyed)
 // Draw inherited map object visuals.
 event_inherited();
 
-// Draw holy tower Saint radius as an outline only.
+// Draw the squad deployment exclusion radius.
 draw_set_alpha(radius_alpha);
 draw_set_color(COLOR_HOLY_TOWER_RADIUS);
 
-for (var _radius_line_index = 0; _radius_line_index < radius_line_width; ++_radius_line_index)
+for (var _radius_line_index = 0; _radius_line_index < radius_line_width && deployment_block_radius > 0; ++_radius_line_index)
 {
-	draw_circle(x, y, saint_radius + _radius_line_index, true);
+	draw_circle(x, y, deployment_block_radius + _radius_line_index, true);
 }
 
 // Draw short attack feedback line.

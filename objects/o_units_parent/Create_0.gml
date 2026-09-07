@@ -4008,6 +4008,9 @@ friendly_enemy_structure_can_be_targeted = function(_target)
 	}
 
 	return _target.object_index == o_holy_tower
+		|| _target.object_index == o_main_tower
+		|| _target.object_index == o_defense_tower_close_range
+		|| _target.object_index == o_defense_tower_long_range
 		|| _target.object_index == o_shrine
 		|| _target.object_index == o_garnizon
 		|| _target.object_index == o_house;

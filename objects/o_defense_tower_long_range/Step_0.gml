@@ -21,9 +21,9 @@ if (variable_global_exists("unholy_night_active") && global.unholy_night_active)
 	exit;
 }
 
-holy_tower_saint_source_register();
-holy_tower_reinforcement_thresholds_update();
-holy_tower_night_volley_update();
+// Legacy behavior disabled: holy_tower_saint_source_register();
+// Legacy behavior disabled: holy_tower_reinforcement_thresholds_update();
+// Legacy behavior disabled: holy_tower_night_volley_update();
 
 // Destroy the tower safely if any damage source reduced HP to zero.
 if (hp <= 0)
@@ -55,6 +55,8 @@ for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_ind
 	var _friendly_unit = instance_find(o_friendly_units, _friendly_index);
 
 	if (instance_exists(_friendly_unit)
+		&& _friendly_unit.visible
+		&& (!variable_instance_exists(_friendly_unit, "cannon_loaded") || !_friendly_unit.cannon_loaded)
 		&& (!variable_instance_exists(_friendly_unit, "hp") || _friendly_unit.hp > 0)
 		&& (!variable_instance_exists(_friendly_unit, "is_being_dragged") || !_friendly_unit.is_being_dragged)
 		&& (!variable_instance_exists(_friendly_unit, "ignored_by_enemies") || !_friendly_unit.ignored_by_enemies))

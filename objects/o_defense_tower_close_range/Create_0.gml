@@ -2,7 +2,7 @@
 event_inherited();
 
 // Holy tower durability.
-max_hp = BALANCE_HOLY_TOWER_MAX_HP;
+max_hp = BALANCE_DEFENSE_TOWER_CLOSE_RANGE_MAX_HP;
 hp = max_hp;
 max_corruption = 100;
 corruption = 0;
@@ -12,9 +12,9 @@ destroy_knights_spawned = false;
 owner_shrine = noone;
 
 // Holy tower combat settings.
-shoot_radius = BALANCE_HOLY_TOWER_SHOOT_RADIUS;
-damage = BALANCE_HOLY_TOWER_DAMAGE;
-reload_time = BALANCE_HOLY_TOWER_RELOAD_TIME * room_speed;
+shoot_radius = BALANCE_DEFENSE_TOWER_CLOSE_RANGE_SHOOT_RADIUS;
+damage = BALANCE_DEFENSE_TOWER_CLOSE_RANGE_DAMAGE;
+reload_time = BALANCE_DEFENSE_TOWER_CLOSE_RANGE_RELOAD_TIME * room_speed;
 reload_timer = 0;
 target_instance = noone;
 assist_call_radius = BALANCE_UNIT_ASSIST_CALL_RADIUS;
@@ -31,7 +31,7 @@ night_volley_cleanse_amount = BALANCE_HOLY_TOWER_NIGHT_VOLLEY_CLEANSE_AMOUNT;
 night_volley_last_night_index = -1;
 
 // Saint source settings.
-saint_radius = BALANCE_HOLY_TOWER_TAINT_CLEANSE_RADIUS;
+saint_radius = 0; // Cleansing is disabled for the specialized towers.
 saint_source_registered = false;
 
 // Range drawing settings.
@@ -47,11 +47,7 @@ attack_feedback_target_y = y;
 attack_feedback_line_width = 2;
 
 // Tooltip lines describe tower behavior.
-tooltip_lines = [
-	"Damage: Takes damage. Destroy it to expose Shrine",
-	"Saint: Nearby ground resists Taint",
-	"Summon: No effect yet"
-];
+tooltip_lines = ["Fires at player units."];
 
 holy_tower_enemy_difficulty_get = function(_enemy_object)
 {
@@ -228,7 +224,7 @@ destroy_holy_tower = function()
 		global.construction_sound_play();
 	}
 
-	holy_tower_destroy_knights_spawn();
+	// Legacy behavior disabled: holy_tower_destroy_knights_spawn();
 
 	if (instance_exists(owner_shrine)
 		&& variable_instance_exists(owner_shrine, "shrine_protection_tower_destroyed"))
@@ -247,7 +243,7 @@ destroy_holy_tower = function()
 	image_speed = 0;
 };
 
-holy_tower_saint_source_register();
+// Legacy behavior disabled: holy_tower_saint_source_register();
 
 holy_tower_damage_receive = function(_damage_amount, _is_critical = false, _show_popup = true)
 {
@@ -264,7 +260,7 @@ holy_tower_damage_receive = function(_damage_amount, _is_critical = false, _show
 		damage_popup_create(x, y, _applied_damage, UNIT_FACTION.ENEMY, _is_critical);
 	}
 
-	holy_tower_reinforcement_thresholds_update();
+	// Legacy behavior disabled: holy_tower_reinforcement_thresholds_update();
 
 	if (hp <= 0)
 	{
@@ -566,3 +562,6 @@ holy_tower_night_volley_update = function()
 		holy_tower_cleanse_projectile_create(_target_x, _target_y, _launch_delay_seconds);
 	}
 };
+
+// Deployment exclusion radius; destroyed towers no longer block shells.
+deployment_block_radius = 0;

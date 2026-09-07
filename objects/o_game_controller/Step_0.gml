@@ -2099,7 +2099,8 @@ if (_target_selection_should_confirm)
 			_target_can_be_confirmed = false;
 		}
 		else if (target_selection_projectile_type == PROJECTILE_TYPE.CULTIST
-			&& !world_position_is_revealed_by_fog(_target_world_x, _target_world_y))
+			&& (!world_position_is_revealed_by_fog(_target_world_x, _target_world_y)
+				|| squad_deployment_position_is_blocked(_target_world_x, _target_world_y)))
 		{
 			_target_can_be_confirmed = false;
 		}

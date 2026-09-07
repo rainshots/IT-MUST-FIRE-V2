@@ -4512,6 +4512,28 @@ holy_cannon_update = function()
 };
 
 // Fog visibility helper is used by abilities that require a revealed target point.
+// Only living Holy and Main towers deny squad-shell landing positions.
+squad_deployment_position_is_blocked = function(_world_x, _world_y)
+{
+	var _tower_objects = [o_holy_tower, o_main_tower];
+	for (var _type_index = 0; _type_index < array_length(_tower_objects); ++_type_index)
+	{
+		var _tower_object = _tower_objects[_type_index];
+		var _tower_count = instance_number(_tower_object);
+		for (var _tower_index = 0; _tower_index < _tower_count; ++_tower_index)
+		{
+			var _tower = instance_find(_tower_object, _tower_index);
+			if (instance_exists(_tower) && !_tower.is_destroyed && _tower.hp > 0
+				&& _tower.deployment_block_radius > 0
+				&& point_distance(_world_x, _world_y, _tower.x, _tower.y) <= _tower.deployment_block_radius)
+			{
+				return true;
+			}
+		}
+	}
+	return false;
+};
+
 world_position_is_revealed_by_fog = function(_world_x, _world_y)
 {
 	if (!global.fog_of_war_visible || !instance_exists(o_fog_of_war))

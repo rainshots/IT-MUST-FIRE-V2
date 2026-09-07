@@ -2,7 +2,7 @@
 event_inherited();
 
 // Holy tower durability.
-max_hp = BALANCE_HOLY_TOWER_MAX_HP;
+max_hp = BALANCE_MAIN_TOWER_MAX_HP;
 hp = max_hp;
 max_corruption = 100;
 corruption = 0;
@@ -12,9 +12,9 @@ destroy_knights_spawned = false;
 owner_shrine = noone;
 
 // Holy tower combat settings.
-shoot_radius = BALANCE_HOLY_TOWER_SHOOT_RADIUS;
-damage = BALANCE_HOLY_TOWER_DAMAGE;
-reload_time = BALANCE_HOLY_TOWER_RELOAD_TIME * room_speed;
+shoot_radius = BALANCE_MAIN_TOWER_SHOOT_RADIUS;
+damage = BALANCE_MAIN_TOWER_DAMAGE;
+reload_time = BALANCE_MAIN_TOWER_RELOAD_TIME * room_speed;
 reload_timer = 0;
 target_instance = noone;
 assist_call_radius = BALANCE_UNIT_ASSIST_CALL_RADIUS;
@@ -31,7 +31,7 @@ night_volley_cleanse_amount = BALANCE_HOLY_TOWER_NIGHT_VOLLEY_CLEANSE_AMOUNT;
 night_volley_last_night_index = -1;
 
 // Saint source settings.
-saint_radius = BALANCE_HOLY_TOWER_TAINT_CLEANSE_RADIUS;
+saint_radius = 0; // Cleansing is disabled for the specialized towers.
 saint_source_registered = false;
 
 // Range drawing settings.
@@ -47,10 +47,7 @@ attack_feedback_target_y = y;
 attack_feedback_line_width = 2;
 
 // Tooltip lines describe tower behavior.
-tooltip_lines = [
-	"Enemy's main tower.",
-	"Destroy it to finish the mission."
-];
+tooltip_lines = ["Blocks squad deployment, fires at player units, and calls nearby reinforcements."];
 
 holy_tower_enemy_difficulty_get = function(_enemy_object)
 {
@@ -86,10 +83,10 @@ holy_tower_enemy_spawn = function(_enemy_object)
 
 	if (instance_exists(_enemy))
 	{
-		_enemy.unit_can_attack_cannon = true;
-		_enemy.holy_tower_reinforcement_waits_for_night = (global.day_phase == DAY_PHASE.NIGHT);
+		_enemy.unit_can_attack_cannon = false;
+		_enemy.holy_tower_reinforcement_waits_for_night = false;
 		_enemy.owner_garnizon = noone;
-		_enemy.guard_target = noone;
+		_enemy.guard_target = id;
 
 		if (instance_exists(o_game_controller))
 		{
@@ -227,7 +224,7 @@ destroy_holy_tower = function()
 		global.construction_sound_play();
 	}
 
-	holy_tower_destroy_knights_spawn();
+	// Legacy behavior disabled: holy_tower_destroy_knights_spawn();
 
 	if (instance_exists(owner_shrine)
 		&& variable_instance_exists(owner_shrine, "shrine_protection_tower_destroyed"))
@@ -257,7 +254,7 @@ destroy_holy_tower = function()
 	}
 };
 
-holy_tower_saint_source_register();
+// Legacy behavior disabled: holy_tower_saint_source_register();
 
 holy_tower_damage_receive = function(_damage_amount, _is_critical = false, _show_popup = true)
 {
@@ -274,7 +271,7 @@ holy_tower_damage_receive = function(_damage_amount, _is_critical = false, _show
 		damage_popup_create(x, y, _applied_damage, UNIT_FACTION.ENEMY, _is_critical);
 	}
 
-	holy_tower_reinforcement_thresholds_update();
+	// Legacy behavior disabled: holy_tower_reinforcement_thresholds_update();
 
 	if (hp <= 0)
 	{
@@ -574,5 +571,35 @@ holy_tower_night_volley_update = function()
 		var _launch_delay_seconds = random(night_volley_launch_time);
 
 		holy_tower_cleanse_projectile_create(_target_x, _target_y, _launch_delay_seconds);
+	}
+};
+
+// Deployment exclusion radius; destroyed towers no longer block shells.
+deployment_block_radius = BALANCE_MAIN_TOWER_DEPLOYMENT_BLOCK_RADIUS;
+
+// Nearby deployed player units trigger a reinforcement wave, with a cooldown between waves.
+reinforcement_radius = BALANCE_MAIN_TOWER_REINFORCEMENT_RADIUS;
+reinforcement_interval = BALANCE_MAIN_TOWER_REINFORCEMENT_INTERVAL;
+reinforcement_timer = 0;
+main_tower_reinforcements_update = function()
+{
+	reinforcement_timer = max(0, reinforcement_timer - global.gameplay_time_scale / room_speed);
+	if (reinforcement_timer > 0)
+	{
+		return;
+	}
+
+	var _unit_count = instance_number(o_friendly_units);
+	for (var _unit_index = 0; _unit_index < _unit_count; ++_unit_index)
+	{
+		var _unit = instance_find(o_friendly_units, _unit_index);
+		if (instance_exists(_unit) && _unit.visible && _unit.hp > 0
+			&& !_unit.is_being_dragged
+			&& point_distance(x, y, _unit.x, _unit.y) <= reinforcement_radius)
+		{
+			holy_tower_random_reinforcements_spawn(BALANCE_MAIN_TOWER_REINFORCEMENT_DIFFICULTY);
+			reinforcement_timer = reinforcement_interval;
+			return;
+		}
 	}
 };

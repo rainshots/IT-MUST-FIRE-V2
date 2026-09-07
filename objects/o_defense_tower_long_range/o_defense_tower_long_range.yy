@@ -35,8 +35,8 @@
   "resourceVersion":"2.0",
   "solid":false,
   "spriteId":{
-    "name":"s_holy_tower",
-    "path":"sprites/s_holy_tower/s_holy_tower.yy",
+    "name":"s_defense_tower_long",
+    "path":"sprites/s_defense_tower_long/s_defense_tower_long.yy",
   },
   "spriteMaskId":null,
   "visible":true,

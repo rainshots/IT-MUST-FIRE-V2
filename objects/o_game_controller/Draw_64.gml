@@ -490,8 +490,14 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 	{
 		_target_color = COLOR_PROJECTILE_CULTIST;
 		_cultist_target_is_revealed = world_position_is_revealed_by_fog(_mouse_world_x, _mouse_world_y);
+		var _deployment_is_blocked = squad_deployment_position_is_blocked(_mouse_world_x, _mouse_world_y);
 
-		if (!_cultist_target_is_revealed)
+		if (_deployment_is_blocked)
+		{
+			_target_color = COLOR_STATUS_NEGATIVE_RED;
+			_target_hint_text = "Tower blocks squad deployment";
+		}
+		else if (!_cultist_target_is_revealed)
 		{
 			_target_color = COLOR_STATUS_NEGATIVE_RED;
 			_target_hint_text = "Aim at a revealed zone";

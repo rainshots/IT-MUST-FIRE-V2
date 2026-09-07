@@ -12,6 +12,14 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 	var _can_fire_selected_target = (!global.pause || global.focus_window == FOCUS_WINDOW.NOONE)
 		&& cannon_reload_is_ready();
 
+	// Recheck deployment barriers at firing time before consuming the queued squad.
+	if (_can_fire_selected_target && target_projectile_type == PROJECTILE_TYPE.CULTIST
+		&& instance_exists(o_game_controller))
+	{
+		var _deployment_controller = instance_find(o_game_controller, 0);
+		_can_fire_selected_target = !_deployment_controller.squad_deployment_position_is_blocked(target_x, target_y);
+	}
+
 	if (_can_fire_selected_target)
 	{
 		var _projectile_queue_count = array_length(global.cannon_projectile_queue);
