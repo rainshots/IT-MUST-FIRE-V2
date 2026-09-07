@@ -15,6 +15,22 @@ if (_dragged_demon_exists)
 
 update_timer++;
 
+// Refresh immediately at night transitions so temporary objective visibility does not linger.
+var _raid_blood_moon_reveal_active = false;
+
+if (global.day_phase == DAY_PHASE.NIGHT && global.full_moon_night_active
+	&& instance_exists(o_game_controller))
+{
+	var _game_controller = instance_find(o_game_controller, 0);
+	_raid_blood_moon_reveal_active = _game_controller.mission_type == MISSION_TYPES.RAID;
+}
+
+if (raid_blood_moon_reveal_active != _raid_blood_moon_reveal_active)
+{
+	raid_blood_moon_reveal_active = _raid_blood_moon_reveal_active;
+	update_timer = _update_interval;
+}
+
 if (update_timer < _update_interval)
 {
 	exit;
@@ -49,6 +65,22 @@ if (cannon_starting_reveal_radius > 0 && instance_exists(o_cannon))
 {
 	var _cannon = instance_find(o_cannon, 0);
 	fog_world_circle_reveal(_cannon.x, _cannon.y, cannon_starting_reveal_radius);
+}
+
+// Reveal the RAID objective only for the Blood Moon; the next daytime rebuild restores normal fog.
+if (raid_blood_moon_reveal_active && raid_blood_moon_reveal_radius > 0)
+{
+	var _main_tower_count = instance_number(o_main_tower);
+
+	for (var _tower_index = 0; _tower_index < _main_tower_count; ++_tower_index)
+	{
+		var _main_tower = instance_find(o_main_tower, _tower_index);
+
+		if (instance_exists(_main_tower))
+		{
+			fog_world_circle_reveal(_main_tower.x, _main_tower.y, raid_blood_moon_reveal_radius);
+		}
+	}
 }
 
 // Combat demon fog reveal is disabled while any demon is being dragged.

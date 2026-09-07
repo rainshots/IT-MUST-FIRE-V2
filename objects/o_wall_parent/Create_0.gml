@@ -1,16 +1,20 @@
 // Initialize shared map object state.
 event_inherited();
 
+// Children can override max_hp and hp after event_inherited(), and choose their own sprite and mask.
 // Walls are durable combat targets and block every combat unit faction.
 max_hp = BALANCE_WALL_MAX_HP;
 hp = max_hp;
-unit_faction = UNIT_FACTION.NOONE;
+unit_faction = UNIT_FACTION.ENEMY;
 is_wall = true;
 is_attackable = true;
 corruption_bar_visible = false;
 bar_width = 50;
 bar_height = 5;
 bar_offset_y = 38;
+
+// Children may replace the destruction animation object after inherited initialization.
+wall_destroy_effect_object = o_particle_explosion;
 
 wall_navigation_mark_dirty = function()
 {

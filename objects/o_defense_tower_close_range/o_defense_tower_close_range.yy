@@ -1,17 +1,17 @@
 {
   "$GMObject":"",
-  "%Name":"o_wall_parent",
+  "%Name":"o_defense_tower_close_range",
   "eventList":[
     {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":0,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
-    {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":1,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
     {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":3,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
+    {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":8,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
   ],
   "managed":true,
-  "name":"o_wall_parent",
+  "name":"o_defense_tower_close_range",
   "overriddenProperties":[],
   "parent":{
-    "name":"Walls",
-    "path":"folders/Objects/Walls.yy",
+    "name":"map_objects",
+    "path":"folders/Objects/map_objects.yy",
   },
   "parentObjectId":{
     "name":"o_map_objects_parent",
@@ -33,8 +33,11 @@
   "properties":[],
   "resourceType":"GMObject",
   "resourceVersion":"2.0",
-  "solid":true,
-  "spriteId":null,
+  "solid":false,
+  "spriteId":{
+    "name":"s_holy_tower",
+    "path":"sprites/s_holy_tower/s_holy_tower.yy",
+  },
   "spriteMaskId":null,
   "visible":true,
 }

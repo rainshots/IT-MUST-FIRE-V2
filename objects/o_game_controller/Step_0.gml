@@ -1390,7 +1390,7 @@ if (!global.pause && global.day_cycle_enabled)
 			: 1;
 		global.day_timer = max(global.day_timer - _gameplay_time_scale, 0);
 
-		if (_unholy_night_is_active)
+		if (_unholy_night_is_active || raid_blood_moon_active)
 		{
 			if (global.day_timer <= 0)
 			{
@@ -1846,6 +1846,7 @@ if (!global.pause
 	&& global.day_cycle_enabled
 	&& global.day_phase == DAY_PHASE.NIGHT
 	&& !global.unholy_night_active
+	&& !raid_blood_moon_active
 	&& night_attack_is_complete())
 {
 	start_day_phase();

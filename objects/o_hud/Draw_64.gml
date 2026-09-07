@@ -249,57 +249,45 @@ if (_regular_hud_is_visible)
 		draw_text(_text_x, _text_y, _value_text);
 	}
 
-	// Draw day phase inside the right HUD sidebar.
-	if (false && variable_global_exists("day_phase"))
+	// Timed nights reuse the sidebar progress bar; combat-clear nights have no countdown.
+	if (global.day_phase == DAY_PHASE.NIGHT
+		&& global.day_cycle_enabled
+		&& instance_exists(o_game_controller))
 	{
-		var _current_day = 1;
-		var _day_progress = 0;
-
-		if (instance_exists(o_game_controller))
+		var _timer_controller = instance_find(o_game_controller, 0);
+		if (global.unholy_night_active || _timer_controller.raid_blood_moon_active)
 		{
-			var _game_controller = instance_find(o_game_controller, 0);
+			var _day_progress = 0;
+			var _timer_speed = max(1, global.game_speed_normal);
+			var _night_duration_frames = max(1, _timer_controller.night_duration_current * _timer_speed);
+			_day_progress = 1 - clamp(global.day_timer / _night_duration_frames, 0, 1);
+			var _seconds_remaining = ceil(max(0, global.day_timer) / _timer_speed);
 
-			if (variable_instance_exists(_game_controller, "night_attack_night_index"))
-			{
-				_current_day = max(1, _game_controller.night_attack_night_index);
-			}
+			var _day_text_x = _sidebar_x + (day_phase_text_offset_x * _sidebar_scale);
+			var _day_text_y = day_phase_text_y * _sidebar_scale;
+			var _day_bar_x = _sidebar_x + (day_phase_bar_offset_x * _sidebar_scale);
+			var _day_bar_y = day_phase_bar_y * _sidebar_scale;
+			var _day_bar_width = day_phase_bar_width * _sidebar_scale;
+			var _day_bar_height = day_phase_bar_height * _sidebar_scale;
+
+			draw_set_halign(fa_center);
+			draw_set_valign(fa_top);
+			draw_set_alpha(1);
+			draw_set_color(COLOR_HUD_TEXT);
+			draw_text(_day_bar_x + (_day_bar_width * 0.5), _day_text_y, "NIGHT ENDS IN " + string(_seconds_remaining) + "s");
+
+			draw_set_alpha(0.8);
+			draw_set_color(c_black);
+			draw_rectangle(_day_bar_x, _day_bar_y, _day_bar_x + _day_bar_width, _day_bar_y + _day_bar_height, false);
+
+			draw_set_alpha(1);
+			draw_set_color(COLOR_HUD_DAY_PROGRESS);
+			draw_rectangle(_day_bar_x, _day_bar_y, _day_bar_x + (_day_bar_width * _day_progress), _day_bar_y + _day_bar_height, false);
+			draw_set_halign(fa_left);
+			draw_set_valign(fa_top);
+			draw_set_color(c_white);
+			draw_set_alpha(1);
 		}
-
-		if (variable_global_exists("day_cycle_enabled") && global.day_cycle_enabled)
-		{
-			if (global.day_phase == DAY_PHASE.DAY)
-			{
-				var _game_speed_normal = variable_global_exists("game_speed_normal") ? global.game_speed_normal : room_speed;
-				var _day_duration_frames = max(1, global.day_duration * _game_speed_normal);
-
-				_day_progress = 1 - clamp(global.day_timer / _day_duration_frames, 0, 1);
-			}
-			else
-			{
-				_day_progress = 1;
-			}
-		}
-
-		var _day_text_x = _sidebar_x + (day_phase_text_offset_x * _sidebar_scale);
-		var _day_text_y = day_phase_text_y * _sidebar_scale;
-		var _day_bar_x = _sidebar_x + (day_phase_bar_offset_x * _sidebar_scale);
-		var _day_bar_y = day_phase_bar_y * _sidebar_scale;
-		var _day_bar_width = day_phase_bar_width * _sidebar_scale;
-		var _day_bar_height = day_phase_bar_height * _sidebar_scale;
-
-		draw_set_halign(fa_center);
-		draw_set_valign(fa_top);
-		draw_set_alpha(1);
-		draw_set_color(COLOR_HUD_TEXT);
-		draw_text(_day_text_x, _day_text_y, "DAY " + string(_current_day));
-
-		draw_set_alpha(0.8);
-		draw_set_color(c_black);
-		draw_rectangle(_day_bar_x, _day_bar_y, _day_bar_x + _day_bar_width, _day_bar_y + _day_bar_height, false);
-
-		draw_set_alpha(1);
-		draw_set_color(COLOR_HUD_DAY_PROGRESS);
-		draw_rectangle(_day_bar_x, _day_bar_y, _day_bar_x + (_day_bar_width * _day_progress), _day_bar_y + _day_bar_height, false);
 	}
 
 	// Legacy unit counters and individual cultist cards are no longer part of the squad HUD.

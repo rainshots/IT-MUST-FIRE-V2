@@ -4082,13 +4082,13 @@ find_nearest_reachable_enemy_wall = function(_max_distance)
 {
 	var _candidate_queue = ds_priority_create();
 	var _maximum_distance_squared = _max_distance * _max_distance;
-	var _wall_count = instance_number(o_wall_enemy);
+	var _wall_count = instance_number(o_wall_parent);
 
 	for (var _wall_index = 0; _wall_index < _wall_count; ++_wall_index)
 	{
-		var _wall = instance_find(o_wall_enemy, _wall_index);
+		var _wall = instance_find(o_wall_parent, _wall_index);
 
-		if (!target_can_be_attacked(_wall))
+		if (!target_can_be_attacked(_wall) || _wall.unit_faction != UNIT_FACTION.ENEMY)
 		{
 			continue;
 		}

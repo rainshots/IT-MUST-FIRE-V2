@@ -1,3 +1,6 @@
+// Active mission type for this session; defaults to the survival objective.
+mission_type = MISSION_TYPES.RAID;
+
 // Global pause state used by gameplay objects.
 randomise()
 global.pause = false;
@@ -66,6 +69,8 @@ global.day_duration = BALANCE_DAY_DURATION;
 global.night_duration = BALANCE_NIGHT_DURATION;
 global.day_timer = global.day_duration * global.game_speed_normal;
 night_duration_current = global.night_duration;
+// RAID Blood Moons use a timed night without a base attack.
+raid_blood_moon_active = false;
 global.night_attack_unit_count = 0;
 global.full_moon_night_active = false;
 global.unholy_night_active = false;
@@ -203,7 +208,7 @@ blood_moon_reward_previous_focus_window = FOCUS_WINDOW.NOONE;
 blood_moon_reward_previous_pause_state = false;
 blood_moon_reward_focus_restore_pending = false;
 
-// The final modal permanently stops the run after the survival objective is completed.
+// The final modal permanently stops the run after the active mission objective is completed.
 game_completion_popup_width = 760;
 game_completion_popup_height = 300;
 game_completion_button_width = 340;
@@ -10722,7 +10727,8 @@ night_attack_marker_directions_get = function()
 night_attack_plan_create = function()
 {
 	// The day after a Blood Moon deliberately previews no incoming attack.
-	if (unholy_night_pending || global.unholy_night_active)
+	if (unholy_night_pending || global.unholy_night_active
+		|| (mission_type == MISSION_TYPES.RAID && full_moon_night_is_scheduled(night_attack_night_index)))
 	{
 		night_attack_directions = [];
 		night_attack_plan_exists = false;
@@ -11040,6 +11046,12 @@ boss_crusader_horde_is_scheduled = function(_night_index)
 
 full_moon_night_is_scheduled = function(_night_index)
 {
+	// Daily testing includes nights normally excluded by boss or shifted-night rules.
+	if (full_moon_night_interval == 1)
+	{
+		return _night_index > 0;
+	}
+
 	if (boss_griffith_night_is_scheduled(_night_index))
 	{
 		return false;
@@ -11220,6 +11232,7 @@ boss_crusader_horde_spawn_for_night = function()
 night_attack_spawning_update = function()
 {
 	if (global.pause
+		|| raid_blood_moon_active
 		|| global.day_phase != DAY_PHASE.NIGHT
 		|| global.unholy_night_active
 		|| !night_attack_plan_exists)
@@ -11537,6 +11550,7 @@ start_night_phase = function()
 	cannon_corpse_workers_drop_all();
 	var _is_full_moon_night = full_moon_night_is_scheduled(night_attack_night_index);
 	var _is_unholy_night = BALANCE_UNHOLY_NIGHT_ENABLED && unholy_night_pending;
+	raid_blood_moon_active = mission_type == MISSION_TYPES.RAID && _is_full_moon_night;
 
 	global.day_phase = DAY_PHASE.NIGHT;
 	night_fast_forward_set(false);
@@ -11546,6 +11560,10 @@ start_night_phase = function()
 	night_duration_current = _is_unholy_night
 		? BALANCE_UNHOLY_NIGHT_DURATION
 		: global.night_duration;
+	if (raid_blood_moon_active)
+	{
+		night_duration_current = BALANCE_RAID_BLOOD_MOON_DURATION;
+	}
 	global.day_timer = night_duration_current * global.game_speed_normal;
 	global.night_attack_unit_count = 0;
 	night_force_end_timer = _is_unholy_night
@@ -11637,7 +11655,7 @@ start_night_phase = function()
 	}
 
 	// Boss nights have no forced time limit and end only after the army is defeated.
-	boss_griffith_night_active = !_is_unholy_night && boss_griffith_pending_next_night;
+	boss_griffith_night_active = !_is_unholy_night && !raid_blood_moon_active && boss_griffith_pending_next_night;
 
 	start_cultists_loading_into_cannon();
 	cannon_projectile_night_slots_capture();
@@ -11645,7 +11663,7 @@ start_night_phase = function()
 
 	with (o_garnizon)
 	{
-		if (!global.unholy_night_active && is_activated)
+		if (!global.unholy_night_active && !other.raid_blood_moon_active && is_activated)
 		{
 			release_owned_units();
 		}
@@ -11658,6 +11676,7 @@ start_night_phase = function()
 		var _enemy = instance_find(o_enemy_units, _enemy_index);
 
 		if (!global.unholy_night_active
+			&& !raid_blood_moon_active
 			&& instance_exists(_enemy)
 			&& variable_instance_exists(_enemy, "owner_garnizon")
 			&& instance_exists(_enemy.owner_garnizon)
@@ -11682,7 +11701,7 @@ start_night_phase = function()
 		enemy_night_balance_scale_apply(_existing_enemy);
 	}
 
-	if (!global.unholy_night_active && boss_griffith_pending_next_night)
+	if (!global.unholy_night_active && !raid_blood_moon_active && boss_griffith_pending_next_night)
 	{
 		if (boss_crusader_horde_is_scheduled(night_attack_night_index))
 		{
@@ -11717,8 +11736,9 @@ start_day_phase = function()
 		}
 	}
 
-	// Completing the thirteenth night ends the prototype before another day can begin.
-	if (night_attack_night_index == BALANCE_SURVIVAL_OBJECTIVE_DAYS
+	// Survival missions end after the configured final night, before another day begins.
+	if (mission_type == MISSION_TYPES.SURVIVE
+		&& night_attack_night_index == BALANCE_SURVIVAL_OBJECTIVE_DAYS
 		&& !game_completion_popup_was_shown)
 	{
 		balance_log_night_hp_append();
@@ -11785,6 +11805,7 @@ start_day_phase = function()
 	night_fast_forward_set(false);
 	global.cannon_corpses_delivered_today = 0;
 	global.full_moon_night_active = false;
+	raid_blood_moon_active = false;
 	global.unholy_night_active = false;
 	unholy_night_pending = BALANCE_UNHOLY_NIGHT_ENABLED && _previous_night_was_full_moon;
 	boss_griffith_night_active = false;

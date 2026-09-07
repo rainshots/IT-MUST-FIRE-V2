@@ -9,6 +9,13 @@
 // Windows reports Shift + NumPad 5 as the keypad center virtual key.
 #macro KEY_CODE_NUMPAD_CENTER 12
 
+// Mission types available for a gameplay session.
+enum MISSION_TYPES
+{
+	SURVIVE,
+	RAID
+}
+
 enum PROJECTILE_TYPE
 {
 	DAMAGE,
