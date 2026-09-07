@@ -10,6 +10,29 @@ var _cultist_info_hovered_now = noone;
 jobs_hovered_cultist = noone;
 jobs_whip_hovered = false;
 jobs_hovered_hp_modifier_source = "";
+jobs_spirit_assignment_blocked = false;
+
+// Delayed creation keeps both the whip and its input unavailable on the first day.
+if (!instance_exists(jobs_whip)
+	&& global.day_phase == DAY_PHASE.DAY
+	&& day_event_current_day_get() >= BALANCE_JOBS_WHIP_UNLOCK_DAY)
+{
+	jobs_whip = instance_create_layer(0, 0, layer, o_whip);
+}
+
+// Invoked Rites progress only while Assign Duties is the active window.
+if (global.day_phase == DAY_PHASE.DAY && global.focus_window == FOCUS_WINDOW.JOBS)
+{
+	var _dragged_event = instance_exists(jobs_dragged_cultist)
+		&& is_struct(jobs_drag_origin_event)
+		? jobs_drag_origin_event
+		: noone;
+	day_event_execution_timers_update(_dragged_event);
+	jobs_scroll_clamp();
+}
+
+// Keep audio in sync even when another modal window interrupts Assign Duties.
+jobs_rite_loop_update();
 
 // Any mouse action or inactive window closes the delayed Cultist information card.
 if (global.focus_window != FOCUS_WINDOW.JOBS
@@ -209,6 +232,32 @@ var _mouse_is_over_event_list = point_in_rectangle(
 	_layout.panel_x + _layout.panel_width,
 	_event_viewport.y + _event_viewport.height
 );
+
+// Exhausted Cultists remain draggable so hovering any visible slot explains the restriction.
+if (_mouse_is_over_event_viewport && instance_exists(jobs_dragged_cultist)
+	&& jobs_dragged_cultist.spirit <= 0)
+{
+	var _spirit_event_count = array_length(global.day_events);
+	for (var _spirit_event_index = 0; _spirit_event_index < _spirit_event_count; ++_spirit_event_index)
+	{
+		var _spirit_event = global.day_events[_spirit_event_index];
+		var _spirit_slot_count = _spirit_event.cultist_cost * _spirit_event.activation_limit;
+		for (var _spirit_slot_index = 0; _spirit_slot_index < _spirit_slot_count; ++_spirit_slot_index)
+		{
+			var _spirit_slot_rect = jobs_event_slot_rect_get(_spirit_event_index, _spirit_slot_index);
+			if (point_in_rectangle(_mouse_x, _mouse_y, _spirit_slot_rect.x, _spirit_slot_rect.y,
+				_spirit_slot_rect.x + _spirit_slot_rect.width, _spirit_slot_rect.y + _spirit_slot_rect.height))
+			{
+				jobs_spirit_assignment_blocked = true;
+				break;
+			}
+		}
+		if (jobs_spirit_assignment_blocked)
+		{
+			break;
+		}
+	}
+}
 
 // Pick up the Whip from its fixed pool slot and return it as soon as LMB is released.
 if (instance_exists(jobs_whip))
@@ -456,6 +505,33 @@ if (mouse_check_button_pressed(mb_right))
 
 if (mouse_check_button_pressed(mb_left))
 {
+	// Invoke requires the card's minimum staffing, including optional Blood Bath participants.
+	var _invoke_event_count = array_length(global.day_events);
+
+	for (var _invoke_index = 0; _invoke_index < _invoke_event_count; ++_invoke_index)
+	{
+		var _invoke_event = global.day_events[_invoke_index];
+
+		if (!_mouse_is_over_event_viewport || instance_exists(jobs_dragged_cultist)
+			|| !day_event_execution_staffing_is_ready(_invoke_event) || day_event_execution_is_active(_invoke_event))
+		{
+			continue;
+		}
+
+		var _invoke_rect = jobs_invoke_button_rect_get(_invoke_index);
+
+		if (point_in_rectangle(_mouse_x, _mouse_y, _invoke_rect.x, _invoke_rect.y,
+			_invoke_rect.x + _invoke_rect.width, _invoke_rect.y + _invoke_rect.height)
+			&& day_event_execution_start(_invoke_event))
+		{
+			mouse_clear(mb_left);
+			jobs_squad_selector_event = noone;
+			global.ui_confirm_sound_play();
+			jobs_rite_loop_update();
+			exit;
+		}
+	}
+
 	// Event actions are handled before card slots and selectors.
 	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
 	{
@@ -695,6 +771,10 @@ if (mouse_check_button_pressed(mb_left))
 			var _auto_assign_cultist = is_struct(_clicked_event)
 				? day_event_available_cultist_find(_is_construction_event)
 				: noone;
+			if (is_struct(_clicked_event) && variable_struct_exists(_clicked_event, "required_cultist"))
+			{
+				_auto_assign_cultist = _clicked_event.required_cultist;
+			}
 
 			if (instance_exists(_auto_assign_cultist)
 				&& _clicked_event.cultist_assign(_auto_assign_cultist))
@@ -798,6 +878,12 @@ if (instance_exists(jobs_dragged_cultist) && mouse_check_button_released(mb_left
 				}
 
 				// The displaced cultist takes the dragged cultist's former slot or returns to the pool.
+				if (is_struct(jobs_drag_origin_event)
+					&& !jobs_drag_origin_event.cultist_is_eligible_check(_target_cultist))
+				{
+					continue;
+				}
+
 				if (is_struct(jobs_drag_origin_event) && jobs_drag_origin_slot_index >= 0)
 				{
 					jobs_drag_origin_event.assigned_cultists[jobs_drag_origin_slot_index] = _target_cultist;
@@ -806,6 +892,17 @@ if (instance_exists(jobs_dragged_cultist) && mouse_check_button_released(mb_left
 				else
 				{
 					_target_cultist.assigned_event = noone;
+				}
+
+				// Moving a Cultist between Rites restarts both affected execution timers.
+				if (!is_struct(jobs_drag_origin_event) || jobs_drag_origin_event != _target_event)
+				{
+					day_event_execution_timer_reset(_target_event);
+				}
+
+				if (is_struct(jobs_drag_origin_event) && jobs_drag_origin_event != _target_event)
+				{
+					day_event_execution_timer_reset(jobs_drag_origin_event);
 				}
 
 				_target_event.assigned_cultists[_target_slot_index] = jobs_dragged_cultist;

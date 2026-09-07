@@ -66,6 +66,11 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			_fired_projectile_count = cannon_taint_compost_projectile_count_get();
 		}
 
+		// Share the sound state so the first actual landing owns the Compost volley sound.
+		var _taint_compost_volley_audio = target_projectile_type == PROJECTILE_TYPE.CORRUPTION
+			? { landing_sound_played: false }
+			: noone;
+
 		for (var _projectile_index = 0; _projectile_index < _fired_projectile_count; ++_projectile_index)
 		{
 			var _spread_direction = random(360);
@@ -163,6 +168,7 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			}
 			else if (target_projectile_type == PROJECTILE_TYPE.CORRUPTION)
 			{
+				_projectile.taint_compost_volley_audio = _taint_compost_volley_audio;
 				_projectile.effect_radius = cannon_taint_compost_radius_get();
 				_projectile.projectile_sprite = s_taint_shell;
 				_projectile.taint_compost_enchantment = global.shell_factory_taint_enchantment;

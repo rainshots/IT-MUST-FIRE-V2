@@ -1,6 +1,58 @@
 // Draw Jobs above gameplay indicators while keeping tutorial popups in front.
 depth = DEPTH_JOBS_UI;
 
+// One shared loop accompanies all currently progressing Rites in Assign Duties.
+jobs_rite_loop_handle = noone;
+jobs_rite_loop_stop = function()
+{
+	// Stop by asset so no orphaned loop can survive a replaced UI handle.
+	if (audio_is_playing(rite_loop))
+	{
+		audio_stop_sound(rite_loop);
+	}
+
+	jobs_rite_loop_handle = noone;
+};
+
+jobs_rite_loop_update = function()
+{
+	var _is_progressing = false;
+
+	if (global.day_phase == DAY_PHASE.DAY && global.focus_window == FOCUS_WINDOW.JOBS)
+	{
+		var _event_count = array_length(global.day_events);
+
+		for (var _event_index = 0; _event_index < _event_count; ++_event_index)
+		{
+			var _event = global.day_events[_event_index];
+
+			if (day_event_execution_is_active(_event)
+				&& !(instance_exists(jobs_dragged_cultist) && jobs_drag_origin_event == _event))
+			{
+				_is_progressing = true;
+				break;
+			}
+		}
+	}
+
+	if (!_is_progressing)
+	{
+		jobs_rite_loop_stop();
+		return;
+	}
+
+	// The sound asset is the shared guard across all events and UI instances.
+	if (!audio_is_playing(rite_loop))
+	{
+		jobs_rite_loop_handle = audio_play_sound(rite_loop, global.sound_priority_ui, true);
+	}
+
+	if (jobs_rite_loop_handle >= 0)
+	{
+		audio_sound_gain(jobs_rite_loop_handle, global.sound_volume, 0);
+	}
+};
+
 // Jobs window follows the right-docked 1920x1080 Figma composition and scales to the GUI.
 jobs_design_width = 1920;
 jobs_design_height = 1080;
@@ -22,7 +74,8 @@ jobs_whip_tooltip_margin = 8;
 jobs_whip_tooltip_background_alpha = 0.9;
 jobs_whip_pickup_hint = "Hold LMB to hold a whip.";
 jobs_whip_target_hint = "Press RMB to satisfy cannon demon";
-jobs_whip = instance_create_layer(0, 0, layer, o_whip);
+// The whip is created by Step once its unlock day begins.
+jobs_whip = noone;
 jobs_whip_hovered = false;
 jobs_event_y = 147;
 jobs_event_width = 458;
@@ -55,6 +108,8 @@ jobs_result_unit_icon_center_y = 58;
 jobs_result_unit_icon_size = 68;
 jobs_source_icon_offset_x = 525;
 jobs_source_icon_width = 74;
+// Invoke replaces the source image with a full-height button from the Jobs design.
+jobs_invoke_button_width = 81;
 jobs_source_icon_height = 70;
 // Specialization Jobs place three selectable result portraits before worker slots.
 jobs_unit_choice_icon_start_x = 264;
@@ -76,7 +131,12 @@ jobs_cultist_info_cultist = noone;
 jobs_cultist_info_hover_frames = 0;
 jobs_cultist_info_hover_delay_seconds = 0.15;
 jobs_cultist_info_width = 250;
-jobs_cultist_info_header_height = 128;
+jobs_cultist_info_header_height = 148;
+// Spirit eyes sit over the portrait's left edge in a top-to-bottom stack.
+jobs_spirit_icon_offset_x = 7;
+jobs_spirit_icon_offset_y = 30;
+jobs_spirit_icon_step = 13;
+jobs_spirit_assignment_blocked = false;
 jobs_cultist_info_icon_size = 52;
 jobs_cultist_info_icon_gap = 8;
 jobs_cultist_info_padding = 12;
@@ -151,7 +211,7 @@ jobs_onboarding_hints = [
 		arrow_angle: 0
 	},
 	{
-		text: "If the required number of Cultists is assigned to the Rite, it will be completed tomorrow morning.",
+		text: "Assign every required Cultist, then press INVOKE. The Rite completes after " + string(BALANCE_DAY_EVENT_EXECUTION_TIME) + " seconds while Assign Duties remains open.",
 		text_x: 1123,
 		text_y: 620,
 		text_width: 250,
@@ -198,6 +258,7 @@ jobs_confirmation_button_bottom_margin = 34;
 // Window-specific fonts match the Figma hierarchy.
 jobs_title_font = font_add("Arial", 16, true, false, 32, 1279);
 jobs_description_font = font_add("Arial", 9, false, false, 32, 1279);
+jobs_invoke_font = font_add("Arial", 10, true, false, 32, 1279);
 jobs_button_font = font_add("Arial", 30, true, false, 32, 1279);
 jobs_hp_font = font_add("Arial", 8, true, false, 32, 1279);
 jobs_show_font = font_add("Arial", 25, true, false, 32, 1279);
@@ -397,6 +458,11 @@ jobs_first_archdemon_assignment_is_missing = function()
 
 jobs_end_day_button_text_get = function()
 {
+	if (day_event_execution_in_progress_exists())
+	{
+		return "RITES IN PROGRESS";
+	}
+
 	return jobs_first_archdemon_assignment_is_missing()
 		? jobs_first_archdemon_assignment_prompt
 		: "END DAY";
@@ -404,7 +470,8 @@ jobs_end_day_button_text_get = function()
 
 jobs_end_day_is_actionable = function()
 {
-	return !jobs_first_archdemon_assignment_is_missing();
+	return !day_event_execution_in_progress_exists()
+		&& !jobs_first_archdemon_assignment_is_missing();
 };
 
 jobs_end_day_confirmation_layout_get = function()
@@ -550,6 +617,18 @@ jobs_end_day_request = function()
 	}
 
 	return jobs_end_day_execute();
+};
+
+jobs_invoke_button_rect_get = function(_event_index)
+{
+	var _layout = jobs_layout_get();
+	var _event_rect = jobs_event_rect_get(_event_index);
+	return {
+		x: _event_rect.x + (jobs_source_icon_offset_x * _layout.scale),
+		y: _event_rect.y,
+		width: jobs_invoke_button_width * _layout.scale,
+		height: _event_rect.height
+	};
 };
 
 jobs_event_rect_get = function(_event_index)
@@ -821,6 +900,7 @@ jobs_event_cultist_hp_preview_get = function(_event, _slot_index, _cultist)
 			sulking_hp_cost: 0,
 			damaged_building_hp_cost: 0,
 			specialization_hp_discount: 0,
+			knife_hp_discount: 0,
 			loses_consciousness: false
 		};
 	}
@@ -865,9 +945,13 @@ jobs_event_cultist_hp_preview_get = function(_event, _slot_index, _cultist)
 
 			case "blood_bath":
 				_hp_gain += min(
-					BALANCE_BLOOD_BATH_HEAL_AMOUNT,
+					BALANCE_BLOOD_BATH_HEAL_AMOUNT + global.blood_bath_daily_heal_bonus,
 					max(0, _cultist.max_hp - _cultist.hp)
 				);
+				break;
+
+			case "cultist_blood_stew":
+				_hp_gain += min(BALANCE_PERSONAL_RITE_HEAL, max(0, _cultist.max_hp - _cultist.hp));
 				break;
 
 			case "lingering_wounds":
@@ -976,16 +1060,19 @@ jobs_event_cultist_hp_preview_get = function(_event, _slot_index, _cultist)
 		_specialization_eligible_hp_loss
 	);
 	var _total_hp_loss = _hp_loss + _additional_hp_cost;
+	var _knife_hp_discount = min(global.next_rite_hp_discount,
+		max(0, _specialization_eligible_hp_loss - _specialization_hp_discount));
 
 	return {
-		hp_change: _hp_gain + _specialization_hp_discount - _total_hp_loss,
+		hp_change: _hp_gain + _specialization_hp_discount + _knife_hp_discount - _total_hp_loss,
 		hp_loss: _hp_loss,
 		hp_gain: _hp_gain,
 		sulking_hp_cost: _sulking_hp_cost,
 		damaged_building_hp_cost: _damaged_building_hp_cost,
 		specialization_hp_discount: _specialization_hp_discount,
+		knife_hp_discount: _knife_hp_discount,
 		loses_consciousness: _cultist.hp
-			- max(0, _lethal_hp_loss - _specialization_hp_discount) <= 0
+			- max(0, _lethal_hp_loss - _specialization_hp_discount - _knife_hp_discount) <= 0
 	};
 };
 
@@ -1077,6 +1164,15 @@ jobs_event_cultist_hp_rows_get = function(_event, _slot_index, _cultist)
 			text: "+" + string(round(_preview.specialization_hp_discount)) + " HP",
 			color: COLOR_HEALTH_BAR,
 			source: jobs_hp_modifier_source_specialization
+		});
+	}
+
+	if (_preview.knife_hp_discount > 0)
+	{
+		array_push(_rows, {
+			text: "+" + string(round(_preview.knife_hp_discount)) + " HP",
+			color: COLOR_HEALTH_BAR,
+			source: "Sacrificial Knife"
 		});
 	}
 
@@ -1595,6 +1691,11 @@ jobs_cultist_info_draw = function()
 		_status_text = "Assigned";
 		_status_color = COLOR_JOBS_EVENT_ACTION;
 	}
+	else if (_cultist.spirit <= 0)
+	{
+		_status_text = "Not enough Spirit";
+		_status_color = COLOR_STATUS_NEGATIVE_RED;
+	}
 
 	if (variable_instance_exists(_cultist, "specialization_building_object")
 		&& _cultist.specialization_building_object != noone
@@ -1632,12 +1733,17 @@ jobs_cultist_info_draw = function()
 	draw_text(_content_x, _panel_y + _padding, _cultist_name);
 	draw_set_font(jobs_hp_font);
 	draw_text(_content_x, _panel_y + (_padding + (26 * _scale)), _hp_text);
+	var _spirit_row_y = _panel_y + _padding + (46 * _scale);
+	draw_sprite_ext(s_spirit_eye_red, 0, _content_x + (7 * _scale),
+		_spirit_row_y + (5 * _scale), _scale, _scale, 0, c_white, 1);
+	draw_text(_content_x + (22 * _scale), _spirit_row_y,
+		"Spirit: " + string(_cultist.spirit) + "/" + string(_cultist.max_spirit));
 	draw_set_color(_status_color);
-	draw_text(_content_x, _panel_y + (_padding + (46 * _scale)), _status_text);
+	draw_text(_content_x, _panel_y + (_padding + (66 * _scale)), _status_text);
 	draw_set_color(_specialization_color);
 	draw_text(
 		_content_x,
-		_panel_y + (_padding + (66 * _scale)),
+		_panel_y + (_padding + (86 * _scale)),
 		"Specialization: " + _specialization_name
 	);
 	draw_set_color(COLOR_JOBS_EVENT_ACTION);
@@ -1765,6 +1871,7 @@ jobs_window_open = function()
 
 jobs_window_close = function()
 {
+	jobs_rite_loop_stop();
 	jobs_dragged_cultist = noone;
 	jobs_drag_origin_event = noone;
 	jobs_drag_origin_slot_index = -1;

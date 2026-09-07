@@ -15,6 +15,8 @@ taint_compost_enchantment = TAINT_COMPOST_ENCHANTMENT.NONE;
 taint_compost_enchantment_primary = false;
 taint_compost_enchantment_x = x;
 taint_compost_enchantment_y = y;
+// All Compost shells from one shot share whether the first landing sound has played.
+taint_compost_volley_audio = noone;
 first_aid_meat_enchantment = FIRST_AID_MEAT_ENCHANTMENT.NONE;
 hellcow_enchantment = HELLCOW_ENCHANTMENT.NONE;
 doom_bell_enchantment = DOOM_BELL_ENCHANTMENT.NONE;

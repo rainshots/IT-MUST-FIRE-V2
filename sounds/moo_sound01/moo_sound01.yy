@@ -1,0 +1,26 @@
+{
+  "$GMSound":"v2",
+  "%Name":"moo_sound01",
+  "audioGroupId":{
+    "name":"audiogroup_default",
+    "path":"audiogroups/audiogroup_default",
+  },
+  "bitDepth":1,
+  "channelFormat":1,
+  "compression":0,
+  "compressionQuality":4,
+  "conversionMode":0,
+  "duration":4.586009,
+  "exportDir":"",
+  "name":"moo_sound01",
+  "parent":{
+    "name":"New",
+    "path":"folders/Sounds/New.yy",
+  },
+  "preload":false,
+  "resourceType":"GMSound",
+  "resourceVersion":"2.0",
+  "sampleRate":44100,
+  "soundFile":"moo_sound01.ogg",
+  "volume":1.0,
+}

@@ -20,6 +20,9 @@ if (structure_selection_open)
 
 	if (mouse_check_button_pressed(mb_left))
 	{
+		// Consume the UI click before closing the window can expose another world point.
+		mouse_clear(mb_left);
+
 		var _mouse_x = device_mouse_x_to_gui(0);
 		var _mouse_y = device_mouse_y_to_gui(0);
 		var _hovered_choice = cursed_point_structure_choice_hover_index_get(_mouse_x, _mouse_y);

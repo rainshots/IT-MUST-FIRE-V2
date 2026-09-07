@@ -1,4 +1,4 @@
-﻿{
+{
   "$GMSound":"v2",
   "%Name":"cannon_agony_01",
   "audioGroupId":{

@@ -1,5 +1,162 @@
 /// @description Manages the current day's cultists and events.
 
+// Find an uncompleted healing Blood Bath card offered today.
+function day_event_personal_blood_bath_available()
+{
+	var _event_count = array_length(global.day_events);
+	for (var _index = 0; _index < _event_count; ++_index)
+	{
+		var _event = global.day_events[_index];
+		if (_event.is_resolved)
+		{
+			continue;
+		}
+		var _action_count = array_length(_event.actions);
+		for (var _action_index = 0; _action_index < _action_count; ++_action_index)
+		{
+			if (_event.actions[_action_index].action_type == "blood_bath")
+			{
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+function day_event_personal_execute(_event, _cultists, _data)
+{
+	if (!instance_exists(_event.required_cultist) || _event.required_cultist.hp <= 0)
+	{
+		return false;
+	}
+
+	var _cannon = instance_find(o_cannon, 0);
+	switch (_event.event_id)
+	{
+		case "cultist_scratch_breech":
+			cannon_satisfaction_add(BALANCE_PERSONAL_RITE_SATISFACTION_GAIN);
+			break;
+		case "cultist_reinforce_carriage":
+			if (instance_exists(_cannon))
+			{
+				_cannon.hp = min(_cannon.max_hp, _cannon.hp
+					+ _cannon.max_hp * BALANCE_PERSONAL_RITE_CANNON_REPAIR_SHARE);
+			}
+			break;
+		case "cultist_blood_stew":
+			day_event_cultist_heal_apply(_event.required_cultist, BALANCE_PERSONAL_RITE_HEAL);
+			break;
+		case "cultist_sacrificial_knife":
+			global.next_rite_hp_discount = BALANCE_PERSONAL_RITE_KNIFE_DISCOUNT;
+			break;
+		case "cultist_awaken_taint":
+			if (instance_exists(o_game_controller))
+			{
+				var _controller = instance_find(o_game_controller, 0);
+				_controller.cannon_projectile_queue_add(PROJECTILE_TYPE.CORRUPTION,
+					{ personal_rite_daily_shell: true }, true);
+			}
+			break;
+		case "cultist_virgin_blood":
+			global.blood_bath_daily_heal_bonus = BALANCE_PERSONAL_RITE_BATH_BONUS;
+			break;
+	}
+
+	day_event_cultist_hp_cost_apply(_cultists, _data.hp_cost);
+	return true;
+}
+
+function day_event_personal_generate()
+{
+	var _day = day_event_current_day_get();
+	// Personal requests start on the second day, including generation during the morning transition.
+	var _first_personal_event_day = 2;
+	if (_day < _first_personal_event_day || global.cultist_event_generated_day == _day)
+	{
+		return false;
+	}
+	global.cultist_event_generated_day = _day;
+
+	// Only living regular Cultists may author the daily request.
+	var _authors = [];
+	var _cultist_count = array_length(global.event_cultists);
+	for (var _index = 0; _index < _cultist_count; ++_index)
+	{
+		var _cultist = global.event_cultists[_index];
+		if (instance_exists(_cultist) && _cultist.hp > 0)
+		{
+			array_push(_authors, _cultist);
+		}
+	}
+	if (array_length(_authors) == 0)
+	{
+		return false;
+	}
+
+	// HP costs are data for assignment previews, never part of the description.
+	var _catalog = [
+		{ event_id: "cultist_scratch_breech", title: "Scratch Behind the Breech",
+			description: "The voices say it needs a scratch. Funny how they never volunteer their own fingers.\nSlightly increases Cannon Satisfaction (+7).", hp_cost: BALANCE_PERSONAL_RITE_HP_COST },
+		{ event_id: "cultist_reinforce_carriage", title: "Reinforce the Carriage",
+			description: "I spent all night listening to the carriage creak. Think I know where it'll give way.\nRestores a small amount of the Cannon's HP (+8% HP).", hp_cost: BALANCE_PERSONAL_RITE_HP_COST },
+		{ event_id: "cultist_blood_stew", title: "Cook Blood Stew",
+			description: "I summoned Grandma for her recipe. She said to add more blood and stop slouching.\nRestores 10 HP to the cultist.", hp_cost: 0 },
+		{ event_id: "cultist_sacrificial_knife", title: "Prepare the Sacrificial Knife",
+			description: "Found a sharper knife. Should save us a few screams today.\nReduces the next ritual's HP cost by 10 (not less than 0).", hp_cost: 0 },
+		{ event_id: "cultist_awaken_taint", title: "Awaken the Taint",
+			description: "The compost has started chanting. We should load it before it summons something.\nGain 1 Taint Compost shell for today.", hp_cost: 0 },
+		{ event_id: "cultist_virgin_blood", title: "Virgin Blood",
+			description: "I've set aside a vial of pure blood. Should come in handy for the bath.\nBlood Bath restores an additional 10 HP to each cultist on it today.", hp_cost: 0 }
+	];
+	var _candidates = [];
+	var _cannon = instance_find(o_cannon, 0);
+	var _catalog_count = array_length(_catalog);
+	var _history_count = array_length(global.cultist_event_history);
+	for (var _index = 0; _index < _catalog_count; ++_index)
+	{
+		var _entry = _catalog[_index];
+		var _is_repeat = false;
+		for (var _history_index = 0; _history_index < _history_count; ++_history_index)
+		{
+			var _previous = global.cultist_event_history[_history_index];
+			if (_previous.day >= _day - BALANCE_PERSONAL_RITE_HISTORY_DAYS
+				&& _previous.event_id == _entry.event_id)
+			{
+				_is_repeat = true;
+				break;
+			}
+		}
+		if (_is_repeat
+			|| (_entry.event_id == "cultist_scratch_breech" && cannon_satisfaction_get() >= BALANCE_CANNON_SATISFACTION_MAX)
+			|| (_entry.event_id == "cultist_reinforce_carriage" && (!instance_exists(_cannon) || _cannon.hp >= _cannon.max_hp))
+			|| (_entry.event_id == "cultist_virgin_blood" && !day_event_personal_blood_bath_available()))
+		{
+			continue;
+		}
+		array_push(_candidates, _entry);
+	}
+	if (array_length(_candidates) == 0)
+	{
+		return false;
+	}
+
+	var _choice = _candidates[irandom(array_length(_candidates) - 1)];
+	var _author = _authors[irandom(array_length(_authors) - 1)];
+	var _event = new day_event_constructor(_choice.event_id, _choice.title, _choice.description, 1, 1,
+		[new event_action_constructor(_choice.event_id, day_event_personal_execute, { hp_cost: _choice.hp_cost })]);
+	_event.required_cultist = _author;
+	_event.source_sprite = _author.sprite_index;
+	_event.can_pin = false;
+	_event.reroll_is_available = false;
+	day_event_add(_event);
+	array_push(global.cultist_event_history, { day: _day, event_id: _choice.event_id });
+	if (array_length(global.cultist_event_history) > BALANCE_PERSONAL_RITE_HISTORY_DAYS)
+	{
+		array_delete(global.cultist_event_history, 0, 1);
+	}
+	return true;
+}
+
 function day_event_add(_event)
 {
 	if (!is_struct(_event))
@@ -341,6 +498,10 @@ function day_event_cultist_damage_apply(_cultist, _amount, _release_assignment =
 		_cultist.event_specialization_hp_discount_remaining -= _specialization_discount;
 	}
 
+	// The prepared knife is consumed across all costs in the next executed Rite only.
+	var _knife_discount = min(_damage, _cultist.event_knife_hp_discount_remaining);
+	_damage -= _knife_discount;
+	_cultist.event_knife_hp_discount_remaining -= _knife_discount;
 	_cultist.hp -= _damage;
 
 	if (_cultist.hp <= 0)
@@ -434,31 +595,6 @@ function day_event_cultist_unconscious_morning_update()
 	}
 
 	return true;
-}
-
-function day_event_lowest_hp_available_cultists_assign(_event, _cultist_count)
-{
-	if (!is_struct(_event))
-	{
-		return 0;
-	}
-
-	var _assigned_count = 0;
-	var _safe_cultist_count = max(0, floor(_cultist_count));
-
-	for (var _assignment_index = 0; _assignment_index < _safe_cultist_count; ++_assignment_index)
-	{
-		var _lowest_hp_cultist = day_event_available_cultist_find(true);
-
-		if (!instance_exists(_lowest_hp_cultist) || !_event.cultist_assign(_lowest_hp_cultist))
-		{
-			break;
-		}
-
-		_assigned_count++;
-	}
-
-	return _assigned_count;
 }
 
 function day_event_building_construction_execute(_event, _assigned_cultists, _data)
@@ -574,6 +710,9 @@ function day_event_building_construction_execute(_event, _assigned_cultists, _da
 		}
 	}
 
+	// Every successful construction charges its assigned workers the displayed HP cost.
+	day_event_cultist_hp_cost_apply(_assigned_cultists, _data.hp_cost);
+
 	// Trap Points persist after construction so they can restore their bound trap every morning.
 	if (variable_instance_exists(_construction_site, "construction_site_complete"))
 	{
@@ -674,6 +813,7 @@ function day_event_building_construction_create(_construction_site, _choice, _is
 				day_event_building_construction_execute,
 				{
 					construction_site: _construction_site,
+					hp_cost: BALANCE_BUILDING_CONSTRUCTION_CULTIST_HP_COST,
 					building_object: _choice.building_object,
 					choice: _choice,
 					is_cursed_point: _is_cursed_point
@@ -696,7 +836,7 @@ function day_event_building_construction_create(_construction_site, _choice, _is
 		global.building_construction_count_today++;
 	}
 
-	day_event_lowest_hp_available_cultists_assign(_event, BALANCE_BUILDING_CONSTRUCTION_CULTIST_COST);
+	// The player assigns construction workers after the card appears.
 	return _event;
 }
 
@@ -1706,7 +1846,7 @@ function day_event_squad_recruitment_create(_squad_point, _choice)
 	_event.reroll_is_available = false;
 	_squad_point.pending_squad_event = _event;
 	day_event_add_first(_event);
-	day_event_lowest_hp_available_cultists_assign(_event, BALANCE_SQUAD_EVENT_CULTIST_COUNT);
+	// The player assigns recruitment workers after the card appears.
 	return _event;
 }
 
@@ -1802,7 +1942,7 @@ function day_event_blood_bath_heal_execute(_event, _assigned_cultists, _data)
 
 	day_event_cultist_heal_apply(
 		_cultist,
-		BALANCE_BLOOD_BATH_HEAL_AMOUNT,
+		BALANCE_BLOOD_BATH_HEAL_AMOUNT + global.blood_bath_daily_heal_bonus,
 		day_event_affects_unconscious_cultists(_data)
 	);
 	return true;
@@ -1945,6 +2085,7 @@ function day_event_undying_devotion_cultist_store(_cultist)
 	array_push(global.blood_bath_undying_devotion_dead_cultists, {
 		cultist_name: _cultist_name,
 		max_hp: _max_hp,
+		max_spirit: _cultist.max_spirit,
 		sprite_index: _sprite_index,
 		work_history: _work_history,
 		building_work_counts: _building_work_counts,
@@ -2060,6 +2201,10 @@ function day_event_undying_devotion_morning_apply()
 		}
 
 		_cultist.cultist_name = _cultist_data.cultist_name;
+		// Resurrection happens in the morning, so restore the preserved maximum at full Spirit.
+		_cultist.max_spirit = variable_struct_exists(_cultist_data, "max_spirit")
+			? _cultist_data.max_spirit : BALANCE_EVENT_CULTIST_MAX_SPIRIT;
+		_cultist.spirit = _cultist.max_spirit;
 		_cultist.sprite_index = _cultist_data.sprite_index;
 		_cultist.work_history = variable_struct_exists(_cultist_data, "work_history")
 			? _cultist_data.work_history
@@ -3670,6 +3815,8 @@ function day_event_blood_bath_create(
 	// The healing Blood Bath Rite displeases the Cannon once when its card executes.
 	if (_event_id == "blood_bath")
 	{
+		// Healing can start with one participant while keeping every optional slot available.
+		_event.execution_cultist_minimum = _event.cultist_cost;
 		_event.cannon_satisfaction_cost = BALANCE_BLOOD_BATH_CANNON_SATISFACTION_COST;
 		day_event_modifier_add(
 			_event,
@@ -4501,6 +4648,40 @@ function day_event_source_event_id_get(_event)
 		: "";
 }
 
+function day_event_previous_building_selection_store(_event)
+{
+	if (!is_struct(_event)
+		|| !variable_struct_exists(_event, "source_building")
+		|| !instance_exists(_event.source_building)
+		|| !variable_instance_exists(_event.source_building, "previous_day_event_ids")
+		|| variable_struct_exists(_event, "construction_site"))
+	{
+		return false;
+	}
+
+	var _source_event_id = day_event_source_event_id_get(_event);
+
+	if (_source_event_id == "")
+	{
+		return false;
+	}
+
+	var _source_building = _event.source_building;
+	var _previous_event_ids = _source_building.previous_day_event_ids;
+
+	for (var _stored_index = 0; _stored_index < array_length(_previous_event_ids); ++_stored_index)
+	{
+		if (_previous_event_ids[_stored_index] == _source_event_id)
+		{
+			return false;
+		}
+	}
+
+	array_push(_previous_event_ids, _source_event_id);
+	_source_building.previous_day_event_ids = _previous_event_ids;
+	return true;
+}
+
 function day_event_previous_building_selections_store()
 {
 	var _building_count = instance_number(o_v13buildings_parent);
@@ -4520,43 +4701,26 @@ function day_event_previous_building_selections_store()
 
 	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
 	{
-		var _event = global.day_events[_event_index];
-
-		if (!is_struct(_event)
-			|| !variable_struct_exists(_event, "source_building")
-			|| !instance_exists(_event.source_building)
-			|| !variable_instance_exists(_event.source_building, "previous_day_event_ids")
-			|| variable_struct_exists(_event, "construction_site"))
+		if (day_event_previous_building_selection_store(global.day_events[_event_index]))
 		{
-			continue;
+			_stored_event_count++;
 		}
+	}
 
-		var _source_event_id = day_event_source_event_id_get(_event);
-
-		if (_source_event_id == "")
+	// Completed cards were removed from the UI, but still count as yesterday's offered choices.
+	if (variable_global_exists("day_event_completed_events"))
+	{
+		for (var _completed_index = 0;
+			_completed_index < array_length(global.day_event_completed_events);
+			++_completed_index)
 		{
-			continue;
-		}
-
-		var _source_building = _event.source_building;
-		var _previous_event_ids = _source_building.previous_day_event_ids;
-		var _event_id_is_stored = false;
-
-		for (var _stored_index = 0; _stored_index < array_length(_previous_event_ids); ++_stored_index)
-		{
-			if (_previous_event_ids[_stored_index] == _source_event_id)
+			if (day_event_previous_building_selection_store(global.day_event_completed_events[_completed_index]))
 			{
-				_event_id_is_stored = true;
-				break;
+				_stored_event_count++;
 			}
 		}
 
-		if (!_event_id_is_stored)
-		{
-			array_push(_previous_event_ids, _source_event_id);
-			_source_building.previous_day_event_ids = _previous_event_ids;
-			_stored_event_count++;
-		}
+		global.day_event_completed_events = [];
 	}
 
 	return _stored_event_count;
@@ -4578,6 +4742,217 @@ function day_event_has_funded_activation(_event)
 		&& variable_struct_exists(_event, "assigned_cultists")
 		&& variable_struct_exists(_event, "cultist_cost")
 		&& array_length(_event.assigned_cultists) >= _event.cultist_cost;
+}
+
+function day_event_execution_staffing_is_ready(_event)
+{
+	if (!is_struct(_event)
+		|| !variable_struct_exists(_event, "assigned_cultists")
+		|| !variable_struct_exists(_event, "cultist_cost")
+		|| !variable_struct_exists(_event, "activation_limit")
+		|| (variable_struct_exists(_event, "is_resolved") && _event.is_resolved))
+	{
+		return false;
+	}
+
+	var _required_cultist_count = variable_struct_exists(_event, "execution_cultist_minimum")
+		? _event.execution_cultist_minimum
+		: _event.cultist_cost * _event.activation_limit;
+	return array_length(_event.assigned_cultists) >= _required_cultist_count;
+}
+
+function day_event_execution_is_active(_event)
+{
+	return day_event_execution_staffing_is_ready(_event)
+		&& variable_struct_exists(_event, "execution_started")
+		&& _event.execution_started;
+}
+
+function day_event_execution_start(_event)
+{
+	if (!day_event_execution_staffing_is_ready(_event) || day_event_execution_is_active(_event))
+	{
+		return false;
+	}
+
+	_event.execution_timer = 0;
+	_event.execution_started = true;
+	return true;
+}
+
+function day_event_execution_timer_reset(_event)
+{
+	if (!is_struct(_event) || !variable_struct_exists(_event, "execution_timer"))
+	{
+		return false;
+	}
+
+	_event.execution_timer = 0;
+	_event.execution_started = false;
+	return true;
+}
+
+function day_event_execution_in_progress_exists()
+{
+	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
+	{
+		var _event = global.day_events[_event_index];
+
+		if (day_event_execution_is_active(_event))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+function day_event_cultist_return_to_cannon_start(_cultist)
+{
+	if (!instance_exists(_cultist))
+	{
+		return false;
+	}
+
+	_cultist.assigned_event = noone;
+
+	if (variable_instance_exists(_cultist, "return_to_cannon_after_event")
+		&& variable_instance_exists(_cultist, "hp")
+		&& _cultist.hp > 0)
+	{
+		_cultist.return_to_cannon_after_event = true;
+	}
+
+	return true;
+}
+
+function day_event_execution_complete(_event_index)
+{
+	if (_event_index < 0 || _event_index >= array_length(global.day_events))
+	{
+		return false;
+	}
+
+	var _event = global.day_events[_event_index];
+
+	if (!day_event_execution_is_active(_event)
+		|| !variable_struct_exists(_event, "execute"))
+	{
+		return false;
+	}
+
+	// Match the former End Day behavior for funded squad Rites without a manual selection.
+	day_event_squad_selection_default_apply(_event);
+
+	if (_event.activation_ready_count_get() <= 0)
+	{
+		day_event_execution_timer_reset(_event);
+		return false;
+	}
+
+	var _assigned_cultist_count = array_length(_event.assigned_cultists);
+	var _assigned_cultists = array_create(_assigned_cultist_count, noone);
+	array_copy(_assigned_cultists, 0, _event.assigned_cultists, 0, _assigned_cultist_count);
+	var _event_activation_count = _event.execute();
+
+	if (_event_activation_count <= 0)
+	{
+		day_event_execution_timer_reset(_event);
+		return false;
+	}
+
+	// Building rest and selection history still treat an immediate Rite as today's completed choice.
+	if (!variable_struct_exists(_event, "construction_site")
+		&& variable_struct_exists(_event, "source_building")
+		&& instance_exists(_event.source_building))
+	{
+		day_event_building_ritual_execution_record(
+			_event.source_building,
+			day_event_current_day_get()
+		);
+	}
+
+	if (!variable_global_exists("day_event_completed_events"))
+	{
+		global.day_event_completed_events = [];
+	}
+
+	array_push(global.day_event_completed_events, _event);
+
+	var _event_name = variable_struct_exists(_event, "title")
+		? string(_event.title)
+		: string(_event.event_id);
+
+	if (_event_activation_count > 1)
+	{
+		_event_name += " x" + string(_event_activation_count);
+	}
+
+	if (!variable_global_exists("day_event_executed_log_lines"))
+	{
+		global.day_event_executed_log_lines = [];
+	}
+
+	array_push(global.day_event_executed_log_lines, _event_name);
+
+	// Released Cultists return to the top pool immediately and walk back to their original homes.
+	for (var _cultist_index = 0; _cultist_index < array_length(_assigned_cultists); ++_cultist_index)
+	{
+		day_event_cultist_return_to_cannon_start(_assigned_cultists[_cultist_index]);
+	}
+
+	_event.assigned_cultists = [];
+	array_delete(global.day_events, _event_index, 1);
+	global.sound_play_random([rite_complete01, rite_complete02], global.sound_priority_ui);
+	return true;
+}
+
+function day_event_execution_timers_update(_paused_event = noone)
+{
+	var _timer_duration = BALANCE_DAY_EVENT_EXECUTION_TIME * room_speed;
+	var _time_scale = variable_global_exists("gameplay_time_scale")
+		? global.gameplay_time_scale
+		: 1;
+	var _completed_count = 0;
+
+	// Work backwards because completed cards are removed immediately.
+	for (var _event_index = array_length(global.day_events) - 1; _event_index >= 0; --_event_index)
+	{
+		var _event = global.day_events[_event_index];
+
+		if (!is_struct(_event) || !variable_struct_exists(_event, "execution_timer"))
+		{
+			continue;
+		}
+
+		if (!day_event_execution_staffing_is_ready(_event))
+		{
+			day_event_execution_timer_reset(_event);
+			continue;
+		}
+
+		// Filling the slots only makes Invoke available; it does not start execution.
+		if (!day_event_execution_is_active(_event))
+		{
+			continue;
+		}
+
+		// Do not complete a Rite while the player is actively dragging one of its workers.
+		if (_paused_event == _event)
+		{
+			continue;
+		}
+
+		_event.execution_timer = min(_event.execution_timer + _time_scale, _timer_duration);
+
+		if (_event.execution_timer >= _timer_duration
+			&& day_event_execution_complete(_event_index))
+		{
+			_completed_count++;
+		}
+	}
+
+	return _completed_count;
 }
 
 function day_event_assignments_clear(_event)
@@ -4602,6 +4977,7 @@ function day_event_assignments_clear(_event)
 	}
 
 	_event.assigned_cultists = [];
+	day_event_execution_timer_reset(_event);
 	return _released_count;
 }
 
@@ -5620,7 +5996,7 @@ function day_event_cultist_add(_name = "", _max_hp = BALANCE_EVENT_CULTIST_MAX_H
 	var _cultist = instance_create_layer(_spawn_x, _spawn_y, "Instances", o_cultist);
 	_cultist.cultist_name = _name == "" ? day_event_cultist_random_name_get() : _name;
 	_cultist.max_hp = max(1, _max_hp);
-	_cultist.hp = _cultist.max_hp;
+	_cultist.hp = min(BALANCE_EVENT_CULTIST_STARTING_HP, _cultist.max_hp);
 	_cultist.blood_bath_morning_hp_snapshot = _cultist.hp;
 	array_push(global.event_cultists, _cultist);
 	return _cultist;
@@ -5628,65 +6004,56 @@ function day_event_cultist_add(_name = "", _max_hp = BALANCE_EVENT_CULTIST_MAX_H
 
 function day_event_finish_day()
 {
-	var _executed_activation_count = 0;
-	var _executed_event_lines = [];
-	var _event_count = array_length(global.day_events);
-	var _current_day = day_event_current_day_get();
+	var _released_cultist_count = 0;
 
-	for (var _event_index = 0; _event_index < _event_count; ++_event_index)
+	// End Day no longer executes Rites; it only abandons unfinished assignments before night.
+	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
 	{
 		var _event = global.day_events[_event_index];
 
-		if (is_struct(_event) && variable_struct_exists(_event, "execute"))
+		if (!is_struct(_event))
 		{
-			// Funded squad events fall back to the first valid squad when none was selected.
-			if (array_length(_event.assigned_cultists) >= _event.cultist_cost)
-			{
-				day_event_squad_selection_default_apply(_event);
-			}
-
-			var _event_activation_count = _event.execute();
-			_executed_activation_count += _event_activation_count;
-
-			// An unfunded Cannon demand is ignored and immediately lowers Satisfaction.
-			if (_event_activation_count <= 0
-				&& variable_struct_exists(_event, "is_cannon_demand")
-				&& _event.is_cannon_demand
-				&& variable_struct_exists(_event, "ignored_satisfaction_penalty"))
-			{
-				cannon_satisfaction_add(-max(0, _event.ignored_satisfaction_penalty));
-			}
-
-			if (_event_activation_count > 0)
-			{
-				if (!variable_struct_exists(_event, "construction_site")
-					&& variable_struct_exists(_event, "source_building")
-					&& instance_exists(_event.source_building))
-				{
-					day_event_building_ritual_execution_record(
-						_event.source_building,
-						_current_day
-					);
-				}
-
-				var _event_name = variable_struct_exists(_event, "title")
-					? string(_event.title)
-					: string(_event.event_id);
-
-				if (_event_activation_count > 1)
-				{
-					_event_name += " x" + string(_event_activation_count);
-				}
-
-				array_push(_executed_event_lines, _event_name);
-			}
+			continue;
 		}
+
+		// Ignoring an unfinished Cannon demand keeps its existing Satisfaction consequence.
+		if (variable_struct_exists(_event, "is_cannon_demand")
+			&& _event.is_cannon_demand
+			&& variable_struct_exists(_event, "ignored_satisfaction_penalty"))
+		{
+			cannon_satisfaction_add(-max(0, _event.ignored_satisfaction_penalty));
+		}
+
+		for (var _cultist_index = 0; _cultist_index < array_length(_event.assigned_cultists); ++_cultist_index)
+		{
+			var _cultist = _event.assigned_cultists[_cultist_index];
+
+			if (!instance_exists(_cultist))
+			{
+				continue;
+			}
+
+			_cultist.assigned_event = noone;
+
+			if (variable_instance_exists(_cultist, "return_to_cannon_at_night"))
+			{
+				_cultist.return_to_cannon_at_night = true;
+			}
+
+			_released_cultist_count++;
+		}
+
+		_event.assigned_cultists = [];
+		day_event_execution_timer_reset(_event);
 	}
 
-	// Cheat balance sessions record the actual funded events before the night starts.
+	// Cheat balance sessions record the Rites that completed during the daytime.
 	if (global.cheats_enabled && instance_exists(o_game_controller))
 	{
 		var _game_controller = instance_find(o_game_controller, 0);
+		var _executed_event_lines = variable_global_exists("day_event_executed_log_lines")
+			? global.day_event_executed_log_lines
+			: [];
 
 		if (variable_instance_exists(_game_controller, "balance_log_day_append"))
 		{
@@ -5694,25 +6061,38 @@ function day_event_finish_day()
 		}
 	}
 
-	// Event HP costs leave Cultists unconscious before the night phase begins.
-	for (var _cultist_index = array_length(global.event_cultists) - 1; _cultist_index >= 0; --_cultist_index)
-	{
-		var _cultist = global.event_cultists[_cultist_index];
+	global.day_event_executed_log_lines = [];
 
-		if (instance_exists(_cultist)
-			&& variable_instance_exists(_cultist, "hp")
-			&& _cultist.hp <= 0)
-		{
-			day_event_cultist_unconscious_enter(_cultist);
-			day_event_cultist_assignment_release(_cultist);
-		}
-	}
-
-	return _executed_activation_count;
+	return _released_cultist_count;
 }
 
 function day_event_new_day_reset()
 {
+	// All surviving Cultists recover their individual Spirit budget, including unconscious ones.
+	var _spirit_cultist_count = array_length(global.event_cultists);
+	for (var _spirit_index = 0; _spirit_index < _spirit_cultist_count; ++_spirit_index)
+	{
+		var _spirit_cultist = global.event_cultists[_spirit_index];
+		if (instance_exists(_spirit_cultist))
+		{
+			_spirit_cultist.spirit = _spirit_cultist.max_spirit;
+		}
+	}
+
+	// Today's bath bonus and unspent bonus shell expire; the knife lasts until the next Rite.
+	global.blood_bath_daily_heal_bonus = 0;
+	for (var _shell_index = array_length(global.cannon_projectile_payload_queue) - 1; _shell_index >= 0; --_shell_index)
+	{
+		var _payload = global.cannon_projectile_payload_queue[_shell_index];
+		if (is_struct(_payload) && variable_struct_exists(_payload, "personal_rite_daily_shell"))
+		{
+			array_delete(global.cannon_projectile_queue, _shell_index, 1);
+			array_delete(global.cannon_projectile_payload_queue, _shell_index, 1);
+		}
+	}
+	global.cannon_selected_projectile_index = clamp(global.cannon_selected_projectile_index,
+		0, max(0, array_length(global.cannon_projectile_queue) - 1));
+
 	// Preserve today's final choices, including rerolls, before removing the cards.
 	day_event_previous_building_selections_store();
 	global.building_construction_count_today = 0;

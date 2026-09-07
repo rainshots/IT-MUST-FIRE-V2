@@ -1,7 +1,10 @@
 // Regular cultists are day-event workers and never enter the cannon.
 cultist_name = "Cultist";
 max_hp = BALANCE_EVENT_CULTIST_MAX_HP;
-hp = max_hp;
+hp = min(BALANCE_EVENT_CULTIST_STARTING_HP, max_hp);
+// Spirit limits daily Rite participation and refills to this Cultist's maximum each morning.
+max_spirit = BALANCE_EVENT_CULTIST_MAX_SPIRIT;
+spirit = max_spirit;
 assigned_event = noone;
 // Completed Rite building sprites are stored oldest-first for the Assign Duties history.
 work_history = [];
@@ -12,6 +15,8 @@ specialization_building_name = "";
 specialization_building_sprite = noone;
 // Event execution consumes this temporary discount across all HP costs in one Rite.
 event_specialization_hp_discount_remaining = 0;
+// Prepared knife reduction is shared by this participant's HP costs during one Rite.
+event_knife_hp_discount_remaining = 0;
 is_being_dragged = false;
 drag_drop_x = x;
 drag_drop_y = y;
@@ -39,6 +44,9 @@ wander_timer = irandom(BALANCE_EVENT_CULTIST_WANDER_DELAY);
 move_speed = BALANCE_EVENT_CULTIST_MOVE_SPEED;
 y_sort_enabled = true;
 
+// Completed Rites send the Cultist back to their original cannon-side position.
+return_to_cannon_after_event = false;
+
 // Cursed Point construction workers return to their original cannon-side home at night.
 return_to_cannon_at_night = false;
 home_offset_x = 0;
@@ -53,7 +61,7 @@ if (instance_exists(o_cannon))
 
 is_available = function()
 {
-	return !is_unconscious && hp > 0 && !is_struct(assigned_event);
+	return !is_unconscious && hp > 0 && spirit > 0 && !is_struct(assigned_event);
 };
 
 damage = function(_amount)

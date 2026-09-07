@@ -337,6 +337,24 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			false
 		);
 
+		// Fill the card from left to right while the Rite is being performed.
+		var _execution_duration = BALANCE_DAY_EVENT_EXECUTION_TIME * room_speed;
+		var _execution_progress = variable_struct_exists(_event, "execution_timer")
+			? clamp(_event.execution_timer / max(1, _execution_duration), 0, 1)
+			: 0;
+
+		if (_execution_progress > 0)
+		{
+			draw_set_color(COLOR_JOBS_EVENT_PROGRESS);
+			draw_rectangle(
+				_event_rect.x,
+				_event_rect.y,
+				_event_rect.x + (_event_rect.width * _execution_progress),
+				_event_rect.y + _event_rect.height,
+				false
+			);
+		}
+
 		// Show the building or cannon that generated this event beside its card.
 		var _source_sprite = noone;
 		var _source_frame = 0;
@@ -354,7 +372,25 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			_source_frame = _display_event.source_building.image_index;
 		}
 
-		if (sprite_exists(_source_sprite))
+		if (day_event_execution_staffing_is_ready(_event) && !day_event_execution_is_active(_event))
+		{
+			var _invoke_rect = jobs_invoke_button_rect_get(_event_index);
+			draw_set_color(COLOR_JOBS_EVENT_PROGRESS);
+			draw_rectangle(_invoke_rect.x, _invoke_rect.y,
+				_invoke_rect.x + _invoke_rect.width, _invoke_rect.y + _invoke_rect.height, false);
+			draw_set_color(COLOR_JOBS_SLOT_BORDER);
+			draw_rectangle(_invoke_rect.x, _invoke_rect.y,
+				_invoke_rect.x + _invoke_rect.width, _invoke_rect.y + _invoke_rect.height, true);
+			draw_set_halign(fa_center);
+			draw_set_valign(fa_middle);
+			draw_set_font(jobs_invoke_font);
+			draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+			draw_text_transformed(_invoke_rect.x + (_invoke_rect.width * 0.5),
+				_invoke_rect.y + (_invoke_rect.height * 0.5), "INVOKE", _layout.scale, _layout.scale, 0);
+			draw_set_halign(fa_left);
+			draw_set_valign(fa_top);
+		}
+		else if (sprite_exists(_source_sprite))
 		{
 			var _source_available_width = jobs_source_icon_width * _layout.scale;
 			var _source_available_height = jobs_source_icon_height * _layout.scale;
@@ -744,31 +780,39 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 				true
 			);
 
-			// Empty slots show an enlarging plus as direct assignment affordance.
+			// Empty slots show the centered gray Spirit eye as the assignment affordance.
 			if (_slot_index >= array_length(_display_event.assigned_cultists))
 			{
 				var _slot_key = string(_event_index) + ":" + string(_slot_index);
-				var _plus_scale = jobs_hovered_empty_slot_key == _slot_key ? 1.35 : 1;
-				var _plus_half_size = 7 * _layout.scale * _plus_scale;
-				var _plus_line_width = 2 * _layout.scale * _plus_scale;
-				var _plus_center_x = _slot_x + (_slot_rect.width * 0.5);
-				var _plus_center_y = _slot_y + (_slot_rect.height * 0.5);
+				var _eye_hover_scale = jobs_hovered_empty_slot_key == _slot_key ? 1.35 : 1;
+				var _eye_center_x = _slot_x + (_slot_rect.width * 0.5);
+				var _eye_center_y = _slot_y + (_slot_rect.height * 0.5);
 
-				draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
-				draw_rectangle(
-					_plus_center_x - _plus_half_size,
-					_plus_center_y - (_plus_line_width * 0.5),
-					_plus_center_x + _plus_half_size,
-					_plus_center_y + (_plus_line_width * 0.5),
-					false
-				);
-				draw_rectangle(
-					_plus_center_x - (_plus_line_width * 0.5),
-					_plus_center_y - _plus_half_size,
-					_plus_center_x + (_plus_line_width * 0.5),
-					_plus_center_y + _plus_half_size,
-					false
-				);
+				// A personal request shows its author's ghost portrait beneath the Spirit eye.
+				if (variable_struct_exists(_display_event, "required_cultist")
+					&& instance_exists(_display_event.required_cultist))
+				{
+					var _required = _display_event.required_cultist;
+					var _ghost_alpha = 0.3;
+					var _ghost_scale = min(_slot_rect.width / max(1, sprite_get_width(_required.sprite_index)),
+						(_slot_rect.height * 0.874) / max(1, sprite_get_height(_required.sprite_index)));
+					draw_sprite_ext(_required.sprite_index, _required.image_index,
+						_eye_center_x, _slot_y + (_slot_rect.height * 0.62) + (20 * _layout.scale),
+						_ghost_scale, _ghost_scale, 0, c_white, _ghost_alpha);
+					draw_set_alpha(_ghost_alpha);
+					draw_set_halign(fa_center);
+					draw_set_valign(fa_top);
+					draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+					draw_set_font(jobs_hp_font);
+					draw_text(_eye_center_x, _slot_y - (8 * _layout.scale), _required.cultist_name);
+					draw_set_alpha(1);
+					draw_set_halign(fa_left);
+					draw_set_valign(fa_top);
+				}
+
+				var _eye_scale = _layout.scale * _eye_hover_scale;
+				draw_sprite_ext(s_spirit_eye_gray, 0, _eye_center_x, _eye_center_y,
+					_eye_scale, _eye_scale, 0, c_white, 1);
 
 				// Show the Rite cost and every global or building modifier on separate rows.
 				var _empty_slot_hp_rows = jobs_event_empty_slot_hp_rows_get(_display_event);
@@ -1002,6 +1046,15 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 		draw_set_valign(fa_top);
 		draw_set_font(jobs_hp_font);
 		var _cultist_text_x = _cultist_rect.x + (_cultist_rect.width * 0.5);
+		// One red eye per remaining Spirit, drawn directly over the Cultist portrait.
+		for (var _spirit_index = 0; _spirit_index < _cultist.spirit; ++_spirit_index)
+		{
+			draw_sprite_ext(s_spirit_eye_red, 0,
+				_cultist_rect.x + (jobs_spirit_icon_offset_x * _layout.scale),
+				_cultist_rect.y + ((jobs_spirit_icon_offset_y
+					+ _spirit_index * jobs_spirit_icon_step) * _layout.scale),
+				_layout.scale, _layout.scale, 0, c_white, 1);
+		}
 		var _cultist_name_y = _cultist_rect.y - (8 * _layout.scale);
 		var _cultist_hp_y = _cultist_rect.y + _cultist_rect.height + (4 * _layout.scale);
 
@@ -1186,6 +1239,8 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 	if (instance_exists(jobs_dragged_cultist))
 	{
 		var _drag_sprite = jobs_dragged_cultist.sprite_index;
+		var _drag_mouse_x = device_mouse_x_to_gui(0);
+		var _drag_mouse_y = device_mouse_y_to_gui(0);
 		var _drag_scale = min(
 			(jobs_icon_width * _layout.scale) / sprite_get_width(_drag_sprite),
 			(jobs_icon_height * _layout.scale) / sprite_get_height(_drag_sprite)
@@ -1201,6 +1256,45 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			c_white,
 			1
 		);
+		// Keep the remaining Spirit visible while the worker is being dragged.
+		for (var _drag_spirit_index = 0; _drag_spirit_index < jobs_dragged_cultist.spirit; ++_drag_spirit_index)
+		{
+			draw_sprite_ext(s_spirit_eye_red, 0,
+				_drag_mouse_x - (jobs_icon_width * 0.5 - jobs_spirit_icon_offset_x) * _layout.scale,
+				_drag_mouse_y - (jobs_icon_height * 0.5 - jobs_spirit_icon_offset_y
+					- _drag_spirit_index * jobs_spirit_icon_step) * _layout.scale,
+				_layout.scale, _layout.scale, 0, c_white, 1);
+		}
+
+		if (jobs_spirit_assignment_blocked)
+		{
+			// Explain the rejected assignment above cards without covering the target slot.
+			draw_set_font(jobs_hp_font);
+			draw_set_halign(fa_left);
+			draw_set_valign(fa_top);
+			var _spirit_hint_text = "NOT ENOUGH SPIRIT";
+			var _spirit_hint_padding = 8 * _layout.scale;
+			var _spirit_hint_icon_space = 22 * _layout.scale;
+			var _spirit_hint_width = string_width(_spirit_hint_text) + _spirit_hint_icon_space
+				+ (_spirit_hint_padding * 2);
+			var _spirit_hint_height = max(string_height(_spirit_hint_text),
+				sprite_get_height(s_spirit_eye_red) * _layout.scale) + (_spirit_hint_padding * 2);
+			var _spirit_hint_x = clamp(_drag_mouse_x + _spirit_hint_padding,
+				0, max(0, display_get_gui_width() - _spirit_hint_width));
+			var _spirit_hint_y = clamp(_drag_mouse_y + _spirit_hint_padding,
+				0, max(0, display_get_gui_height() - _spirit_hint_height));
+			draw_set_color(COLOR_JOBS_ASSIGN_BACKGROUND);
+			draw_rectangle(_spirit_hint_x, _spirit_hint_y,
+				_spirit_hint_x + _spirit_hint_width, _spirit_hint_y + _spirit_hint_height, false);
+			draw_sprite_ext(s_spirit_eye_red, 0,
+				_spirit_hint_x + _spirit_hint_padding + (7 * _layout.scale),
+				_spirit_hint_y + _spirit_hint_height * 0.5, _layout.scale, _layout.scale, 0, c_white, 1);
+			draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+			draw_text(_spirit_hint_x + _spirit_hint_padding + _spirit_hint_icon_space,
+				_spirit_hint_y + _spirit_hint_padding, _spirit_hint_text);
+			draw_set_color(c_white);
+			draw_set_alpha(1);
+		}
 	}
 	else if ((!instance_exists(jobs_whip) || !jobs_whip.is_held)
 		&& instance_exists(jobs_hovered_cultist)

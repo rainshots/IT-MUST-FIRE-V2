@@ -67,6 +67,37 @@ if (global.day_phase != DAY_PHASE.DAY)
 // The retreat request lasts only through the night after construction.
 return_to_cannon_at_night = false;
 
+// A Cultist released by a completed Rite first returns to their original daytime position.
+if (return_to_cannon_after_event)
+{
+	var _return_cannon = instance_find(o_cannon, 0);
+	var _return_x = _return_cannon.x + home_offset_x;
+	var _return_y = _return_cannon.y + home_offset_y;
+	var _return_distance = point_distance(x, y, _return_x, _return_y);
+	var _return_step = move_speed * _time_scale;
+
+	if (_return_distance <= _return_step)
+	{
+		x = _return_x;
+		y = _return_y;
+		return_to_cannon_after_event = false;
+		wander_target_x = x;
+		wander_target_y = y;
+		wander_timer = BALANCE_EVENT_CULTIST_WANDER_DELAY;
+	}
+	else
+	{
+		var _return_direction = point_direction(x, y, _return_x, _return_y);
+		x += lengthdir_x(_return_step, _return_direction);
+		y += lengthdir_y(_return_step, _return_direction);
+		image_xscale = abs(image_xscale) * (_return_x >= x ? 1 : -1);
+	}
+
+	drag_drop_x = x;
+	drag_drop_y = y;
+	exit;
+}
+
 // Jobs assignments replace random wandering with movement to the event's world anchor.
 if (is_struct(assigned_event) && instance_exists(o_game_controller))
 {

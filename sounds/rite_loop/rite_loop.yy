@@ -1,0 +1,26 @@
+{
+  "$GMSound":"v2",
+  "%Name":"rite_loop",
+  "audioGroupId":{
+    "name":"audiogroup_default",
+    "path":"audiogroups/audiogroup_default",
+  },
+  "bitDepth":1,
+  "channelFormat":1,
+  "compression":0,
+  "compressionQuality":4,
+  "conversionMode":0,
+  "duration":14.90322,
+  "exportDir":"",
+  "name":"rite_loop",
+  "parent":{
+    "name":"New",
+    "path":"folders/Sounds/New.yy",
+  },
+  "preload":false,
+  "resourceType":"GMSound",
+  "resourceVersion":"2.0",
+  "sampleRate":44100,
+  "soundFile":"rite_loop.ogg",
+  "volume":0.74,
+}

@@ -64,6 +64,31 @@ if (_flight_progress >= 1)
 		global.sound_play_random(global.explosion_sounds);
 	}
 
+	// Each special shell adds its own landing sound over the shared explosion.
+	switch (projectile_type)
+	{
+		case PROJECTILE_TYPE.DOOM_BELL:
+			global.sound_play_random([bell_sound01, bell_sound02, bell_sound03]);
+			break;
+
+		case PROJECTILE_TYPE.BOMB:
+			global.sound_play_random([moo_sound01, moo_sound02, moo_sound03]);
+			break;
+
+		case PROJECTILE_TYPE.CORRUPTION:
+			// Later shells in this shot keep their explosion but skip the shared spread sound.
+			if (!is_struct(taint_compost_volley_audio) || !taint_compost_volley_audio.landing_sound_played)
+			{
+				if (is_struct(taint_compost_volley_audio))
+				{
+					taint_compost_volley_audio.landing_sound_played = true;
+				}
+
+				global.sound_play_random([taints_spread01, taints_spread02]);
+			}
+			break;
+	}
+
 	// Spawn the main explosion flash at the impact point.
 	instance_create_layer(target_x, target_y, particle_layer_name, o_particle_explosion);
 

@@ -12,11 +12,16 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 	description = _description;
 	cultist_cost = max(1, floor(_cultist_cost));
 	activation_limit = max(1, floor(_activation_limit));
+	// Invoke normally requires all slots; optional-participant Rites may lower this minimum.
+	execution_cultist_minimum = cultist_cost * activation_limit;
 	actions = _actions;
 	assigned_cultists = [];
 	modifiers = [];
 	activation_count = 0;
 	is_resolved = false;
+	execution_timer = 0;
+	// Only an explicit Invoke starts this card's countdown.
+	execution_started = false;
 
 	cultist_can_assign = function(_cultist, _ignore_capacity = false)
 	{
@@ -40,6 +45,19 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 
 	cultist_is_eligible_check = function(_cultist)
 	{
+		// Also enforce Spirit for direct occupied-slot swaps, which bypass availability.
+		if (!instance_exists(_cultist) || _cultist.spirit <= 0)
+		{
+			return false;
+		}
+
+		// A personal Rite can only be performed by its living author.
+		if (variable_struct_exists(self, "required_cultist")
+			&& (!instance_exists(_cultist) || _cultist != required_cultist || _cultist.hp <= 0))
+		{
+			return false;
+		}
+
 		return !variable_struct_exists(self, "cultist_is_eligible")
 			|| !is_callable(cultist_is_eligible)
 			|| cultist_is_eligible(_cultist);
@@ -68,6 +86,7 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 
 		array_push(assigned_cultists, _cultist);
 		_cultist.assigned_event = self;
+		day_event_execution_timer_reset(self);
 
 		// A funded event will execute today, so it no longer needs tomorrow's pin.
 		if (day_event_has_funded_activation(self) && day_event_pin_is_event(self))
@@ -100,6 +119,7 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 			{
 				array_delete(assigned_cultists, _cultist_index, 1);
 				_cultist.assigned_event = noone;
+				day_event_execution_timer_reset(self);
 				return true;
 			}
 		}
@@ -110,6 +130,12 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 	execute = function()
 	{
 		var _ready_count = activation_ready_count_get();
+		// Consume the prepared knife once, before actions can prepare another one.
+		var _knife_discount = _ready_count > 0 ? global.next_rite_hp_discount : 0;
+		if (_ready_count > 0)
+		{
+			global.next_rite_hp_discount = 0;
+		}
 
 		for (var _activation_index = 0; _activation_index < _ready_count; ++_activation_index)
 		{
@@ -128,6 +154,10 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 
 				if (instance_exists(_activation_cultist))
 				{
+					_activation_cultist.event_knife_hp_discount_remaining = _knife_discount;
+					// Charge only completed participation, before actions may sacrifice the worker.
+					_activation_cultist.spirit = max(0,
+						_activation_cultist.spirit - BALANCE_EVENT_CULTIST_RITE_SPIRIT_COST);
 					_activation_cultist.event_specialization_hp_discount_remaining =
 						day_event_cultist_specialization_hp_discount_get(_activation_cultist, self);
 				}
@@ -162,6 +192,7 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 				if (instance_exists(_discount_clear_cultist))
 				{
 					_discount_clear_cultist.event_specialization_hp_discount_remaining = 0;
+					_discount_clear_cultist.event_knife_hp_discount_remaining = 0;
 				}
 			}
 

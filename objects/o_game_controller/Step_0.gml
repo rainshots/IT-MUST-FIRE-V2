@@ -1494,6 +1494,9 @@ if ((_building_reroll_key_pressed || _building_pin_key_pressed)
 // Handle construction menu tile clicks.
 if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION && mouse_check_button_pressed(mb_left))
 {
+	// Consume the UI click before construction or closing can expose the world beneath it.
+	mouse_clear(mb_left);
+
 	if (building_window_input_blocked)
 	{
 		building_window_input_blocked = false;

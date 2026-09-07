@@ -1,0 +1,26 @@
+{
+  "$GMSound":"v2",
+  "%Name":"rite_complete01",
+  "audioGroupId":{
+    "name":"audiogroup_default",
+    "path":"audiogroups/audiogroup_default",
+  },
+  "bitDepth":1,
+  "channelFormat":1,
+  "compression":0,
+  "compressionQuality":4,
+  "conversionMode":0,
+  "duration":8.271996,
+  "exportDir":"",
+  "name":"rite_complete01",
+  "parent":{
+    "name":"New",
+    "path":"folders/Sounds/New.yy",
+  },
+  "preload":false,
+  "resourceType":"GMSound",
+  "resourceVersion":"2.0",
+  "sampleRate":44100,
+  "soundFile":"rite_complete01.ogg",
+  "volume":0.38,
+}

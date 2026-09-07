@@ -127,6 +127,13 @@ global.event_cultist_names = [
 	"Yorick", "Zevran", "Alaric", "Cedric", "Leoric", "Mordren"
 ];
 global.day_events = array_create(0);
+global.day_event_completed_events = [];
+// Personal Rites are offered once daily; their history includes ignored offers.
+global.cultist_event_history = [];
+global.cultist_event_generated_day = -1;
+global.next_rite_hp_discount = 0;
+global.blood_bath_daily_heal_bonus = 0;
+global.day_event_executed_log_lines = [];
 // Jobs actions have daily use counts; pinned events are consumed the following morning.
 global.day_event_rerolls_remaining = cannon_satisfaction_daily_reroll_count_get();
 global.day_event_pins_remaining = BALANCE_DAY_EVENT_DAILY_PIN_COUNT;
@@ -6743,7 +6750,7 @@ cannon_satiety_spend_feast = function()
 	return true;
 };
 
-cannon_projectile_queue_add = function(_projectile_type, _payload = noone)
+cannon_projectile_queue_add = function(_projectile_type, _payload = noone, _allow_reward_overflow = false)
 {
 	// Taint Compost is the only player-usable Taint projectile.
 	if (_projectile_type == PROJECTILE_TYPE.FEAST)
@@ -6758,7 +6765,7 @@ cannon_projectile_queue_add = function(_projectile_type, _payload = noone)
 		return false;
 	}
 
-	if (array_length(global.cannon_projectile_queue) >= global.cannon_projectile_queue_max)
+	if (!_allow_reward_overflow && array_length(global.cannon_projectile_queue) >= global.cannon_projectile_queue_max)
 	{
 		return false;
 	}
@@ -7300,6 +7307,7 @@ spawn_starting_cultists = function()
 
 	// Buildings provide their random daily event after the starting roster exists.
 	day_event_generate_for_buildings();
+	day_event_personal_generate();
 
 	cultists_spawned = true;
 	starting_cultist_selection_pending = array_length(global.archdemons) > 0;
@@ -11702,6 +11710,7 @@ start_day_phase = function()
 	}
 
 	day_event_generate_for_buildings();
+	day_event_personal_generate();
 	global.day_phase = DAY_PHASE.DAY;
 	night_fast_forward_set(false);
 	global.cannon_corpses_delivered_today = 0;
