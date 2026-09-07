@@ -47,7 +47,7 @@ attack_feedback_target_y = y;
 attack_feedback_line_width = 2;
 
 // Tooltip lines describe tower behavior.
-tooltip_lines = ["Fires at player units."];
+tooltip_lines = ["Close-range defense tower."];
 
 holy_tower_enemy_difficulty_get = function(_enemy_object)
 {

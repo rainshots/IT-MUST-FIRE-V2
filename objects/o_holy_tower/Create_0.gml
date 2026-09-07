@@ -47,7 +47,7 @@ attack_feedback_target_y = y;
 attack_feedback_line_width = 2;
 
 // Tooltip lines describe tower behavior.
-tooltip_lines = ["Blocks squad deployment nearby. Destroy it to remove the barrier."];
+tooltip_lines = ["Blocks the deployment of units in its range."];
 
 holy_tower_enemy_difficulty_get = function(_enemy_object)
 {

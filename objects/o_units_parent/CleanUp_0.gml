@@ -1,4 +1,11 @@
-// Every unit owns at most one reusable path resource.
+// Release the optional RAID planning path as well as the normal movement path.
+if (raid_assault_path != noone)
+{
+	path_delete(raid_assault_path);
+	raid_assault_path = noone;
+}
+
+// Release the reusable movement path resource.
 if (navigation_path != noone)
 {
 	path_delete(navigation_path);

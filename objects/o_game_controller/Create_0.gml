@@ -11585,6 +11585,14 @@ start_night_phase = function()
 	if (raid_blood_moon_active)
 	{
 		night_duration_current = BALANCE_RAID_BLOOD_MOON_DURATION;
+
+		// Show the RAID objective when its Blood Moon reveal begins.
+		if (instance_exists(o_main_tower) && instance_exists(o_camera_controller))
+		{
+			var _main_tower = instance_find(o_main_tower, 0);
+			var _camera_controller = instance_find(o_camera_controller, 0);
+			_camera_controller.camera_center_on_instance(_main_tower);
+		}
 	}
 	global.day_timer = night_duration_current * global.game_speed_normal;
 	global.night_attack_unit_count = 0;
@@ -12197,6 +12205,8 @@ cultist_levelup_apply_selected = function()
 // Shared wall navigation is rebuilt only when a wall is created or destroyed.
 wall_navigation_cell_size = BALANCE_WALL_NAVIGATION_CELL_SIZE;
 wall_navigation_grid = noone;
+// RAID planning ignores breakable walls so squads choose to breach them instead of detouring.
+raid_navigation_grid = noone;
 wall_navigation_grid_version = 0;
 wall_navigation_grid_dirty = true;
 wall_navigation_debug_visible = false;
@@ -12210,6 +12220,10 @@ wall_navigation_grid_mark_dirty = function()
 
 wall_navigation_grid_rebuild = function()
 {
+	if (raid_navigation_grid != noone)
+	{
+		mp_grid_destroy(raid_navigation_grid);
+	}
 	if (wall_navigation_grid != noone)
 	{
 		mp_grid_destroy(wall_navigation_grid);
@@ -12228,6 +12242,8 @@ wall_navigation_grid_rebuild = function()
 	);
 
 	var _wall_count = instance_number(o_wall_parent);
+	raid_navigation_grid = mp_grid_create(0, 0, _horizontal_cell_count, _vertical_cell_count,
+		wall_navigation_cell_size, wall_navigation_cell_size);
 
 	// A small padding keeps unit sprites from clipping corners followed by center-point paths.
 	for (var _wall_index = 0; _wall_index < _wall_count; ++_wall_index)
@@ -12246,6 +12262,16 @@ wall_navigation_grid_rebuild = function()
 			_wall.bbox_right + BALANCE_WALL_NAVIGATION_OBSTACLE_PADDING,
 			_wall.bbox_bottom + BALANCE_WALL_NAVIGATION_OBSTACLE_PADDING
 		);
+
+		// Friendly and invulnerable walls remain obstacles in the assault route.
+		if (!_wall.is_attackable || _wall.unit_faction == UNIT_FACTION.FRIENDLY)
+		{
+			mp_grid_add_rectangle(raid_navigation_grid,
+				_wall.bbox_left - BALANCE_WALL_NAVIGATION_OBSTACLE_PADDING,
+				_wall.bbox_top - BALANCE_WALL_NAVIGATION_OBSTACLE_PADDING,
+				_wall.bbox_right + BALANCE_WALL_NAVIGATION_OBSTACLE_PADDING,
+				_wall.bbox_bottom + BALANCE_WALL_NAVIGATION_OBSTACLE_PADDING);
+		}
 	}
 
 	wall_navigation_grid_dirty = false;

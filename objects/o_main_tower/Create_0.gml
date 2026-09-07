@@ -47,7 +47,7 @@ attack_feedback_target_y = y;
 attack_feedback_line_width = 2;
 
 // Tooltip lines describe tower behavior.
-tooltip_lines = ["Blocks squad deployment, fires at player units, and calls nearby reinforcements."];
+tooltip_lines = ["Main tower. Destroy to finish the mission."];
 
 holy_tower_enemy_difficulty_get = function(_enemy_object)
 {

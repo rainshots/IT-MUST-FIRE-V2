@@ -4016,6 +4016,113 @@ friendly_enemy_structure_can_be_targeted = function(_target)
 		|| _target.object_index == o_house;
 };
 
+// Reusable planning path is separate from the collision-safe movement path.
+raid_assault_path = noone;
+raid_assault_active = false;
+raid_assault_target = noone;
+raid_assault_search_timer = 0;
+raid_assault_grid_version = -1;
+// Keep the chosen breach target across combat searches until the obstacle layout changes.
+raid_assault_blocker = noone;
+raid_assault_objective = noone;
+
+raid_assault_target_get = function(_controller)
+{
+	var _main_tower = noone;
+	var _nearest_distance = infinity;
+	var _tower_count = instance_number(o_main_tower);
+	for (var _tower_index = 0; _tower_index < _tower_count; ++_tower_index)
+	{
+		var _tower = instance_find(o_main_tower, _tower_index);
+		if (target_can_be_attacked(_tower))
+		{
+			var _distance = point_distance(x, y, _tower.x, _tower.y);
+			if (_distance < _nearest_distance)
+			{
+				_main_tower = _tower;
+				_nearest_distance = _distance;
+			}
+		}
+	}
+	if (!instance_exists(_main_tower))
+	{
+		return noone;
+	}
+
+	// Reuse a live blocker instead of rebuilding and scanning the full assault path every search tick.
+	if (raid_assault_objective == _main_tower
+		&& !_controller.wall_navigation_grid_dirty
+		&& raid_assault_grid_version == _controller.wall_navigation_grid_version
+		&& target_can_be_attacked(raid_assault_blocker))
+	{
+		var _nearby_defender = find_nearest_reachable_enemy_target(min(vision_radius, attack_radius));
+		return instance_exists(_nearby_defender) && _nearby_defender != _main_tower
+			? _nearby_defender : raid_assault_blocker;
+	}
+	raid_assault_objective = _main_tower;
+	raid_assault_blocker = noone;
+
+	_controller.wall_navigation_grid_get();
+	raid_assault_grid_version = _controller.wall_navigation_grid_version;
+	if (raid_assault_path == noone)
+	{
+		raid_assault_path = path_add();
+	}
+	var _route = navigation_grid_path_build(_controller.raid_navigation_grid,
+		raid_assault_path, _main_tower.x, _main_tower.y);
+	if (!_route[0])
+	{
+		return noone;
+	}
+
+	// The first hostile destructible object along the route must be cleared before advancing.
+	var _blocker = noone;
+	var _hits = ds_list_create();
+	var _segment_x = x;
+	var _segment_y = y;
+	var _point_count = path_get_number(raid_assault_path);
+	for (var _point_index = 0; _point_index < _point_count; ++_point_index)
+	{
+		var _point_x = path_get_point_x(raid_assault_path, _point_index);
+		var _point_y = path_get_point_y(raid_assault_path, _point_index);
+		ds_list_clear(_hits);
+		var _hit_count = collision_line_list(_segment_x, _segment_y, _point_x, _point_y,
+			o_map_objects_parent, false, true, _hits, true);
+		for (var _hit_index = 0; _hit_index < _hit_count; ++_hit_index)
+		{
+			var _candidate = _hits[| _hit_index];
+			var _hostile_wall = variable_instance_exists(_candidate, "is_wall") && _candidate.is_wall
+				&& _candidate.unit_faction != UNIT_FACTION.FRIENDLY;
+			if (_candidate != _main_tower && target_can_be_attacked(_candidate)
+				&& (_hostile_wall || friendly_enemy_structure_can_be_targeted(_candidate)))
+			{
+				_blocker = _candidate;
+				break;
+			}
+		}
+		if (instance_exists(_blocker))
+		{
+			break;
+		}
+		_segment_x = _point_x;
+		_segment_y = _point_y;
+	}
+	ds_list_destroy(_hits);
+	raid_assault_blocker = _blocker;
+
+	// Once the objective is in range, it takes priority over nearby defenders.
+	if (!instance_exists(_blocker) && _nearest_distance <= attack_radius)
+	{
+		return _main_tower;
+	}
+	var _nearby_enemy = find_nearest_reachable_enemy_target(min(vision_radius, attack_radius));
+	if (instance_exists(_nearby_enemy) && _nearby_enemy != _main_tower)
+	{
+		return _nearby_enemy;
+	}
+	return instance_exists(_blocker) ? _blocker : _main_tower;
+};
+
 find_nearest_reachable_enemy_target = function(_max_distance)
 {
 	var _candidate_queue = ds_priority_create();

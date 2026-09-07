@@ -8,13 +8,18 @@ if (is_destroyed)
 // Draw inherited map object visuals.
 event_inherited();
 
-// Draw the squad deployment exclusion radius.
-draw_set_alpha(radius_alpha);
-draw_set_color(COLOR_HOLY_TOWER_RADIUS);
-
-for (var _radius_line_index = 0; _radius_line_index < radius_line_width && deployment_block_radius > 0; ++_radius_line_index)
+// Show the squad deployment exclusion radius only while hovering this tower.
+if (deployment_block_radius > 0 && map_object_is_hovered())
 {
-	draw_circle(x, y, deployment_block_radius + _radius_line_index, true);
+	draw_set_alpha(radius_alpha);
+	draw_set_color(COLOR_HOLY_TOWER_RADIUS);
+
+	for (var _radius_line_index = 0; _radius_line_index < radius_line_width; ++_radius_line_index)
+	{
+		draw_circle(x, y, deployment_block_radius + _radius_line_index, true);
+	}
+	draw_set_alpha(1);
+	draw_set_color(c_white);
 }
 
 // Draw short attack feedback line.

@@ -468,6 +468,17 @@ var _special_behavior_handled = _uses_squad_day_point
 	? false
 	: unit_special_behavior_update();
 var _has_forced_target = target_can_be_attacked(forced_attack_target);
+// Choose one target-selection mode before ordinary AI can overwrite the navigation cache.
+var _raid_was_active = raid_assault_active;
+var _raid_controller = noone;
+raid_assault_active = false;
+if (!_special_behavior_handled && !_uses_squad_day_point && _is_friendly_unit
+	&& global.day_phase == DAY_PHASE.NIGHT && global.full_moon_night_active
+	&& instance_exists(o_game_controller))
+{
+	_raid_controller = instance_find(o_game_controller, 0);
+	raid_assault_active = _raid_controller.mission_type == MISSION_TYPES.RAID;
+}
 var _should_search_target = false;
 
 target_search_update_timer += gameplay_time_scale;
@@ -604,6 +615,7 @@ else if (!_special_behavior_handled && _should_search_target && _is_enemy_unit)
 else if (!_special_behavior_handled
 	&& !_uses_squad_day_point
 	&& _should_search_target
+	&& !raid_assault_active
 	&& _is_friendly_unit)
 {
 	if (instance_exists(alert_target))
@@ -740,10 +752,27 @@ if (!_special_behavior_handled && instance_exists(target_instance) && !target_ca
 	target_instance = noone;
 }
 
+// RAID Blood Moon squads advance on the main tower instead of guarding the cannon or following teammates.
+if (raid_assault_active)
+{
+	raid_assault_search_timer = max(0, raid_assault_search_timer - gameplay_time_scale);
+	if (raid_assault_search_timer <= 0 || !_raid_was_active || !target_can_be_attacked(raid_assault_target)
+		|| _raid_controller.wall_navigation_grid_dirty
+		|| raid_assault_grid_version != _raid_controller.wall_navigation_grid_version)
+	{
+		raid_assault_target = raid_assault_target_get(_raid_controller);
+		raid_assault_search_timer = target_search_update_interval;
+	}
+	target_instance = raid_assault_target;
+	_friendly_follow_target = noone;
+	cached_follow_target = noone;
+}
+
 // Idle squad members follow a teammate who is already engaging an enemy.
 var _squad_combat_guide = noone;
 
 if (!_special_behavior_handled
+	&& !raid_assault_active
 	&& !_uses_squad_day_point
 	&& _is_friendly_unit
 	&& !squad_unit_is_in_combat(id)
