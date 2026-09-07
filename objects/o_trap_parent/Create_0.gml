@@ -6,6 +6,10 @@ activation_timer = 0;
 is_armed = false;
 is_activated = false;
 
+// Twice the Pain keeps a spent trap hidden during its one nightly rearm.
+trap_rearm_used = false;
+trap_rearm_timer = 0; // Seconds remaining; Step respects pause and gameplay speed.
+
 // Stagger detection checks so many traps do not scan on the same frame.
 detection_interval = max(1, round(BALANCE_TRAP_DETECTION_INTERVAL * room_speed));
 detection_timer = irandom(detection_interval - 1);
@@ -64,6 +68,37 @@ trap_enemy_count_get = function(_stop_after_count)
 
 	ds_list_destroy(_enemy_list);
 	return _valid_enemy_count;
+};
+
+// Restore the same trap so Trap Point ownership and formation slots remain intact.
+trap_rearm = function()
+{
+	trap_rearm_timer = 0;
+	activation_timer = 0;
+	is_armed = false;
+	is_activated = false;
+	visible = true;
+	detection_timer = 0;
+};
+
+// Consume the trap or start its single delayed rearm after the effect has fired.
+trap_activation_finish = function()
+{
+	if (!trap_rearm_used && global.day_phase == DAY_PHASE.NIGHT
+		&& instance_exists(o_game_controller))
+	{
+		var _game_controller = instance_find(o_game_controller, 0);
+		if (_game_controller.twice_the_pain_active)
+		{
+			trap_rearm_used = true;
+			trap_rearm_timer = BALANCE_TWICE_THE_PAIN_REARM_SECONDS;
+			is_armed = false;
+			visible = false;
+			return;
+		}
+	}
+
+	instance_destroy();
 };
 
 // Child traps replace this with their one-time gameplay effect.

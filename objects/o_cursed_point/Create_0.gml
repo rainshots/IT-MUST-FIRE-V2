@@ -26,6 +26,14 @@ hp = max_hp;
 corruption = 0;
 bar_width = 0;
 bar_height = 0;
+is_attackable = false;
+ignored_by_enemies = true;
+
+// Points persist permanently and ignore direct and area damage.
+unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true, _source_instance = noone)
+{
+	return 0;
+};
 
 // World button settings.
 summon_button_text = "SUMMON STRUCTURE";

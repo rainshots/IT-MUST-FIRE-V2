@@ -37,7 +37,7 @@ if (_regular_hud_is_visible)
 	var _sidebar_width = hud_sidebar_width * _sidebar_scale;
 	var _sidebar_x = _sidebar_gui_width - _sidebar_width;
 
-	// Draw all squad cards in type order, followed by the shared empty slots.
+	// Draw squad cards, shared empty slots, and the next locked slot.
 	if (variable_global_exists("squads") && variable_global_exists("squad_limit"))
 	{
 		var _squad_card_width = 112 * _sidebar_scale;
@@ -137,8 +137,33 @@ if (_regular_hud_is_visible)
 			_squad_card_index++;
 		}
 
+		// Preview only the next slot that will increase the shared squad limit.
+		var _next_unlock_day = squad_limit_next_unlock_day_get(global.squad_limit);
+
+		if (_next_unlock_day >= 0)
+		{
+			var _locked_x = _squad_card_x + (_squad_card_index * (_squad_card_width + _squad_card_gap));
+			var _locked_center_x = _locked_x + (_squad_card_width * 0.5);
+			var _locked_center_y = _squad_card_y + (_squad_card_height * 0.5);
+			var _locked_text_scale = 0.75 * _sidebar_scale;
+			var _locked_text = "Will be\nunlocked on\nday: " + string(_next_unlock_day);
+
+			draw_set_alpha(1);
+			draw_set_color(COLOR_SQUAD_CARD_BACKGROUND);
+			draw_rectangle(_locked_x, _squad_card_y, _locked_x + _squad_card_width, _squad_card_y + _squad_card_height, false);
+			draw_set_color(COLOR_SQUAD_CARD_BORDER);
+			draw_rectangle(_locked_x, _squad_card_y, _locked_x + _squad_card_width, _squad_card_y + _squad_card_height, true);
+			draw_set_color(COLOR_SQUAD_CARD_TYPE);
+			draw_text_transformed(_locked_center_x, _squad_type_y, "SQUAD", 0.55 * _sidebar_scale, 0.55 * _sidebar_scale, 0);
+			draw_set_valign(fa_middle);
+			draw_set_color(COLOR_SQUAD_CARD_TEXT);
+			draw_text_transformed(_locked_center_x, _locked_center_y, _locked_text, _locked_text_scale, _locked_text_scale, 0);
+		}
+
 		draw_set_halign(fa_left);
 		draw_set_valign(fa_top);
+		draw_set_color(c_white);
+		draw_set_alpha(1);
 	}
 
 	// Draw the regular-cultist counter as a squad-style card below the roster.

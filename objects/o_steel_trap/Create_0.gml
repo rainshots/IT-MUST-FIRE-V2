@@ -48,5 +48,5 @@ trap_activate = function()
 		_activation_effect.outer_color = warning_color;
 	}
 
-	instance_destroy();
+	trap_activation_finish();
 };

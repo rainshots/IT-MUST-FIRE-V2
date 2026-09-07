@@ -53,7 +53,7 @@ saint_ground_heal_timer = irandom(max(1, saint_ground_heal_interval) - 1);
 tainted_ground_check_interval = BALANCE_TAINT_FRIENDLY_GROUND_CHECK_INTERVAL;
 tainted_ground_check_timer = tainted_ground_check_interval;
 cached_is_on_tainted_ground = false;
-tainted_ground_heal_interval = max(1, round(BALANCE_DAY_THREE_TAINTED_GROUND_HEAL_INTERVAL * room_speed));
+tainted_ground_heal_interval = max(1, round(BALANCE_TAINTED_REGENERATION_HEAL_INTERVAL * room_speed));
 tainted_ground_heal_timer = irandom(tainted_ground_heal_interval - 1);
 forced_attack_target = noone;
 forced_attack_target_timer = 0;
@@ -759,7 +759,7 @@ friendly_tainted_ground_heal_update = function()
 		return;
 	}
 
-	var _heal_amount = BALANCE_DAY_THREE_TAINTED_GROUND_HEAL_PER_SECOND
+	var _heal_amount = BALANCE_TAINTED_REGENERATION_HEAL_PER_SECOND
 		* (tainted_ground_heal_interval / max(1, room_speed));
 	var _previous_hp = hp;
 	hp = min(hp + _heal_amount, max_hp);
@@ -2194,48 +2194,6 @@ unholy_savage_leap_update = function()
 	return unholy_savage_leap_start(_leap_target);
 };
 
-player_death_explosion_apply = function()
-{
-	if (unit_faction != UNIT_FACTION.FRIENDLY
-		|| !variable_global_exists("player_death_explosion_active")
-		|| !global.player_death_explosion_active)
-	{
-		return;
-	}
-
-	var _explosion_damage = max_hp * BALANCE_DAY_THREE_DEATH_EXPLOSION_MAX_HP_SHARE;
-	var _enemy_list = ds_list_create();
-	var _enemy_count = collision_circle_list(
-		x,
-		y,
-		BALANCE_DAY_THREE_DEATH_EXPLOSION_RADIUS,
-		o_enemy_units,
-		false,
-		true,
-		_enemy_list,
-		false
-	);
-
-	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
-	{
-		var _enemy = _enemy_list[| _enemy_index];
-
-		if (target_can_be_attacked(_enemy)
-			&& variable_instance_exists(_enemy, "unit_damage_receive"))
-		{
-			_enemy.unit_damage_receive(
-				_explosion_damage,
-				UNIT_FACTION.FRIENDLY,
-				false,
-				true,
-				id
-			);
-		}
-	}
-
-	ds_list_destroy(_enemy_list);
-	instance_create_layer(x, y, "Instances", o_particle_explosion);
-};
 
 unit_corpse_snapshot_create = function()
 {
@@ -2359,7 +2317,6 @@ unit_death_process = function()
 
 	unit_death_sound_play();
 	unholy_boiling_blood_death_explosion_apply();
-	player_death_explosion_apply();
 	unit_corpse_snapshot_create();
 	soul_chain_death_effect_apply();
 	warlock_soul_engine_enemy_death_notify();
@@ -2367,29 +2324,32 @@ unit_death_process = function()
 	status_effect_death_rewards_try();
 	meat_drop_try();
 
-	// Endless Procession and the daybreak upgrade share one Bonelet replacement roll.
-	var _bonelet_resurrection_chance = 0;
-
+	// Endless Procession affects squad members, but never Bonelets themselves.
 	if (unit_faction == UNIT_FACTION.FRIENDLY
+		&& object_index != o_skeleton_bonelet
 		&& is_struct(squad)
-		&& squad_unholy_trait_get(squad) == UNHOLY_TRAIT.ENDLESS_PROCESSION)
-	{
-		_bonelet_resurrection_chance = BALANCE_UNHOLY_SHRINE_ENDLESS_PROCESSION_CHANCE;
-	}
-
-	if (unit_faction == UNIT_FACTION.FRIENDLY
-		&& variable_global_exists("player_unit_bonelet_resurrection_active")
-		&& global.player_unit_bonelet_resurrection_active)
-	{
-		_bonelet_resurrection_chance = max(
-			_bonelet_resurrection_chance,
-			BALANCE_EARLY_UPGRADE_BONELET_RESURRECTION_CHANCE
-		);
-	}
-
-	if (_bonelet_resurrection_chance > 0 && random(1) < _bonelet_resurrection_chance)
+		&& squad_unholy_trait_get(squad) == UNHOLY_TRAIT.ENDLESS_PROCESSION
+		&& random(1) < BALANCE_UNHOLY_SHRINE_ENDLESS_PROCESSION_CHANCE)
 	{
 		squad_unit_resurrect_as_bonelet(id);
+	}
+
+	// Rise Again raises enemy casualties as independent allied Bonelets.
+	if (unit_faction == UNIT_FACTION.ENEMY)
+	{
+		daybreak_enemy_bonelet_raise_try(id);
+	}
+
+	// Finalize this slot after replacement effects before checking for a full squad wipe.
+	if (unit_faction == UNIT_FACTION.FRIENDLY && is_struct(squad))
+	{
+		var _unit_count = array_length(squad.units);
+		if (squad_unit_index >= 0 && squad_unit_index < _unit_count
+			&& squad.units[squad_unit_index] == id)
+		{
+			squad.units[squad_unit_index] = noone;
+		}
+		daybreak_squad_relaunch_try(squad);
 	}
 
 	instance_destroy();

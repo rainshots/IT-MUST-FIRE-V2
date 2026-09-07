@@ -8,6 +8,17 @@ var _time_scale = variable_global_exists("gameplay_time_scale")
 	? global.gameplay_time_scale
 	: 1;
 
+// Spent traps cannot detect or affect enemies while waiting to rearm.
+if (trap_rearm_timer > 0)
+{
+	trap_rearm_timer = max(trap_rearm_timer - (_time_scale / max(1, room_speed)), 0);
+	if (trap_rearm_timer <= 0)
+	{
+		trap_rearm();
+	}
+	exit;
+}
+
 // Once armed, a trap always completes its countdown.
 if (is_armed)
 {

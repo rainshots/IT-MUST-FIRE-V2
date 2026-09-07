@@ -2537,7 +2537,8 @@ function day_event_world_archdemon_job_is_available(_archdemon_number)
 {
 	var _last_archdemon_number = 3; // Three sequential Archdemon Jobs are authored.
 
-	if (_archdemon_number < 1
+	if (!BALANCE_WORLD_JOB_ARCHDEMON_ENABLED
+		|| _archdemon_number < 1
 		|| _archdemon_number > _last_archdemon_number
 		|| day_event_archdemon_count_get() >= _archdemon_number
 		|| !squad_slot_is_available(SQUAD_TYPE.ARCHDEMON))

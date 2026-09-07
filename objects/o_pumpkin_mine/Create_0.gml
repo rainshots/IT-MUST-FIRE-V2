@@ -70,5 +70,5 @@ trap_activate = function()
 		global.sound_play_random(global.explosion_sounds);
 	}
 
-	instance_destroy();
+	trap_activation_finish();
 };

@@ -278,7 +278,9 @@ function squad_unholy_trait_description_get(_unholy_trait)
 			return "Melee squad units gain the ability to leap to the nearest enemy.";
 
 		case UNHOLY_TRAIT.ENDLESS_PROCESSION:
-			return "Upon death, squad units have a 20% chance of returning as a Bonelet.";
+			return "Upon death, squad units other than Bonelets have a "
+				+ string(round(BALANCE_UNHOLY_SHRINE_ENDLESS_PROCESSION_CHANCE * 100))
+				+ "% chance of returning as a Bonelet.";
 
 		case UNHOLY_TRAIT.TAINT_TREATMENT:
 			return "The squad is actively treated outside combat while standing on tainted land.";
