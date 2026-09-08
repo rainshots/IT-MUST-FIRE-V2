@@ -17,7 +17,7 @@ if (!instance_exists(jobs_whip)
 	&& global.day_phase == DAY_PHASE.DAY
 	&& day_event_current_day_get() >= BALANCE_JOBS_WHIP_UNLOCK_DAY)
 {
-	jobs_whip = instance_create_layer(0, 0, layer, o_whip);
+	jobs_whip = instance_create_layer(0, 0, "Instances", o_whip);
 }
 
 // Invoked Rites progress only while Assign Duties is the active window.

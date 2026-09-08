@@ -60,6 +60,9 @@ function day_event_personal_execute(_event, _cultists, _data)
 		case "cultist_virgin_blood":
 			global.blood_bath_daily_heal_bonus = BALANCE_PERSONAL_RITE_BATH_BONUS;
 			break;
+		case "cultist_reawaken_spirit":
+			_event.required_cultist.spirit = _event.required_cultist.max_spirit;
+			break;
 	}
 
 	day_event_cultist_hp_cost_apply(_cultists, _data.hp_cost);
@@ -106,7 +109,9 @@ function day_event_personal_generate()
 		{ event_id: "cultist_awaken_taint", title: "Awaken the Taint",
 			description: "The compost has started chanting. We should load it before it summons something.\nGain 1 Taint Compost shell for today.", hp_cost: 0 },
 		{ event_id: "cultist_virgin_blood", title: "Virgin Blood",
-			description: "I've set aside a vial of pure blood. Should come in handy for the bath.\nBlood Bath restores an additional 10 HP to each cultist on it today.", hp_cost: 0 }
+			description: "I've set aside a vial of pure blood. Should come in handy for the bath.\nBlood Bath restores an additional 10 HP to each cultist on it today.", hp_cost: 0 },
+		{ event_id: "cultist_reawaken_spirit", title: "Reawaken the Spirit",
+			description: "Even my third eye has bags under it.\nReplenishes the Spirit to the maximum after performing the rite (still requires one Spirit to invoke).", hp_cost: BALANCE_PERSONAL_RITE_HP_COST }
 	];
 	var _candidates = [];
 	var _cannon = instance_find(o_cannon, 0);
