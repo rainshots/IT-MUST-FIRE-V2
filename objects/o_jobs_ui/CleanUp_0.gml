@@ -29,6 +29,11 @@ if (font_exists(jobs_description_font))
 	font_delete(jobs_description_font);
 }
 
+if (font_exists(jobs_description_bold_font))
+{
+	font_delete(jobs_description_bold_font);
+}
+
 if (font_exists(jobs_invoke_font))
 {
 	font_delete(jobs_invoke_font);

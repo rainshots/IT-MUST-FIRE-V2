@@ -8,13 +8,13 @@ spirit = max_spirit;
 assigned_event = noone;
 // Completed Rite building sprites are stored oldest-first for the Assign Duties history.
 work_history = [];
-// Building work counts select one permanent specialization after three completed Rites.
+// Building work counts unlock a queued Mastery offer; only completing it grants the bonus.
 building_work_counts = [];
-specialization_building_object = noone;
-specialization_building_name = "";
-specialization_building_sprite = noone;
+mastery_building_object = noone;
+mastery_building_name = "";
+mastery_building_sprite = noone;
 // Event execution consumes this temporary discount across all HP costs in one Rite.
-event_specialization_hp_discount_remaining = 0;
+event_mastery_hp_discount_remaining = 0;
 // Prepared knife reduction is shared by this participant's HP costs during one Rite.
 event_knife_hp_discount_remaining = 0;
 is_being_dragged = false;

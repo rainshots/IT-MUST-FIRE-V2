@@ -51,9 +51,9 @@ draw_text(
 	_layout.y + 54,
 	"Choose a squad. Recruitment requires "
 		+ string(BALANCE_SQUAD_EVENT_CULTIST_COUNT)
-		+ " Cultist and costs that Cultist "
-		+ string(BALANCE_SQUAD_EVENT_CULTIST_HP_COST)
-		+ " HP."
+		+ " Cultists and costs "
+		+ string(BALANCE_SQUAD_EVENT_TOTAL_HP_COST)
+		+ " HP total, split randomly."
 );
 draw_text(
 	_layout.x + (_layout.width * 0.5),
@@ -147,9 +147,9 @@ for (var _choice_index = 0; _choice_index < array_length(squad_point_choices); +
 		_card_x + (_rect[2] * 0.5),
 		_card_y + _rect[3] - 24,
 		string(BALANCE_SQUAD_EVENT_CULTIST_COUNT)
-			+ " Cultist   -"
-			+ string(BALANCE_SQUAD_EVENT_CULTIST_HP_COST)
-			+ " HP"
+			+ " Cultists   -"
+			+ string(BALANCE_SQUAD_EVENT_TOTAL_HP_COST)
+			+ " HP total"
 	);
 }
 

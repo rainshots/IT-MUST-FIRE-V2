@@ -131,6 +131,10 @@ global.day_event_completed_events = [];
 // Personal Rites are offered once daily; their history includes ignored offers.
 global.cultist_event_history = [];
 global.cultist_event_generated_day = -1;
+// Mastery offers use an independent FIFO queue and at most one visible offer per day.
+cultist_mastery_queue = [];
+cultist_mastery_event = noone;
+cultist_mastery_generated_day = -1;
 global.next_rite_hp_discount = 0;
 global.blood_bath_daily_heal_bonus = 0;
 global.day_event_executed_log_lines = [];
@@ -6218,7 +6222,7 @@ world_event_squad_selector_input_update = function()
 			continue;
 		}
 
-		// Unit portraits select a specialization without opening another focus window.
+		// Unit portraits select a mastery without opening another focus window.
 		if (_layout.has_unit_choice)
 		{
 			var _choice_count = array_length(_event.unit_choice_options);
@@ -7307,7 +7311,9 @@ spawn_starting_cultists = function()
 
 	// Buildings provide their random daily event after the starting roster exists.
 	day_event_generate_for_buildings();
+	day_event_building_costs_morning_apply(global.day_events);
 	day_event_personal_generate();
+	day_event_cultist_mastery_generate();
 
 	cultists_spawned = true;
 	starting_cultist_selection_pending = array_length(global.archdemons) > 0;
@@ -11710,7 +11716,9 @@ start_day_phase = function()
 	}
 
 	day_event_generate_for_buildings();
+	day_event_building_costs_morning_apply(global.day_events);
 	day_event_personal_generate();
+	day_event_cultist_mastery_generate();
 	global.day_phase = DAY_PHASE.DAY;
 	night_fast_forward_set(false);
 	global.cannon_corpses_delivered_today = 0;

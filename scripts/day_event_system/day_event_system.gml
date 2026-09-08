@@ -209,7 +209,7 @@ function day_event_source_sprite_get(_event)
 	return -1;
 }
 
-function day_event_specialization_source_building_get(_event)
+function day_event_mastery_source_building_get(_event)
 {
 	if (!is_struct(_event)
 		|| variable_struct_exists(_event, "construction_site")
@@ -221,26 +221,41 @@ function day_event_specialization_source_building_get(_event)
 
 	var _source_building = _event.source_building;
 	var _source_object = _source_building.object_index;
+	// Blood Bath Rites remain in work history but never grant mastery or its discount.
+	if (_source_object == o_meat_bath)
+	{
+		return noone;
+	}
+
 	var _is_player_building = _source_object == o_v13buildings_parent
 		|| object_is_ancestor(_source_object, o_v13buildings_parent);
 
 	return _is_player_building ? _source_building : noone;
 }
 
-function day_event_cultist_specialization_progress_add(_cultist, _event)
+function day_event_cultist_mastery_progress_add(_cultist, _event)
 {
 	if (!instance_exists(_cultist))
 	{
 		return false;
 	}
 
-	if (variable_instance_exists(_cultist, "specialization_building_object")
-		&& _cultist.specialization_building_object != noone)
+	if (variable_instance_exists(_cultist, "mastery_building_object")
+		&& _cultist.mastery_building_object == o_meat_bath)
+	{
+		// Retired Blood Bath specialists may earn a mastery in another building.
+		_cultist.mastery_building_object = noone;
+		_cultist.mastery_building_name = "";
+		_cultist.mastery_building_sprite = noone;
+	}
+
+	if (variable_instance_exists(_cultist, "mastery_building_object")
+		&& _cultist.mastery_building_object != noone)
 	{
 		return false;
 	}
 
-	var _source_building = day_event_specialization_source_building_get(_event);
+	var _source_building = day_event_mastery_source_building_get(_event);
 
 	if (!instance_exists(_source_building))
 	{
@@ -275,14 +290,18 @@ function day_event_cultist_specialization_progress_add(_cultist, _event)
 	{
 		_building_work_count_entry = {
 			building_object: _building_object,
-			work_count: 0
+			work_count: 0,
+			mastery_pending: false
 		};
 		array_push(_cultist.building_work_counts, _building_work_count_entry);
 	}
 
 	_building_work_count_entry.work_count++;
 
-	if (_building_work_count_entry.work_count < BALANCE_CULTIST_SPECIALIZATION_WORK_COUNT)
+	if (_building_work_count_entry.work_count < BALANCE_CULTIST_MASTERY_WORK_COUNT
+		|| (variable_struct_exists(_building_work_count_entry, "mastery_pending")
+			&& _building_work_count_entry.mastery_pending)
+		|| !instance_exists(o_game_controller))
 	{
 		return false;
 	}
@@ -299,28 +318,183 @@ function day_event_cultist_specialization_progress_add(_cultist, _event)
 		_building_name = string_replace_all(object_get_name(_building_object), "_", " ");
 	}
 
-	_cultist.specialization_building_object = _building_object;
-	_cultist.specialization_building_name = _building_name;
-	_cultist.specialization_building_sprite = sprite_exists(_building_sprite)
-		? _building_sprite
-		: noone;
+	// Queue the offer once; qualifying never grants the HP discount automatically.
+	var _controller = instance_find(o_game_controller, 0);
+	_building_work_count_entry.mastery_pending = true;
+	array_push(_controller.cultist_mastery_queue, {
+		cultist: _cultist,
+		building_object: _building_object,
+		building_name: _building_name,
+		building_sprite: _building_sprite,
+		work_count_entry: _building_work_count_entry,
+		available_day: day_event_current_day_get() + 1
+	});
 	return true;
 }
 
-function day_event_cultist_specialization_hp_discount_get(_cultist, _event)
+// Requests retain building metadata so they are independent of the building's daily event pool.
+function day_event_cultist_mastery_request_is_valid(_request)
+{
+	return is_struct(_request)
+		&& instance_exists(_request.cultist)
+		&& _request.cultist.mastery_building_object == noone
+		&& _request.building_object != o_meat_bath
+		&& _request.work_count_entry.work_count >= BALANCE_CULTIST_MASTERY_WORK_COUNT;
+}
+
+function day_event_cultist_mastery_execute(_event, _assigned_cultists, _data)
+{
+	var _request = _event.mastery_request;
+	if (!day_event_cultist_mastery_request_is_valid(_request)
+		|| array_length(_assigned_cultists) != 1
+		|| _assigned_cultists[0] != _request.cultist
+		|| _request.cultist.hp <= 0)
+	{
+		return false;
+	}
+
+	// This explicit choice is the only place that awards a new permanent Mastery.
+	var _cultist = _request.cultist;
+	_cultist.mastery_building_object = _request.building_object;
+	_cultist.mastery_building_name = _request.building_name;
+	_cultist.mastery_building_sprite = _request.building_sprite;
+	_request.work_count_entry.mastery_pending = false;
+	day_event_pin_clear(_event);
+	return true;
+}
+
+function day_event_cultist_mastery_generate()
+{
+	if (!instance_exists(o_game_controller))
+	{
+		return false;
+	}
+
+	var _controller = instance_find(o_game_controller, 0);
+	var _day = day_event_current_day_get();
+	if (_controller.cultist_mastery_generated_day == _day)
+	{
+		return false;
+	}
+
+	// A pinned offer occupies tomorrow's Mastery slot before any queued request.
+	var _event = _controller.cultist_mastery_event;
+	if (is_struct(_event))
+	{
+		if (!_event.is_resolved && day_event_cultist_mastery_request_is_valid(_event.mastery_request))
+		{
+			day_event_pin_clear(_event, false);
+			_event.is_pinned_event = false;
+			day_event_add(_event);
+			_controller.cultist_mastery_generated_day = _day;
+			return true;
+		}
+
+		day_event_pin_clear(_event, false);
+		_controller.cultist_mastery_event = noone;
+	}
+
+	// Drop obsolete requests without spending the daily offer; preserve FIFO order for the rest.
+	var _queue = _controller.cultist_mastery_queue;
+	var _queue_count = array_length(_queue);
+	for (var _queue_index = 0; _queue_index < _queue_count; ++_queue_index)
+	{
+		var _request = _queue[_queue_index];
+		if (!day_event_cultist_mastery_request_is_valid(_request))
+		{
+			_request.work_count_entry.mastery_pending = false;
+			continue;
+		}
+
+		if (_request.available_day > _day)
+		{
+			array_delete(_controller.cultist_mastery_queue, 0, _queue_index);
+			return false;
+		}
+
+		var _flavor = "The powers below recognize the taste of my blood by now. Perhaps we can negotiate smaller portions.";
+		var _benefit = "All events at " + _request.building_name
+			+ " cost this cultist -" + string(BALANCE_CULTIST_MASTERY_HP_DISCOUNT) + "HP.";
+		_event = new day_event_constructor(
+			"cultist_mastery_" + string(_request.cultist.id) + "_" + string(_request.building_object),
+			"Cultist Mastery",
+			_flavor + "\n" + _benefit,
+			1,
+			1,
+			[new event_action_constructor("cultist_mastery", day_event_cultist_mastery_execute, { hp_cost: 0 })]
+		);
+		_event.is_cultist_mastery = true;
+		_event.mastery_request = _request;
+		_event.mastery_flavor_text = _flavor;
+		_event.required_cultist = _request.cultist;
+		_event.source_building = noone;
+		_event.source_sprite = _request.building_sprite;
+		_event.can_pin = true;
+		_event.reroll_is_available = false;
+		_event.hp_cost_modifiers_ignored = true;
+		_controller.cultist_mastery_event = _event;
+		_controller.cultist_mastery_generated_day = _day;
+		array_delete(_controller.cultist_mastery_queue, 0, _queue_index + 1);
+		day_event_add(_event);
+		return true;
+	}
+
+	_controller.cultist_mastery_queue = [];
+	return false;
+}
+
+function day_event_cultist_mastery_finish_day()
+{
+	if (!instance_exists(o_game_controller))
+	{
+		return;
+	}
+
+	var _controller = instance_find(o_game_controller, 0);
+	var _event = _controller.cultist_mastery_event;
+	if (!is_struct(_event))
+	{
+		return;
+	}
+
+	// Only a displayed, unfinished, unpinned offer counts as ignored; waiting requests keep progress.
+	if (!_event.is_resolved && day_event_cultist_mastery_request_is_valid(_event.mastery_request))
+	{
+		if (day_event_pin_is_event(_event))
+		{
+			return;
+		}
+
+		_event.mastery_request.work_count_entry.work_count = BALANCE_CULTIST_MASTERY_IGNORED_WORK_COUNT;
+		_event.mastery_request.work_count_entry.mastery_pending = false;
+	}
+
+	day_event_pin_clear(_event, false);
+	_controller.cultist_mastery_event = noone;
+}
+
+// Mandatory maintenance and Mastery acceptance keep their advertised zero-HP cost.
+function day_event_hp_cost_modifiers_are_ignored(_event)
+{
+	return is_struct(_event)
+		&& ((variable_struct_exists(_event, "is_overuse_event") && _event.is_overuse_event)
+			|| (variable_struct_exists(_event, "hp_cost_modifiers_ignored") && _event.hp_cost_modifiers_ignored));
+}
+
+function day_event_cultist_mastery_hp_discount_get(_cultist, _event)
 {
 	if (!instance_exists(_cultist)
-		|| !variable_instance_exists(_cultist, "specialization_building_object")
-		|| _cultist.specialization_building_object == noone)
+		|| !variable_instance_exists(_cultist, "mastery_building_object")
+		|| _cultist.mastery_building_object == noone)
 	{
 		return 0;
 	}
 
-	var _source_building = day_event_specialization_source_building_get(_event);
+	var _source_building = day_event_mastery_source_building_get(_event);
 
 	return instance_exists(_source_building)
-		&& _source_building.object_index == _cultist.specialization_building_object
-		? BALANCE_CULTIST_SPECIALIZATION_HP_DISCOUNT
+		&& _source_building.object_index == _cultist.mastery_building_object
+		? BALANCE_CULTIST_MASTERY_HP_DISCOUNT
 		: 0;
 }
 
@@ -331,8 +505,8 @@ function day_event_cultist_work_history_add(_cultist, _event)
 		return false;
 	}
 
-	// Only real player buildings advance specialization; every source still appears in history.
-	day_event_cultist_specialization_progress_add(_cultist, _event);
+	// Only real player buildings advance mastery; every source still appears in history.
+	day_event_cultist_mastery_progress_add(_cultist, _event);
 
 	var _source_sprite = day_event_source_sprite_get(_event);
 
@@ -488,19 +662,19 @@ function day_event_cultist_damage_apply(_cultist, _amount, _release_assignment =
 	}
 
 	var _damage = max(0, _amount);
-	var _specialization_discount_remaining = variable_instance_exists(
+	var _mastery_discount_remaining = variable_instance_exists(
 		_cultist,
-		"event_specialization_hp_discount_remaining"
+		"event_mastery_hp_discount_remaining"
 	)
-		? max(0, _cultist.event_specialization_hp_discount_remaining)
+		? max(0, _cultist.event_mastery_hp_discount_remaining)
 		: 0;
-	var _specialization_discount = min(_damage, _specialization_discount_remaining);
+	var _mastery_discount = min(_damage, _mastery_discount_remaining);
 
-	// One specialization discount is shared by every HP cost within the current Rite.
-	if (_specialization_discount > 0)
+	// One mastery discount is shared by every HP cost within the current Rite.
+	if (_mastery_discount > 0)
 	{
-		_damage -= _specialization_discount;
-		_cultist.event_specialization_hp_discount_remaining -= _specialization_discount;
+		_damage -= _mastery_discount;
+		_cultist.event_mastery_hp_discount_remaining -= _mastery_discount;
 	}
 
 	// The prepared knife is consumed across all costs in the next executed Rite only.
@@ -728,6 +902,9 @@ function day_event_building_construction_execute(_event, _assigned_cultists, _da
 		instance_destroy(_construction_site);
 	}
 
+	// Offer the finished building's first Rite during the current day.
+	day_event_building_events_add(_built_object);
+
 	return true;
 }
 
@@ -861,18 +1038,223 @@ function day_event_cultist_hp_share_cost_apply(_assigned_cultists, _hp_share)
 	}
 }
 
+// Shared by execution and previews so slot costs stay identical after assignment changes.
+function day_event_action_slot_hp_cost_get(_data, _slot_index)
+{
+	var _hp_cost = variable_struct_exists(_data, "hp_cost") ? _data.hp_cost : 0;
+	// Recruitment retains its explicit slot field; ordinary building actions store a cost array.
+	if (variable_struct_exists(_data, "hp_cost_by_slot") && is_array(_data.hp_cost_by_slot))
+	{
+		_hp_cost = _data.hp_cost_by_slot;
+	}
+
+	if (is_array(_hp_cost))
+	{
+		var _slot_count = array_length(_hp_cost);
+		if (_slot_count > 0 && _slot_index >= 0)
+		{
+			return max(0, _hp_cost[_slot_index mod _slot_count]);
+		}
+		return 0;
+	}
+
+	return max(0, _hp_cost);
+}
+
+// All event callbacks share this path for either a flat per-worker cost or individual slot costs.
 function day_event_cultist_hp_cost_apply(_assigned_cultists, _hp_cost)
 {
-	_hp_cost = max(0, _hp_cost);
+	var _cost_data = { hp_cost: _hp_cost };
+	var _cultist_count = array_length(_assigned_cultists);
 
-	for (var _cultist_index = 0; _cultist_index < array_length(_assigned_cultists); ++_cultist_index)
+	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 	{
 		var _cultist = _assigned_cultists[_cultist_index];
 
 		if (instance_exists(_cultist) && variable_instance_exists(_cultist, "hp"))
 		{
 			// Event costs always affect the assigned cultist, independently of combat damage handling.
-			day_event_cultist_damage_apply(_cultist, _hp_cost, false);
+			var _slot_hp_cost = day_event_action_slot_hp_cost_get(_cost_data, _cultist_index);
+			day_event_cultist_damage_apply(_cultist, _slot_hp_cost, false);
+		}
+	}
+}
+
+function day_event_building_cost_is_eligible(_event)
+{
+	if (!is_struct(_event)
+		|| !variable_struct_exists(_event, "source_building")
+		|| !instance_exists(_event.source_building)
+		|| _event.is_resolved
+		|| variable_struct_exists(_event, "construction_site")
+		|| variable_struct_exists(_event, "squad_point")
+		|| (variable_struct_exists(_event, "reserves_squad_slot") && _event.reserves_squad_slot)
+		|| (variable_struct_exists(_event, "is_overuse_event") && _event.is_overuse_event))
+	{
+		return false;
+	}
+
+	// Recruitment, Blood Bath, personal offers and world Jobs retain their own prices.
+	var _action_count = array_length(_event.actions);
+	for (var _action_index = 0; _action_index < _action_count; ++_action_index)
+	{
+		if (_event.actions[_action_index].action_type == "summon_squad")
+		{
+			return false;
+		}
+	}
+
+	switch (_event.source_building.object_index)
+	{
+		case o_pitlings_pit2:
+		case o_graveyard2:
+		case o_unholy_shrine:
+		case o_foundry:
+		case o_summoning_grounds:
+		case o_shell_factory:
+			return true;
+	}
+	return false;
+}
+
+function day_event_building_cost_type_roll()
+{
+	var _a_weight = BALANCE_BUILDING_EVENT_COST_RANDOM_A_WEIGHT;
+	var _b_weight = BALANCE_BUILDING_EVENT_COST_RANDOM_B_WEIGHT;
+	var _c_weight = BALANCE_BUILDING_EVENT_COST_RANDOM_C_WEIGHT;
+	var _roll = irandom(_a_weight + _b_weight + _c_weight - 1);
+	if (_roll < _a_weight)
+	{
+		return BUILDING_EVENT_COST_TYPE.A;
+	}
+	return _roll < _a_weight + _b_weight ? BUILDING_EVENT_COST_TYPE.B : BUILDING_EVENT_COST_TYPE.C;
+}
+
+function day_event_building_cost_apply(_event, _cost_type)
+{
+	if (!day_event_building_cost_is_eligible(_event))
+	{
+		return false;
+	}
+
+	var _cultist_count = BALANCE_BUILDING_EVENT_COST_A_CULTIST_COUNT;
+	var _total_hp_min = BALANCE_BUILDING_EVENT_COST_A_TOTAL_HP_MIN;
+	var _total_hp_max = BALANCE_BUILDING_EVENT_COST_A_TOTAL_HP_MAX;
+	switch (_cost_type)
+	{
+		case BUILDING_EVENT_COST_TYPE.B:
+			_cultist_count = BALANCE_BUILDING_EVENT_COST_B_CULTIST_COUNT;
+			_total_hp_min = BALANCE_BUILDING_EVENT_COST_B_TOTAL_HP_MIN;
+			_total_hp_max = BALANCE_BUILDING_EVENT_COST_B_TOTAL_HP_MAX;
+			break;
+		case BUILDING_EVENT_COST_TYPE.C:
+			_cultist_count = BALANCE_BUILDING_EVENT_COST_C_CULTIST_COUNT;
+			_total_hp_min = BALANCE_BUILDING_EVENT_COST_C_TOTAL_HP_MIN;
+			_total_hp_max = BALANCE_BUILDING_EVENT_COST_C_TOTAL_HP_MAX;
+			break;
+	}
+
+	// Split one shared HP budget in increments of five; zero and equal slot costs are allowed.
+	var _hp_step = BALANCE_BUILDING_EVENT_COST_HP_STEP;
+	var _remaining_units = irandom_range(_total_hp_min div _hp_step, _total_hp_max div _hp_step);
+	var _slot_costs = array_create(_cultist_count, 0);
+	for (var _slot_index = 0; _slot_index < _cultist_count; ++_slot_index)
+	{
+		var _slot_units = _slot_index == _cultist_count - 1 ? _remaining_units : irandom(_remaining_units);
+		_slot_costs[_slot_index] = _slot_units * _hp_step;
+		_remaining_units -= _slot_units;
+	}
+
+	// Shuffle shares so the final remainder is not consistently charged to the last worker.
+	for (var _shuffle_index = _cultist_count - 1; _shuffle_index > 0; --_shuffle_index)
+	{
+		var _swap_index = irandom(_shuffle_index);
+		var _swap_cost = _slot_costs[_shuffle_index];
+		_slot_costs[_shuffle_index] = _slot_costs[_swap_index];
+		_slot_costs[_swap_index] = _swap_cost;
+	}
+
+	// Charge the card's price once even when a Rite has several cost-bearing actions.
+	var _cost_assigned = false;
+	var _action_count = array_length(_event.actions);
+	for (var _action_index = 0; _action_index < _action_count; ++_action_index)
+	{
+		var _data = _event.actions[_action_index].data;
+		if (is_struct(_data) && variable_struct_exists(_data, "hp_cost"))
+		{
+			_data.hp_cost = _cost_assigned ? 0 : _slot_costs;
+			_cost_assigned = true;
+		}
+	}
+
+	if (!_cost_assigned)
+	{
+		return false;
+	}
+	_event.building_cost_type = _cost_type;
+	_event.cultist_cost = _cultist_count;
+	_event.execution_cultist_minimum = _cultist_count * _event.activation_limit;
+	return true;
+}
+
+function day_event_building_costs_morning_apply(_events)
+{
+	var _candidates = [];
+	var _event_count = array_length(_events);
+	for (var _event_index = 0; _event_index < _event_count; ++_event_index)
+	{
+		var _event = _events[_event_index];
+		if (day_event_building_cost_is_eligible(_event)
+			&& !variable_struct_exists(_event, "building_cost_type"))
+		{
+			array_push(_candidates, _event);
+		}
+	}
+
+	var _candidate_count = array_length(_candidates);
+	if (_candidate_count <= 0)
+	{
+		return;
+	}
+
+	// Pick recipients fairly across buildings, then reserve at most one morning type C.
+	for (var _shuffle_index = _candidate_count - 1; _shuffle_index > 0; --_shuffle_index)
+	{
+		var _swap_index = irandom(_shuffle_index);
+		var _swap_event = _candidates[_shuffle_index];
+		_candidates[_shuffle_index] = _candidates[_swap_index];
+		_candidates[_swap_index] = _swap_event;
+	}
+	var _c_count = random(1) < BALANCE_BUILDING_EVENT_COST_MORNING_C_CHANCE
+		? min(_candidate_count, BALANCE_BUILDING_EVENT_COST_MORNING_C_LIMIT)
+		: 0;
+	var _a_count = min(_candidate_count - _c_count,
+		ceil(_candidate_count * BALANCE_BUILDING_EVENT_COST_MORNING_A_SHARE));
+	for (var _candidate_index = 0; _candidate_index < _candidate_count; ++_candidate_index)
+	{
+		var _cost_type = BUILDING_EVENT_COST_TYPE.B;
+		if (_candidate_index < _c_count)
+		{
+			_cost_type = BUILDING_EVENT_COST_TYPE.C;
+		}
+		else if (_candidate_index < _c_count + _a_count)
+		{
+			_cost_type = BUILDING_EVENT_COST_TYPE.A;
+		}
+		day_event_building_cost_apply(_candidates[_candidate_index], _cost_type);
+	}
+}
+
+function day_event_building_costs_random_apply(_events)
+{
+	var _event_count = array_length(_events);
+	for (var _event_index = 0; _event_index < _event_count; ++_event_index)
+	{
+		var _event = _events[_event_index];
+		if (day_event_building_cost_is_eligible(_event)
+			&& !variable_struct_exists(_event, "building_cost_type"))
+		{
+			day_event_building_cost_apply(_event, day_event_building_cost_type_roll());
 		}
 	}
 }
@@ -1370,6 +1752,62 @@ function day_event_squad_selection_add(_event, _eligible_squads)
 	return _event;
 }
 
+// Refresh target-dependent Rites when squads change, preserving a valid manual choice.
+function day_event_squad_selection_refresh(_event)
+{
+	if (!is_struct(_event)
+		|| _event.is_resolved
+		|| !variable_struct_exists(_event, "requires_squad_selection")
+		|| !_event.requires_squad_selection
+		|| !variable_struct_exists(_event, "source_building")
+		|| !instance_exists(_event.source_building))
+	{
+		return false;
+	}
+
+	// Each building retains its existing squad restrictions as the roster grows or changes.
+	var _candidates = [];
+	switch (_event.source_building.object_index)
+	{
+		case o_foundry:
+			_candidates = day_event_squads_with_relic_space_get();
+			break;
+		case o_unholy_shrine:
+			_candidates = day_event_squads_without_unholy_trait_get();
+			break;
+		case o_pitlings_pit2:
+			_candidates = day_event_squads_get(SQUAD_TYPE.DEMON);
+			break;
+		case o_graveyard2:
+			_candidates = day_event_squads_get(SQUAD_TYPE.UNDEAD);
+			break;
+		case o_summoning_grounds:
+		case o_ritual_circle:
+			_candidates = global.squads;
+			break;
+		default:
+			return false;
+	}
+
+	_event.eligible_squads = [];
+	var _candidate_count = array_length(_candidates);
+	for (var _candidate_index = 0; _candidate_index < _candidate_count; ++_candidate_index)
+	{
+		var _squad = _candidates[_candidate_index];
+		if (day_event_squad_is_compatible(_event, _squad))
+		{
+			array_push(_event.eligible_squads, _squad);
+		}
+	}
+
+	if (!day_event_squad_is_compatible(_event, _event.selected_squad))
+	{
+		_event.selected_squad = noone;
+	}
+
+	return true;
+}
+
 function day_event_squad_is_active(_squad)
 {
 	if (!is_struct(_squad))
@@ -1443,6 +1881,7 @@ function day_event_squad_selection_default_apply(_event)
 	}
 
 	// Preserve a valid manual choice.
+	day_event_squad_selection_refresh(_event);
 	if (variable_struct_exists(_event, "selected_squad")
 		&& day_event_squad_is_compatible(_event, _event.selected_squad))
 	{
@@ -1503,10 +1942,13 @@ function day_event_squad_summon_execute(_event, _assigned_cultists, _data)
 	// The newly created squad now consumes the slot previously reserved by this card.
 	_event.reserves_squad_slot = false;
 
-	var _hp_cost = variable_struct_exists(_data, "hp_cost")
-		? _data.hp_cost
-		: BALANCE_SQUAD_EVENT_CULTIST_HP_COST;
-	day_event_cultist_hp_cost_apply(_assigned_cultists, _hp_cost);
+	// Each worker pays the cost rolled for their assignment slot when the event was created.
+	var _cultist_count = array_length(_assigned_cultists);
+	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+	{
+		var _hp_cost = day_event_action_slot_hp_cost_get(_data, _cultist_index);
+		day_event_cultist_hp_cost_apply([_assigned_cultists[_cultist_index]], _hp_cost);
+	}
 	return true;
 }
 
@@ -1821,6 +2263,11 @@ function day_event_squad_recruitment_create(_squad_point, _choice)
 	var _description = variable_struct_exists(_choice, "event_description")
 		? string(_choice.event_description)
 		: "Summon the selected squad at this Squad Point.";
+	// Roll once per recruitment event; assigning workers never rerolls the displayed costs.
+	var _total_hp_cost = BALANCE_SQUAD_EVENT_TOTAL_HP_COST;
+	var _hp_cost_step = BALANCE_SQUAD_EVENT_HP_COST_STEP;
+	var _first_hp_cost = irandom(_total_hp_cost div _hp_cost_step) * _hp_cost_step;
+	var _hp_cost_by_slot = [_first_hp_cost, _total_hp_cost - _first_hp_cost];
 	var _event = new day_event_constructor(
 		"summon_squad_" + string(_squad_point),
 		"Summon " + _squad_name,
@@ -1835,7 +2282,7 @@ function day_event_squad_recruitment_create(_squad_point, _choice)
 					squad_type: _choice.squad_type,
 					unit_object: _choice.unit_object,
 					unit_count: max(1, floor(_choice.unit_count)),
-					hp_cost: BALANCE_SQUAD_EVENT_CULTIST_HP_COST,
+					hp_cost_by_slot: _hp_cost_by_slot,
 					squad_point: _squad_point
 				}
 			)
@@ -2068,23 +2515,23 @@ function day_event_undying_devotion_cultist_store(_cultist)
 		&& is_array(_cultist.building_work_counts)
 		? _cultist.building_work_counts
 		: [];
-	var _specialization_building_object = variable_instance_exists(
+	var _mastery_building_object = variable_instance_exists(
 		_cultist,
-		"specialization_building_object"
+		"mastery_building_object"
 	)
-		? _cultist.specialization_building_object
+		? _cultist.mastery_building_object
 		: noone;
-	var _specialization_building_name = variable_instance_exists(
+	var _mastery_building_name = variable_instance_exists(
 		_cultist,
-		"specialization_building_name"
+		"mastery_building_name"
 	)
-		? _cultist.specialization_building_name
+		? _cultist.mastery_building_name
 		: "";
-	var _specialization_building_sprite = variable_instance_exists(
+	var _mastery_building_sprite = variable_instance_exists(
 		_cultist,
-		"specialization_building_sprite"
+		"mastery_building_sprite"
 	)
-		? _cultist.specialization_building_sprite
+		? _cultist.mastery_building_sprite
 		: noone;
 
 	array_push(global.blood_bath_undying_devotion_dead_cultists, {
@@ -2094,9 +2541,9 @@ function day_event_undying_devotion_cultist_store(_cultist)
 		sprite_index: _sprite_index,
 		work_history: _work_history,
 		building_work_counts: _building_work_counts,
-		specialization_building_object: _specialization_building_object,
-		specialization_building_name: _specialization_building_name,
-		specialization_building_sprite: _specialization_building_sprite
+		mastery_building_object: _mastery_building_object,
+		mastery_building_name: _mastery_building_name,
+		mastery_building_sprite: _mastery_building_sprite
 	});
 	return true;
 }
@@ -2217,24 +2664,37 @@ function day_event_undying_devotion_morning_apply()
 		_cultist.building_work_counts = variable_struct_exists(_cultist_data, "building_work_counts")
 			? _cultist_data.building_work_counts
 			: [];
-		_cultist.specialization_building_object = variable_struct_exists(
+		// Pending offers belonged to the previous instance; retained work may unlock a fresh offer.
+		var _restored_work_count = array_length(_cultist.building_work_counts);
+		for (var _work_index = 0; _work_index < _restored_work_count; ++_work_index)
+		{
+			_cultist.building_work_counts[_work_index].mastery_pending = false;
+		}
+		_cultist.mastery_building_object = variable_struct_exists(
 			_cultist_data,
-			"specialization_building_object"
+			"mastery_building_object"
 		)
-			? _cultist_data.specialization_building_object
+			? _cultist_data.mastery_building_object
 			: noone;
-		_cultist.specialization_building_name = variable_struct_exists(
+		_cultist.mastery_building_name = variable_struct_exists(
 			_cultist_data,
-			"specialization_building_name"
+			"mastery_building_name"
 		)
-			? _cultist_data.specialization_building_name
+			? _cultist_data.mastery_building_name
 			: "";
-		_cultist.specialization_building_sprite = variable_struct_exists(
+		_cultist.mastery_building_sprite = variable_struct_exists(
 			_cultist_data,
-			"specialization_building_sprite"
+			"mastery_building_sprite"
 		)
-			? _cultist_data.specialization_building_sprite
+			? _cultist_data.mastery_building_sprite
 			: noone;
+		// Revival must not restore the retired Blood Bath mastery.
+		if (_cultist.mastery_building_object == o_meat_bath)
+		{
+			_cultist.mastery_building_object = noone;
+			_cultist.mastery_building_name = "";
+			_cultist.mastery_building_sprite = noone;
+		}
 		_cultist.hp = min(
 			_cultist.max_hp,
 			BALANCE_BLOOD_BATH_UNDYING_DEVOTION_REVIVE_HP
@@ -2495,6 +2955,185 @@ function day_event_description_get(_event, _base_description = "")
 	return _description;
 }
 
+function day_event_building_overuse_data_get(_building_object)
+{
+	switch (_building_object)
+	{
+		case o_meat_bath:
+			return {
+			event_id: "silence_the_donors",
+			title: "Silence the Donors",
+			description: "The blood's previous owners refuse to heal anyone until they get a proper funeral. Say a few words. \"Thanks for the blood\" should cover it."
+		};
+
+		case o_pitlings_pit2:
+			return {
+			event_id: "cool_the_depths",
+			title: "Cool the Depths",
+			description: "The pit has overheated and is belching fire instead of demons. Cool it with a soothing chant. Let the most enthusiastic cultist test the temperature."
+		};
+
+		case o_graveyard2:
+			return {
+			event_id: "restore_the_epitaphs",
+			title: "Restore the Epitaphs",
+			description: "Constant raising and reburying has worn the names off the headstones. The dead won't answer to \"you there.\" Carve the names back in. Guess confidently."
+		};
+
+		case o_unholy_shrine:
+			return {
+			event_id: "scrape_off_the_miracles",
+			title: "Scrape Off the Miracles",
+			description: "Too many rituals have covered the altar in a crust of extra eyes. Scrape it clean. If one looks familiar, mind your own business."
+		};
+
+		case o_foundry:
+			return {
+			event_id: "exorcise_the_anvil",
+			title: "Exorcise the Anvil",
+			description: "The anvil has absorbed so many curses that it now hits back. Beat the spirit out. Finally, a theological dispute we have the tools for."
+		};
+
+		case o_summoning_grounds:
+			return {
+			event_id: "scrape_the_circle_clean",
+			title: "Scrape the Circle Clean",
+			description: "Too many arrivals have buried the summoning runes under demonic slime. Scrape them clean. Anything that clings to the shovel is still technically a guest."
+		};
+
+		case o_shell_factory:
+			return {
+			event_id: "unheal_the_machinery",
+			title: "Unheal the Machinery",
+			description: "First Aid Meat has leaked into the machinery and healed the gears together. Cut them apart. The machine insists it has never felt better."
+		};
+	}
+
+	return noone;
+}
+
+function day_event_building_overuse_is_enabled(_building)
+{
+	return instance_exists(_building)
+		&& is_struct(day_event_building_overuse_data_get(_building.object_index));
+}
+
+function day_event_building_overuse_is_required(_building)
+{
+	return day_event_building_overuse_is_enabled(_building)
+		&& variable_instance_exists(_building, "overuse_amount")
+		&& _building.overuse_amount > BALANCE_BUILDING_OVERUSE_THRESHOLD;
+}
+
+function day_event_building_overuse_execute(_event, _assigned_cultists, _data)
+{
+	if (!variable_struct_exists(_event, "source_building")
+		|| !instance_exists(_event.source_building))
+	{
+		return false;
+	}
+
+	_event.source_building.overuse_amount = 0;
+	return true;
+}
+
+function day_event_building_overuse_create(_building)
+{
+	if (!day_event_building_overuse_is_required(_building))
+	{
+		return noone;
+	}
+
+	var _data = day_event_building_overuse_data_get(_building.object_index);
+	var _event = new day_event_constructor(
+		"building_overuse_" + _data.event_id + "_" + string(_building),
+		_data.title,
+		_data.description,
+		1,
+		1,
+		[
+			new event_action_constructor(
+				"building_overuse_reset",
+				day_event_building_overuse_execute,
+				{ hp_cost: 0 }
+			)
+		]
+	);
+	_event.source_building = _building;
+	_event.is_overuse_event = true;
+	_event.can_pin = false;
+	_event.reroll_is_available = false;
+	return _event;
+}
+
+function day_event_building_overuse_events_replace(_source_building = noone)
+{
+	var _building_count = instance_number(o_v13buildings_parent);
+	var _replacement_count = 0;
+
+	for (var _building_index = 0; _building_index < _building_count; ++_building_index)
+	{
+		var _building = instance_find(o_v13buildings_parent, _building_index);
+
+		if ((_source_building != noone && _building != _source_building)
+			|| !day_event_building_overuse_is_required(_building))
+		{
+			continue;
+		}
+
+		// The maintenance Rite temporarily replaces every normal candidate from this source.
+		for (var _event_index = array_length(global.day_events) - 1; _event_index >= 0; --_event_index)
+		{
+			var _candidate = global.day_events[_event_index];
+
+			if (is_struct(_candidate)
+				&& variable_struct_exists(_candidate, "source_building")
+				&& _candidate.source_building == _building)
+			{
+				array_delete(global.day_events, _event_index, 1);
+			}
+		}
+
+		var _overuse_event = day_event_building_overuse_create(_building);
+
+		if (is_struct(_overuse_event))
+		{
+			day_event_add(_overuse_event);
+			_replacement_count++;
+		}
+	}
+
+	return _replacement_count;
+}
+
+function day_event_building_overuse_morning_recovery_apply()
+{
+	var _previous_day = max(1, day_event_current_day_get() - 1);
+	var _building_count = instance_number(o_v13buildings_parent);
+	var _recovered_count = 0;
+
+	for (var _building_index = 0; _building_index < _building_count; ++_building_index)
+	{
+		var _building = instance_find(o_v13buildings_parent, _building_index);
+
+		if (!day_event_building_overuse_is_enabled(_building)
+			|| _building.overuse_amount <= 0
+			|| day_event_building_overuse_is_required(_building)
+			|| _building.overuse_last_normal_event_day == _previous_day)
+		{
+			continue;
+		}
+
+		_building.overuse_amount = max(
+			0,
+			_building.overuse_amount - BALANCE_BUILDING_OVERUSE_DAILY_RECOVERY
+		);
+		_recovered_count++;
+	}
+
+	return _recovered_count;
+}
+
 function day_event_building_ritual_rest_state_refresh(_building, _current_day)
 {
 	if (!instance_exists(_building)
@@ -2518,10 +3157,42 @@ function day_event_building_ritual_rest_state_refresh(_building, _current_day)
 	return true;
 }
 
-function day_event_building_ritual_execution_record(_building, _current_day)
+function day_event_building_ritual_execution_record(_building, _current_day, _event = noone)
 {
-	if (!instance_exists(_building)
-		|| !variable_instance_exists(_building, "ritual_execution_day_count")
+	if (!instance_exists(_building))
+	{
+		return false;
+	}
+
+	if (day_event_building_overuse_is_enabled(_building))
+	{
+		var _is_overuse_event = is_struct(_event)
+			&& variable_struct_exists(_event, "is_overuse_event")
+			&& _event.is_overuse_event;
+
+		if (_is_overuse_event)
+		{
+			return true;
+		}
+
+		var _activation_count = is_struct(_event)
+			&& variable_struct_exists(_event, "activation_count")
+			? max(1, floor(_event.activation_count))
+			: 1;
+
+		for (var _activation_index = 0; _activation_index < _activation_count; ++_activation_index)
+		{
+			_building.overuse_amount += irandom_range(
+				BALANCE_BUILDING_OVERUSE_GAIN_MIN,
+				BALANCE_BUILDING_OVERUSE_GAIN_MAX
+			);
+		}
+
+		_building.overuse_last_normal_event_day = _current_day;
+		return true;
+	}
+
+	if (!variable_instance_exists(_building, "ritual_execution_day_count")
 		|| !variable_instance_exists(_building, "ritual_execution_last_day")
 		|| !variable_instance_exists(_building, "ritual_rest_warning_day")
 		|| !variable_instance_exists(_building, "ritual_rest_unavailable_day"))
@@ -2591,6 +3262,11 @@ function day_event_building_ritual_rest_apply()
 		}
 
 		var _source_building = _event.source_building;
+
+		if (day_event_building_overuse_is_enabled(_source_building))
+		{
+			continue;
+		}
 
 		if (_source_building.ritual_rest_unavailable_day == _current_day)
 		{
@@ -3277,8 +3953,8 @@ function day_event_foundry_relic_event_create(_foundry, _excluded_choices = [])
 {
 	var _eligible_squads = day_event_squads_with_relic_space_get();
 
-	// A full roster has no valid recipient, so Foundry produces no event card.
-	if (!instance_exists(_foundry) || array_length(_eligible_squads) <= 0)
+	// Keep the card visible even when it must wait for a squad with a free Relic slot.
+	if (!instance_exists(_foundry))
 	{
 		return noone;
 	}
@@ -3695,7 +4371,7 @@ function day_event_ritual_events_add(_ritual_circle)
 
 function day_event_summoning_grounds_events_add(_summoning_grounds)
 {
-	if (!instance_exists(_summoning_grounds) || array_length(global.squads) <= 0)
+	if (!instance_exists(_summoning_grounds))
 	{
 		return;
 	}
@@ -4395,11 +5071,16 @@ function day_event_building_catalog_get(_building_object)
 	var _infernal_regeneration_bonus_percentage = round(
 		BALANCE_BLOOD_BATH_INFERNAL_REGENERATION_RECOVERY_SHARE * 100
 	);
+	var _overuse_data = day_event_building_overuse_data_get(_building_object);
+	var _overuse_entry = is_struct(_overuse_data)
+		? _entry(_overuse_data.title, _overuse_data.description, 1)
+		: noone;
 
 	switch (_building_object)
 	{
 		case o_shell_factory:
 			return [
+				_overuse_entry,
 				_entry(
 					"Taint Compost Shell Enchantment",
 					"Choose Explosive Fertilizer or Sweet Rot as a permanent Taint Compost enchantment. Can be completed once per match.",
@@ -4445,6 +5126,7 @@ function day_event_building_catalog_get(_building_object)
 
 		case o_foundry:
 			return [
+				_overuse_entry,
 				_entry("Flesh of the Pit", "Permanently increase maximum health of all Demons by 10%, excluding Archdemons."),
 				_entry("Lessons in Cruelty", "Permanently increase damage of all Demons by 10%, excluding Archdemons."),
 				_entry("Reinforced Bones", "Permanently increase maximum health of all Undead units by 10%."),
@@ -4465,6 +5147,7 @@ function day_event_building_catalog_get(_building_object)
 
 		case o_summoning_grounds:
 			return [
+				_overuse_entry,
 				_entry(
 					"Summon Ripcage Cannon",
 					"Summon one Ripcage Cannon into the selected squad. It has a very long-range, slow AOE attack and is recommended for ranged squads.",
@@ -4509,6 +5192,7 @@ function day_event_building_catalog_get(_building_object)
 
 		case o_unholy_shrine:
 			return [
+				_overuse_entry,
 				_entry(
 					"Boiling Blood",
 					"Endows the squad with Unholy trait: "
@@ -4555,13 +5239,15 @@ function day_event_building_catalog_get(_building_object)
 
 		case o_pitlings_pit2:
 			return [
+				_overuse_entry,
 				_entry("Fill the Ranks", "Add " + string(BALANCE_DEMONS_PIT_FILL_UNIT_COUNT) + " units of the most common type to a selected Demon squad."),
-				_entry("Mawling Specialization", "Choose whether all Mawlings in a selected squad become Balgors, Succubi, or Pitlings.")
+				_entry("Mawling Mastery", "Choose whether all Mawlings in a selected squad become Balgors, Succubi, or Pitlings.")
 			];
 
 		case o_graveyard2:
 			return [
-				_entry("Bonelet Specialization", "Choose whether all Bonelets in a selected squad become Bone Warriors, Bone Mages, or Bone Archers."),
+				_overuse_entry,
+				_entry("Bonelet Mastery", "Choose whether all Bonelets in a selected squad become Bone Warriors, Bone Mages, or Bone Archers."),
 				_entry("Skeleton Draft", "Add " + string(BALANCE_GRAVEYARD_DRAFT_UNIT_COUNT) + " units of the most common type to a selected Undead squad.")
 			];
 
@@ -4577,10 +5263,11 @@ function day_event_building_catalog_get(_building_object)
 			// Keep the catalog consistent with the temporarily limited generated event set.
 			if (!BLOOD_BATH_FULL_EVENT_SET_ENABLED)
 			{
-				return [_blood_bath_event];
+				return [_overuse_entry, _blood_bath_event];
 			}
 
 			return [
+				_overuse_entry,
 				_entry(
 					"Crimson Baptism",
 					"All current Cultists restore "
@@ -4733,6 +5420,14 @@ function day_event_previous_building_selections_store()
 
 function day_event_building_action_is_available(_event)
 {
+	// Mastery is an independent personal offer, but uses the same pin controls as building Rites.
+	if (is_struct(_event)
+		&& variable_struct_exists(_event, "is_cultist_mastery")
+		&& _event.is_cultist_mastery)
+	{
+		return !_event.is_resolved && day_event_cultist_mastery_request_is_valid(_event.mastery_request);
+	}
+
 	return is_struct(_event)
 		&& variable_struct_exists(_event, "source_building")
 		&& instance_exists(_event.source_building)
@@ -4760,6 +5455,14 @@ function day_event_execution_staffing_is_ready(_event)
 		return false;
 	}
 
+	// A visible squad Rite cannot be invoked until it has a valid recipient.
+	if (variable_struct_exists(_event, "requires_squad_selection")
+		&& _event.requires_squad_selection
+		&& array_length(_event.eligible_squads) <= 0)
+	{
+		return false;
+	}
+
 	var _required_cultist_count = variable_struct_exists(_event, "execution_cultist_minimum")
 		? _event.execution_cultist_minimum
 		: _event.cultist_cost * _event.activation_limit;
@@ -4775,6 +5478,8 @@ function day_event_execution_is_active(_event)
 
 function day_event_execution_start(_event)
 {
+	day_event_squad_selection_refresh(_event);
+
 	if (!day_event_execution_staffing_is_ready(_event) || day_event_execution_is_active(_event))
 	{
 		return false;
@@ -4873,7 +5578,8 @@ function day_event_execution_complete(_event_index)
 	{
 		day_event_building_ritual_execution_record(
 			_event.source_building,
-			day_event_current_day_get()
+			day_event_current_day_get(),
+			_event
 		);
 	}
 
@@ -4900,14 +5606,44 @@ function day_event_execution_complete(_event_index)
 
 	array_push(global.day_event_executed_log_lines, _event_name);
 
-	// Released Cultists return to the top pool immediately and walk back to their original homes.
+	// Release Cultists logically now while retaining their former slots for the Jobs animation.
 	for (var _cultist_index = 0; _cultist_index < array_length(_assigned_cultists); ++_cultist_index)
 	{
 		day_event_cultist_return_to_cannon_start(_assigned_cultists[_cultist_index]);
 	}
 
+	_event.completion_animation_timer = 0;
+	_event.completion_animation_cultists = _assigned_cultists;
+	_event.completion_animation_slot_count = _event.cultist_cost * _event.activation_limit;
 	_event.assigned_cultists = [];
-	array_delete(global.day_events, _event_index, 1);
+
+	// Clearing Overuse immediately reveals this building's ordinary Rite for the same day.
+	var _is_overuse_event = variable_struct_exists(_event, "is_overuse_event")
+		&& _event.is_overuse_event;
+
+	if (_is_overuse_event
+		&& variable_struct_exists(_event, "source_building")
+		&& instance_exists(_event.source_building))
+	{
+		var _source_building = _event.source_building;
+		var _previous_event_count = array_length(global.day_events);
+		day_event_building_events_add(_source_building, true);
+
+		// A hidden pin has served its purpose once its ordinary Rite is restored.
+		if (array_length(global.day_events) > _previous_event_count)
+		{
+			var _restored_event = global.day_events[array_length(global.day_events) - 1];
+			day_event_pin_clear(_restored_event, false);
+		}
+	}
+
+	// Recruitment and upgrades can change the recipients of other buildings' waiting Rites.
+	var _remaining_event_count = array_length(global.day_events);
+	for (var _remaining_index = 0; _remaining_index < _remaining_event_count; ++_remaining_index)
+	{
+		day_event_squad_selection_refresh(global.day_events[_remaining_index]);
+	}
+
 	global.sound_play_random([rite_complete01, rite_complete02], global.sound_priority_ui);
 	return true;
 }
@@ -4920,13 +5656,33 @@ function day_event_execution_timers_update(_paused_event = noone)
 		: 1;
 	var _completed_count = 0;
 
-	// Work backwards because completed cards are removed immediately.
+	// Work backwards because cards are removed after their completion animation.
 	for (var _event_index = array_length(global.day_events) - 1; _event_index >= 0; --_event_index)
 	{
 		var _event = global.day_events[_event_index];
 
 		if (!is_struct(_event) || !variable_struct_exists(_event, "execution_timer"))
 		{
+			continue;
+		}
+
+		// Resolved events stay non-interactive until both completion animations finish.
+		if (_event.is_resolved)
+		{
+			var _completion_duration = max(
+				BALANCE_JOBS_EVENT_FADE_TIME,
+				BALANCE_JOBS_CULTIST_RETURN_ANIMATION_TIME
+			) * room_speed;
+			_event.completion_animation_timer = min(
+				_event.completion_animation_timer + _time_scale,
+				_completion_duration
+			);
+
+			if (_event.completion_animation_timer >= _completion_duration)
+			{
+				array_delete(global.day_events, _event_index, 1);
+			}
+
 			continue;
 		}
 
@@ -5063,7 +5819,8 @@ function day_event_pin_set(_event)
 
 	array_push(global.day_event_pinned_events, {
 		source_building: _event.source_building,
-		source_event_id: day_event_source_event_id_get(_event)
+		source_event_id: day_event_source_event_id_get(_event),
+		is_cultist_mastery: variable_struct_exists(_event, "is_cultist_mastery") && _event.is_cultist_mastery
 	});
 	global.day_event_pins_remaining--;
 	_event.is_pinned_event = true;
@@ -5204,6 +5961,8 @@ function day_event_reroll_preview_get(_event)
 	}
 
 	_event.reroll_preview_event = day_event_reroll_candidate_generate(_event);
+	// Price the cached preview once so hovering and accepting show the same worker slots and HP.
+	day_event_building_costs_random_apply([_event.reroll_preview_event]);
 	return _event.reroll_preview_event;
 }
 
@@ -5251,7 +6010,7 @@ function day_event_reroll(_event)
 	return true;
 }
 
-function day_event_building_daily_events_limit_apply(_additional_event_count = 0)
+function day_event_building_daily_events_limit_apply(_additional_event_count = 0, _consume_pins = true)
 {
 	var _events_without_building_source = [];
 	var _source_buildings = [];
@@ -5413,24 +6172,49 @@ function day_event_building_daily_events_limit_apply(_additional_event_count = 0
 		}
 	}
 
-	// Pins are consumed after forcing tomorrow's events, or discarded if they became invalid.
-	if (day_event_pin_is_active())
+	// Pins hidden by Overuse remain stored until the maintenance Rite restores the normal event.
+	if (_consume_pins && day_event_pin_is_active())
 	{
-		day_event_pin_clear(noone, false);
+		for (var _pin_index = day_event_pin_count_get() - 1; _pin_index >= 0; --_pin_index)
+		{
+			var _pin = global.day_event_pinned_events[_pin_index];
+			// Independent Mastery pins are consumed by their own morning generator.
+			if (is_struct(_pin)
+				&& variable_struct_exists(_pin, "is_cultist_mastery")
+				&& _pin.is_cultist_mastery)
+			{
+				continue;
+			}
+
+			var _pin_is_hidden_by_overuse = is_struct(_pin)
+				&& instance_exists(_pin.source_building)
+				&& day_event_building_overuse_is_required(_pin.source_building);
+
+			if (!_pin_is_hidden_by_overuse)
+			{
+				array_delete(global.day_event_pinned_events, _pin_index, 1);
+			}
+		}
 	}
 
 	return array_length(global.day_events);
 }
 
-function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_additional_bonus = true)
+// Passing a source limits generation to that instance, without world jobs or daily bonuses.
+function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_additional_bonus = true, _source_building = noone)
 {
 	// World jobs are available without owning a source building.
-	day_event_world_jobs_generate();
+	var _generate_all_buildings = _source_building == noone;
+	if (_generate_all_buildings)
+	{
+		day_event_world_jobs_generate();
+	}
 
 	// Shell Factory offers independent, match-long shell enchantments and upgrades.
-	if (instance_exists(o_shell_factory))
+	if (instance_exists(o_shell_factory)
+		&& (_generate_all_buildings || _source_building.object_index == o_shell_factory))
 	{
-		var _shell_factory = instance_find(o_shell_factory, 0);
+		var _shell_factory = _generate_all_buildings ? instance_find(o_shell_factory, 0) : _source_building;
 
 		if (!global.shell_factory_taint_enchantment_event_completed)
 		{
@@ -5509,7 +6293,7 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 	{
 		var _foundry = instance_find(o_foundry, _foundry_index);
 
-		if (instance_exists(_foundry))
+		if (instance_exists(_foundry) && (_generate_all_buildings || _foundry == _source_building))
 		{
 			day_event_foundry_events_add(_foundry);
 		}
@@ -5521,7 +6305,7 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 	{
 		var _summoning_grounds = instance_find(o_summoning_grounds, _grounds_index);
 
-		if (instance_exists(_summoning_grounds))
+		if (instance_exists(_summoning_grounds) && (_generate_all_buildings || _summoning_grounds == _source_building))
 		{
 			day_event_summoning_grounds_events_add(_summoning_grounds);
 		}
@@ -5533,7 +6317,7 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 	{
 		var _ritual_circle = instance_find(o_ritual_circle, _ritual_index);
 
-		if (instance_exists(_ritual_circle))
+		if (instance_exists(_ritual_circle) && (_generate_all_buildings || _ritual_circle == _source_building))
 		{
 			day_event_ritual_events_add(_ritual_circle);
 		}
@@ -5544,13 +6328,15 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 	for (var _shrine_index = 0; _shrine_index < _unholy_shrine_count; ++_shrine_index)
 	{
 		var _unholy_shrine = instance_find(o_unholy_shrine, _shrine_index);
-		var _eligible_squads = day_event_squads_without_unholy_trait_get();
 
-		// Unholy Shrine has no valid Rite until at least one squad can receive a trait.
-		if (!instance_exists(_unholy_shrine) || array_length(_eligible_squads) <= 0)
+		if (!instance_exists(_unholy_shrine)
+			|| (!_generate_all_buildings && _unholy_shrine != _source_building))
 		{
 			continue;
 		}
+
+		// Offer a Rite immediately; its squad selector can wait for a suitable recruit.
+		var _eligible_squads = day_event_squads_without_unholy_trait_get();
 
 		day_event_unholy_trait_add(
 			_unholy_shrine,
@@ -5622,49 +6408,52 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 	for (var _pit_index = 0; _pit_index < _pit_count; ++_pit_index)
 	{
 		var _pit = instance_find(o_pitlings_pit2, _pit_index);
+		if (!_generate_all_buildings && _pit != _source_building)
+		{
+			continue;
+		}
+
 		var _mawling_squads = day_event_squads_get(SQUAD_TYPE.DEMON, o_mawling);
 		var _demon_squads = day_event_squads_get(SQUAD_TYPE.DEMON);
 
 		// Mawlings must be specialized before Demons Pit can offer its normal event pool again.
 		if (array_length(_mawling_squads) > 0)
 		{
-			var _demon_specialization_cost = day_event_demons_pit_random_cultist_cost_get();
-			var _demon_specialization_event = day_event_squad_create(
+			var _demon_mastery_cost = day_event_demons_pit_random_cultist_cost_get();
+			var _demon_mastery_event = day_event_squad_create(
 				_pit,
-				"mawling_specialization",
-				"Mawling Specialization",
+				"mawling_mastery",
+				"Mawling Mastery",
 				"Choose how to transform every Mawling in the selected squad.",
-				_demon_specialization_cost.cultist_count,
+				_demon_mastery_cost.cultist_count,
 				"replace_mawlings_with_selected_unit",
 				day_event_squad_units_choice_replace_execute,
-				{ source_unit_object: o_mawling, hp_cost: _demon_specialization_cost.hp_cost }
+				{ source_unit_object: o_mawling, hp_cost: _demon_mastery_cost.hp_cost }
 			);
-			_demon_specialization_event.unit_choice_options = [
+			_demon_mastery_event.unit_choice_options = [
 				{ title: "Forge Balgors", label: "Balgor", target_unit_object: o_balgor },
 				{ title: "Lessons in Temptation", label: "Succubus", target_unit_object: o_succubus },
 				{ title: "Born in Pit", label: "Pitling", target_unit_object: o_pitling }
 			];
-			_demon_specialization_event.selected_unit_choice_index = 0;
-			_demon_specialization_event.selected_squad = _mawling_squads[0];
-			day_event_add(_demon_specialization_event);
+			_demon_mastery_event.selected_unit_choice_index = 0;
+			_demon_mastery_event.selected_squad = _mawling_squads[0];
+			day_event_add(_demon_mastery_event);
 			continue;
 		}
 
-		if (array_length(_demon_squads) > 0)
-		{
-			var _fill_event = day_event_squad_create(
-				_pit,
-				"fill_the_ranks",
-				"Fill the Ranks",
-				"Add " + string(BALANCE_DEMONS_PIT_FILL_UNIT_COUNT)
-					+ " units of the most common unit type in the selected demon squad.",
-				BALANCE_DEMONS_PIT_FILL_CULTIST_COUNT,
-				"fill_demon_ranks",
-				day_event_squad_draft_execute,
-				{ hp_cost: BALANCE_DEMONS_PIT_FILL_HP_COST, unit_count: BALANCE_DEMONS_PIT_FILL_UNIT_COUNT }
-			);
-			day_event_add(day_event_squad_selection_add(_fill_event, _demon_squads));
-		}
+		// Keep a reinforcement Rite visible while the first Demon squad is being recruited.
+		var _fill_event = day_event_squad_create(
+			_pit,
+			"fill_the_ranks",
+			"Fill the Ranks",
+			"Add " + string(BALANCE_DEMONS_PIT_FILL_UNIT_COUNT)
+				+ " units of the most common unit type in the selected demon squad.",
+			BALANCE_DEMONS_PIT_FILL_CULTIST_COUNT,
+			"fill_demon_ranks",
+			day_event_squad_draft_execute,
+			{ hp_cost: BALANCE_DEMONS_PIT_FILL_HP_COST, unit_count: BALANCE_DEMONS_PIT_FILL_UNIT_COUNT }
+		);
+		day_event_add(day_event_squad_selection_add(_fill_event, _demon_squads));
 	}
 
 	var _graveyard_count = instance_number(o_graveyard2);
@@ -5672,49 +6461,52 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 	for (var _graveyard_index = 0; _graveyard_index < _graveyard_count; ++_graveyard_index)
 	{
 		var _graveyard = instance_find(o_graveyard2, _graveyard_index);
+		if (!_generate_all_buildings && _graveyard != _source_building)
+		{
+			continue;
+		}
+
 		var _bonelet_squads = day_event_squads_get(SQUAD_TYPE.UNDEAD, o_skeleton_bonelet);
 		var _undead_squads = day_event_squads_get(SQUAD_TYPE.UNDEAD);
 
 		// Bonelets must be specialized before Graveyard can offer its normal event pool again.
 		if (array_length(_bonelet_squads) > 0)
 		{
-			var _undead_specialization_cost = day_event_random_cultist_cost_get();
-			var _undead_specialization_event = day_event_squad_create(
+			var _undead_mastery_cost = day_event_random_cultist_cost_get();
+			var _undead_mastery_event = day_event_squad_create(
 				_graveyard,
-				"bonelet_specialization",
-				"Bonelet Specialization",
+				"bonelet_mastery",
+				"Bonelet Mastery",
 				"Choose how to transform every Bonelet in the selected squad.",
-				_undead_specialization_cost.cultist_count,
+				_undead_mastery_cost.cultist_count,
 				"replace_bonelets_with_selected_unit",
 				day_event_squad_units_choice_replace_execute,
-				{ source_unit_object: o_skeleton_bonelet, hp_cost: _undead_specialization_cost.hp_cost }
+				{ source_unit_object: o_skeleton_bonelet, hp_cost: _undead_mastery_cost.hp_cost }
 			);
-			_undead_specialization_event.unit_choice_options = [
+			_undead_mastery_event.unit_choice_options = [
 				{ title: "Arm the Dead", label: "Warrior", target_unit_object: o_skeleton_warrior },
 				{ title: "Bone Scholars", label: "Mage", target_unit_object: o_skeleton_mage },
 				{ title: "Bone Archery", label: "Archer", target_unit_object: o_skeleton_archer }
 			];
-			_undead_specialization_event.selected_unit_choice_index = 0;
-			_undead_specialization_event.selected_squad = _bonelet_squads[0];
-			day_event_add(_undead_specialization_event);
+			_undead_mastery_event.selected_unit_choice_index = 0;
+			_undead_mastery_event.selected_squad = _bonelet_squads[0];
+			day_event_add(_undead_mastery_event);
 			continue;
 		}
 
-		if (array_length(_undead_squads) > 0)
-		{
-			var _draft_event = day_event_squad_create(
-				_graveyard,
-				"skeleton_draft",
-				"Skeleton Draft",
-				"Add " + string(BALANCE_GRAVEYARD_DRAFT_UNIT_COUNT)
-					+ " units of the most common unit type in the selected undead squad.",
-				BALANCE_GRAVEYARD_DRAFT_CULTIST_COUNT,
-				"draft_skeletons",
-				day_event_squad_draft_execute,
-				{ hp_cost: BALANCE_GRAVEYARD_DRAFT_HP_COST, unit_count: BALANCE_GRAVEYARD_DRAFT_UNIT_COUNT }
-			);
-			day_event_add(day_event_squad_selection_add(_draft_event, _undead_squads));
-		}
+		// Keep a reinforcement Rite visible while the first Undead squad is being recruited.
+		var _draft_event = day_event_squad_create(
+			_graveyard,
+			"skeleton_draft",
+			"Skeleton Draft",
+			"Add " + string(BALANCE_GRAVEYARD_DRAFT_UNIT_COUNT)
+				+ " units of the most common unit type in the selected undead squad.",
+			BALANCE_GRAVEYARD_DRAFT_CULTIST_COUNT,
+			"draft_skeletons",
+			day_event_squad_draft_execute,
+			{ hp_cost: BALANCE_GRAVEYARD_DRAFT_HP_COST, unit_count: BALANCE_GRAVEYARD_DRAFT_UNIT_COUNT }
+		);
+		day_event_add(day_event_squad_selection_add(_draft_event, _undead_squads));
 	}
 
 	var _blood_bath_count = instance_number(o_meat_bath);
@@ -5735,6 +6527,10 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 	for (var _blood_bath_index = 0; _blood_bath_index < _blood_bath_count; ++_blood_bath_index)
 	{
 		var _blood_bath = instance_find(o_meat_bath, _blood_bath_index);
+		if (!_generate_all_buildings && _blood_bath != _source_building)
+		{
+			continue;
+		}
 
 		if (BLOOD_BATH_FULL_EVENT_SET_ENABLED)
 		{
@@ -5859,11 +6655,14 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 		));
 	}
 
-	// Resting buildings are filtered before their candidates reach the daily selection.
+	// Overuse maintenance replaces the normal catalog before the daily selection is made.
+	day_event_building_overuse_events_replace(_source_building);
+
+	// Resting buildings without authored Overuse events keep the legacy rest behavior.
 	day_event_building_ritual_rest_apply();
 
 	// Invite the Worthy selects one extra unique candidate from each building's full catalog.
-	var _additional_event_count = _apply_additional_bonus
+	var _additional_event_count = _generate_all_buildings && _apply_additional_bonus
 		&& global.ritual_extra_building_event_active
 		? 1
 		: 0;
@@ -5871,19 +6670,74 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 	// Normal days resolve every source to its limited daily selection.
 	if (_apply_daily_limit)
 	{
-		day_event_building_daily_events_limit_apply(_additional_event_count);
-		day_event_cannon_demand_add();
+		day_event_building_daily_events_limit_apply(_additional_event_count, _generate_all_buildings);
+		if (_generate_all_buildings)
+		{
+			day_event_cannon_demand_add();
+		}
 	}
 
-	if (_apply_additional_bonus && global.ritual_extra_building_event_active)
+	if (_generate_all_buildings && _apply_additional_bonus && global.ritual_extra_building_event_active)
 	{
 		global.ritual_extra_building_event_active = false;
 	}
 
 	// Keep the mandatory first Archdemon Job below every other generated event.
-	day_event_move_to_end(day_event_world_archdemon_event_id_get(1));
+	if (_generate_all_buildings)
+	{
+		day_event_move_to_end(day_event_world_archdemon_event_id_get(1));
+	}
 
 	return array_length(global.day_events);
+}
+
+// Append only this building's daily selection; preserve existing cards, pins and assignments.
+function day_event_building_events_add(_building, _ignore_existing_events = false)
+{
+	if (!instance_exists(_building)
+		|| global.day_phase != DAY_PHASE.DAY
+		|| !object_is_ancestor(_building.object_index, o_v13buildings_parent))
+	{
+		return 0;
+	}
+
+	// Repeated construction notifications must not grant another Rite.
+	if (!_ignore_existing_events)
+	{
+		var _event_groups = [global.day_events, global.day_event_completed_events];
+		var _group_count = array_length(_event_groups);
+		for (var _group_index = 0; _group_index < _group_count; ++_group_index)
+		{
+			var _events = _event_groups[_group_index];
+			var _event_count = array_length(_events);
+			for (var _event_index = 0; _event_index < _event_count; ++_event_index)
+			{
+				var _event = _events[_event_index];
+				if (is_struct(_event)
+					&& variable_struct_exists(_event, "source_building")
+					&& _event.source_building == _building)
+				{
+					return 0;
+				}
+			}
+		}
+	}
+
+	// Reuse morning generation on an isolated catalog for the newly completed building.
+	var _current_events = global.day_events;
+	global.day_events = [];
+	day_event_generate_for_buildings(true, false, _building);
+	var _new_events = global.day_events;
+	global.day_events = _current_events;
+	// New buildings and cleared Overuse receive independent daytime prices.
+	day_event_building_costs_random_apply(_new_events);
+	var _new_event_count = array_length(_new_events);
+	for (var _new_index = 0; _new_index < _new_event_count; ++_new_index)
+	{
+		day_event_add(_new_events[_new_index]);
+	}
+
+	return _new_event_count;
 }
 
 function day_event_debug_all_events_generate()
@@ -5924,6 +6778,7 @@ function day_event_debug_all_events_generate()
 
 	global.day_events = _preserved_events;
 	day_event_generate_for_buildings(false, false);
+	day_event_building_costs_random_apply(global.day_events);
 	day_event_pin_marker_apply();
 	return array_length(global.day_events);
 }
@@ -6009,6 +6864,7 @@ function day_event_cultist_add(_name = "", _max_hp = BALANCE_EVENT_CULTIST_MAX_H
 
 function day_event_finish_day()
 {
+	day_event_cultist_mastery_finish_day();
 	var _released_cultist_count = 0;
 
 	// End Day no longer executes Rites; it only abandons unfinished assignments before night.
@@ -6073,6 +6929,12 @@ function day_event_finish_day()
 
 function day_event_new_day_reset()
 {
+	// Also settle offers when a debug or alternate transition skips the normal End Day path.
+	day_event_cultist_mastery_finish_day();
+
+	// Apply idle recovery before deciding which building events must be shown tomorrow.
+	day_event_building_overuse_morning_recovery_apply();
+
 	// All surviving Cultists recover their individual Spirit budget, including unconscious ones.
 	var _spirit_cultist_count = array_length(global.event_cultists);
 	for (var _spirit_index = 0; _spirit_index < _spirit_cultist_count; ++_spirit_index)

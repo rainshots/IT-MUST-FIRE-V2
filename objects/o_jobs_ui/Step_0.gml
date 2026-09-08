@@ -241,6 +241,12 @@ if (_mouse_is_over_event_viewport && instance_exists(jobs_dragged_cultist)
 	for (var _spirit_event_index = 0; _spirit_event_index < _spirit_event_count; ++_spirit_event_index)
 	{
 		var _spirit_event = global.day_events[_spirit_event_index];
+
+		if (_spirit_event.is_resolved)
+		{
+			continue;
+		}
+
 		var _spirit_slot_count = _spirit_event.cultist_cost * _spirit_event.activation_limit;
 		for (var _spirit_slot_index = 0; _spirit_slot_index < _spirit_slot_count; ++_spirit_slot_index)
 		{
@@ -383,6 +389,12 @@ jobs_hovered_event_action_key = _hovered_event_action_key_now;
 for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
 {
 	var _event = global.day_events[_event_index];
+
+	if (_event.is_resolved)
+	{
+		continue;
+	}
+
 	var _slot_count = _event.cultist_cost * _event.activation_limit;
 	var _assigned_count = array_length(_event.assigned_cultists);
 
@@ -414,7 +426,8 @@ for (var _cultist_index = array_length(global.event_cultists) - 1; _cultist_inde
 	var _cultist_is_conscious = instance_exists(_cultist)
 		&& variable_instance_exists(_cultist, "hp")
 		&& _cultist.hp > 0
-		&& (!variable_instance_exists(_cultist, "is_unconscious") || !_cultist.is_unconscious);
+		&& (!variable_instance_exists(_cultist, "is_unconscious") || !_cultist.is_unconscious)
+		&& !jobs_cultist_return_animation_is_active(_cultist);
 	var _cultist_can_be_hovered = _cultist_is_conscious
 		&& (!_cultist_is_in_scroll_list || _mouse_is_over_event_viewport);
 	var _cultist_can_show_info = !_cultist_is_in_scroll_list
@@ -608,12 +621,13 @@ if (mouse_check_button_pressed(mb_left))
 		}
 	}
 
-	// Unit-specialization Jobs choose their result directly from the three portraits.
+	// Unit-mastery Jobs choose their result directly from the three portraits.
 	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
 	{
 		var _event = global.day_events[_event_index];
 
 		if (!is_struct(_event)
+			|| _event.is_resolved
 			|| !variable_struct_exists(_event, "unit_choice_options")
 			|| !is_array(_event.unit_choice_options))
 		{
@@ -706,7 +720,9 @@ if (mouse_check_button_pressed(mb_left))
 	{
 		var _event = global.day_events[_event_index];
 
-		if (!variable_struct_exists(_event, "requires_squad_selection") || !_event.requires_squad_selection)
+		if (_event.is_resolved
+			|| !variable_struct_exists(_event, "requires_squad_selection")
+			|| !_event.requires_squad_selection)
 		{
 			continue;
 		}
@@ -768,10 +784,12 @@ if (mouse_check_button_pressed(mb_left))
 			var _clicked_event = global.day_events[_clicked_event_index];
 			var _is_construction_event = is_struct(_clicked_event)
 				&& variable_struct_exists(_clicked_event, "construction_site");
-			var _auto_assign_cultist = is_struct(_clicked_event)
+			var _auto_assign_cultist = is_struct(_clicked_event) && !_clicked_event.is_resolved
 				? day_event_available_cultist_find(_is_construction_event)
 				: noone;
-			if (is_struct(_clicked_event) && variable_struct_exists(_clicked_event, "required_cultist"))
+			if (is_struct(_clicked_event)
+				&& !_clicked_event.is_resolved
+				&& variable_struct_exists(_clicked_event, "required_cultist"))
 			{
 				_auto_assign_cultist = _clicked_event.required_cultist;
 			}
@@ -799,7 +817,8 @@ if (mouse_check_button_pressed(mb_left))
 		var _cultist_is_conscious = instance_exists(_cultist)
 			&& variable_instance_exists(_cultist, "hp")
 			&& _cultist.hp > 0
-			&& (!variable_instance_exists(_cultist, "is_unconscious") || !_cultist.is_unconscious);
+			&& (!variable_instance_exists(_cultist, "is_unconscious") || !_cultist.is_unconscious)
+			&& !jobs_cultist_return_animation_is_active(_cultist);
 		var _cultist_can_be_clicked = _cultist_is_conscious
 			&& (!_cultist_is_in_scroll_list || _mouse_is_over_event_viewport);
 
@@ -841,6 +860,12 @@ if (instance_exists(jobs_dragged_cultist) && mouse_check_button_released(mb_left
 	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
 	{
 		var _target_event = global.day_events[_event_index];
+
+		if (_target_event.is_resolved)
+		{
+			continue;
+		}
+
 		var _target_slot_count = _target_event.cultist_cost * _target_event.activation_limit;
 
 		for (var _target_slot_index = 0; _target_slot_index < _target_slot_count; ++_target_slot_index)

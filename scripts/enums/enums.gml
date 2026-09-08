@@ -9,6 +9,14 @@
 // Windows reports Shift + NumPad 5 as the keypad center virtual key.
 #macro KEY_CODE_NUMPAD_CENTER 12
 
+// Worker count and HP budget variants for ordinary building Rites.
+enum BUILDING_EVENT_COST_TYPE
+{
+	A,
+	B,
+	C
+}
+
 enum PROJECTILE_TYPE
 {
 	DAMAGE,

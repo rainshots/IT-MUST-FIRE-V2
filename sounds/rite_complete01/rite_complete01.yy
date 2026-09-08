@@ -22,5 +22,5 @@
   "resourceVersion":"2.0",
   "sampleRate":44100,
   "soundFile":"rite_complete01.ogg",
-  "volume":0.38,
+  "volume":0.27,
 }

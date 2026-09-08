@@ -252,7 +252,7 @@ if (_is_hovered)
 		draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
 	}
 
-	// Choice Jobs expose unit specializations, Relics, or shell enchantments on the building card.
+	// Choice Jobs expose unit masteries, Relics, or shell enchantments on the building card.
 	if (_layout.has_unit_choice)
 	{
 		var _choice_count = array_length(_current_event.unit_choice_options);

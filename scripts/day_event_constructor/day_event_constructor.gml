@@ -22,6 +22,10 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 	execution_timer = 0;
 	// Only an explicit Invoke starts this card's countdown.
 	execution_started = false;
+	// Completed cards retain their former workers briefly for Assign Duties animations.
+	completion_animation_timer = 0;
+	completion_animation_cultists = [];
+	completion_animation_slot_count = 0;
 
 	cultist_can_assign = function(_cultist, _ignore_capacity = false)
 	{
@@ -143,8 +147,11 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 			var _activation_cultists = array_create(cultist_cost);
 			array_copy(_activation_cultists, 0, assigned_cultists, _first_cultist_index, cultist_cost);
 			var _action_count = array_length(actions);
-			var _additional_hp_cost = cannon_satisfaction_event_hp_cost_get()
-				+ day_event_damaged_building_hp_cost_get(self);
+			var _ignore_hp_cost_modifiers = day_event_hp_cost_modifiers_are_ignored(self);
+			var _additional_hp_cost = _ignore_hp_cost_modifiers
+				? 0
+				: cannon_satisfaction_event_hp_cost_get()
+					+ day_event_damaged_building_hp_cost_get(self);
 			var _activation_cultist_count = array_length(_activation_cultists);
 
 			// Existing specialists receive one shared discount before this Rite advances work history.
@@ -158,8 +165,8 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 					// Charge only completed participation, before actions may sacrifice the worker.
 					_activation_cultist.spirit = max(0,
 						_activation_cultist.spirit - BALANCE_EVENT_CULTIST_RITE_SPIRIT_COST);
-					_activation_cultist.event_specialization_hp_discount_remaining =
-						day_event_cultist_specialization_hp_discount_get(_activation_cultist, self);
+					_activation_cultist.event_mastery_hp_discount_remaining =
+						day_event_cultist_mastery_hp_discount_get(_activation_cultist, self);
 				}
 
 				// Record before an action can transform or sacrifice its workers.
@@ -191,7 +198,7 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 
 				if (instance_exists(_discount_clear_cultist))
 				{
-					_discount_clear_cultist.event_specialization_hp_discount_remaining = 0;
+					_discount_clear_cultist.event_mastery_hp_discount_remaining = 0;
 					_discount_clear_cultist.event_knife_hp_discount_remaining = 0;
 				}
 			}

@@ -443,13 +443,47 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 		var _description_x = _event_rect.x + (34 * _layout.scale);
 		var _description_y = _event_rect.y + (48 * _layout.scale);
 		var _modifier_text = day_event_modifiers_text_get(_display_event);
-		draw_text_ext(
-			_description_x,
-			_description_y,
-			_display_event.description,
-			16 * _layout.scale,
-			_description_width
-		);
+		var _is_mastery_offer = variable_struct_exists(_display_event, "is_cultist_mastery")
+			&& _display_event.is_cultist_mastery;
+		if (_is_mastery_offer)
+		{
+			// Keep the building name and icon together, with the benefit directly beneath them.
+			var _mastery_line_height = 16 * _layout.scale;
+			var _mastery_gap = 4 * _layout.scale;
+			var _mastery_request = _display_event.mastery_request;
+			draw_text_ext(_description_x, _description_y, _display_event.mastery_flavor_text,
+				_mastery_line_height, _description_width);
+			var _benefit_y = _description_y + string_height_ext(_display_event.mastery_flavor_text,
+				_mastery_line_height, _description_width) + _mastery_gap;
+			var _benefit_prefix = "All events at ";
+			draw_text(_description_x, _benefit_y, _benefit_prefix);
+			var _building_name_x = _description_x + string_width(_benefit_prefix);
+			draw_set_font(jobs_description_bold_font);
+			draw_text(_building_name_x, _benefit_y, _mastery_request.building_name);
+			var _building_icon_x = _building_name_x + string_width(_mastery_request.building_name) + _mastery_gap;
+			if (sprite_exists(_mastery_request.building_sprite))
+			{
+				var _building_sprite = _mastery_request.building_sprite;
+				var _building_icon_scale = _mastery_line_height
+					/ max(1, max(sprite_get_width(_building_sprite), sprite_get_height(_building_sprite)));
+				draw_sprite_stretched_ext(_building_sprite, 0, _building_icon_x, _benefit_y,
+					sprite_get_width(_building_sprite) * _building_icon_scale,
+					sprite_get_height(_building_sprite) * _building_icon_scale, c_white, 1);
+			}
+			draw_set_font(jobs_description_font);
+			draw_text(_description_x, _benefit_y + _mastery_line_height,
+				"cost this cultist -" + string(BALANCE_CULTIST_MASTERY_HP_DISCOUNT) + "HP.");
+		}
+		else
+		{
+			draw_text_ext(
+				_description_x,
+				_description_y,
+				_display_event.description,
+				16 * _layout.scale,
+				_description_width
+			);
+		}
 
 		if (_modifier_text != "")
 		{
@@ -469,7 +503,7 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
 		}
 
-		// Choice Jobs show unit specializations, Relics, or shell enchantments as selectable icons.
+		// Choice Jobs show unit masteries, Relics, or shell enchantments as selectable icons.
 		if (_has_unit_choices)
 		{
 			var _choice_count = array_length(_display_event.unit_choice_options);
@@ -728,7 +762,9 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			&& _display_event.requires_squad_selection)
 		{
 			var _selector_rect = jobs_squad_selector_rect_get(_event_index);
-			var _selector_text = "SELECT SQUAD";
+			var _selector_text = array_length(_display_event.eligible_squads) > 0
+				? "SELECT SQUAD"
+				: "NO ELIGIBLE SQUAD";
 
 			if (variable_struct_exists(_display_event, "selected_squad") && is_struct(_display_event.selected_squad))
 			{
@@ -815,7 +851,7 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 					_eye_scale, _eye_scale, 0, c_white, 1);
 
 				// Show the Rite cost and every global or building modifier on separate rows.
-				var _empty_slot_hp_rows = jobs_event_empty_slot_hp_rows_get(_display_event);
+				var _empty_slot_hp_rows = jobs_event_empty_slot_hp_rows_get(_display_event, _slot_index);
 
 				if (array_length(_empty_slot_hp_rows) > 0)
 				{
@@ -918,6 +954,27 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 					_pin_label
 				);
 			}
+		}
+
+		// Fade the completed row into the Jobs panel while its Cultists fly back to the pool.
+		if (_event.is_resolved)
+		{
+			var _fade_duration = max(1, BALANCE_JOBS_EVENT_FADE_TIME * room_speed);
+			var _fade_progress = clamp(
+				_event.completion_animation_timer / _fade_duration,
+				0,
+				1
+			);
+			draw_set_alpha(_fade_progress);
+			draw_set_color(COLOR_JOBS_WINDOW_BACKGROUND);
+			draw_rectangle(
+				_layout.panel_x,
+				_event_rect.y,
+				_layout.panel_x + _layout.panel_width,
+				_event_rect.y + _event_rect.height,
+				false
+			);
+			draw_set_alpha(1);
 		}
 	}
 
@@ -1605,6 +1662,7 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 	// Keep contextual explanations above the Assign Duties window.
 	jobs_cultist_info_draw();
 	jobs_hp_modifier_tooltip_draw();
+	jobs_building_overuse_tooltip_draw();
 
 }
 

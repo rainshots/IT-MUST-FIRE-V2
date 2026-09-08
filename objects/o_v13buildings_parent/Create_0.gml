@@ -158,6 +158,10 @@ world_event_hover_active = false;
 // Daily event generation avoids IDs selected for this building on the previous day.
 previous_day_event_ids = [];
 
+// Regular Rites raise Overuse; the building's maintenance Rite resets it.
+overuse_amount = 0;
+overuse_last_normal_event_day = 0;
+
 // Successful ritual days accumulate until this building must take one day off.
 ritual_execution_day_count = 0;
 ritual_execution_last_day = 0;
@@ -2248,7 +2252,11 @@ building_is_mouse_hovered = function()
 
 building_info_hover_is_active = function()
 {
-	if (global.focus_window != FOCUS_WINDOW.NOONE
+	var _focus_allows_hover = global.focus_window == FOCUS_WINDOW.NOONE
+		|| (global.focus_window == FOCUS_WINDOW.JOBS
+			&& day_event_building_overuse_is_enabled(id));
+
+	if (!_focus_allows_hover
 		|| (variable_global_exists("tutorial_popup_active") && global.tutorial_popup_active)
 		|| (variable_global_exists("blood_moon_reward_popup_active") && global.blood_moon_reward_popup_active)
 		|| (variable_global_exists("dragged_cultist") && instance_exists(global.dragged_cultist))

@@ -3069,7 +3069,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_EVENTS)
 	var _panel_x = (_gui_width - _panel_width) * 0.5;
 	var _panel_y = 69 * _scale;
 	var _event_x = _panel_x + (206 * _scale);
-	var _event_start_y = _panel_y + (141 * _scale);
+	var _event_start_y = _panel_y + (168 * _scale);
 	var _event_width = 700 * _scale;
 	var _event_height = 108 * _scale;
 	var _event_gap = 6 * _scale;
@@ -3123,12 +3123,36 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_EVENTS)
 
 	draw_text_transformed(
 		_panel_x + (_panel_width * 0.5),
-		_panel_y + (95 * _scale),
+		_panel_y + (122 * _scale),
 		"ALL POSSIBLE RITES",
 		_scale,
 		_scale,
 		0
 	);
+
+	// Overuse is always visible directly under the building name.
+	var _building_has_overuse = day_event_building_overuse_is_enabled(
+		building_events_window_building
+	);
+	var _overuse_text = _building_has_overuse
+		? "OVERUSE: " + string(round(building_events_window_building.overuse_amount))
+		: "OVERUSE: 0";
+	var _overuse_center_x = _panel_x + (_panel_width * 0.5);
+	var _overuse_y = _panel_y + (94 * _scale);
+
+	if (_building_has_overuse)
+	{
+		draw_set_font(instance_exists(_jobs_ui) ? _jobs_ui.jobs_action_font : -1);
+		draw_set_color(COLOR_JOBS_EVENT_ACTION);
+		draw_text_transformed(
+			_overuse_center_x,
+			_overuse_y,
+			_overuse_text,
+			_scale,
+			_scale,
+			0
+		);
+	}
 
 	// Use the same outlined close button as Jobs.
 	draw_set_color(c_white);
@@ -3323,6 +3347,74 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_EVENTS)
 		}
 
 		gpu_set_scissor(_previous_scissor);
+	}
+
+	// Hovering the Overuse line explains accumulation, recovery, and the forced Rite.
+	var _overuse_mouse_x = device_mouse_x_to_gui(0);
+	var _overuse_mouse_y = device_mouse_y_to_gui(0);
+	var _overuse_hover_half_width = 120 * _scale;
+	var _overuse_hover_height = 24 * _scale;
+	var _overuse_is_hovered = _building_has_overuse && point_in_rectangle(
+		_overuse_mouse_x,
+		_overuse_mouse_y,
+		_overuse_center_x - _overuse_hover_half_width,
+		_overuse_y,
+		_overuse_center_x + _overuse_hover_half_width,
+		_overuse_y + _overuse_hover_height
+	);
+
+	if (_overuse_is_hovered)
+	{
+		var _overuse_tooltip_text = instance_exists(_jobs_ui)
+			? _jobs_ui.jobs_overuse_tooltip_text
+			: "Regular Rites add 20-40 Overuse. Above 100, this building offers only its Overuse Rite until it is performed. A day without a regular Rite removes 30 Overuse.";
+		var _overuse_tooltip_width = 390 * _scale;
+		var _overuse_tooltip_padding = 10 * _scale;
+		var _overuse_tooltip_content_width = 370;
+		var _overuse_tooltip_x = clamp(
+			_overuse_mouse_x - (_overuse_tooltip_width * 0.5),
+			12 * _scale,
+			_gui_width - _overuse_tooltip_width - (12 * _scale)
+		);
+		draw_set_font(instance_exists(_jobs_ui) ? _jobs_ui.jobs_description_font : -1);
+		var _overuse_tooltip_height = string_height_ext(
+			_overuse_tooltip_text,
+			14,
+			_overuse_tooltip_content_width
+		) * _scale + (_overuse_tooltip_padding * 2);
+		var _overuse_tooltip_y = _overuse_y + _overuse_hover_height + (8 * _scale);
+
+		draw_set_alpha(0.96);
+		draw_set_color(COLOR_JOBS_ASSIGN_BACKGROUND);
+		draw_rectangle(
+			_overuse_tooltip_x,
+			_overuse_tooltip_y,
+			_overuse_tooltip_x + _overuse_tooltip_width,
+			_overuse_tooltip_y + _overuse_tooltip_height,
+			false
+		);
+		draw_set_alpha(1);
+		draw_set_color(COLOR_JOBS_SLOT_BORDER);
+		draw_rectangle(
+			_overuse_tooltip_x,
+			_overuse_tooltip_y,
+			_overuse_tooltip_x + _overuse_tooltip_width,
+			_overuse_tooltip_y + _overuse_tooltip_height,
+			true
+		);
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+		draw_text_ext_transformed(
+			_overuse_tooltip_x + _overuse_tooltip_padding,
+			_overuse_tooltip_y + _overuse_tooltip_padding,
+			_overuse_tooltip_text,
+			14,
+			_overuse_tooltip_content_width,
+			_scale,
+			_scale,
+			0
+		);
 	}
 
 	draw_set_halign(fa_left);

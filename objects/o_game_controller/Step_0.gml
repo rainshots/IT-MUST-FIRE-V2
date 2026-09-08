@@ -1567,7 +1567,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_EVENTS)
 	var _events_panel_height = 898 * _events_scale;
 	var _events_panel_x = (_events_gui_width - _events_panel_width) * 0.5;
 	var _events_panel_y = 69 * _events_scale;
-	var _events_start_y = _events_panel_y + (141 * _events_scale);
+	var _events_start_y = _events_panel_y + (168 * _events_scale);
 	var _events_step = 114 * _events_scale;
 	var _events_current_gap = is_struct(building_events_window_current_event)
 		? 40 * _events_scale

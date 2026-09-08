@@ -27,9 +27,12 @@ if (building_info_hover_is_active())
 		draw_set_font(global.ui_font);
 	}
 
-	var _label_width = string_width(building_info_hover_label)
+	var _hover_label = global.focus_window == FOCUS_WINDOW.JOBS
+		? "OVERUSE: " + string(round(overuse_amount))
+		: building_info_hover_label;
+	var _label_width = string_width(_hover_label)
 		+ (building_info_hover_label_padding_x * 2);
-	var _label_height = string_height(building_info_hover_label)
+	var _label_height = string_height(_hover_label)
 		+ (building_info_hover_label_padding_y * 2);
 	var _label_left = x - (_label_width * 0.5);
 	var _label_top = _hover_top - _label_height - building_info_hover_label_offset_y;
@@ -55,7 +58,7 @@ if (building_info_hover_is_active())
 	draw_set_halign(fa_center);
 	draw_set_valign(fa_middle);
 	draw_set_color(COLOR_HUD_TEXT);
-	draw_text(x, _label_top + (_label_height * 0.5), building_info_hover_label);
+	draw_text(x, _label_top + (_label_height * 0.5), _hover_label);
 	draw_set_font(_previous_font);
 }
 
