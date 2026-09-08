@@ -19,22 +19,147 @@ global.gameplay_time_scale = 1;
 game_set_speed(global.game_speed_normal, gamespeed_fps);
 
 
-// Fixed enemy budget, HP multiplier, and damage multiplier for each day; later days reuse the final entry.
+// Per-night regular attack settings; nights after the final entry reuse that entry.
+// Each inner enemy_types array defines one direction, capped by markers placed in the room.
+// Example: enemy_types: [[o_enemy_peasant, o_enemy_archer], [o_enemy_knight]] defines two directions.
+// An empty inner array rolls random types; an empty outer array disables regular attack directions.
+// Budget is split equally between directions, then types. Waves use one type at a time, in list order.
+// Supported regular types: o_enemy_peasant, o_enemy_knight, o_enemy_archer, o_enemy_mage, o_enemy_catapult.
 night_attack_balance_by_day = [
-	{ difficulty_budget: 70, enemy_hp_multiplier: 1.1, enemy_damage_multiplier: 1.1 }, // Day 1.
-	{ difficulty_budget: 85, enemy_hp_multiplier: 1.14, enemy_damage_multiplier: 1.15 }, // Day 2.
-	{ difficulty_budget: 105, enemy_hp_multiplier: 1.18, enemy_damage_multiplier: 1.2 }, // Day 3.
-	{ difficulty_budget: 169, enemy_hp_multiplier: 1.22, enemy_damage_multiplier: 1.25 }, // Day 4: Full Moon.
-	{ difficulty_budget: 160, enemy_hp_multiplier: 1.26, enemy_damage_multiplier: 1.3 }, // Day 5.
-	{ difficulty_budget: 78, enemy_hp_multiplier: 1.3, enemy_damage_multiplier: 1 }, // Day 6: Griffith.
-	{ difficulty_budget: 235, enemy_hp_multiplier: 1.34, enemy_damage_multiplier: 1.45 }, // Day 7.
-	{ difficulty_budget: 364, enemy_hp_multiplier: 1.38, enemy_damage_multiplier: 1 }, // Day 8: Full Moon.
-	{ difficulty_budget: 230, enemy_hp_multiplier: 1.72, enemy_damage_multiplier: 1.72 }, // Day 9.
-	{ difficulty_budget: 230, enemy_hp_multiplier: 1, enemy_damage_multiplier: 2.15 }, // Day 10.
-	{ difficulty_budget: 429, enemy_hp_multiplier: 2.35, enemy_damage_multiplier: 2.35 }, // Day 11: Full Moon.
-	{ difficulty_budget: 230, enemy_hp_multiplier: 2.55, enemy_damage_multiplier: 2.45 }, // Day 12.
-	{ difficulty_budget: 132, enemy_hp_multiplier: 2.7, enemy_damage_multiplier: 2.75 }, // Day 13: Crusader horde boss.
-	{ difficulty_budget: 250, enemy_hp_multiplier: 2.9, enemy_damage_multiplier: 2.7 }  // Day 14 and later.
+	// Day 1.
+	{
+		difficulty_budget: 70, enemy_hp_multiplier: 1.1, enemy_damage_multiplier: 1.1,
+		enemy_types: [
+			[o_enemy_peasant]
+		]
+	},
+	// Day 2.
+	{
+		difficulty_budget: 85, enemy_hp_multiplier: 1.14, enemy_damage_multiplier: 1.15,
+		enemy_types: [
+			[o_enemy_archer],
+			[o_enemy_peasant]
+		]
+	},
+	// Day 3.
+	{
+		difficulty_budget: 105, enemy_hp_multiplier: 1.18, enemy_damage_multiplier: 1.2,
+		enemy_types: [
+			[o_enemy_knight]
+		]
+	},
+	// Day 4: Full Moon.
+	{
+		difficulty_budget: 169, enemy_hp_multiplier: 1.22, enemy_damage_multiplier: 1.25,
+		enemy_types: [
+			[o_enemy_knight],
+			[o_enemy_knight, o_enemy_archer]
+		]
+	},
+	// Day 5.
+	{
+		difficulty_budget: 160, enemy_hp_multiplier: 1.26, enemy_damage_multiplier: 1.3,
+		enemy_types: [
+			[o_enemy_archer, o_enemy_peasant],
+			[o_enemy_knight],
+			[o_enemy_peasant]
+		]
+	},
+	// Day 6: Griffith.
+	{
+		difficulty_budget: 78, enemy_hp_multiplier: 1.3, enemy_damage_multiplier: 1,
+		enemy_types: [
+			[o_enemy_knight]
+		]
+	},
+	// Day 7.
+	{
+		difficulty_budget: 235, enemy_hp_multiplier: 1.34, enemy_damage_multiplier: 1.45,
+		enemy_types: [
+			[o_enemy_mage],
+			[o_enemy_mage]
+		]
+	},
+	// Day 8: Full Moon.
+	{
+		difficulty_budget: 364, enemy_hp_multiplier: 1.38, enemy_damage_multiplier: 1,
+		enemy_types: [
+			[o_enemy_peasant],
+			[o_enemy_mage, o_enemy_knight]
+		]
+	},
+	// Day 9.
+	{
+		difficulty_budget: 230, enemy_hp_multiplier: 1.72, enemy_damage_multiplier: 1.72,
+		enemy_types: [
+			[o_enemy_catapult, o_enemy_peasant],
+			[o_enemy_catapult, o_enemy_peasant],
+		]
+	},
+	// Day 10.
+	{
+		difficulty_budget: 230, enemy_hp_multiplier: 2, enemy_damage_multiplier: 2.15,
+		enemy_types: [
+			[ o_enemy_knight, o_enemy_catapult],
+			[ o_enemy_knight, o_enemy_mage]
+		]
+	},
+	// Day 11: Full Moon.
+	{
+		difficulty_budget: 400, enemy_hp_multiplier: 2.25, enemy_damage_multiplier: 2.35,
+		enemy_types: [
+			[o_enemy_archer, o_enemy_knight, o_enemy_mage]
+		]
+	},
+	// Day 12.
+	{
+		difficulty_budget: 230, enemy_hp_multiplier: 2.45, enemy_damage_multiplier: 2.45,
+		enemy_types: [
+			[o_enemy_mage, o_enemy_knight],
+			[o_enemy_mage, o_enemy_knight]
+		]
+	},
+	// Day 13: Crusader horde boss.
+	{
+		difficulty_budget: 132, enemy_hp_multiplier: 2.7, enemy_damage_multiplier: 2.75,
+		enemy_types: [
+			[o_enemy_peasant]
+		]
+	},
+	// Day 14.
+	{
+		difficulty_budget: 250, enemy_hp_multiplier: 2.9, enemy_damage_multiplier: 2.7,
+		enemy_types: [
+			[o_enemy_knight, o_enemy_archer],
+			[o_enemy_catapult, o_enemy_archer]
+		]
+	},
+	// Day 15.
+	{
+		difficulty_budget: 250, enemy_hp_multiplier: 3.3, enemy_damage_multiplier: 2.7,
+		enemy_types: [
+			[o_enemy_peasant],
+			[o_enemy_knight],
+			[o_enemy_archer],
+			[o_enemy_mage],
+		]
+	},
+	// Day 16.
+	{
+		difficulty_budget: 250, enemy_hp_multiplier: 3.8, enemy_damage_multiplier: 2.7,
+		enemy_types: [
+			[o_enemy_peasant, o_enemy_catapult],
+			[o_enemy_peasant, o_enemy_archer]
+		]
+	},
+	// Day 17 and later.
+	{
+		difficulty_budget: 250, enemy_hp_multiplier: 4.5, enemy_damage_multiplier: 2.7,
+		enemy_types: [
+			[o_enemy_knight, o_enemy_archer],
+			[o_enemy_peasant, o_enemy_mage]
+		]
+	}
 ];
 
 // Q toggles double simulation speed during the night.
@@ -9126,12 +9251,60 @@ night_attack_balance_get = function(_night_index)
 		return {
 			difficulty_budget: 0,
 			enemy_hp_multiplier: 1,
-			enemy_damage_multiplier: 1
+			enemy_damage_multiplier: 1,
+			enemy_types: []
 		};
 	}
 
 	var _balance_day_index = min(max(1, _night_index), _balance_day_count) - 1;
 	return night_attack_balance_by_day[_balance_day_index];
+};
+
+// Validate one direction's list against the regular unit catalog, preserving type order.
+night_attack_configured_enemy_types_get = function(_configured_types)
+{
+	var _enemy_types = [];
+	if (!is_array(_configured_types))
+	{
+		return _enemy_types;
+	}
+
+	var _configured_count = array_length(_configured_types);
+	var _supported_count = array_length(night_attack_unit_pool);
+	for (var _configured_index = 0; _configured_index < _configured_count; ++_configured_index)
+	{
+		var _enemy_object = _configured_types[_configured_index];
+		var _is_supported = false;
+		for (var _supported_index = 0; _supported_index < _supported_count; ++_supported_index)
+		{
+			if (_enemy_object == night_attack_unit_pool[_supported_index])
+			{
+				_is_supported = true;
+				break;
+			}
+		}
+		if (!_is_supported)
+		{
+			show_debug_message("[Night Balance] Unsupported enemy type: " + string(_enemy_object));
+			continue;
+		}
+
+		var _is_duplicate = false;
+		var _unique_count = array_length(_enemy_types);
+		for (var _unique_index = 0; _unique_index < _unique_count; ++_unique_index)
+		{
+			if (_enemy_types[_unique_index] == _enemy_object)
+			{
+				_is_duplicate = true;
+				break;
+			}
+		}
+		if (!_is_duplicate)
+		{
+			array_push(_enemy_types, _enemy_object);
+		}
+	}
+	return _enemy_types;
 };
 
 night_attack_total_difficulty_get = function()
@@ -10482,7 +10655,31 @@ night_attack_wave_count_get = function(_direction_difficulty, _enemy_objects)
 	var _batch_wave_count_max = max(1, floor(_direction_difficulty / _batch_difficulty));
 	_wave_count = min(_wave_count, _batch_wave_count_max);
 
-	return _wave_count;
+	// Every configured type needs its own wave, even when its budget is smaller than one batch.
+	return max(_wave_count, array_length(_enemy_objects));
+};
+
+// Group waves by enemy type in the order listed for this direction.
+night_attack_wave_enemy_type_indices_create = function(_enemy_count, _wave_count)
+{
+	var _wave_enemy_type_indices = [];
+	if (_enemy_count <= 0)
+	{
+		return _wave_enemy_type_indices;
+	}
+
+	var _waves_per_type = floor(_wave_count / _enemy_count);
+	var _extra_wave_count = _wave_count mod _enemy_count;
+	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	{
+		var _type_wave_count = _waves_per_type + (_enemy_index < _extra_wave_count ? 1 : 0);
+		for (var _wave_index = 0; _wave_index < _type_wave_count; ++_wave_index)
+		{
+			array_push(_wave_enemy_type_indices, _enemy_index);
+		}
+	}
+
+	return _wave_enemy_type_indices;
 };
 
 night_attack_enemy_difficulty_share_create = function(_enemy_objects, _direction_difficulty)
@@ -10515,31 +10712,19 @@ night_attack_wave_units_shuffle = function(_wave_units)
 	return _wave_units;
 };
 
-night_attack_wave_units_create = function(_enemy_objects, _enemy_difficulties, _remaining_wave_count)
+// A regular wave contains only its scheduled type and spends only that type's budget.
+night_attack_wave_units_create = function(_enemy_object, _remaining_type_difficulty, _remaining_type_wave_count)
 {
-	var _wave_units = [];
-	var _enemy_count = array_length(_enemy_objects);
-	var _safe_remaining_wave_count = max(1, _remaining_wave_count);
+	var _enemy_difficulty = night_attack_enemy_difficulty_get(_enemy_object);
+	var _target_difficulty = max(0, _remaining_type_difficulty) / max(1, _remaining_type_wave_count);
+	var _unit_count = round(_target_difficulty / _enemy_difficulty);
 
-	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	if (_remaining_type_difficulty > 0 && _unit_count <= 0)
 	{
-		var _enemy_object = _enemy_objects[_enemy_index];
-		var _enemy_difficulty = night_attack_enemy_difficulty_get(_enemy_object);
-		var _target_difficulty = _enemy_difficulties[_enemy_index] / _safe_remaining_wave_count;
-		var _unit_count = round(_target_difficulty / _enemy_difficulty);
-
-		if (_enemy_difficulties[_enemy_index] > 0 && _unit_count <= 0)
-		{
-			_unit_count = 1;
-		}
-
-		for (var _unit_index = 0; _unit_index < _unit_count; ++_unit_index)
-		{
-			array_push(_wave_units, _enemy_object);
-		}
+		_unit_count = 1;
 	}
 
-	return night_attack_wave_units_shuffle(_wave_units);
+	return array_create(_unit_count, _enemy_object);
 };
 
 night_attack_enemy_difficulties_spend = function(_enemy_objects, _enemy_difficulties, _wave_units)
@@ -10649,29 +10834,20 @@ night_attack_plan_create = function()
 
 	boss_griffith_prepare_next_night();
 
-	var _direction_count = max(1, BALANCE_NIGHT_ATTACK_DIRECTION_COUNT);
-
-	if (boss_griffith_pending_next_night)
-	{
-		_direction_count = 1;
-	}
-	else if (night_attack_night_index == 1)
-	{
-		_direction_count = max(1, BALANCE_FIRST_NIGHT_ATTACK_DIRECTION_COUNT);
-	}
-	else if (night_attack_night_index == BALANCE_NIGHT_ATTACK_THREE_DIRECTION_NIGHT_1
-		|| night_attack_night_index == BALANCE_NIGHT_ATTACK_THREE_DIRECTION_NIGHT_2)
-	{
-		_direction_count = max(1, BALANCE_NIGHT_ATTACK_THREE_DIRECTION_COUNT);
-	}
+	// Each inner enemy list owns one direction, including on boss nights.
+	var _night_balance = night_attack_balance_get(night_attack_night_index);
+	var _direction_enemy_types = variable_struct_exists(_night_balance, "enemy_types") && is_array(_night_balance.enemy_types)
+		? _night_balance.enemy_types
+		: [];
+	var _direction_count = array_length(_direction_enemy_types);
 
 	var _total_difficulty = night_attack_total_difficulty_get();
 	var _marker_directions = night_attack_marker_directions_get();
 	var _marker_direction_count = array_length(_marker_directions);
 	var _directions = [];
 
-	// Without a placed marker there is deliberately no valid night attack direction.
-	if (_marker_direction_count <= 0)
+	// Both a configured direction and a placed marker are required for an attack.
+	if (_direction_count <= 0 || _marker_direction_count <= 0)
 	{
 		night_attack_directions = [];
 		night_attack_plan_exists = true;
@@ -10724,42 +10900,47 @@ night_attack_plan_create = function()
 	for (var _direction_index = 0; _direction_index < _active_direction_count; ++_direction_index)
 	{
 		var _direction_source = _directions[_direction_index];
-		var _enemy_pair = night_attack_unit_pair_roll(_previous_pair);
-		var _enemy_objects = night_attack_enemy_type_count_roll(_enemy_pair);
-
-		if (_remaining_enemy_type_slots <= 0)
+		// Each direction uses its own composition, bypassing the random type limits.
+		var _enemy_objects = night_attack_configured_enemy_types_get(_direction_enemy_types[_direction_index]);
+		if (array_length(_enemy_objects) <= 0)
 		{
-			_enemy_objects = [_selected_enemy_types[irandom(array_length(_selected_enemy_types) - 1)]];
-		}
-		else if (array_length(_enemy_objects) > _remaining_enemy_type_slots)
-		{
-			_enemy_objects = [_enemy_objects[irandom(array_length(_enemy_objects) - 1)]];
-		}
+			var _enemy_pair = night_attack_unit_pair_roll(_previous_pair);
+			_enemy_objects = night_attack_enemy_type_count_roll(_enemy_pair);
 
-		for (var _enemy_type_index = 0; _enemy_type_index < array_length(_enemy_objects); ++_enemy_type_index)
-		{
-			var _enemy_type = _enemy_objects[_enemy_type_index];
-			var _enemy_type_is_new = true;
-
-			for (var _selected_type_index = 0; _selected_type_index < array_length(_selected_enemy_types); ++_selected_type_index)
+			if (_remaining_enemy_type_slots <= 0)
 			{
-				if (_selected_enemy_types[_selected_type_index] == _enemy_type)
+				_enemy_objects = [_selected_enemy_types[irandom(array_length(_selected_enemy_types) - 1)]];
+			}
+			else if (array_length(_enemy_objects) > _remaining_enemy_type_slots)
+			{
+				_enemy_objects = [_enemy_objects[irandom(array_length(_enemy_objects) - 1)]];
+			}
+
+			for (var _enemy_type_index = 0; _enemy_type_index < array_length(_enemy_objects); ++_enemy_type_index)
+			{
+				var _enemy_type = _enemy_objects[_enemy_type_index];
+				var _enemy_type_is_new = true;
+
+				for (var _selected_type_index = 0; _selected_type_index < array_length(_selected_enemy_types); ++_selected_type_index)
 				{
-					_enemy_type_is_new = false;
-					break;
+					if (_selected_enemy_types[_selected_type_index] == _enemy_type)
+					{
+						_enemy_type_is_new = false;
+						break;
+					}
+				}
+
+				if (_enemy_type_is_new)
+				{
+					array_push(_selected_enemy_types, _enemy_type);
 				}
 			}
 
-			if (_enemy_type_is_new)
-			{
-				array_push(_selected_enemy_types, _enemy_type);
-			}
+			_remaining_enemy_type_slots -= array_length(_enemy_objects);
+
+			_previous_pair = _enemy_pair;
 		}
-
-		_remaining_enemy_type_slots -= array_length(_enemy_objects);
 		var _wave_count = night_attack_wave_count_get(_direction_difficulty, _enemy_objects);
-
-		_previous_pair = _enemy_pair;
 
 		array_push(
 			night_attack_directions,
@@ -10769,6 +10950,7 @@ night_attack_plan_create = function()
 				enemy_objects: _enemy_objects,
 				direction_difficulty: _direction_difficulty,
 				wave_count: _wave_count,
+				wave_enemy_type_indices: night_attack_wave_enemy_type_indices_create(array_length(_enemy_objects), _wave_count),
 				wave_difficulty: _direction_difficulty / _wave_count,
 				remaining_difficulty: _direction_difficulty,
 				remaining_enemy_difficulties: night_attack_enemy_difficulty_share_create(_enemy_objects, _direction_difficulty),
@@ -10787,13 +10969,26 @@ night_attack_plan_create = function()
 night_attack_direction_wave_start = function(_direction_index)
 {
 	var _direction_data = night_attack_directions[_direction_index];
-	var _remaining_wave_count = max(1, _direction_data.wave_count - _direction_data.wave_index);
+	var _enemy_type_index = _direction_data.wave_enemy_type_indices[_direction_data.wave_index];
+	var _remaining_type_wave_count = 0;
 
-	_direction_data.wave_difficulty = _direction_data.remaining_difficulty / _remaining_wave_count;
+	// Count only this type's remaining waves; later types keep their full budget until their turn.
+	var _wave_count = _direction_data.wave_count;
+	for (var _wave_index = _direction_data.wave_index; _wave_index < _wave_count; ++_wave_index)
+	{
+		if (_direction_data.wave_enemy_type_indices[_wave_index] != _enemy_type_index)
+		{
+			break;
+		}
+		++_remaining_type_wave_count;
+	}
+
+	var _remaining_type_difficulty = _direction_data.remaining_enemy_difficulties[_enemy_type_index];
+	_direction_data.wave_difficulty = _remaining_type_difficulty / max(1, _remaining_type_wave_count);
 	_direction_data.current_wave_units = night_attack_wave_units_create(
-		_direction_data.enemy_objects,
-		_direction_data.remaining_enemy_difficulties,
-		_remaining_wave_count
+		_direction_data.enemy_objects[_enemy_type_index],
+		_remaining_type_difficulty,
+		_remaining_type_wave_count
 	);
 	_direction_data.remaining_enemy_difficulties = night_attack_enemy_difficulties_spend(
 		_direction_data.enemy_objects,

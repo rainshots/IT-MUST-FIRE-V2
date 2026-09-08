@@ -179,18 +179,10 @@
 #macro BALANCE_HEALTH_BAR_SEGMENT_WIDTH_LIMIT 15
 
 #region Nights Balance
-// Number of simultaneous attack directions used on regular nights.
-#macro BALANCE_NIGHT_ATTACK_DIRECTION_COUNT 2
-// Number of attack directions used during the first night.
-#macro BALANCE_FIRST_NIGHT_ATTACK_DIRECTION_COUNT 1
-// Number of directions used on the special three-direction nights below.
-#macro BALANCE_NIGHT_ATTACK_THREE_DIRECTION_COUNT 3
-// Night numbers that use BALANCE_NIGHT_ATTACK_THREE_DIRECTION_COUNT.
-#macro BALANCE_NIGHT_ATTACK_THREE_DIRECTION_NIGHT_1 5
-#macro BALANCE_NIGHT_ATTACK_THREE_DIRECTION_NIGHT_2 9
-// Chance from 0 to 1 that a direction contains only one of its two rolled enemy types.
+// Direction count and compositions are defined by enemy_types arrays in night_attack_balance_by_day.
+// Random enemy selection only (an inner direction list is empty): chance of one type per direction.
 #macro BALANCE_NIGHT_ATTACK_SINGLE_TYPE_CHANCE 1
-// Maximum number of different enemy types across all directions during one night.
+// Random enemy selection only: maximum enemy types across the night's directions.
 #macro BALANCE_NIGHT_ATTACK_MAX_ENEMY_TYPES 3
 #macro BALANCE_BUILDING_CONSTRUCTION_CULTIST_COST 1
 #macro BALANCE_BUILDING_CONSTRUCTION_CULTIST_HP_COST 10
@@ -235,7 +227,7 @@
 
 // Maximum share of the night's total Difficulty assigned to one direction.
 #macro BALANCE_NIGHT_ATTACK_DIRECTION_DIFFICULTY_MAX 99999
-// Preferred number of waves per direction. It is reduced when a wave would be smaller than one batch.
+// Preferred waves per direction: reduced for small batches, but never below the enemy type count.
 #macro BALANCE_NIGHT_ATTACK_WAVE_COUNT 6
 // Fallback wave count when the preferred split would contain too few units per wave.
 #macro BALANCE_NIGHT_ATTACK_LOW_UNIT_WAVE_COUNT 2
