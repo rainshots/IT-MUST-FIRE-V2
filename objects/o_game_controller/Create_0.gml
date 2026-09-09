@@ -43,14 +43,14 @@ night_attack_balance_by_day = [
 	},
 	// Day 3.
 	{
-		difficulty_budget: 105, enemy_hp_multiplier: 1.18, enemy_damage_multiplier: 1.2,
+		difficulty_budget: 105, enemy_hp_multiplier: 1.2, enemy_damage_multiplier: 1.25,
 		enemy_types: [
 			[o_enemy_knight]
 		]
 	},
 	// Day 4: Full Moon.
 	{
-		difficulty_budget: 169, enemy_hp_multiplier: 1.22, enemy_damage_multiplier: 1.25,
+		difficulty_budget: 169, enemy_hp_multiplier: 1.24, enemy_damage_multiplier: 1.3,
 		enemy_types: [
 			[o_enemy_knight],
 			[o_enemy_knight, o_enemy_archer]
@@ -58,7 +58,7 @@ night_attack_balance_by_day = [
 	},
 	// Day 5.
 	{
-		difficulty_budget: 160, enemy_hp_multiplier: 1.26, enemy_damage_multiplier: 1.3,
+		difficulty_budget: 160, enemy_hp_multiplier: 1.29, enemy_damage_multiplier: 1.35,
 		enemy_types: [
 			[o_enemy_archer, o_enemy_peasant],
 			[o_enemy_knight],
@@ -67,14 +67,14 @@ night_attack_balance_by_day = [
 	},
 	// Day 6: Griffith.
 	{
-		difficulty_budget: 78, enemy_hp_multiplier: 1.3, enemy_damage_multiplier: 1,
+		difficulty_budget: 78, enemy_hp_multiplier: 1.34, enemy_damage_multiplier: 1.42,
 		enemy_types: [
 			[o_enemy_knight]
 		]
 	},
 	// Day 7.
 	{
-		difficulty_budget: 235, enemy_hp_multiplier: 1.34, enemy_damage_multiplier: 1.45,
+		difficulty_budget: 235, enemy_hp_multiplier: 1.38, enemy_damage_multiplier: 1.5,
 		enemy_types: [
 			[o_enemy_mage],
 			[o_enemy_mage]
@@ -82,7 +82,7 @@ night_attack_balance_by_day = [
 	},
 	// Day 8: Full Moon.
 	{
-		difficulty_budget: 364, enemy_hp_multiplier: 1.38, enemy_damage_multiplier: 1,
+		difficulty_budget: 364, enemy_hp_multiplier: 1.72, enemy_damage_multiplier: 1.6,
 		enemy_types: [
 			[o_enemy_peasant],
 			[o_enemy_mage, o_enemy_knight]
@@ -90,7 +90,7 @@ night_attack_balance_by_day = [
 	},
 	// Day 9.
 	{
-		difficulty_budget: 230, enemy_hp_multiplier: 1.72, enemy_damage_multiplier: 1.72,
+		difficulty_budget: 230, enemy_hp_multiplier: 2, enemy_damage_multiplier: 1.9,
 		enemy_types: [
 			[o_enemy_catapult, o_enemy_peasant],
 			[o_enemy_catapult, o_enemy_peasant],
@@ -98,7 +98,7 @@ night_attack_balance_by_day = [
 	},
 	// Day 10.
 	{
-		difficulty_budget: 230, enemy_hp_multiplier: 2, enemy_damage_multiplier: 2.15,
+		difficulty_budget: 230, enemy_hp_multiplier: 2.25, enemy_damage_multiplier: 2.35,
 		enemy_types: [
 			[ o_enemy_knight, o_enemy_catapult],
 			[ o_enemy_knight, o_enemy_mage]
@@ -106,14 +106,14 @@ night_attack_balance_by_day = [
 	},
 	// Day 11: Full Moon.
 	{
-		difficulty_budget: 400, enemy_hp_multiplier: 2.25, enemy_damage_multiplier: 2.35,
+		difficulty_budget: 400, enemy_hp_multiplier: 2.45, enemy_damage_multiplier: 2.55,
 		enemy_types: [
 			[o_enemy_archer, o_enemy_knight, o_enemy_mage]
 		]
 	},
 	// Day 12.
 	{
-		difficulty_budget: 230, enemy_hp_multiplier: 2.45, enemy_damage_multiplier: 2.45,
+		difficulty_budget: 230, enemy_hp_multiplier: 2.45, enemy_damage_multiplier: 2.75,
 		enemy_types: [
 			[o_enemy_mage, o_enemy_knight],
 			[o_enemy_mage, o_enemy_knight]
@@ -121,14 +121,14 @@ night_attack_balance_by_day = [
 	},
 	// Day 13: Crusader horde boss.
 	{
-		difficulty_budget: 132, enemy_hp_multiplier: 2.7, enemy_damage_multiplier: 2.75,
+		difficulty_budget: 132, enemy_hp_multiplier: 2.7, enemy_damage_multiplier: 2.95,
 		enemy_types: [
 			[o_enemy_peasant]
 		]
 	},
 	// Day 14.
 	{
-		difficulty_budget: 250, enemy_hp_multiplier: 2.9, enemy_damage_multiplier: 2.7,
+		difficulty_budget: 250, enemy_hp_multiplier: 2.9, enemy_damage_multiplier: 3.2,
 		enemy_types: [
 			[o_enemy_knight, o_enemy_archer],
 			[o_enemy_catapult, o_enemy_archer]
@@ -136,7 +136,7 @@ night_attack_balance_by_day = [
 	},
 	// Day 15.
 	{
-		difficulty_budget: 250, enemy_hp_multiplier: 3.3, enemy_damage_multiplier: 2.7,
+		difficulty_budget: 250, enemy_hp_multiplier: 3.3, enemy_damage_multiplier: 3.3,
 		enemy_types: [
 			[o_enemy_peasant],
 			[o_enemy_knight],
@@ -146,7 +146,7 @@ night_attack_balance_by_day = [
 	},
 	// Day 16.
 	{
-		difficulty_budget: 250, enemy_hp_multiplier: 3.8, enemy_damage_multiplier: 2.7,
+		difficulty_budget: 250, enemy_hp_multiplier: 3.8, enemy_damage_multiplier: 3.4,
 		enemy_types: [
 			[o_enemy_peasant, o_enemy_catapult],
 			[o_enemy_peasant, o_enemy_archer]
@@ -154,7 +154,7 @@ night_attack_balance_by_day = [
 	},
 	// Day 17 and later.
 	{
-		difficulty_budget: 250, enemy_hp_multiplier: 4.5, enemy_damage_multiplier: 2.7,
+		difficulty_budget: 250, enemy_hp_multiplier: 4.5, enemy_damage_multiplier: 3.5,
 		enemy_types: [
 			[o_enemy_knight, o_enemy_archer],
 			[o_enemy_peasant, o_enemy_mage]

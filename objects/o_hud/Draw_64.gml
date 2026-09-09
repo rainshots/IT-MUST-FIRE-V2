@@ -900,7 +900,21 @@ if (_regular_hud_is_visible)
 {
 	var _control_hint_gui_height = display_get_gui_height();
 	var _control_hint_scale = clamp(_control_hint_gui_height / 1080, 0.6, 1);
-	var _control_hint_count = array_length(control_hint_keys);
+	var _base_control_hint_count = array_length(control_hint_keys);
+	var _show_night_speed_hint = global.day_phase == DAY_PHASE.NIGHT
+		&& instance_exists(o_game_controller);
+	var _night_speed_action = control_hint_speed_up_action;
+
+	if (_show_night_speed_hint)
+	{
+		var _speed_hint_controller = instance_find(o_game_controller, 0);
+		if (_speed_hint_controller.night_fast_forward_active)
+		{
+			_night_speed_action = control_hint_slow_down_action;
+		}
+	}
+
+	var _control_hint_count = _base_control_hint_count + (_show_night_speed_hint ? 1 : 0);
 	var _control_hint_x = control_hints_x * _control_hint_scale;
 	var _control_hint_row_height = control_hints_row_height * _control_hint_scale;
 	var _control_hint_row_gap = control_hints_row_gap * _control_hint_scale;
@@ -909,15 +923,20 @@ if (_regular_hud_is_visible)
 	var _control_hint_key_text_gap = control_hints_key_text_gap * _control_hint_scale;
 	var _control_hint_padding_x = control_hints_padding_x * _control_hint_scale;
 	var _control_hint_padding_y = control_hints_padding_y * _control_hint_scale;
-	var _control_hint_action_width = 116 * _control_hint_scale;
+	var _control_hint_action_width = control_hints_action_min_width * _control_hint_scale;
 	var _control_hint_key_width = control_hints_key_min_width * _control_hint_scale;
 
 	for (var _control_hint_measure_index = 0; _control_hint_measure_index < _control_hint_count; ++_control_hint_measure_index)
 	{
+		var _measure_key = _control_hint_measure_index < _base_control_hint_count
+			? control_hint_keys[_control_hint_measure_index] : control_hint_night_speed_key;
+		var _measure_action = _control_hint_measure_index < _base_control_hint_count
+			? control_hint_actions[_control_hint_measure_index] : _night_speed_action;
 		_control_hint_key_width = max(
 			_control_hint_key_width,
-			string_width(control_hint_keys[_control_hint_measure_index]) + (_control_hint_key_padding_x * 2)
+			string_width(_measure_key) + (_control_hint_key_padding_x * 2)
 		);
+		_control_hint_action_width = max(_control_hint_action_width, string_width(_measure_action));
 	}
 
 	var _control_hint_height = (_control_hint_row_height * _control_hint_count)
@@ -945,6 +964,10 @@ if (_regular_hud_is_visible)
 
 	for (var _control_hint_index = 0; _control_hint_index < _control_hint_count; ++_control_hint_index)
 	{
+		var _control_hint_key = _control_hint_index < _base_control_hint_count
+			? control_hint_keys[_control_hint_index] : control_hint_night_speed_key;
+		var _control_hint_action = _control_hint_index < _base_control_hint_count
+			? control_hint_actions[_control_hint_index] : _night_speed_action;
 		var _control_hint_row_y = _control_hint_y
 			+ _control_hint_padding_y
 			+ ((_control_hint_row_height + _control_hint_row_gap) * _control_hint_index);
@@ -976,19 +999,25 @@ if (_regular_hud_is_visible)
 		draw_text(
 			_control_hint_key_x + _control_hint_key_padding_x,
 			_control_hint_row_y + (_control_hint_row_height * 0.5),
-			control_hint_keys[_control_hint_index]
+			_control_hint_key
 		);
 
 		draw_set_color(COLOR_HUD_PROJECTILE_DESCRIPTION);
 		draw_text(
 			_control_hint_key_x + _control_hint_key_width + _control_hint_key_text_gap,
 			_control_hint_row_y + (_control_hint_row_height * 0.5),
-			control_hint_actions[_control_hint_index]
+			_control_hint_action
 		);
 	}
 
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
 	draw_set_alpha(1);
 }
+
+// Offscreen incoming shots remain visible while aiming, but stay below modal/detail panels.
+hud_holy_cannon_attention_draw();
 
 // Draw objective complete notice once the shrine goal is finished.
 if (variable_global_exists("shrine_objective_complete") && global.shrine_objective_complete)

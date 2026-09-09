@@ -26,6 +26,9 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 	completion_animation_timer = 0;
 	completion_animation_cultists = [];
 	completion_animation_slot_count = 0;
+	// Assign Rites remembers each card's daily first appearance independently of list order.
+	jobs_reveal_day = -1;
+	jobs_reveal_start_seconds = 0;
 
 	cultist_can_assign = function(_cultist, _ignore_capacity = false)
 	{

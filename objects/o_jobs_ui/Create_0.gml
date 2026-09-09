@@ -77,10 +77,32 @@ jobs_whip_target_hint = "Press RMB to satisfy cannon demon";
 // The whip is created by Step once its unlock day begins.
 jobs_whip = noone;
 jobs_whip_hovered = false;
+// Successful Whip hits leave short GUI labels at the struck portrait's position.
+jobs_whip_feedback_popups = [];
+jobs_whip_feedback_duration_seconds = 1;
+jobs_whip_feedback_rise = 40;
+jobs_whip_feedback_offset_y = 8;
+jobs_whip_feedback_margin = 6;
+jobs_whip_feedback_shadow_offset = 1;
 jobs_event_y = 147;
 jobs_event_width = 458;
 jobs_event_height = 132;
 jobs_event_gap = 6;
+// First-seen cards fade in on UI time, staggered in their visible top-to-bottom order.
+jobs_event_reveal_duration_seconds = 0.3;
+jobs_event_reveal_stagger_seconds = 0.08;
+jobs_event_reveal_day = -1;
+jobs_event_reveal_time_seconds = 0;
+jobs_event_reveal_next_start_seconds = 0;
+// This display-only card never enters day_events or accepts Cultist assignments.
+jobs_squad_reminder_visible = false;
+jobs_squad_reminder_text = "You can summon a new squad.";
+jobs_squad_reminder_padding = 24;
+jobs_squad_reminder = {
+	is_resolved: false,
+	jobs_reveal_day: -1,
+	jobs_reveal_start_seconds: 0
+};
 // Reminder shown after the final event card in the scrollable list.
 jobs_event_footer_gap = 18;
 jobs_event_footer_height = 34;
@@ -178,6 +200,8 @@ jobs_end_day_hint_active = false;
 jobs_confirmation_cancel_hovered = false;
 jobs_confirmation_end_hovered = false;
 jobs_confirmation_previous_pause_state = false;
+// Snapshot all End Day warnings so one confirmation covers shells and unused Spirit.
+jobs_confirmation_warnings = [];
 // Prevent a click that closed another window from activating the Jobs HUD beneath it.
 jobs_input_blocked_until_mouse_release = false;
 jobs_squad_selector_event = noone;
@@ -276,6 +300,10 @@ jobs_confirmation_padding = 42;
 jobs_confirmation_button_width = 260;
 jobs_confirmation_button_height = 70;
 jobs_confirmation_button_bottom_margin = 34;
+jobs_confirmation_warning_y = 92;
+jobs_confirmation_warning_row_step = 52;
+jobs_confirmation_warning_icon_size = 32;
+jobs_confirmation_warning_icon_gap = 8;
 
 // Window-specific fonts match the Figma hierarchy.
 jobs_title_font = font_add("Arial", 16, true, false, 32, 1279);
@@ -355,6 +383,50 @@ jobs_whip_rect_get = function()
 		width: _sprite_width,
 		height: _sprite_height
 	};
+};
+
+jobs_whip_feedback_add = function(_cultist_rect, _satisfaction_gain)
+{
+	if (!is_struct(_cultist_rect) || _satisfaction_gain <= 0)
+	{
+		return;
+	}
+
+	var _layout = jobs_layout_get();
+	array_push(jobs_whip_feedback_popups, {
+		x: _cultist_rect.x + (_cultist_rect.width * 0.5),
+		y: _cultist_rect.y - (jobs_whip_feedback_offset_y * _layout.scale),
+		text: "+" + string(_satisfaction_gain) + " Cannon Satisfaction",
+		elapsed_seconds: 0
+	});
+};
+
+jobs_whip_feedback_update = function()
+{
+	var _popup_count = array_length(jobs_whip_feedback_popups);
+	if (_popup_count <= 0)
+	{
+		return;
+	}
+
+	if (global.focus_window != FOCUS_WINDOW.JOBS)
+	{
+		jobs_whip_feedback_popups = [];
+		return;
+	}
+
+	// This GUI animation advances even when gameplay is paused.
+	var _elapsed_seconds = 1 / max(1, room_speed);
+	for (var _popup_index = _popup_count - 1; _popup_index >= 0; --_popup_index)
+	{
+		var _popup = jobs_whip_feedback_popups[_popup_index];
+		_popup.elapsed_seconds += _elapsed_seconds;
+
+		if (_popup.elapsed_seconds >= jobs_whip_feedback_duration_seconds)
+		{
+			array_delete(jobs_whip_feedback_popups, _popup_index, 1);
+		}
+	}
 };
 
 jobs_event_action_rect_get = function(_event_index, _action)
@@ -807,7 +879,9 @@ jobs_end_day_confirmation_layout_get = function()
 	var _gui_height = display_get_gui_height();
 	var _scale = min(_gui_width / jobs_design_width, _gui_height / jobs_design_height);
 	var _panel_width = jobs_confirmation_width * _scale;
-	var _panel_height = jobs_confirmation_height * _scale;
+	var _extra_warning_rows = max(0, array_length(jobs_confirmation_warnings) - 1);
+	var _panel_height = (jobs_confirmation_height
+		+ (_extra_warning_rows * jobs_confirmation_warning_row_step)) * _scale;
 	var _panel_x = (_gui_width - _panel_width) * 0.5;
 	var _panel_y = (_gui_height - _panel_height) * 0.5;
 	var _button_width = jobs_confirmation_button_width * _scale;
@@ -886,6 +960,7 @@ jobs_end_day_confirmation_close = function()
 
 	global.focus_window = FOCUS_WINDOW.NOONE;
 	global.pause = jobs_confirmation_previous_pause_state;
+	jobs_confirmation_warnings = [];
 	return true;
 };
 
@@ -937,11 +1012,39 @@ jobs_end_day_request = function()
 	}
 
 	jobs_end_day_hint_active = false;
+	jobs_confirmation_warnings = [];
+
+	// Warn about unused daily Taint shells independently of Cultist availability.
+	var _taint_shell_count = 0;
+	if (instance_exists(o_game_controller))
+	{
+		var _game_controller = instance_find(o_game_controller, 0);
+		_taint_shell_count = _game_controller.cannon_projectile_queue_type_count_get(PROJECTILE_TYPE.CORRUPTION);
+	}
+
+	if (_taint_shell_count > 0)
+	{
+		var _taint_warning_text = _taint_shell_count == 1
+			? "Your cannon still has an unused Taint Compost Shell."
+			: "Your cannon still has unused Taint Compost Shells (" + string(_taint_shell_count) + ").";
+		array_push(jobs_confirmation_warnings, {
+			text: _taint_warning_text,
+			icon: s_taint_shell
+		});
+	}
 
 	var _unused_spirit_count = jobs_unused_spirit_cultist_count_get();
 	var _available_slot_count = jobs_available_assignment_slot_count_get();
 
 	if (_unused_spirit_count > 0 && _available_slot_count > 0)
+	{
+		array_push(jobs_confirmation_warnings, {
+			text: "You still have Cultists with unused Spirit (" + string(_unused_spirit_count) + ").",
+			icon: s_spirit_eye_red
+		});
+	}
+
+	if (array_length(jobs_confirmation_warnings) > 0)
 	{
 		jobs_confirmation_previous_pause_state = global.pause;
 		global.pause = true;
@@ -975,6 +1078,80 @@ jobs_event_rect_get = function(_event_index)
 		width: _layout.event_width,
 		height: _layout.event_height
 	};
+};
+
+jobs_event_reveal_update = function()
+{
+	var _current_day = day_event_current_day_get();
+	// Pending recruitment Rites reserve slots too, so they can dismiss this reminder.
+	jobs_squad_reminder_visible = global.day_phase == DAY_PHASE.DAY && squad_slot_is_available();
+
+	if (jobs_event_reveal_day != _current_day)
+	{
+		jobs_event_reveal_day = _current_day;
+		jobs_event_reveal_time_seconds = 0;
+		jobs_event_reveal_next_start_seconds = 0;
+	}
+
+	// Gameplay pause does not pause UI fades; closed windows and blocking tutorials do.
+	if (global.day_phase != DAY_PHASE.DAY
+		|| global.focus_window != FOCUS_WINDOW.JOBS
+		|| (variable_global_exists("tutorial_popup_active") && global.tutorial_popup_active))
+	{
+		return;
+	}
+
+	jobs_event_reveal_time_seconds += 1 / max(1, room_speed);
+	var _next_start_seconds = max(jobs_event_reveal_time_seconds, jobs_event_reveal_next_start_seconds);
+	var _viewport = jobs_event_viewport_get();
+	var _events = global.day_events;
+	var _event_count = array_length(_events);
+	var _card_count = _event_count + (jobs_squad_reminder_visible ? 1 : 0);
+
+	for (var _event_index = 0; _event_index < _card_count; ++_event_index)
+	{
+		var _event = _event_index < _event_count ? _events[_event_index] : jobs_squad_reminder;
+
+		if (_event.jobs_reveal_day == _current_day || _event.is_resolved)
+		{
+			continue;
+		}
+
+		// Offscreen cards wait for their first visible frame instead of animating unseen.
+		var _event_rect = jobs_event_rect_get(_event_index);
+		if (_event_rect.y + _event_rect.height <= _viewport.y
+			|| _event_rect.y >= _viewport.y + _viewport.height)
+		{
+			continue;
+		}
+
+		_event.jobs_reveal_day = _current_day;
+		_event.jobs_reveal_start_seconds = _next_start_seconds;
+		_next_start_seconds += jobs_event_reveal_stagger_seconds;
+	}
+
+	jobs_event_reveal_next_start_seconds = _next_start_seconds;
+};
+
+jobs_event_reveal_alpha_get = function(_event)
+{
+	// Resolved cards keep their existing completion animation, even if resolved offscreen.
+	if (_event.is_resolved)
+	{
+		return 1;
+	}
+
+	if (_event.jobs_reveal_day != jobs_event_reveal_day)
+	{
+		return 0;
+	}
+
+	return clamp(
+		(jobs_event_reveal_time_seconds - _event.jobs_reveal_start_seconds)
+			/ jobs_event_reveal_duration_seconds,
+		0,
+		1
+	);
 };
 
 jobs_event_slot_rect_get = function(_event_index, _slot_index, _slot_count = -1)
@@ -1603,15 +1780,15 @@ jobs_event_viewport_get = function()
 
 jobs_event_content_height_get = function()
 {
-	var _event_count = array_length(global.day_events);
+	var _card_count = array_length(global.day_events) + (jobs_squad_reminder_visible ? 1 : 0);
 
-	if (_event_count <= 0)
+	if (_card_count <= 0)
 	{
 		return 0;
 	}
 
-	var _event_cards_height = (_event_count * jobs_event_height)
-		+ (max(0, _event_count - 1) * jobs_event_gap);
+	var _event_cards_height = (_card_count * jobs_event_height)
+		+ (max(0, _card_count - 1) * jobs_event_gap);
 
 	return _event_cards_height + jobs_event_footer_gap + jobs_event_footer_height;
 };
@@ -1619,9 +1796,9 @@ jobs_event_content_height_get = function()
 jobs_event_footer_rect_get = function()
 {
 	var _layout = jobs_layout_get();
-	var _event_count = array_length(global.day_events);
-	var _event_cards_height = (_event_count * jobs_event_height)
-		+ (max(0, _event_count - 1) * jobs_event_gap);
+	var _card_count = array_length(global.day_events) + (jobs_squad_reminder_visible ? 1 : 0);
+	var _event_cards_height = (_card_count * jobs_event_height)
+		+ (max(0, _card_count - 1) * jobs_event_gap);
 
 	return {
 		x: _layout.event_x,
@@ -1634,16 +1811,15 @@ jobs_event_footer_rect_get = function()
 
 jobs_scroll_max_get = function()
 {
-	var _event_count = array_length(global.day_events);
+	var _content_height = jobs_event_content_height_get();
 
-	if (_event_count <= 0)
+	if (_content_height <= 0)
 	{
 		return 0;
 	}
 
 	var _layout = jobs_layout_get();
 	var _viewport = jobs_event_viewport_get();
-	var _content_height = jobs_event_content_height_get();
 	var _viewport_height = _viewport.height / max(0.01, _layout.scale);
 	return max(0, _content_height - _viewport_height);
 };
@@ -1839,7 +2015,7 @@ jobs_hp_modifier_hover_update = function(_mouse_x, _mouse_y)
 	{
 		var _event = global.day_events[_event_index];
 
-		if (!is_struct(_event))
+		if (!is_struct(_event) || jobs_event_reveal_alpha_get(_event) < 1)
 		{
 			continue;
 		}
@@ -2428,6 +2604,7 @@ jobs_window_open = function()
 jobs_window_close = function()
 {
 	jobs_rite_loop_stop();
+	jobs_whip_feedback_popups = [];
 	jobs_dragged_cultist = noone;
 	jobs_drag_origin_event = noone;
 	jobs_drag_origin_slot_index = -1;

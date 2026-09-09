@@ -10,8 +10,7 @@ function squad_limit_next_unlock_day_get(_current_limit)
 	// Use the unlocked limit so the upcoming slot stays visible until morning.
 	var _unlock_days = [
 		BALANCE_SQUAD_LIMIT_UNLOCK_DAY_1,
-		BALANCE_SQUAD_LIMIT_UNLOCK_DAY_2,
-		BALANCE_SQUAD_LIMIT_UNLOCK_DAY_3
+		BALANCE_SQUAD_LIMIT_UNLOCK_DAY_2
 	];
 	var _unlock_day_count = array_length(_unlock_days);
 	var _next_unlock_day = -1;

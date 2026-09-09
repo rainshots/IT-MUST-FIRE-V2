@@ -34,9 +34,6 @@ cheat_hud_draw = function()
 	var _game_controller = instance_exists(o_game_controller)
 		? instance_find(o_game_controller, 0)
 		: noone;
-	var _night_fast_forward_active = instance_exists(_game_controller)
-		&& variable_instance_exists(_game_controller, "night_fast_forward_active")
-		&& _game_controller.night_fast_forward_active;
 	var _navigation_grid_visible = instance_exists(_game_controller)
 		&& variable_instance_exists(_game_controller, "wall_navigation_debug_visible")
 		&& _game_controller.wall_navigation_debug_visible;
@@ -72,7 +69,6 @@ cheat_hud_draw = function()
 		"F10 Music debug: " + (_music_debug_visible ? _on_text : _off_text),
 		"F11 +" + string(BALANCE_DEBUG_CANNON_SATISFACTION_CHEAT_AMOUNT) + " Cannon Satisfaction",
 		"F12 Restart room",
-		"Q   Night speed x2: " + (_night_fast_forward_active ? _on_text : _off_text),
 		"`   Debug menu: " + (_debug_menu_is_open ? _on_text : _off_text),
 		"MB4 +EXP under cursor",
 		"MB5 Damage under cursor",
@@ -980,12 +976,177 @@ control_hints_key_min_width = 112;
 control_hints_key_height = 24;
 control_hints_key_padding_x = 10;
 control_hints_key_text_gap = 12;
+control_hints_action_min_width = 116;
 control_hints_padding_x = 12;
 control_hints_padding_y = 10;
 control_hints_background_alpha = 0.52;
 control_hints_key_alpha = 0.18;
 control_hint_keys = ["SPACE", "WASD", "MOUSE WHEEL"];
 control_hint_actions = ["pause", "move camera", "zoom camera"];
+// The night-only Q row describes the next action, not the current speed.
+control_hint_night_speed_key = "Q";
+control_hint_speed_up_action = "speed up time";
+control_hint_slow_down_action = "slow down time";
+
+// Offscreen Holy Cannon warnings stay inside the battlefield, clear of the right sidebar and shells.
+holy_cannon_attention_width = 168;
+holy_cannon_attention_height = 62;
+holy_cannon_attention_margin = 24;
+holy_cannon_attention_bottom_clearance = 180;
+holy_cannon_attention_arrow_length = 18;
+holy_cannon_attention_arrow_half_width = 9;
+holy_cannon_attention_arrow_gap = 7;
+holy_cannon_attention_glow_padding = 6;
+holy_cannon_attention_pulse_period_seconds = 0.65;
+holy_cannon_attention_background_alpha = 0.92;
+holy_cannon_attention_glow_alpha_min = 0.12;
+holy_cannon_attention_glow_alpha_max = 0.3;
+holy_cannon_attention_text_padding = 12;
+holy_cannon_attention_text_offset_y = 13;
+holy_cannon_attention_label = "! INCOMING FIRE";
+
+hud_holy_cannon_attention_layout_get = function(_target_x, _target_y, _gui_width, _gui_height, _sidebar_width, _scale)
+{
+	var _visible_right = _gui_width - _sidebar_width;
+
+	// A visible impact point already has its world-space warning circle and countdown.
+	if (_target_x >= 0 && _target_x <= _visible_right
+		&& _target_y >= 0 && _target_y <= _gui_height)
+	{
+		return noone;
+	}
+
+	var _width = holy_cannon_attention_width * _scale;
+	var _height = holy_cannon_attention_height * _scale;
+	var _half_width = _width * 0.5;
+	var _half_height = _height * 0.5;
+	var _margin = holy_cannon_attention_margin * _scale;
+	var _arrow_length = holy_cannon_attention_arrow_length * _scale;
+	var _arrow_gap = holy_cannon_attention_arrow_gap * _scale;
+	var _arrow_reach = _arrow_length + _arrow_gap;
+	var _center_x = _visible_right * 0.5;
+	var _center_y = (_gui_height - holy_cannon_attention_bottom_clearance * _scale) * 0.5;
+	var _edge_half_width = max(1, _center_x - _margin - _half_width - _arrow_reach);
+	var _edge_half_height = max(1, _center_y - _margin - _half_height - _arrow_reach);
+	var _offset_x = _target_x - _center_x;
+	var _offset_y = _target_y - _center_y;
+	var _horizontal_ratio = _offset_x != 0 ? _edge_half_width / abs(_offset_x) : infinity;
+	var _vertical_ratio = _offset_y != 0 ? _edge_half_height / abs(_offset_y) : infinity;
+	var _edge_ratio = min(_horizontal_ratio, _vertical_ratio);
+	var _badge_x = _center_x + _offset_x * _edge_ratio;
+	var _badge_y = _center_y + _offset_y * _edge_ratio;
+
+	// Extend the arrow from the badge boundary along the same ray as the hidden impact.
+	var _direction = point_direction(_center_x, _center_y, _target_x, _target_y);
+	var _direction_x = lengthdir_x(1, _direction);
+	var _direction_y = lengthdir_y(1, _direction);
+	var _badge_edge_x = _direction_x != 0 ? _half_width / abs(_direction_x) : infinity;
+	var _badge_edge_y = _direction_y != 0 ? _half_height / abs(_direction_y) : infinity;
+	var _tip_distance = min(_badge_edge_x, _badge_edge_y) + _arrow_reach;
+
+	return {
+		x: _badge_x - _half_width,
+		y: _badge_y - _half_height,
+		width: _width,
+		height: _height,
+		center_x: _badge_x,
+		center_y: _badge_y,
+		direction: _direction,
+		arrow_x: _badge_x + _direction_x * _tip_distance,
+		arrow_y: _badge_y + _direction_y * _tip_distance
+	};
+};
+
+hud_holy_cannon_attention_draw = function()
+{
+	if (global.day_phase != DAY_PHASE.NIGHT || !instance_exists(o_holy_cannon_strike)
+		|| !instance_exists(o_camera_controller))
+	{
+		return;
+	}
+
+	var _camera_controller = instance_find(o_camera_controller, 0);
+	var _camera_id = _camera_controller.camera_id;
+	var _camera_x = camera_get_view_x(_camera_id);
+	var _camera_y = camera_get_view_y(_camera_id);
+	var _gui_width = display_get_gui_width();
+	var _gui_height = display_get_gui_height();
+	var _world_to_gui_x = _gui_width / max(1, camera_get_view_width(_camera_id));
+	var _world_to_gui_y = _gui_height / max(1, camera_get_view_height(_camera_id));
+	var _scale = clamp(_gui_height / 1080, 0.6, 1);
+	var _sidebar_width = global.focus_window == FOCUS_WINDOW.NOONE ? hud_sidebar_width * _scale : 0;
+	var _arrow_length = holy_cannon_attention_arrow_length * _scale;
+	var _arrow_half_width = holy_cannon_attention_arrow_half_width * _scale;
+	// Wall-clock pulsing remains noticeable while the player pauses to react.
+	var _pulse = 0.5 + 0.5 * sin(current_time * 0.001 * (2 * pi) / holy_cannon_attention_pulse_period_seconds);
+	var _glow_padding = holy_cannon_attention_glow_padding * _scale * (1 + _pulse);
+	var _previous_font = draw_get_font();
+	var _strike_count = instance_number(o_holy_cannon_strike);
+
+	if (variable_global_exists("ui_heading_font") && font_exists(global.ui_heading_font))
+	{
+		draw_set_font(global.ui_heading_font);
+	}
+
+	for (var _strike_index = 0; _strike_index < _strike_count; ++_strike_index)
+	{
+		var _strike = instance_find(o_holy_cannon_strike, _strike_index);
+		if (!instance_exists(_strike) || _strike.impact_timer <= 0)
+		{
+			continue;
+		}
+
+		var _layout = hud_holy_cannon_attention_layout_get(
+			(_strike.x - _camera_x) * _world_to_gui_x,
+			(_strike.y - _camera_y) * _world_to_gui_y,
+			_gui_width, _gui_height, _sidebar_width, _scale
+		);
+		if (!is_struct(_layout))
+		{
+			continue;
+		}
+
+		// Type-colored glow and a bright pointer call attention to the offscreen warning.
+		draw_set_color(_strike.effect_color);
+		draw_set_alpha(lerp(holy_cannon_attention_glow_alpha_min, holy_cannon_attention_glow_alpha_max, _pulse));
+		draw_rectangle(_layout.x - _glow_padding, _layout.y - _glow_padding,
+			_layout.x + _layout.width + _glow_padding, _layout.y + _layout.height + _glow_padding, false);
+		var _arrow_base_x = _layout.arrow_x - lengthdir_x(_arrow_length, _layout.direction);
+		var _arrow_base_y = _layout.arrow_y - lengthdir_y(_arrow_length, _layout.direction);
+		draw_set_alpha(1);
+		draw_triangle(_layout.arrow_x, _layout.arrow_y,
+			_arrow_base_x + lengthdir_x(_arrow_half_width, _layout.direction + 90),
+			_arrow_base_y + lengthdir_y(_arrow_half_width, _layout.direction + 90),
+			_arrow_base_x + lengthdir_x(_arrow_half_width, _layout.direction - 90),
+			_arrow_base_y + lengthdir_y(_arrow_half_width, _layout.direction - 90), false);
+		draw_set_color(COLOR_HUD_BACKGROUND);
+		draw_set_alpha(holy_cannon_attention_background_alpha);
+		draw_rectangle(_layout.x, _layout.y, _layout.x + _layout.width, _layout.y + _layout.height, false);
+		draw_set_color(_strike.effect_color);
+		draw_set_alpha(1);
+		draw_rectangle(_layout.x, _layout.y, _layout.x + _layout.width, _layout.y + _layout.height, true);
+
+		// Use the strike's own timer, so both indicators agree at every gameplay speed.
+		var _timer_text = string_format(max(0, _strike.impact_timer / max(1, room_speed)), 1, 1) + "s";
+		var _text_width = _layout.width - holy_cannon_attention_text_padding * 2 * _scale;
+		var _text_scale = min(_scale, _text_width / max(1, string_width(holy_cannon_attention_label)));
+		var _text_offset_y = holy_cannon_attention_text_offset_y * _scale;
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_middle);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text_transformed(_layout.center_x, _layout.center_y - _text_offset_y,
+			holy_cannon_attention_label, _text_scale, _text_scale, 0);
+		draw_set_color(_strike.effect_color);
+		draw_text_transformed(_layout.center_x, _layout.center_y + _text_offset_y,
+			_timer_text, _scale, _scale, 0);
+	}
+
+	draw_set_font(_previous_font);
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+};
 
 // Cannon satiety is filled by hauling corpses to the cannon.
 cannon_satiety_width = 460;

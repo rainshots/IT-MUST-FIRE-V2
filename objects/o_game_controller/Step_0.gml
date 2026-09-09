@@ -217,9 +217,8 @@ if (variable_global_exists("tutorial_popup_active") && global.tutorial_popup_act
 	exit;
 }
 
-// Cheat-only Q shortcut toggles double simulation speed during the night.
-if (global.cheats_enabled
-	&& !global.pause
+// Q is a regular gameplay shortcut for double simulation speed during the night.
+if (!global.pause
 	&& global.day_phase == DAY_PHASE.NIGHT
 	&& keyboard_check_pressed(ord("Q")))
 {

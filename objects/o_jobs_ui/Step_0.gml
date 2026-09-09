@@ -12,6 +12,9 @@ jobs_whip_hovered = false;
 jobs_hovered_hp_modifier_source = "";
 jobs_spirit_assignment_blocked = false;
 
+// Whip labels expire independently of gameplay and modal input handling.
+jobs_whip_feedback_update();
+
 // Delayed creation keeps both the whip and its input unavailable on the first day.
 if (!instance_exists(jobs_whip)
 	&& global.day_phase == DAY_PHASE.DAY
@@ -33,6 +36,9 @@ if (global.day_phase == DAY_PHASE.DAY && global.focus_window == FOCUS_WINDOW.JOB
 
 // Keep audio in sync even when another modal window interrupts Assign Rites.
 jobs_rite_loop_update();
+
+// Schedule new visible cards before modal input can exit this Step.
+jobs_event_reveal_update();
 
 // Completing the introductory recruitment Rite advances the blocking tutorial chain.
 jobs_first_day_onboarding_update();
@@ -249,7 +255,7 @@ if (_mouse_is_over_event_viewport && instance_exists(jobs_dragged_cultist)
 	{
 		var _spirit_event = global.day_events[_spirit_event_index];
 
-		if (_spirit_event.is_resolved)
+		if (_spirit_event.is_resolved || jobs_event_reveal_alpha_get(_spirit_event) < 1)
 		{
 			continue;
 		}
@@ -327,7 +333,8 @@ for (var _event_index = 0; _event_index < array_length(global.day_events); ++_ev
 {
 	var _event = global.day_events[_event_index];
 
-	if (!day_event_building_action_is_available(_event))
+	if (!_mouse_is_over_event_viewport || jobs_event_reveal_alpha_get(_event) < 1
+		|| !day_event_building_action_is_available(_event))
 	{
 		continue;
 	}
@@ -397,7 +404,7 @@ for (var _event_index = 0; _event_index < array_length(global.day_events); ++_ev
 {
 	var _event = global.day_events[_event_index];
 
-	if (_event.is_resolved)
+	if (_event.is_resolved || jobs_event_reveal_alpha_get(_event) < 1)
 	{
 		continue;
 	}
@@ -430,15 +437,17 @@ for (var _cultist_index = array_length(global.event_cultists) - 1; _cultist_inde
 	var _cultist = global.event_cultists[_cultist_index];
 	var _cultist_rect = jobs_cultist_rect_get(_cultist);
 	var _cultist_is_in_scroll_list = instance_exists(_cultist) && is_struct(_cultist.assigned_event);
+	var _cultist_is_revealed = !_cultist_is_in_scroll_list
+		|| jobs_event_reveal_alpha_get(_cultist.assigned_event) >= 1;
 	var _cultist_is_conscious = instance_exists(_cultist)
 		&& variable_instance_exists(_cultist, "hp")
 		&& _cultist.hp > 0
 		&& (!variable_instance_exists(_cultist, "is_unconscious") || !_cultist.is_unconscious)
 		&& !jobs_cultist_return_animation_is_active(_cultist);
-	var _cultist_can_be_hovered = _cultist_is_conscious
+	var _cultist_can_be_hovered = _cultist_is_conscious && _cultist_is_revealed
 		&& (!_cultist_is_in_scroll_list || _mouse_is_over_event_viewport);
-	var _cultist_can_show_info = !_cultist_is_in_scroll_list
-		|| _mouse_is_over_event_viewport;
+	var _cultist_can_show_info = _cultist_is_revealed
+		&& (!_cultist_is_in_scroll_list || _mouse_is_over_event_viewport);
 
 	if (_cultist_can_show_info
 		&& is_struct(_cultist_rect)
@@ -482,7 +491,12 @@ if (instance_exists(jobs_whip)
 {
 	if (instance_exists(jobs_hovered_cultist))
 	{
-		jobs_whip.whip_cultist_hit(jobs_hovered_cultist);
+		// Capture the portrait before a knockout can move the Cultist back to the pool.
+		var _whip_target_rect = jobs_cultist_rect_get(jobs_hovered_cultist);
+		if (jobs_whip.whip_cultist_hit(jobs_hovered_cultist))
+		{
+			jobs_whip_feedback_add(_whip_target_rect, jobs_whip.satisfaction_gain);
+		}
 	}
 
 	exit;
@@ -494,6 +508,11 @@ if (mouse_check_button_pressed(mb_right))
 	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
 	{
 		var _event = global.day_events[_event_index];
+
+		if (jobs_event_reveal_alpha_get(_event) < 1)
+		{
+			continue;
+		}
 
 		for (var _slot_index = 0; _slot_index < array_length(_event.assigned_cultists); ++_slot_index)
 		{
@@ -533,6 +552,7 @@ if (mouse_check_button_pressed(mb_left))
 		var _invoke_event = global.day_events[_invoke_index];
 
 		if (!_mouse_is_over_event_viewport || instance_exists(jobs_dragged_cultist)
+			|| jobs_event_reveal_alpha_get(_invoke_event) < 1
 			|| !day_event_execution_staffing_is_ready(_invoke_event) || day_event_execution_is_active(_invoke_event))
 		{
 			continue;
@@ -557,7 +577,8 @@ if (mouse_check_button_pressed(mb_left))
 	{
 		var _event = global.day_events[_event_index];
 
-		if (!day_event_building_action_is_available(_event))
+		if (!_mouse_is_over_event_viewport || jobs_event_reveal_alpha_get(_event) < 1
+			|| !day_event_building_action_is_available(_event))
 		{
 			continue;
 		}
@@ -635,6 +656,7 @@ if (mouse_check_button_pressed(mb_left))
 
 		if (!is_struct(_event)
 			|| _event.is_resolved
+			|| jobs_event_reveal_alpha_get(_event) < 1
 			|| !variable_struct_exists(_event, "unit_choice_options")
 			|| !is_array(_event.unit_choice_options))
 		{
@@ -728,6 +750,7 @@ if (mouse_check_button_pressed(mb_left))
 		var _event = global.day_events[_event_index];
 
 		if (_event.is_resolved
+			|| jobs_event_reveal_alpha_get(_event) < 1
 			|| !variable_struct_exists(_event, "requires_squad_selection")
 			|| !_event.requires_squad_selection)
 		{
@@ -827,7 +850,8 @@ if (mouse_check_button_pressed(mb_left))
 			&& (!variable_instance_exists(_cultist, "is_unconscious") || !_cultist.is_unconscious)
 			&& !jobs_cultist_return_animation_is_active(_cultist);
 		var _cultist_can_be_clicked = _cultist_is_conscious
-			&& (!_cultist_is_in_scroll_list || _mouse_is_over_event_viewport);
+			&& (!_cultist_is_in_scroll_list || (_mouse_is_over_event_viewport
+				&& jobs_event_reveal_alpha_get(_cultist.assigned_event) >= 1));
 
 		if (_cultist_can_be_clicked
 			&& is_struct(_cultist_rect)
@@ -868,7 +892,7 @@ if (instance_exists(jobs_dragged_cultist) && mouse_check_button_released(mb_left
 	{
 		var _target_event = global.day_events[_event_index];
 
-		if (_target_event.is_resolved)
+		if (_target_event.is_resolved || jobs_event_reveal_alpha_get(_target_event) < 1)
 		{
 			continue;
 		}

@@ -157,98 +157,7 @@ hellcow_charge_active = false;
 hellcow_brace_timer = 0;
 hellcow_distance_remaining = BALANCE_PROJECTILE_HELLCOW_CHARGE_DISTANCE;
 hellcow_trail_timer = 0;
-hellcow_start_collision_instances = [];
 hellcow_sticky_trail = noone;
-
-hellcow_structure_collision_can_stop = function(_candidate)
-{
-	if (!instance_exists(_candidate))
-	{
-		return false;
-	}
-
-	// Construction, trap, and habitat points share the map-object parent but are not obstacles.
-	var _candidate_object = _candidate.object_index;
-	var _is_construction_point = _candidate_object == o_cursed_point
-		|| object_is_ancestor(_candidate_object, o_cursed_point);
-
-	return !_is_construction_point;
-};
-
-hellcow_start_collisions_cache = function()
-{
-	hellcow_start_collision_instances = [];
-	var _overlap_list = ds_list_create();
-	var _overlap_count = collision_circle_list(
-		x,
-		y,
-		BALANCE_PROJECTILE_HELLCOW_COLLISION_RADIUS,
-		o_map_objects_parent,
-		false,
-		true,
-		_overlap_list,
-		false
-	);
-
-	for (var _overlap_index = 0; _overlap_index < _overlap_count; ++_overlap_index)
-	{
-		var _overlap = _overlap_list[| _overlap_index];
-
-		if (hellcow_structure_collision_can_stop(_overlap))
-		{
-			array_push(hellcow_start_collision_instances, _overlap);
-		}
-	}
-
-	ds_list_destroy(_overlap_list);
-};
-
-hellcow_new_structure_collision_find = function()
-{
-	var _collision_list = ds_list_create();
-	var _collision_count = collision_circle_list(
-		x,
-		y,
-		BALANCE_PROJECTILE_HELLCOW_COLLISION_RADIUS,
-		o_map_objects_parent,
-		false,
-		true,
-		_collision_list,
-		false
-	);
-	var _hit_structure = noone;
-	var _ignored_count = array_length(hellcow_start_collision_instances);
-
-	for (var _collision_index = 0; _collision_index < _collision_count; ++_collision_index)
-	{
-		var _candidate = _collision_list[| _collision_index];
-
-		if (!hellcow_structure_collision_can_stop(_candidate))
-		{
-			continue;
-		}
-
-		var _candidate_is_ignored = false;
-
-		for (var _ignored_index = 0; _ignored_index < _ignored_count; ++_ignored_index)
-		{
-			if (_candidate == hellcow_start_collision_instances[_ignored_index])
-			{
-				_candidate_is_ignored = true;
-				break;
-			}
-		}
-
-		if (!_candidate_is_ignored)
-		{
-			_hit_structure = _candidate;
-			break;
-		}
-	}
-
-	ds_list_destroy(_collision_list);
-	return _hit_structure;
-};
 
 hellcow_charge_start = function()
 {
@@ -259,9 +168,6 @@ hellcow_charge_start = function()
 	hellcow_brace_timer = max(1, round(BALANCE_PROJECTILE_HELLCOW_BRACE_TIME * room_speed));
 	hellcow_distance_remaining = BALANCE_PROJECTILE_HELLCOW_CHARGE_DISTANCE;
 	hellcow_trail_timer = 0;
-
-	// Landing overlaps are not new impacts; let the cow leave them before checking its path.
-	hellcow_start_collisions_cache();
 
 	if (hellcow_enchantment == HELLCOW_ENCHANTMENT.STICKY_TRAIL)
 	{
@@ -396,10 +302,10 @@ hellcow_charge_update = function()
 		instance_create_layer(_trail_x, _trail_y, particle_layer_name, o_particle_smoke);
 	}
 
-	var _hit_structure = hellcow_new_structure_collision_find();
+	// The charge ignores all obstacles; only its full distance or leaving the room ends it.
 	var _left_room = x < 0 || x > room_width || y < 0 || y > room_height;
 
-	if (hellcow_distance_remaining <= 0 || instance_exists(_hit_structure) || _left_room)
+	if (hellcow_distance_remaining <= 0 || _left_room)
 	{
 		hellcow_charge_finish();
 	}

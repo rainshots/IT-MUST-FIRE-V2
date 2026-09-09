@@ -472,11 +472,7 @@ if (global.focus_window == FOCUS_WINDOW.END_DAY_CONFIRMATION)
 	var _confirmation_layout = jobs_end_day_confirmation_layout_get();
 	var _confirmation_gui_width = display_get_gui_width();
 	var _confirmation_gui_height = display_get_gui_height();
-	var _confirmation_unused_spirit_count = jobs_unused_spirit_cultist_count_get();
 	var _confirmation_title_text = "Are you sure you want to end the day?";
-	var _confirmation_warning_text = "You still have Cultists with unused Spirit ("
-		+ string(_confirmation_unused_spirit_count)
-		+ ").";
 
 	draw_set_alpha(0.65);
 	draw_set_color(c_black);
@@ -513,51 +509,52 @@ if (global.focus_window == FOCUS_WINDOW.END_DAY_CONFIRMATION)
 		0
 	);
 
-	// Draw the Spirit icon and warning as one centered row.
-	var _confirmation_warning_y = _confirmation_layout.panel_y + (92 * _confirmation_layout.scale);
-	var _confirmation_icon_size = 24 * _confirmation_layout.scale;
-	var _confirmation_icon_gap = 8 * _confirmation_layout.scale;
-	var _confirmation_icon_is_visible = sprite_exists(s_spirit_eye_red);
-	var _confirmation_icon_row_width = _confirmation_icon_is_visible
-		? _confirmation_icon_size + _confirmation_icon_gap
-		: 0;
-	var _confirmation_warning_width = string_width(_confirmation_warning_text)
-		* _confirmation_layout.scale;
-	var _confirmation_row_x = _confirmation_layout.panel_x
-		+ ((_confirmation_layout.panel_width
-			- _confirmation_icon_row_width
-			- _confirmation_warning_width) * 0.5);
-
-	if (_confirmation_icon_is_visible)
+	// Center each warning with its own icon and fit long text inside the panel.
+	var _confirmation_warning_count = array_length(jobs_confirmation_warnings);
+	for (var _warning_index = 0; _warning_index < _confirmation_warning_count; ++_warning_index)
 	{
-		var _confirmation_icon_sprite_size = max(
-			1,
-			max(sprite_get_width(s_spirit_eye_red), sprite_get_height(s_spirit_eye_red))
-		);
-		var _confirmation_icon_scale = _confirmation_icon_size / _confirmation_icon_sprite_size;
+		var _warning = jobs_confirmation_warnings[_warning_index];
+		var _confirmation_warning_y = _confirmation_layout.panel_y
+			+ ((jobs_confirmation_warning_y + (_warning_index * jobs_confirmation_warning_row_step))
+				* _confirmation_layout.scale);
+		var _confirmation_icon_size = jobs_confirmation_warning_icon_size * _confirmation_layout.scale;
+		var _confirmation_icon_gap = jobs_confirmation_warning_icon_gap * _confirmation_layout.scale;
+		var _confirmation_icon_is_visible = sprite_exists(_warning.icon);
+		var _confirmation_icon_row_width = _confirmation_icon_is_visible
+			? _confirmation_icon_size + _confirmation_icon_gap
+			: 0;
+		var _confirmation_text_available_width = _confirmation_layout.panel_width
+			- (jobs_confirmation_padding * 2 * _confirmation_layout.scale) - _confirmation_icon_row_width;
+		var _confirmation_text_scale = min(_confirmation_layout.scale,
+			_confirmation_text_available_width / max(1, string_width(_warning.text)));
+		var _confirmation_warning_width = string_width(_warning.text) * _confirmation_text_scale;
+		var _confirmation_row_x = _confirmation_layout.panel_x
+			+ ((_confirmation_layout.panel_width - _confirmation_icon_row_width - _confirmation_warning_width) * 0.5);
 
-		draw_sprite_ext(
-			s_spirit_eye_red,
-			0,
-			_confirmation_row_x + (_confirmation_icon_size * 0.5),
+		if (_confirmation_icon_is_visible)
+		{
+			var _icon_sprite_width = sprite_get_width(_warning.icon);
+			var _icon_sprite_height = sprite_get_height(_warning.icon);
+			var _confirmation_icon_scale = _confirmation_icon_size
+				/ max(1, max(_icon_sprite_width, _icon_sprite_height));
+			var _icon_x = _confirmation_row_x + (_confirmation_icon_size * 0.5)
+				+ ((sprite_get_xoffset(_warning.icon) - (_icon_sprite_width * 0.5)) * _confirmation_icon_scale);
+			var _icon_y = _confirmation_warning_y
+				+ ((sprite_get_yoffset(_warning.icon) - (_icon_sprite_height * 0.5)) * _confirmation_icon_scale);
+			draw_sprite_ext(_warning.icon, 0, _icon_x, _icon_y,
+				_confirmation_icon_scale, _confirmation_icon_scale, 0, c_white, 1);
+		}
+
+		draw_set_halign(fa_left);
+		draw_text_transformed(
+			_confirmation_row_x + _confirmation_icon_row_width,
 			_confirmation_warning_y,
-			_confirmation_icon_scale,
-			_confirmation_icon_scale,
-			0,
-			c_white,
-			1
+			_warning.text,
+			_confirmation_text_scale,
+			_confirmation_text_scale,
+			0
 		);
 	}
-
-	draw_set_halign(fa_left);
-	draw_text_transformed(
-		_confirmation_row_x + _confirmation_icon_row_width,
-		_confirmation_warning_y,
-		_confirmation_warning_text,
-		_confirmation_layout.scale,
-		_confirmation_layout.scale,
-		0
-	);
 
 	var _cancel_scale = jobs_confirmation_cancel_hovered ? 1.06 : 1;
 	var _cancel_center_x = _confirmation_layout.cancel_x
@@ -625,7 +622,8 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 	var _gui_width = display_get_gui_width();
 	var _gui_height = display_get_gui_height();
 
-	// Main panel and available-cultist pool.
+	// The fixed header is drawn after the scrolling contents so it stays opaque.
+	draw_set_alpha(1);
 	draw_set_color(COLOR_JOBS_WINDOW_BACKGROUND);
 	draw_rectangle(
 		_layout.panel_x,
@@ -634,15 +632,6 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 		_layout.panel_y + _layout.panel_height,
 		false
 	);
-	draw_set_color(COLOR_JOBS_POOL_BORDER);
-	draw_rectangle(
-		_layout.pool_x,
-		_layout.pool_y,
-		_layout.pool_x + _layout.pool_width,
-		_layout.pool_y + _layout.pool_height,
-		true
-	);
-
 	// Event cards and their required worker slots.
 	var _event_viewport = jobs_event_viewport_get();
 	var _event_scissor_viewport = {
@@ -658,11 +647,27 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 	var _hovered_shell_enchantment_choice = noone;
 	var _mouse_gui_x = device_mouse_x_to_gui(0);
 	var _mouse_gui_y = device_mouse_y_to_gui(0);
+	var _mouse_is_over_event_viewport = point_in_rectangle(
+		_mouse_gui_x,
+		_mouse_gui_y,
+		_event_viewport.x,
+		_event_viewport.y,
+		_event_viewport.x + _event_viewport.width,
+		_event_viewport.y + _event_viewport.height
+	);
 	gpu_set_scissor(_event_scissor);
 
-	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
+	var _event_count = array_length(global.day_events);
+	for (var _event_index = 0; _event_index < _event_count; ++_event_index)
 	{
 		var _event = global.day_events[_event_index];
+		var _event_reveal_alpha = jobs_event_reveal_alpha_get(_event);
+
+		if (_event_reveal_alpha <= 0)
+		{
+			continue;
+		}
+
 		var _display_event = _event;
 		var _event_rect = jobs_event_rect_get(_event_index);
 		var _reroll_preview_key = jobs_event_action_key_get(_event, "reroll");
@@ -891,7 +896,8 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 					: (_choice_has_unit ? object_get_sprite(_choice_unit_object) : noone);
 				var _choice_is_visible = _choice_icon_rect.y + _choice_icon_rect.height >= _event_viewport.y
 					&& _choice_icon_rect.y <= _event_viewport.y + _event_viewport.height;
-				var _choice_is_hovered = _choice_is_visible
+				var _choice_is_hovered = _mouse_is_over_event_viewport && _choice_is_visible
+					&& _event_reveal_alpha >= 1
 					&& point_in_rectangle(
 						_mouse_gui_x,
 						_mouse_gui_y,
@@ -1051,7 +1057,8 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			var _result_icon_is_visible = _result_icon_rect.y + _result_icon_rect.height >= _event_viewport.y
 				&& _result_icon_rect.y <= _event_viewport.y + _event_viewport.height;
 
-			if (_result_icon_is_visible
+			if (_mouse_is_over_event_viewport && _result_icon_is_visible
+				&& _event_reveal_alpha >= 1
 				&& point_in_rectangle(
 					_mouse_gui_x,
 					_mouse_gui_y,
@@ -1327,10 +1334,66 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			);
 			draw_set_alpha(1);
 		}
+
+		// Fade the complete row against its opaque backing, including slots, text and source art.
+		if (_event_reveal_alpha < 1)
+		{
+			draw_set_alpha(1 - _event_reveal_alpha);
+			draw_set_color(COLOR_JOBS_WINDOW_BACKGROUND);
+			draw_rectangle(
+				_layout.panel_x,
+				_event_rect.y,
+				_layout.panel_x + _layout.panel_width,
+				_event_rect.y + _event_rect.height,
+				false
+			);
+			draw_set_alpha(1);
+		}
+	}
+
+	// An informational last card reminds the player about free squad capacity, without controls.
+	if (jobs_squad_reminder_visible)
+	{
+		var _reminder_rect = jobs_event_rect_get(_event_count);
+		var _reminder_alpha = jobs_event_reveal_alpha_get(jobs_squad_reminder);
+
+		if (_reminder_alpha > 0
+			&& _reminder_rect.y + _reminder_rect.height > _event_viewport.y
+			&& _reminder_rect.y < _event_viewport.y + _event_viewport.height)
+		{
+			draw_set_alpha(_reminder_alpha);
+			draw_set_color(COLOR_JOBS_EVENT_INACTIVE);
+			draw_rectangle(
+				_reminder_rect.x,
+				_reminder_rect.y,
+				_reminder_rect.x + _reminder_rect.width,
+				_reminder_rect.y + _reminder_rect.height,
+				false
+			);
+			draw_set_font(jobs_title_font);
+			var _reminder_text_width = _reminder_rect.width - (jobs_squad_reminder_padding * 2 * _layout.scale);
+			var _reminder_text_scale = min(_layout.scale,
+				_reminder_text_width / max(1, string_width(jobs_squad_reminder_text)));
+			draw_set_halign(fa_center);
+			draw_set_valign(fa_middle);
+			draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+			draw_text_transformed(
+				_reminder_rect.x + (_reminder_rect.width * 0.5),
+				_reminder_rect.y + (_reminder_rect.height * 0.5),
+				jobs_squad_reminder_text,
+				_reminder_text_scale,
+				_reminder_text_scale,
+				0
+			);
+			draw_set_halign(fa_left);
+			draw_set_valign(fa_top);
+			draw_set_color(c_white);
+			draw_set_alpha(1);
+		}
 	}
 
 	// Finish the scrollable event list with a compact construction reminder.
-	if (array_length(global.day_events) > 0)
+	if (_event_count > 0 || jobs_squad_reminder_visible)
 	{
 		var _event_footer_rect = jobs_event_footer_rect_get();
 
@@ -1390,146 +1453,190 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 
 	gpu_set_scissor(_previous_scissor);
 
-	// Draw every cultist at its current pool or event position.
-	for (var _cultist_index = 0; _cultist_index < array_length(global.event_cultists); ++_cultist_index)
+	// Draw assigned Cultists first, then cover the fixed header before drawing its pool.
+	var _cultist_count = array_length(global.event_cultists);
+	for (var _cultist_draw_pass = 0; _cultist_draw_pass < 2; ++_cultist_draw_pass)
 	{
-		var _cultist = global.event_cultists[_cultist_index];
+		var _draw_assigned_cultists = _cultist_draw_pass == 0;
 
-		if (!instance_exists(_cultist) || _cultist == jobs_dragged_cultist)
+		if (!_draw_assigned_cultists)
 		{
-			continue;
+			// The backing spans the entire panel down to the shared input/scroll boundary.
+			draw_set_alpha(1);
+			draw_set_color(COLOR_JOBS_WINDOW_BACKGROUND);
+			draw_rectangle(
+				_layout.panel_x,
+				_layout.panel_y,
+				_layout.panel_x + _layout.panel_width,
+				_event_viewport.y,
+				false
+			);
+			draw_set_color(COLOR_JOBS_POOL_BORDER);
+			draw_rectangle(
+				_layout.pool_x,
+				_layout.pool_y,
+				_layout.pool_x + _layout.pool_width,
+				_layout.pool_y + _layout.pool_height,
+				true
+			);
+			draw_set_color(c_white);
 		}
 
-		var _cultist_rect = jobs_cultist_rect_get(_cultist);
-
-		if (!is_struct(_cultist_rect))
+		for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
 		{
-			continue;
-		}
+			var _cultist = global.event_cultists[_cultist_index];
 
-		var _cultist_is_in_scroll_list = is_struct(_cultist.assigned_event);
-		var _assigned_event_is_previewed = _cultist_is_in_scroll_list
-			&& jobs_hovered_event_action_key == jobs_event_action_key_get(_cultist.assigned_event, "reroll")
-			&& variable_struct_exists(_cultist.assigned_event, "reroll_preview_event")
-			&& is_struct(_cultist.assigned_event.reroll_preview_event);
-
-		if (_assigned_event_is_previewed)
-		{
-			continue;
-		}
-
-		if (_cultist_is_in_scroll_list)
-		{
-			var _cultist_is_visible = _cultist_rect.y + _cultist_rect.height >= _event_viewport.y
-				&& _cultist_rect.y <= _event_viewport.y + _event_viewport.height;
-
-			if (!_cultist_is_visible)
+			if (!instance_exists(_cultist) || _cultist == jobs_dragged_cultist)
 			{
 				continue;
 			}
 
-			gpu_set_scissor(_event_scissor);
-		}
-
-		var _sprite_scale = min(
-			_cultist_rect.width / sprite_get_width(_cultist.sprite_index),
-			(_cultist_rect.height * 0.874) / sprite_get_height(_cultist.sprite_index)
-		);
-		var _cultist_angle = variable_instance_exists(_cultist, "is_unconscious")
-			&& _cultist.is_unconscious
-			? 90
-			: 0;
-		draw_sprite_ext(
-			_cultist.sprite_index,
-			_cultist.image_index,
-			_cultist_rect.x + (_cultist_rect.width * 0.5),
-			_cultist_rect.y + (_cultist_rect.height * 0.62) + (20 * _layout.scale),
-			_sprite_scale,
-			_sprite_scale,
-			_cultist_angle,
-			c_white,
-			1
-		);
-		draw_set_halign(fa_center);
-		draw_set_valign(fa_top);
-		draw_set_font(jobs_hp_font);
-		var _cultist_text_x = _cultist_rect.x + (_cultist_rect.width * 0.5);
-		// One red eye per remaining Spirit, drawn directly over the Cultist portrait.
-		for (var _spirit_index = 0; _spirit_index < _cultist.spirit; ++_spirit_index)
-		{
-			draw_sprite_ext(s_spirit_eye_red, 0,
-				_cultist_rect.x + (jobs_spirit_icon_offset_x * _layout.scale),
-				_cultist_rect.y + ((jobs_spirit_icon_offset_y
-					+ _spirit_index * jobs_spirit_icon_step) * _layout.scale),
-				_layout.scale, _layout.scale, 0, c_white, 1);
-		}
-		var _cultist_name_y = _cultist_rect.y - (8 * _layout.scale);
-		var _cultist_hp_y = _cultist_rect.y + _cultist_rect.height + (4 * _layout.scale);
-
-		// Match the Figma worker stack: name above the portrait, HP and event cost below it.
-		draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
-		draw_text(_cultist_text_x, _cultist_name_y, _cultist.cultist_name);
-		draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
-		draw_text(
-			_cultist_text_x,
-			_cultist_hp_y,
-			string(ceil(_cultist.hp)) + "hp"
-		);
-
-		// Assigned slots preview their HP result and mark lethal outcomes.
-		if (_cultist_is_in_scroll_list)
-		{
-			var _preview_event = _cultist.assigned_event;
-			var _preview_slot_index = -1;
-
-			for (var _assigned_index = 0; _assigned_index < array_length(_preview_event.assigned_cultists); ++_assigned_index)
+			var _cultist_is_in_scroll_list = is_struct(_cultist.assigned_event);
+			if (_cultist_is_in_scroll_list != _draw_assigned_cultists)
 			{
-				if (_preview_event.assigned_cultists[_assigned_index] == _cultist)
+				continue;
+			}
+
+			var _cultist_reveal_alpha = _cultist_is_in_scroll_list
+				? jobs_event_reveal_alpha_get(_cultist.assigned_event)
+				: 1;
+			if (_cultist_reveal_alpha <= 0)
+			{
+				continue;
+			}
+
+			var _cultist_rect = jobs_cultist_rect_get(_cultist);
+
+			if (!is_struct(_cultist_rect))
+			{
+				continue;
+			}
+
+			var _assigned_event_is_previewed = _cultist_is_in_scroll_list
+				&& jobs_hovered_event_action_key == jobs_event_action_key_get(_cultist.assigned_event, "reroll")
+				&& variable_struct_exists(_cultist.assigned_event, "reroll_preview_event")
+				&& is_struct(_cultist.assigned_event.reroll_preview_event);
+
+			if (_assigned_event_is_previewed)
+			{
+				continue;
+			}
+
+			if (_cultist_is_in_scroll_list)
+			{
+				var _cultist_is_visible = _cultist_rect.y + _cultist_rect.height >= _event_viewport.y
+					&& _cultist_rect.y <= _event_viewport.y + _event_viewport.height;
+
+				if (!_cultist_is_visible)
 				{
-					_preview_slot_index = _assigned_index;
-					break;
+					continue;
+				}
+
+				gpu_set_scissor(_event_scissor);
+			}
+
+			var _sprite_scale = min(
+				_cultist_rect.width / sprite_get_width(_cultist.sprite_index),
+				(_cultist_rect.height * 0.874) / sprite_get_height(_cultist.sprite_index)
+			);
+			var _cultist_angle = variable_instance_exists(_cultist, "is_unconscious")
+				&& _cultist.is_unconscious
+				? 90
+				: 0;
+			draw_sprite_ext(
+				_cultist.sprite_index,
+				_cultist.image_index,
+				_cultist_rect.x + (_cultist_rect.width * 0.5),
+				_cultist_rect.y + (_cultist_rect.height * 0.62) + (20 * _layout.scale),
+				_sprite_scale,
+				_sprite_scale,
+				_cultist_angle,
+				c_white,
+				_cultist_reveal_alpha
+			);
+			draw_set_alpha(_cultist_reveal_alpha);
+			draw_set_halign(fa_center);
+			draw_set_valign(fa_top);
+			draw_set_font(jobs_hp_font);
+			var _cultist_text_x = _cultist_rect.x + (_cultist_rect.width * 0.5);
+			// One red eye per remaining Spirit, drawn directly over the Cultist portrait.
+			for (var _spirit_index = 0; _spirit_index < _cultist.spirit; ++_spirit_index)
+			{
+				draw_sprite_ext(s_spirit_eye_red, 0,
+					_cultist_rect.x + (jobs_spirit_icon_offset_x * _layout.scale),
+					_cultist_rect.y + ((jobs_spirit_icon_offset_y
+						+ _spirit_index * jobs_spirit_icon_step) * _layout.scale),
+					_layout.scale, _layout.scale, 0, c_white, _cultist_reveal_alpha);
+			}
+			var _cultist_name_y = _cultist_rect.y - (8 * _layout.scale);
+			var _cultist_hp_y = _cultist_rect.y + _cultist_rect.height + (4 * _layout.scale);
+
+			// Match the Figma worker stack: name above the portrait, HP and event cost below it.
+			draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+			draw_text(_cultist_text_x, _cultist_name_y, _cultist.cultist_name);
+			draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+			draw_text(
+				_cultist_text_x,
+				_cultist_hp_y,
+				string(ceil(_cultist.hp)) + "hp"
+			);
+
+			// Assigned slots preview their HP result and mark lethal outcomes.
+			if (_cultist_is_in_scroll_list)
+			{
+				var _preview_event = _cultist.assigned_event;
+				var _preview_slot_index = -1;
+
+				for (var _assigned_index = 0; _assigned_index < array_length(_preview_event.assigned_cultists); ++_assigned_index)
+				{
+					if (_preview_event.assigned_cultists[_assigned_index] == _cultist)
+					{
+						_preview_slot_index = _assigned_index;
+						break;
+					}
+				}
+
+				if (_preview_slot_index >= 0)
+				{
+					var _hp_rows_data = jobs_event_cultist_hp_rows_get(
+						_preview_event,
+						_preview_slot_index,
+						_cultist
+					);
+					var _hp_preview = _hp_rows_data.preview;
+
+					for (var _hp_row_index = 0;
+						_hp_row_index < array_length(_hp_rows_data.rows);
+						++_hp_row_index)
+					{
+						var _hp_row = _hp_rows_data.rows[_hp_row_index];
+						var _hp_row_rect = jobs_hp_preview_row_rect_get(
+							_cultist_rect,
+							_hp_row_index,
+							jobs_assigned_hp_preview_offset_y
+						);
+						draw_set_color(_hp_row.color);
+						draw_text(_cultist_text_x, _hp_row_rect.y, _hp_row.text);
+					}
+
+					if (_hp_preview.loses_consciousness)
+					{
+						draw_set_valign(fa_middle);
+						draw_set_color(COLOR_STATUS_NEGATIVE_RED);
+						draw_text(
+							_cultist_text_x,
+							_cultist_rect.y + (_cultist_rect.height * 0.5),
+							"KO"
+						);
+					}
 				}
 			}
 
-			if (_preview_slot_index >= 0)
+			if (_cultist_is_in_scroll_list)
 			{
-				var _hp_rows_data = jobs_event_cultist_hp_rows_get(
-					_preview_event,
-					_preview_slot_index,
-					_cultist
-				);
-				var _hp_preview = _hp_rows_data.preview;
-
-				for (var _hp_row_index = 0;
-					_hp_row_index < array_length(_hp_rows_data.rows);
-					++_hp_row_index)
-				{
-					var _hp_row = _hp_rows_data.rows[_hp_row_index];
-					var _hp_row_rect = jobs_hp_preview_row_rect_get(
-						_cultist_rect,
-						_hp_row_index,
-						jobs_assigned_hp_preview_offset_y
-					);
-					draw_set_color(_hp_row.color);
-					draw_text(_cultist_text_x, _hp_row_rect.y, _hp_row.text);
-				}
-
-				if (_hp_preview.loses_consciousness)
-				{
-					draw_set_valign(fa_middle);
-					draw_set_color(COLOR_STATUS_NEGATIVE_RED);
-					draw_text(
-						_cultist_text_x,
-						_cultist_rect.y + (_cultist_rect.height * 0.5),
-						"KO"
-					);
-				}
+				gpu_set_scissor(_previous_scissor);
 			}
-		}
-
-		if (_cultist_is_in_scroll_list)
-		{
-			gpu_set_scissor(_previous_scissor);
+			draw_set_alpha(1);
 		}
 	}
 
@@ -2138,6 +2245,42 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 				BALANCE_ATTACK_ARROW_ALPHA
 			);
 		}
+	}
+
+	// Whip rewards float above the fixed pool and cards, outside the scrolling clip.
+	var _whip_popup_count = array_length(jobs_whip_feedback_popups);
+	if (_whip_popup_count > 0)
+	{
+		var _popup_previous_font = draw_get_font();
+		var _popup_margin = jobs_whip_feedback_margin * _layout.scale;
+		var _popup_shadow_offset = jobs_whip_feedback_shadow_offset * _layout.scale;
+		draw_set_font(jobs_action_font);
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_top);
+
+		for (var _popup_index = 0; _popup_index < _whip_popup_count; ++_popup_index)
+		{
+			var _popup = jobs_whip_feedback_popups[_popup_index];
+			var _popup_progress = clamp(_popup.elapsed_seconds / jobs_whip_feedback_duration_seconds, 0, 1);
+			var _popup_half_width = string_width(_popup.text) * _layout.scale * 0.5;
+			var _popup_x = clamp(_popup.x,
+				_popup_half_width + _popup_margin, _gui_width - _popup_half_width - _popup_margin);
+			var _popup_y = max(_popup_margin,
+				_popup.y - (_popup_progress * jobs_whip_feedback_rise * _layout.scale));
+
+			draw_set_alpha(1 - _popup_progress);
+			draw_set_color(COLOR_JOBS_ASSIGN_BACKGROUND);
+			draw_text_transformed(_popup_x + _popup_shadow_offset, _popup_y + _popup_shadow_offset,
+				_popup.text, _layout.scale, _layout.scale, 0);
+			draw_set_color(COLOR_ABILITY_POPUP);
+			draw_text_transformed(_popup_x, _popup_y, _popup.text, _layout.scale, _layout.scale, 0);
+		}
+
+		draw_set_font(_popup_previous_font);
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_color(c_white);
+		draw_set_alpha(1);
 	}
 
 	// Keep contextual explanations above the Assign Rites window.

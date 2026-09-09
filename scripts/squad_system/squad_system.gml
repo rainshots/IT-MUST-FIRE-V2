@@ -117,11 +117,6 @@ function squad_limit_for_day_get(_day_number)
 		_limit++;
 	}
 
-	if (_day >= BALANCE_SQUAD_LIMIT_UNLOCK_DAY_3)
-	{
-		_limit++;
-	}
-
 	return min(_limit, BALANCE_SQUAD_LIMIT);
 }
 
