@@ -8,7 +8,15 @@ if (instance_exists(game_controller))
 	}
 }
 
-// Assign Duties keeps its composed city view fixed while gameplay continues underneath it.
+// Center the fully zoomed-out starting view once all room instances exist.
+if (start_center_on_cannon_pending && instance_exists(o_cannon))
+{
+	var _cannon = instance_find(o_cannon, 0);
+	camera_center_on_instance(_cannon);
+	start_center_on_cannon_pending = false;
+}
+
+// Assign Rites keeps its composed city view fixed while gameplay continues underneath it.
 if (jobs_view_active)
 {
 	if (!camera_jobs_view_apply())

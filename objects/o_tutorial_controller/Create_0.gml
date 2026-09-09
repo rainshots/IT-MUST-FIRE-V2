@@ -7,10 +7,19 @@ popup_paused_game = false;
 current_title = "";
 current_body = "";
 current_hint_id = "";
+current_button_text = "Close";
+current_icon_sprite = -1;
+current_icon_sprites = [];
 tutorial_queue = array_create(0);
 tutorial_seen_ids = array_create(0);
+// Real-time delays use current_time so they continue while gameplay is paused.
+night_attack_preview_closed_time = -1;
+taint_compost_tutorial_delay = 5000;
+taint_compost_tutorial_triggered = false;
 // These hints are temporarily disabled but remain registered for easy restoration.
 tutorial_disabled_ids = [
+	"construction_start",
+	"buildings",
 	"workers",
 	"production_bonus",
 	"building_upgrades",
@@ -25,6 +34,8 @@ popup_width = 680;
 popup_height = 430;
 popup_padding = 28;
 popup_title_height = 36;
+popup_title_icon_height = 28;
+popup_title_icon_gap = 12;
 popup_text_line_height = 20;
 popup_button_width = 150;
 popup_button_height = 42;
@@ -46,13 +57,58 @@ tutorial_items = [
 	},
 	{
 		id: "construction_start",
-		title: "Construction",
-		body: "To build, hover over any building pictogram in your settlement and press the left mouse button. Choose a building to create a construction event requiring 1 Cultist."
+		title: "Summoning",
+		body: "To summon a building, hover over any building pictogram in your settlement and press the left mouse button. Choose a building to create a summoning Rite requiring 1 Cultist."
 	},
 	{
 		id: "buildings",
 		title: "Buildings",
-		body: "You can build 1 building per day around the cannon. Each building provides 1 Rite for your Cultists. The more buildings you have, the more Rites your Cultists will have!\n\nConstruction does not cost resources. Each selected building creates an Assign Duties event that requires 1 Cultist."
+		body: "You can summon 1 building per day around the Cannon. Each building provides 1 Rite for your Cultists. The more buildings you have, the more Rites your Cultists will have!\n\nSummoning does not cost resources. Each selected building creates an Assign Rites event that requires 1 Cultist."
+	},
+	{
+		id: "assign_rites_overview",
+		title: "ASSIGN RITES",
+		body: "This window shows every Rite currently available.\n\n"
+			+ "Each building has its own set of Rites. Every day, each building offers one Rite to perform.\n\n"
+			+ "Summoning a squad, building, trap, or tower also creates a separate Rite.",
+		button_text: "OK"
+	},
+	{
+		id: "assign_rites_cultist_spirit",
+		title: "CULTIST SPIRIT",
+		body: "Cultists also have a daily limit on how many Rites they can perform. Each red eye icon displayed over a Cultist allows them to perform one Rite. Spirit is restored to its maximum every morning.",
+		button_text: "OK",
+		icon_sprite: s_spirit_eye_red
+	},
+	{
+		id: "assign_rites_cultist_hp",
+		title: "CULTIST HP",
+		body: "Cultists have HP, which is spent when performing Rites. Cultists can restore HP through Rites offered by the Blood Bath. Let's summon one. Close the Assign Rites window.",
+		button_text: "OK"
+	},
+	{
+		id: "night_attack_preview",
+		title: "NIGHT ATTACKS",
+		body: "Every night, the forces of the Holy Order will attack you. Their goal is to destroy the possessed Cannon.\n\n"
+			+ "During the day, you can preview the directions and composition of the coming attacks.\n\n"
+			+ "Close this message and find the direction of tonight's incoming attack.",
+		button_text: "OK"
+	},
+	{
+		id: "taint_compost_shell",
+		title: "FIRING A TAINT COMPOST SHELL",
+		body: "Every day, the Cannon can fire one Taint Compost shell during the day to spread Taint across the ground.\n\n"
+			+ "On tainted ground, your troops gain advantages such as bonus movement speed, while enemy troops suffer penalties such as slowing and damage over time.",
+		button_text: "OK",
+		icon_sprite: s_taint_shell
+	},
+	{
+		id: "ritual_points",
+		title: "RITUAL POINTS",
+		body: "The map also contains various Ritual Points that can only be activated when the ground beneath them is tainted.\n\n"
+			+ "Some points summon defensive towers, some hold traps, and others contain monster dwellings.",
+		button_text: "OK",
+		icon_sprites: [s_point_force_disabled, s_point_force_active]
 	},
 	{
 		id: "destroyed_player_building",
@@ -127,7 +183,7 @@ tutorial_items = [
 	{
 		id: "full_moon_night",
 		title: "Blood Moon",
-		body: "The Blood Moon rises tonight. Enemies will attack as usual, but the night's difficulty is 20% higher.\n\nYou can still fire Cultists and combat units from the cannon. The Blood Moon ends only after the entire attack is defeated.\n\nSurvive tonight, and tomorrow morning 2 new Cultists will be summoned, up to your Cultist limit."
+		body: "The Blood Moon rises tonight. Enemies will attack as usual, but the night's difficulty is 20% higher.\n\nThe Blood Moon ends only after the entire attack is defeated.\n\nSurvive tonight, and tomorrow morning new Cultist will be summoned, up to your Cultist limit."
 	}
 ];
 
@@ -207,6 +263,20 @@ tutorial_show_next = function()
 	current_hint_id = _item.id;
 	current_title = _item.title;
 	current_body = _item.body;
+	current_button_text = variable_struct_exists(_item, "button_text")
+		? _item.button_text
+		: "Close";
+	current_icon_sprite = variable_struct_exists(_item, "icon_sprite")
+		? _item.icon_sprite
+		: -1;
+	current_icon_sprites = variable_struct_exists(_item, "icon_sprites")
+		? _item.icon_sprites
+		: [];
+
+	if (array_length(current_icon_sprites) <= 0 && sprite_exists(current_icon_sprite))
+	{
+		current_icon_sprites = [current_icon_sprite];
+	}
 	popup_active = true;
 	global.tutorial_popup_active = true;
 	close_button_was_hovered = false;
@@ -241,6 +311,17 @@ tutorial_close = function()
 
 	popup_paused_game = false;
 
+	// Assign Rites owns the contextual hint that follows its overview popup.
+	if (instance_exists(o_jobs_ui))
+	{
+		var _jobs_ui = instance_find(o_jobs_ui, 0);
+
+		if (variable_instance_exists(_jobs_ui, "jobs_onboarding_tutorial_closed"))
+		{
+			_jobs_ui.jobs_onboarding_tutorial_closed(_closed_hint_id);
+		}
+	}
+
 	if (_closed_hint_id == "welcome" && instance_exists(o_game_controller))
 	{
 		global.tutorial_welcome_closed = true;
@@ -253,6 +334,29 @@ tutorial_close = function()
 		}
 
 		return;
+	}
+
+	// The Blood Bath explanation follows after the player confirms the Spirit explanation.
+	if (_closed_hint_id == "assign_rites_cultist_spirit")
+	{
+		tutorial_trigger("assign_rites_cultist_hp");
+	}
+	else if (_closed_hint_id == "night_attack_preview")
+	{
+		night_attack_preview_closed_time = current_time;
+	}
+	else if (_closed_hint_id == "taint_compost_shell")
+	{
+		tutorial_trigger("ritual_points");
+	}
+	else if (_closed_hint_id == "ritual_points" && instance_exists(o_jobs_ui))
+	{
+		var _ritual_points_jobs_ui = instance_find(o_jobs_ui, 0);
+
+		if (variable_instance_exists(_ritual_points_jobs_ui, "jobs_taint_aim_hint_start"))
+		{
+			_ritual_points_jobs_ui.jobs_taint_aim_hint_start();
+		}
 	}
 
 	tutorial_show_next();
@@ -297,7 +401,39 @@ tutorial_draw = function()
 		draw_set_font(global.ui_heading_font);
 	}
 
-	draw_text(_popup_x + popup_padding, _popup_y + popup_padding, current_title);
+	var _title_x = _popup_x + popup_padding;
+
+	var _title_icon_count = array_length(current_icon_sprites);
+
+	for (var _title_icon_index = 0; _title_icon_index < _title_icon_count; ++_title_icon_index)
+	{
+		var _title_icon_sprite = current_icon_sprites[_title_icon_index];
+
+		if (!sprite_exists(_title_icon_sprite))
+		{
+			continue;
+		}
+
+		var _icon_aspect = sprite_get_width(_title_icon_sprite)
+			/ max(1, sprite_get_height(_title_icon_sprite));
+		var _icon_width = popup_title_icon_height * _icon_aspect;
+		var _icon_y = _popup_y + popup_padding
+			+ ((popup_title_height - popup_title_icon_height) * 0.5);
+
+		draw_set_color(c_white);
+		draw_sprite_stretched(
+			_title_icon_sprite,
+			0,
+			_title_x,
+			_icon_y,
+			_icon_width,
+			popup_title_icon_height
+		);
+		_title_x += _icon_width + popup_title_icon_gap;
+	}
+
+	draw_set_color(COLOR_HUD_TEXT);
+	draw_text(_title_x, _popup_y + popup_padding, current_title);
 
 	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
 	{
@@ -315,7 +451,11 @@ tutorial_draw = function()
 
 	draw_set_halign(fa_center);
 	draw_set_valign(fa_middle);
-	draw_text(_button_x + (popup_button_width * 0.5), _button_y + (popup_button_height * 0.5), "Close");
+	draw_text(
+		_button_x + (popup_button_width * 0.5),
+		_button_y + (popup_button_height * 0.5),
+		current_button_text
+	);
 
 	draw_set_halign(fa_left);
 	draw_set_valign(fa_top);

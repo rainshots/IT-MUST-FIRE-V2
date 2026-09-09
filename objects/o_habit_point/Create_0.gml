@@ -26,13 +26,13 @@ image_speed = 0;
 cursed_point_draw_above_tile_layer();
 
 // Habitat-specific world and selection menu text.
-summon_button_text = "BUILD HABITAT";
+summon_button_text = "SUMMON HABITAT";
 summon_button_night_text = "Available at daytime";
-structure_selection_title = "Build Habitat";
-structure_selection_subtitle = "Choose a habitat to build";
+structure_selection_title = "Summon Habitat";
+structure_selection_subtitle = "Choose a habitat to summon";
 tooltip_lines = [
 	"Taint the ground under this point",
-	"to build a unit habitat here."
+	"to summon a unit habitat here."
 ];
 
 var _habitat_choices = [

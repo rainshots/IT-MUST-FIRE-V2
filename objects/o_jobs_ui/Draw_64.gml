@@ -9,7 +9,223 @@ if (variable_global_exists("ui_font") && font_exists(global.ui_font))
 	draw_set_font(global.ui_font);
 }
 
-if (global.day_phase == DAY_PHASE.DAY && global.focus_window == FOCUS_WINDOW.NOONE)
+// Lead the player from a nearby Squad Summoning Circle to the Assign Rites window.
+if (global.day_phase == DAY_PHASE.DAY
+	&& (!variable_global_exists("tutorial_hints_enabled") || global.tutorial_hints_enabled)
+	&& global.focus_window == FOCUS_WINDOW.NOONE
+	&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active)
+	&& instance_exists(o_camera_controller))
+{
+	var _squad_hint_target = jobs_squad_point_hint_target_get();
+
+	if (instance_exists(_squad_hint_target))
+	{
+		var _squad_hint_camera = instance_find(o_camera_controller, 0);
+		var _squad_hint_camera_x = camera_get_view_x(_squad_hint_camera.camera_id);
+		var _squad_hint_camera_y = camera_get_view_y(_squad_hint_camera.camera_id);
+		var _squad_hint_camera_width = max(1, camera_get_view_width(_squad_hint_camera.camera_id));
+		var _squad_hint_camera_height = max(1, camera_get_view_height(_squad_hint_camera.camera_id));
+		var _squad_hint_gui_width = display_get_gui_width();
+		var _squad_hint_gui_height = display_get_gui_height();
+		var _squad_hint_scale = min(
+			_squad_hint_gui_width / jobs_design_width,
+			_squad_hint_gui_height / jobs_design_height
+		);
+		var _squad_hint_target_x = ((_squad_hint_target.x - _squad_hint_camera_x)
+			/ _squad_hint_camera_width) * _squad_hint_gui_width;
+		var _squad_hint_target_y = ((_squad_hint_target.y - _squad_hint_camera_y)
+			/ _squad_hint_camera_height) * _squad_hint_gui_height;
+		var _squad_hint_previous_font = draw_get_font();
+		draw_set_font(jobs_onboarding_font);
+
+		// Measure with the same font and wrapping width used for drawing.
+		var _squad_hint_max_text_width = jobs_squad_point_hint_max_width
+			- (jobs_squad_point_hint_padding_x * 2);
+		var _squad_hint_text_width = min(
+			_squad_hint_max_text_width,
+			string_width(jobs_squad_point_hint_text)
+		);
+		var _squad_hint_width = (_squad_hint_text_width
+			+ (jobs_squad_point_hint_padding_x * 2)) * _squad_hint_scale;
+		var _squad_hint_padding_x = jobs_squad_point_hint_padding_x * _squad_hint_scale;
+		var _squad_hint_padding_y = jobs_squad_point_hint_padding_y * _squad_hint_scale;
+		var _squad_hint_text_height = string_height_ext(
+			jobs_squad_point_hint_text,
+			jobs_squad_point_hint_line_height,
+			_squad_hint_text_width
+		) * _squad_hint_scale;
+		var _squad_hint_height = _squad_hint_text_height + (_squad_hint_padding_y * 2);
+		var _squad_hint_margin = 18 * _squad_hint_scale;
+		var _squad_hint_x = clamp(
+			_squad_hint_target_x - (_squad_hint_width * 0.5),
+			_squad_hint_margin,
+			_squad_hint_gui_width - _squad_hint_width - _squad_hint_margin
+		);
+		var _squad_hint_y = clamp(
+			_squad_hint_target_y + (jobs_squad_point_hint_offset_y * _squad_hint_scale),
+			_squad_hint_margin,
+			_squad_hint_gui_height - _squad_hint_height - _squad_hint_margin
+		);
+		var _squad_hint_pulse = 0.88 + (sin(current_time * 0.006) * 0.08);
+
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_alpha(jobs_squad_point_hint_background_alpha * _squad_hint_pulse);
+		draw_set_color(COLOR_HUD_BACKGROUND);
+		draw_rectangle(
+			_squad_hint_x,
+			_squad_hint_y,
+			_squad_hint_x + _squad_hint_width,
+			_squad_hint_y + _squad_hint_height,
+			false
+		);
+
+		draw_set_alpha(_squad_hint_pulse);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text_ext_transformed(
+			_squad_hint_x + _squad_hint_padding_x,
+			_squad_hint_y + _squad_hint_padding_y,
+			jobs_squad_point_hint_text,
+			jobs_squad_point_hint_line_height,
+			_squad_hint_text_width,
+			_squad_hint_scale,
+			_squad_hint_scale,
+			0
+		);
+
+		if (sprite_exists(s_attack_arrow))
+		{
+			var _squad_hint_arrow_scale = jobs_squad_point_hint_arrow_scale * _squad_hint_scale;
+
+			draw_sprite_ext(
+				s_attack_arrow,
+				0,
+				_squad_hint_target_x,
+				_squad_hint_target_y,
+				_squad_hint_arrow_scale,
+				_squad_hint_arrow_scale,
+				jobs_squad_point_hint_arrow_angle,
+				c_white,
+				BALANCE_ATTACK_ARROW_ALPHA * _squad_hint_pulse
+			);
+		}
+
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_color(c_white);
+		draw_set_alpha(1);
+		draw_set_font(_squad_hint_previous_font);
+	}
+}
+
+// After recruitment, reveal a nearby construction slot and lead the player to it.
+if (global.day_phase == DAY_PHASE.DAY
+	&& (!variable_global_exists("tutorial_hints_enabled") || global.tutorial_hints_enabled)
+	&& global.focus_window == FOCUS_WINDOW.NOONE
+	&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active)
+	&& instance_exists(o_camera_controller))
+{
+	var _building_hint_target = jobs_building_slot_hint_target_get();
+
+	if (instance_exists(_building_hint_target))
+	{
+		var _building_hint_camera = instance_find(o_camera_controller, 0);
+		var _building_hint_camera_x = camera_get_view_x(_building_hint_camera.camera_id);
+		var _building_hint_camera_y = camera_get_view_y(_building_hint_camera.camera_id);
+		var _building_hint_camera_width = max(1, camera_get_view_width(_building_hint_camera.camera_id));
+		var _building_hint_camera_height = max(1, camera_get_view_height(_building_hint_camera.camera_id));
+		var _building_hint_gui_width = display_get_gui_width();
+		var _building_hint_gui_height = display_get_gui_height();
+		var _building_hint_scale = min(
+			_building_hint_gui_width / jobs_design_width,
+			_building_hint_gui_height / jobs_design_height
+		);
+		var _building_hint_target_x = ((_building_hint_target.x - _building_hint_camera_x)
+			/ _building_hint_camera_width) * _building_hint_gui_width;
+		var _building_hint_target_y = ((_building_hint_target.y - _building_hint_camera_y)
+			/ _building_hint_camera_height) * _building_hint_gui_height;
+		var _building_hint_previous_font = draw_get_font();
+		draw_set_font(jobs_onboarding_font);
+
+		var _building_hint_text_width = min(
+			jobs_building_slot_hint_max_width - (jobs_building_slot_hint_padding_x * 2),
+			string_width(jobs_building_slot_hint_text)
+		);
+		var _building_hint_width = (_building_hint_text_width
+			+ (jobs_building_slot_hint_padding_x * 2)) * _building_hint_scale;
+		var _building_hint_padding_x = jobs_building_slot_hint_padding_x * _building_hint_scale;
+		var _building_hint_padding_y = jobs_building_slot_hint_padding_y * _building_hint_scale;
+		var _building_hint_text_height = string_height_ext(
+			jobs_building_slot_hint_text,
+			jobs_building_slot_hint_line_height,
+			_building_hint_text_width
+		) * _building_hint_scale;
+		var _building_hint_height = _building_hint_text_height + (_building_hint_padding_y * 2);
+		var _building_hint_margin = 18 * _building_hint_scale;
+		var _building_hint_x = clamp(
+			_building_hint_target_x - (_building_hint_width * 0.5),
+			_building_hint_margin,
+			_building_hint_gui_width - _building_hint_width - _building_hint_margin
+		);
+		var _building_hint_y = clamp(
+			_building_hint_target_y + (jobs_building_slot_hint_offset_y * _building_hint_scale),
+			_building_hint_margin,
+			_building_hint_gui_height - _building_hint_height - _building_hint_margin
+		);
+		var _building_hint_pulse = 0.88 + (sin(current_time * 0.006) * 0.08);
+
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_alpha(jobs_building_slot_hint_background_alpha * _building_hint_pulse);
+		draw_set_color(COLOR_HUD_BACKGROUND);
+		draw_rectangle(
+			_building_hint_x,
+			_building_hint_y,
+			_building_hint_x + _building_hint_width,
+			_building_hint_y + _building_hint_height,
+			false
+		);
+		draw_set_alpha(_building_hint_pulse);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text_ext_transformed(
+			_building_hint_x + _building_hint_padding_x,
+			_building_hint_y + _building_hint_padding_y,
+			jobs_building_slot_hint_text,
+			jobs_building_slot_hint_line_height,
+			_building_hint_text_width,
+			_building_hint_scale,
+			_building_hint_scale,
+			0
+		);
+
+		if (sprite_exists(s_attack_arrow))
+		{
+			var _building_hint_arrow_scale = jobs_building_slot_hint_arrow_scale * _building_hint_scale;
+
+			draw_sprite_ext(
+				s_attack_arrow,
+				0,
+				_building_hint_target_x,
+				_building_hint_target_y,
+				_building_hint_arrow_scale,
+				_building_hint_arrow_scale,
+				jobs_building_slot_hint_arrow_angle,
+				c_white,
+				BALANCE_ATTACK_ARROW_ALPHA * _building_hint_pulse
+			);
+		}
+
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_color(c_white);
+		draw_set_alpha(1);
+		draw_set_font(_building_hint_previous_font);
+	}
+}
+
+if (global.day_phase == DAY_PHASE.DAY
+	&& global.focus_window == FOCUS_WINDOW.NOONE
+	&& jobs_show_button_is_visible())
 {
 	var _show_rect = jobs_show_button_rect_get();
 	var _show_pulse = 0.5 + (sin(current_time / 260) * 0.5);
@@ -52,7 +268,7 @@ if (global.day_phase == DAY_PHASE.DAY && global.focus_window == FOCUS_WINDOW.NOO
 	draw_text_transformed(
 		_show_center_x,
 		_show_center_y,
-		"ASSIGN DUTIES",
+		"ASSIGN RITES",
 		_show_rect.scale * _show_visual_scale,
 		_show_rect.scale * _show_visual_scale,
 		0
@@ -161,6 +377,93 @@ if (global.day_phase == DAY_PHASE.DAY && global.focus_window == FOCUS_WINDOW.NOO
 			_end_text_draw_scale,
 			0
 		);
+
+		if (jobs_end_day_hint_active)
+		{
+			var _end_hint_previous_font = draw_get_font();
+			draw_set_font(jobs_onboarding_font);
+
+			var _end_hint_scale = _end_rect.scale;
+			var _end_hint_arrow_scale = jobs_end_day_hint_arrow_scale * _end_hint_scale;
+			var _end_hint_arrow_width = sprite_exists(s_attack_arrow)
+				? sprite_get_width(s_attack_arrow) * _end_hint_arrow_scale
+				: 0;
+			var _end_hint_arrow_x = _end_rect.x + _end_rect.width + (10 * _end_hint_scale);
+			var _end_hint_arrow_y = _end_center_y;
+			var _end_hint_text_width = min(
+				jobs_end_day_hint_max_width - (jobs_end_day_hint_padding_x * 2),
+				string_width(jobs_end_day_hint_text)
+			);
+			var _end_hint_width = (_end_hint_text_width
+				+ (jobs_end_day_hint_padding_x * 2)) * _end_hint_scale;
+			var _end_hint_padding_x = jobs_end_day_hint_padding_x * _end_hint_scale;
+			var _end_hint_padding_y = jobs_end_day_hint_padding_y * _end_hint_scale;
+			var _end_hint_text_height = string_height_ext(
+				jobs_end_day_hint_text,
+				jobs_end_day_hint_line_height,
+				_end_hint_text_width
+			) * _end_hint_scale;
+			var _end_hint_height = _end_hint_text_height + (_end_hint_padding_y * 2);
+			var _end_hint_margin = 18 * _end_hint_scale;
+			var _end_hint_x = clamp(
+				_end_hint_arrow_x
+					+ _end_hint_arrow_width
+					+ (jobs_end_day_hint_gap_from_arrow * _end_hint_scale),
+				_end_hint_margin,
+				display_get_gui_width() - _end_hint_width - _end_hint_margin
+			);
+			var _end_hint_y = clamp(
+				_end_hint_arrow_y - (_end_hint_height * 0.5),
+				_end_hint_margin,
+				display_get_gui_height() - _end_hint_height - _end_hint_margin
+			);
+			var _end_hint_pulse = 0.88 + (sin(current_time * 0.006) * 0.08);
+
+			draw_set_halign(fa_left);
+			draw_set_valign(fa_top);
+			draw_set_alpha(jobs_end_day_hint_background_alpha * _end_hint_pulse);
+			draw_set_color(COLOR_HUD_BACKGROUND);
+			draw_rectangle(
+				_end_hint_x,
+				_end_hint_y,
+				_end_hint_x + _end_hint_width,
+				_end_hint_y + _end_hint_height,
+				false
+			);
+			draw_set_alpha(_end_hint_pulse);
+			draw_set_color(COLOR_HUD_TEXT);
+			draw_text_ext_transformed(
+				_end_hint_x + _end_hint_padding_x,
+				_end_hint_y + _end_hint_padding_y,
+				jobs_end_day_hint_text,
+				jobs_end_day_hint_line_height,
+				_end_hint_text_width,
+				_end_hint_scale,
+				_end_hint_scale,
+				0
+			);
+
+			if (sprite_exists(s_attack_arrow))
+			{
+				draw_sprite_ext(
+					s_attack_arrow,
+					0,
+					_end_hint_arrow_x,
+					_end_hint_arrow_y,
+					_end_hint_arrow_scale,
+					_end_hint_arrow_scale,
+					jobs_end_day_hint_arrow_angle,
+					c_white,
+					BALANCE_ATTACK_ARROW_ALPHA * _end_hint_pulse
+				);
+			}
+
+			draw_set_font(_end_hint_previous_font);
+			draw_set_halign(fa_left);
+			draw_set_valign(fa_top);
+			draw_set_color(c_white);
+			draw_set_alpha(1);
+		}
 	}
 }
 
@@ -169,10 +472,11 @@ if (global.focus_window == FOCUS_WINDOW.END_DAY_CONFIRMATION)
 	var _confirmation_layout = jobs_end_day_confirmation_layout_get();
 	var _confirmation_gui_width = display_get_gui_width();
 	var _confirmation_gui_height = display_get_gui_height();
-	var _confirmation_unassigned_count = jobs_unassigned_cultist_count_get();
-	var _confirmation_text = "Are you sure you want to end the day? You still have unassigned Cultists ("
-		+ string(_confirmation_unassigned_count)
-		+ ")";
+	var _confirmation_unused_spirit_count = jobs_unused_spirit_cultist_count_get();
+	var _confirmation_title_text = "Are you sure you want to end the day?";
+	var _confirmation_warning_text = "You still have Cultists with unused Spirit ("
+		+ string(_confirmation_unused_spirit_count)
+		+ ").";
 
 	draw_set_alpha(0.65);
 	draw_set_color(c_black);
@@ -197,15 +501,62 @@ if (global.focus_window == FOCUS_WINDOW.END_DAY_CONFIRMATION)
 	);
 
 	draw_set_halign(fa_center);
-	draw_set_valign(fa_top);
+	draw_set_valign(fa_middle);
 	draw_set_font(jobs_show_font);
 	draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
-	draw_text_ext(
+	draw_text_transformed(
 		_confirmation_layout.panel_x + (_confirmation_layout.panel_width * 0.5),
-		_confirmation_layout.panel_y + (42 * _confirmation_layout.scale),
-		_confirmation_text,
-		34 * _confirmation_layout.scale,
-		_confirmation_layout.panel_width - (84 * _confirmation_layout.scale)
+		_confirmation_layout.panel_y + (48 * _confirmation_layout.scale),
+		_confirmation_title_text,
+		_confirmation_layout.scale,
+		_confirmation_layout.scale,
+		0
+	);
+
+	// Draw the Spirit icon and warning as one centered row.
+	var _confirmation_warning_y = _confirmation_layout.panel_y + (92 * _confirmation_layout.scale);
+	var _confirmation_icon_size = 24 * _confirmation_layout.scale;
+	var _confirmation_icon_gap = 8 * _confirmation_layout.scale;
+	var _confirmation_icon_is_visible = sprite_exists(s_spirit_eye_red);
+	var _confirmation_icon_row_width = _confirmation_icon_is_visible
+		? _confirmation_icon_size + _confirmation_icon_gap
+		: 0;
+	var _confirmation_warning_width = string_width(_confirmation_warning_text)
+		* _confirmation_layout.scale;
+	var _confirmation_row_x = _confirmation_layout.panel_x
+		+ ((_confirmation_layout.panel_width
+			- _confirmation_icon_row_width
+			- _confirmation_warning_width) * 0.5);
+
+	if (_confirmation_icon_is_visible)
+	{
+		var _confirmation_icon_sprite_size = max(
+			1,
+			max(sprite_get_width(s_spirit_eye_red), sprite_get_height(s_spirit_eye_red))
+		);
+		var _confirmation_icon_scale = _confirmation_icon_size / _confirmation_icon_sprite_size;
+
+		draw_sprite_ext(
+			s_spirit_eye_red,
+			0,
+			_confirmation_row_x + (_confirmation_icon_size * 0.5),
+			_confirmation_warning_y,
+			_confirmation_icon_scale,
+			_confirmation_icon_scale,
+			0,
+			c_white,
+			1
+		);
+	}
+
+	draw_set_halign(fa_left);
+	draw_text_transformed(
+		_confirmation_row_x + _confirmation_icon_row_width,
+		_confirmation_warning_y,
+		_confirmation_warning_text,
+		_confirmation_layout.scale,
+		_confirmation_layout.scale,
+		0
 	);
 
 	var _cancel_scale = jobs_confirmation_cancel_hovered ? 1.06 : 1;
@@ -1521,62 +1872,87 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 		);
 	}
 
-	// The annotated Assign Duties overview is visible only while the first-day window is open.
-	var _show_onboarding_hints = day_event_current_day_get() == 1
-		&& (!variable_global_exists("tutorial_hints_enabled") || global.tutorial_hints_enabled);
+	// After the overview closes, point directly at the first recruitment Rite card.
+	var _show_squad_rite_hint = jobs_assign_rites_overview_closed
+		&& !jobs_first_squad_rite_completed
+		&& (!variable_global_exists("tutorial_hints_enabled") || global.tutorial_hints_enabled)
+		&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active);
 
-	if (_show_onboarding_hints)
+	if (_show_squad_rite_hint)
 	{
-		var _onboarding_design_offset_x = _layout.panel_x
-			- (jobs_onboarding_design_panel_x * _layout.scale);
-		var _onboarding_hint_count = array_length(jobs_onboarding_hints);
-		var _onboarding_reroll_button_exists = false;
+		var _squad_rite_event_index = jobs_first_squad_rite_event_index_get();
 
-		// Do not advertise Rerolls until at least one usable Reroll action is visible.
-		if (global.day_event_rerolls_remaining > 0)
+		if (_squad_rite_event_index >= 0)
 		{
-			var _onboarding_event_count = array_length(global.day_events);
+			var _squad_rite_event = global.day_events[_squad_rite_event_index];
+			var _squad_rite_slot_count = _squad_rite_event.cultist_cost
+				* _squad_rite_event.activation_limit;
+			var _squad_rite_left_slot = jobs_event_slot_rect_get(
+				_squad_rite_event_index,
+				0,
+				_squad_rite_slot_count
+			);
+			var _squad_rite_arrow_scale = jobs_squad_rite_hint_arrow_scale * _layout.scale;
+			var _squad_rite_arrow_width = sprite_exists(s_attack_arrow)
+				? sprite_get_width(s_attack_arrow) * _squad_rite_arrow_scale
+				: 0;
+			var _squad_rite_arrow_x = _squad_rite_left_slot.x - (18 * _layout.scale);
+			var _squad_rite_arrow_y = _squad_rite_left_slot.y
+				+ (_squad_rite_left_slot.height * 0.5);
+			var _squad_rite_previous_font = draw_get_font();
+			draw_set_font(jobs_onboarding_font);
 
-			for (var _onboarding_event_index = 0;
-				_onboarding_event_index < _onboarding_event_count;
-				++_onboarding_event_index)
-			{
-				var _onboarding_event = global.day_events[_onboarding_event_index];
+			var _squad_rite_max_text_width = jobs_squad_rite_hint_max_width
+				- (jobs_squad_rite_hint_padding_x * 2);
+			var _squad_rite_text_width = min(
+				_squad_rite_max_text_width,
+				string_width(jobs_squad_rite_hint_text)
+			);
+			var _squad_rite_width = (_squad_rite_text_width
+				+ (jobs_squad_rite_hint_padding_x * 2)) * _layout.scale;
+			var _squad_rite_padding_x = jobs_squad_rite_hint_padding_x * _layout.scale;
+			var _squad_rite_padding_y = jobs_squad_rite_hint_padding_y * _layout.scale;
+			var _squad_rite_text_height = string_height_ext(
+				jobs_squad_rite_hint_text,
+				jobs_squad_rite_hint_line_height,
+				_squad_rite_text_width
+			) * _layout.scale;
+			var _squad_rite_height = _squad_rite_text_height + (_squad_rite_padding_y * 2);
+			var _squad_rite_margin = 18 * _layout.scale;
+			var _squad_rite_box_right = _squad_rite_arrow_x
+				- _squad_rite_arrow_width
+				- (jobs_squad_rite_hint_gap_from_arrow * _layout.scale);
+			var _squad_rite_x = clamp(
+				_squad_rite_box_right - _squad_rite_width,
+				_squad_rite_margin,
+				_gui_width - _squad_rite_width - _squad_rite_margin
+			);
+			var _squad_rite_y = clamp(
+				_squad_rite_arrow_y - (_squad_rite_height * 0.5),
+				_squad_rite_margin,
+				_gui_height - _squad_rite_height - _squad_rite_margin
+			);
+			var _squad_rite_pulse = 0.88 + (sin(current_time * 0.006) * 0.08);
 
-				if (day_event_building_action_is_available(_onboarding_event)
-					&& day_event_reroll_is_available(_onboarding_event))
-				{
-					_onboarding_reroll_button_exists = true;
-					break;
-				}
-			}
-		}
-
-		draw_set_halign(fa_left);
-		draw_set_valign(fa_top);
-		draw_set_color(c_white);
-		draw_set_alpha(1);
-		draw_set_font(jobs_onboarding_font);
-
-		for (var _hint_index = 0; _hint_index < _onboarding_hint_count; ++_hint_index)
-		{
-			var _hint = jobs_onboarding_hints[_hint_index];
-			var _hint_text = _hint.text;
-			var _hint_text_x = _onboarding_design_offset_x + (_hint.text_x * _layout.scale);
-			var _hint_text_y = _hint.text_y * _layout.scale;
-
-			if (_onboarding_reroll_button_exists
-				&& variable_struct_exists(_hint, "text_with_reroll"))
-			{
-				_hint_text = _hint.text_with_reroll;
-			}
-
+			draw_set_halign(fa_left);
+			draw_set_valign(fa_top);
+			draw_set_alpha(jobs_squad_rite_hint_background_alpha * _squad_rite_pulse);
+			draw_set_color(COLOR_HUD_BACKGROUND);
+			draw_rectangle(
+				_squad_rite_x,
+				_squad_rite_y,
+				_squad_rite_x + _squad_rite_width,
+				_squad_rite_y + _squad_rite_height,
+				false
+			);
+			draw_set_alpha(_squad_rite_pulse);
+			draw_set_color(COLOR_HUD_TEXT);
 			draw_text_ext_transformed(
-				_hint_text_x,
-				_hint_text_y,
-				_hint_text,
-				jobs_onboarding_text_line_height,
-				_hint.text_width,
+				_squad_rite_x + _squad_rite_padding_x,
+				_squad_rite_y + _squad_rite_padding_y,
+				jobs_squad_rite_hint_text,
+				jobs_squad_rite_hint_line_height,
+				_squad_rite_text_width,
 				_layout.scale,
 				_layout.scale,
 				0
@@ -1584,23 +1960,128 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 
 			if (sprite_exists(s_attack_arrow))
 			{
-				var _hint_arrow_x = _onboarding_design_offset_x + (_hint.arrow_x * _layout.scale);
-				var _hint_arrow_y = _hint.arrow_y * _layout.scale;
-				var _hint_arrow_scale = jobs_onboarding_arrow_scale * _layout.scale;
-
 				draw_sprite_ext(
 					s_attack_arrow,
 					0,
-					_hint_arrow_x,
-					_hint_arrow_y,
-					_hint_arrow_scale,
-					_hint_arrow_scale,
-					_hint.arrow_angle,
+					_squad_rite_arrow_x,
+					_squad_rite_arrow_y,
+					_squad_rite_arrow_scale,
+					_squad_rite_arrow_scale,
+					jobs_squad_rite_hint_arrow_angle,
 					c_white,
-					BALANCE_ATTACK_ARROW_ALPHA
+					BALANCE_ATTACK_ARROW_ALPHA * _squad_rite_pulse
 				);
 			}
+
+			draw_set_font(_squad_rite_previous_font);
+			draw_set_halign(fa_left);
+			draw_set_valign(fa_top);
+			draw_set_color(c_white);
+			draw_set_alpha(1);
 		}
+	}
+
+	// Point at the Blood Bath construction Rite after the forced building choice.
+	var _blood_bath_rite_event_index = jobs_blood_bath_construction_event_index_get();
+
+	if (_blood_bath_rite_event_index >= 0
+		&& (!variable_global_exists("tutorial_hints_enabled") || global.tutorial_hints_enabled)
+		&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active))
+	{
+		var _blood_bath_rite_event = global.day_events[_blood_bath_rite_event_index];
+		var _blood_bath_rite_slot_count = _blood_bath_rite_event.cultist_cost
+			* _blood_bath_rite_event.activation_limit;
+		var _blood_bath_rite_left_slot = jobs_event_slot_rect_get(
+			_blood_bath_rite_event_index,
+			0,
+			_blood_bath_rite_slot_count
+		);
+		var _blood_bath_rite_arrow_scale = jobs_squad_rite_hint_arrow_scale * _layout.scale;
+		var _blood_bath_rite_arrow_width = sprite_exists(s_attack_arrow)
+			? sprite_get_width(s_attack_arrow) * _blood_bath_rite_arrow_scale
+			: 0;
+		var _blood_bath_rite_arrow_x = _blood_bath_rite_left_slot.x - (18 * _layout.scale);
+		var _blood_bath_rite_arrow_y = _blood_bath_rite_left_slot.y
+			+ (_blood_bath_rite_left_slot.height * 0.5);
+		var _blood_bath_rite_previous_font = draw_get_font();
+		draw_set_font(jobs_onboarding_font);
+
+		var _blood_bath_rite_max_text_width = jobs_squad_rite_hint_max_width
+			- (jobs_squad_rite_hint_padding_x * 2);
+		var _blood_bath_rite_text_width = min(
+			_blood_bath_rite_max_text_width,
+			string_width(jobs_blood_bath_rite_hint_text)
+		);
+		var _blood_bath_rite_width = (_blood_bath_rite_text_width
+			+ (jobs_squad_rite_hint_padding_x * 2)) * _layout.scale;
+		var _blood_bath_rite_padding_x = jobs_squad_rite_hint_padding_x * _layout.scale;
+		var _blood_bath_rite_padding_y = jobs_squad_rite_hint_padding_y * _layout.scale;
+		var _blood_bath_rite_text_height = string_height_ext(
+			jobs_blood_bath_rite_hint_text,
+			jobs_squad_rite_hint_line_height,
+			_blood_bath_rite_text_width
+		) * _layout.scale;
+		var _blood_bath_rite_height = _blood_bath_rite_text_height + (_blood_bath_rite_padding_y * 2);
+		var _blood_bath_rite_margin = 18 * _layout.scale;
+		var _blood_bath_rite_box_right = _blood_bath_rite_arrow_x
+			- _blood_bath_rite_arrow_width
+			- (jobs_squad_rite_hint_gap_from_arrow * _layout.scale);
+		var _blood_bath_rite_x = clamp(
+			_blood_bath_rite_box_right - _blood_bath_rite_width,
+			_blood_bath_rite_margin,
+			_gui_width - _blood_bath_rite_width - _blood_bath_rite_margin
+		);
+		var _blood_bath_rite_y = clamp(
+			_blood_bath_rite_arrow_y - (_blood_bath_rite_height * 0.5),
+			_blood_bath_rite_margin,
+			_gui_height - _blood_bath_rite_height - _blood_bath_rite_margin
+		);
+		var _blood_bath_rite_pulse = 0.88 + (sin(current_time * 0.006) * 0.08);
+
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_alpha(jobs_squad_rite_hint_background_alpha * _blood_bath_rite_pulse);
+		draw_set_color(COLOR_HUD_BACKGROUND);
+		draw_rectangle(
+			_blood_bath_rite_x,
+			_blood_bath_rite_y,
+			_blood_bath_rite_x + _blood_bath_rite_width,
+			_blood_bath_rite_y + _blood_bath_rite_height,
+			false
+		);
+		draw_set_alpha(_blood_bath_rite_pulse);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text_ext_transformed(
+			_blood_bath_rite_x + _blood_bath_rite_padding_x,
+			_blood_bath_rite_y + _blood_bath_rite_padding_y,
+			jobs_blood_bath_rite_hint_text,
+			jobs_squad_rite_hint_line_height,
+			_blood_bath_rite_text_width,
+			_layout.scale,
+			_layout.scale,
+			0
+		);
+
+		if (sprite_exists(s_attack_arrow))
+		{
+			draw_sprite_ext(
+				s_attack_arrow,
+				0,
+				_blood_bath_rite_arrow_x,
+				_blood_bath_rite_arrow_y,
+				_blood_bath_rite_arrow_scale,
+				_blood_bath_rite_arrow_scale,
+				jobs_squad_rite_hint_arrow_angle,
+				c_white,
+				BALANCE_ATTACK_ARROW_ALPHA * _blood_bath_rite_pulse
+			);
+		}
+
+		draw_set_font(_blood_bath_rite_previous_font);
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_color(c_white);
+		draw_set_alpha(1);
 	}
 
 	// Introduce the possessed cannon when its first demand appears at the top of day two.
@@ -1659,7 +2140,7 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 		}
 	}
 
-	// Keep contextual explanations above the Assign Duties window.
+	// Keep contextual explanations above the Assign Rites window.
 	jobs_cultist_info_draw();
 	jobs_hp_modifier_tooltip_draw();
 	jobs_building_overuse_tooltip_draw();
@@ -1677,7 +2158,7 @@ if (variable_global_exists("ui_font") && font_exists(global.ui_font))
 	draw_set_font(global.ui_font);
 }
 
-// The cannon's world meter remains above the Assign Duties panel as requested.
+// The cannon's world meter remains above the Assign Rites panel as requested.
 if (global.focus_window == FOCUS_WINDOW.JOBS)
 {
 	cannon_satisfaction_world_ui_draw();

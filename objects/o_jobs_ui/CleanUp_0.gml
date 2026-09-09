@@ -1,7 +1,7 @@
 // The shared Rite loop belongs to this interface and must not survive room changes.
 jobs_rite_loop_stop();
 
-// Restore the gameplay camera if this UI is destroyed while Assign Duties is open.
+// Restore the gameplay camera if this UI is destroyed while Assign Rites is open.
 if (global.focus_window == FOCUS_WINDOW.JOBS && instance_exists(o_camera_controller))
 {
 	var _camera_controller = instance_find(o_camera_controller, 0);

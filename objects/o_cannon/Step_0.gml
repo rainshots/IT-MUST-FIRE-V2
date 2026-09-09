@@ -43,6 +43,18 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 		}
 
 		global.cannon_fire_version++;
+
+		// A real Taint Compost shot starts the delayed End Day unlock tutorial.
+		if (target_projectile_type == PROJECTILE_TYPE.CORRUPTION && instance_exists(o_jobs_ui))
+		{
+			var _jobs_ui = instance_find(o_jobs_ui, 0);
+
+			if (variable_instance_exists(_jobs_ui, "jobs_taint_shot_register"))
+			{
+				_jobs_ui.jobs_taint_shot_register();
+			}
+		}
+
 		cannon_reload_start(target_projectile_type);
 		global.sound_play_random(global.cannon_shot_sounds);
 

@@ -6,7 +6,7 @@ hp = min(BALANCE_EVENT_CULTIST_STARTING_HP, max_hp);
 max_spirit = BALANCE_EVENT_CULTIST_MAX_SPIRIT;
 spirit = max_spirit;
 assigned_event = noone;
-// Completed Rite building sprites are stored oldest-first for the Assign Duties history.
+// Completed Rite building sprites are stored oldest-first for the Assign Rites history.
 work_history = [];
 // Building work counts unlock a queued Mastery offer; only completing it grants the bonus.
 building_work_counts = [];

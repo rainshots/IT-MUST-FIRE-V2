@@ -1,6 +1,8 @@
 // Passive summoning continues while regular movement may be paused by leap movement.
 gameplay_time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
 var _time_scale = gameplay_time_scale;
+var _hellcow_movement_is_locked = variable_instance_exists(id, "unit_hellcow_movement_is_locked")
+	&& unit_hellcow_movement_is_locked();
 
 // Funeral Pause also freezes Griffith's child-owned summons and leap sequence.
 if (doom_bell_stasis_is_active())
@@ -29,7 +31,7 @@ else if (hp <= 0)
 }
 
 // Update leap cooldown and retry when the boss has valid targets.
-if (!global.pause && hp > 0)
+if (!global.pause && hp > 0 && !_hellcow_movement_is_locked)
 {
 	for (var _segment_index = array_length(griffith_leap_visual_segments) - 1; _segment_index >= 0; --_segment_index)
 	{

@@ -1,4 +1,21 @@
 // Draw the empty building slot and highlight it when it can open construction.
+var _building_slots_visible = day_event_current_day_get() != 1;
+
+if (instance_exists(o_jobs_ui))
+{
+	var _jobs_ui = instance_find(o_jobs_ui, 0);
+
+	if (variable_instance_exists(_jobs_ui, "jobs_building_slots_are_visible"))
+	{
+		_building_slots_visible = _jobs_ui.jobs_building_slots_are_visible();
+	}
+}
+
+if (!_building_slots_visible)
+{
+	exit;
+}
+
 draw_self();
 
 if (global.focus_window == FOCUS_WINDOW.NOONE

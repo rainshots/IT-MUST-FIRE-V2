@@ -1,6 +1,6 @@
 /// @description Project-wide enums and macros.
 
-// Keep event management inside Assign Duties until the optional world interface returns.
+// Keep event management inside Assign Rites until the optional world interface returns.
 #macro WORLD_EVENT_INTERFACE_ENABLED false
 
 // Temporarily expose only the healing Rite from Blood Bath buildings.

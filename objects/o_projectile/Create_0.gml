@@ -309,6 +309,12 @@ hellcow_enemies_push = function(_move_distance)
 			{
 				// Keep caught enemies ahead without allowing the charge to push them through terrain.
 				var _required_push = max(_move_distance, _front_reach - _forward_distance);
+
+				if (variable_instance_exists(id, "unit_hellcow_movement_lock_apply"))
+				{
+					unit_hellcow_movement_lock_apply(other.id);
+				}
+
 				unit_forced_displacement_apply(
 					_direction_x * _required_push,
 					_direction_y * _required_push

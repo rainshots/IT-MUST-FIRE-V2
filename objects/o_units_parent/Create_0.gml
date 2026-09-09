@@ -276,6 +276,8 @@ stun_label_background_alpha = 0.82;
 stun_bar_width = 44;
 stun_bar_height = 4;
 stun_bar_gap = 4;
+// A caught unit cannot walk independently until its Hellcow charge ends.
+hellcow_movement_lock_source = noone;
 
 // Persistent Doom Bells own stasis and silence through removable source references.
 doom_bell_stasis_sources = [];
@@ -3177,8 +3179,46 @@ find_nearest_visible_cultist = function()
 	return _nearest_cultist;
 };
 
-move_with_wall_collision = function(_move_x, _move_y, _navigation_grid = noone)
+unit_hellcow_movement_lock_apply = function(_source)
 {
+	if (!instance_exists(_source)
+		|| !variable_instance_exists(_source, "hellcow_charge_active")
+		|| !_source.hellcow_charge_active)
+	{
+		return false;
+	}
+
+	hellcow_movement_lock_source = _source;
+	is_walking = false;
+	return true;
+};
+
+unit_hellcow_movement_is_locked = function()
+{
+	if (instance_exists(hellcow_movement_lock_source)
+		&& variable_instance_exists(hellcow_movement_lock_source, "hellcow_charge_active")
+		&& hellcow_movement_lock_source.hellcow_charge_active)
+	{
+		return true;
+	}
+
+	hellcow_movement_lock_source = noone;
+	return false;
+};
+
+move_with_wall_collision = function(
+	_move_x,
+	_move_y,
+	_navigation_grid = noone,
+	_ignore_hellcow_movement_lock = false)
+{
+	// Hellcow displacement bypasses the lock; every unit-owned movement respects it.
+	if (!_ignore_hellcow_movement_lock && unit_hellcow_movement_is_locked())
+	{
+		is_walking = false;
+		return false;
+	}
+
 	if (_move_x == 0 && _move_y == 0)
 	{
 		return false;
@@ -3612,7 +3652,7 @@ unit_forced_displacement_apply = function(_move_x, _move_y)
 	}
 
 	// Swept movement stops or slides at occupied cells instead of jumping through them.
-	var _has_moved = move_with_wall_collision(_move_x, _move_y, _navigation_grid);
+	var _has_moved = move_with_wall_collision(_move_x, _move_y, _navigation_grid, true);
 
 	if (_has_moved)
 	{

@@ -1,4 +1,4 @@
-// Event information and actions currently live exclusively in Assign Duties.
+// Event information and actions currently live exclusively in Assign Rites.
 if (!WORLD_EVENT_INTERFACE_ENABLED)
 {
 	world_event_hover_active = false;

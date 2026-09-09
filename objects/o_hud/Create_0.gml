@@ -1090,6 +1090,15 @@ projectile_matchup_row_gap = 42;
 projectile_matchup_card_gap = 10;
 projectile_matchup_sprite_size = 28;
 projectile_matchup_background_alpha = 0.9;
+// First-day onboarding points directly at the Taint Compost projectile slot.
+taint_aim_hint_max_width = 340;
+taint_aim_hint_line_height = 24;
+taint_aim_hint_padding_x = 14;
+taint_aim_hint_padding_y = 10;
+taint_aim_hint_gap_from_arrow = 18;
+taint_aim_hint_background_alpha = 0.92;
+taint_aim_hint_arrow_scale = 0.35;
+taint_aim_hint_arrow_angle = 270;
 
 projectile_display_slots_get = function(_game_controller, _max_display_count = 9)
 {
@@ -1108,6 +1117,17 @@ projectile_display_slots_get = function(_game_controller, _max_display_count = 9
 
 projectile_slot_at_gui_position = function(_mouse_x, _mouse_y, _game_controller)
 {
+	if (instance_exists(o_jobs_ui))
+	{
+		var _jobs_ui = instance_find(o_jobs_ui, 0);
+
+		if (variable_instance_exists(_jobs_ui, "jobs_projectile_ui_is_visible")
+			&& !_jobs_ui.jobs_projectile_ui_is_visible())
+		{
+			return noone;
+		}
+	}
+
 	var _display_slots = projectile_display_slots_get(_game_controller, 9);
 	var _display_count = array_length(_display_slots);
 
@@ -1347,7 +1367,7 @@ projectile_descriptions[PROJECTILE_TYPE.BOMB] = "Hold and drag from the landing 
 	+ string(BALANCE_PROJECTILE_HELLCOW_CORRIDOR_WIDTH)
 	+ "px-wide HellCow charge. It pushes enemies along the arrow.";
 projectile_descriptions[PROJECTILE_TYPE.SKELETONS] = "Summons " + string(BALANCE_PROJECTILE_SKELETON_COUNT) + " skeleton inside a " + string(BALANCE_PROJECTILE_SKELETON_RADIUS) + " pixel radius. Payload Mastery improves it.";
-projectile_descriptions[PROJECTILE_TYPE.BUILDING_SHELL] = "Builds its stored structure where it lands. Must be fired onto tainted ground.";
+projectile_descriptions[PROJECTILE_TYPE.BUILDING_SHELL] = "Summons its stored structure where it lands. Must be fired onto tainted ground.";
 projectile_descriptions[PROJECTILE_TYPE.CLEANSE] = "Enemy projectile that removes Taint where it lands.";
 projectile_descriptions[PROJECTILE_TYPE.DOOM_BELL] = "Stuns all friendly and enemy units inside a "
 	+ string(BALANCE_PROJECTILE_DOOM_BELL_RADIUS)

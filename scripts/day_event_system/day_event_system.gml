@@ -985,8 +985,8 @@ function day_event_building_construction_create(_construction_site, _choice, _is
 		: object_get_name(_choice.building_object);
 	var _event = new day_event_constructor(
 		"construct_building_" + string(_construction_site),
-		"Construct " + _building_name,
-		"Construct " + _building_name + ".",
+		"Summon " + _building_name,
+		"Summon " + _building_name + ".",
 		BALANCE_BUILDING_CONSTRUCTION_CULTIST_COST,
 		1,
 		[
@@ -1402,7 +1402,7 @@ function day_event_cannon_polish_teeth_execute(_event, _assigned_cultists, _data
 	return day_event_cannon_demand_reward_apply(_data.reward);
 }
 
-function day_event_cannon_demand_create(_demand_index)
+function day_event_cannon_demand_create(_demand_index, _required_cultist = noone)
 {
 	if (!instance_exists(o_cannon))
 	{
@@ -1459,7 +1459,7 @@ function day_event_cannon_demand_create(_demand_index)
 			_event = new day_event_constructor(
 				"cannon_demand_pick_favorite",
 				"Pick a Favorite",
-				"I choose a favorite to restore 100 HP. The others pay for it.\nReward: +50 Cannon Satisfaction. Ignored: -10.",
+				"Bring me three. One gets to be my favorite (+50 HP). The others pay for it (-10 HP).\nReward: +30 Cannon Satisfaction.\nIf ignored: -10 Cannon Satisfaction.",
 				3,
 				1,
 				[
@@ -1500,10 +1500,17 @@ function day_event_cannon_demand_create(_demand_index)
 			break;
 
 		case 4:
+			if (!instance_exists(_required_cultist)
+				|| !variable_instance_exists(_required_cultist, "hp")
+				|| _required_cultist.hp <= 0)
+			{
+				return noone;
+			}
+
 			_event = new day_event_constructor(
 				"cannon_demand_very_happy",
 				"Make Me Very, Very Happy",
-				"When I'm done, I promise I'll be very, very happy.\nReward: +30 Cannon Satisfaction. Ignored: -20.",
+				"I want that one. Yes, the one trying not to look at me. Bring them closer - I promise I'll be very, very happy when I'm done.\nReward: +30 Cannon Satisfaction. Ignored: -20.",
 				1,
 				1,
 				[
@@ -1517,6 +1524,7 @@ function day_event_cannon_demand_create(_demand_index)
 					)
 				]
 			);
+			_event.required_cultist = _required_cultist;
 			_event.ignored_satisfaction_penalty = BALANCE_CANNON_DEMAND_VERY_HAPPY_IGNORED_PENALTY;
 			break;
 
@@ -1564,13 +1572,37 @@ function day_event_cannon_demand_add()
 	// Build the random pool from demands whose requirements can currently be met.
 	var _demand_count = 6;
 	var _broken_toy_demand_index = 0;
+	var _very_happy_demand_index = 4;
 	var _broken_toy_is_available = day_event_cannon_broken_toy_is_available();
+	var _living_cultists = [];
+	var _cultist_count = array_length(global.event_cultists);
+
+	// The Cannon chooses one specific living Cultist for Make Me Very, Very Happy.
+	for (var _cultist_index = 0; _cultist_index < _cultist_count; ++_cultist_index)
+	{
+		var _cultist = global.event_cultists[_cultist_index];
+
+		if (instance_exists(_cultist)
+			&& variable_instance_exists(_cultist, "hp")
+			&& _cultist.hp > 0)
+		{
+			array_push(_living_cultists, _cultist);
+		}
+	}
+
+	var _living_cultist_count = array_length(_living_cultists);
 	var _available_demand_indices = [];
 
 	for (var _demand_index = 0; _demand_index < _demand_count; ++_demand_index)
 	{
 		if (_demand_index == _broken_toy_demand_index
 			&& !_broken_toy_is_available)
+		{
+			continue;
+		}
+
+		if (_demand_index == _very_happy_demand_index
+			&& _living_cultist_count <= 0)
 		{
 			continue;
 		}
@@ -1585,7 +1617,14 @@ function day_event_cannon_demand_add()
 
 	var _available_demand_count = array_length(_available_demand_indices);
 	var _selected_demand_index = _available_demand_indices[irandom(_available_demand_count - 1)];
-	var _demand = day_event_cannon_demand_create(_selected_demand_index);
+	var _required_cultist = noone;
+
+	if (_selected_demand_index == _very_happy_demand_index)
+	{
+		_required_cultist = _living_cultists[irandom(_living_cultist_count - 1)];
+	}
+
+	var _demand = day_event_cannon_demand_create(_selected_demand_index, _required_cultist);
 
 	return day_event_add_first(_demand);
 }
@@ -4336,7 +4375,7 @@ function day_event_ritual_events_add(_ritual_circle)
 		_ritual_circle,
 		"invite_worthy",
 		"Invite the Worthy",
-		"Add 20% more enemies next night. If the cannon survives, every constructed building generates one additional event tomorrow.",
+		"Add 20% more enemies next night. If the cannon survives, every summoned building generates one additional event tomorrow.",
 		BALANCE_RITUAL_EVENT_CULTIST_COUNT,
 		BALANCE_RITUAL_EVENT_HP_COST
 	));
@@ -6200,6 +6239,21 @@ function day_event_building_daily_events_limit_apply(_additional_event_count = 0
 	return array_length(global.day_events);
 }
 
+function day_event_building_can_offer_daily_rite(_building)
+{
+	if (!instance_exists(_building))
+	{
+		return false;
+	}
+
+	// Starting specialization buildings remain silent during the first-day onboarding.
+	var _is_first_day_specialization_building = day_event_current_day_get() == 1
+		&& (_building.object_index == o_pitlings_pit2
+			|| _building.object_index == o_graveyard2);
+
+	return !_is_first_day_specialization_building;
+}
+
 // Passing a source limits generation to that instance, without world jobs or daily bonuses.
 function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_additional_bonus = true, _source_building = noone)
 {
@@ -6408,7 +6462,8 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 	for (var _pit_index = 0; _pit_index < _pit_count; ++_pit_index)
 	{
 		var _pit = instance_find(o_pitlings_pit2, _pit_index);
-		if (!_generate_all_buildings && _pit != _source_building)
+		if (!day_event_building_can_offer_daily_rite(_pit)
+			|| (!_generate_all_buildings && _pit != _source_building))
 		{
 			continue;
 		}
@@ -6461,7 +6516,8 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 	for (var _graveyard_index = 0; _graveyard_index < _graveyard_count; ++_graveyard_index)
 	{
 		var _graveyard = instance_find(o_graveyard2, _graveyard_index);
-		if (!_generate_all_buildings && _graveyard != _source_building)
+		if (!day_event_building_can_offer_daily_rite(_graveyard)
+			|| (!_generate_all_buildings && _graveyard != _source_building))
 		{
 			continue;
 		}
@@ -6696,7 +6752,8 @@ function day_event_building_events_add(_building, _ignore_existing_events = fals
 {
 	if (!instance_exists(_building)
 		|| global.day_phase != DAY_PHASE.DAY
-		|| !object_is_ancestor(_building.object_index, o_v13buildings_parent))
+		|| !object_is_ancestor(_building.object_index, o_v13buildings_parent)
+		|| !day_event_building_can_offer_daily_rite(_building))
 	{
 		return 0;
 	}

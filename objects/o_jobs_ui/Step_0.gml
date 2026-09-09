@@ -20,7 +20,7 @@ if (!instance_exists(jobs_whip)
 	jobs_whip = instance_create_layer(0, 0, "Instances", o_whip);
 }
 
-// Invoked Rites progress only while Assign Duties is the active window.
+// Invoked Rites progress only while Assign Rites is the active window.
 if (global.day_phase == DAY_PHASE.DAY && global.focus_window == FOCUS_WINDOW.JOBS)
 {
 	var _dragged_event = instance_exists(jobs_dragged_cultist)
@@ -31,8 +31,12 @@ if (global.day_phase == DAY_PHASE.DAY && global.focus_window == FOCUS_WINDOW.JOB
 	jobs_scroll_clamp();
 }
 
-// Keep audio in sync even when another modal window interrupts Assign Duties.
+// Keep audio in sync even when another modal window interrupts Assign Rites.
 jobs_rite_loop_update();
+
+// Completing the introductory recruitment Rite advances the blocking tutorial chain.
+jobs_first_day_onboarding_update();
+jobs_taint_onboarding_update();
 
 // Any mouse action or inactive window closes the delayed Cultist information card.
 if (global.focus_window != FOCUS_WINDOW.JOBS
@@ -49,14 +53,14 @@ if (instance_exists(jobs_whip)
 	jobs_whip.whip_release();
 }
 
-// Tutorial popups block Assign Duties input while they are visible above the window.
+// Tutorial popups block Assign Rites input while they are visible above the window.
 if (variable_global_exists("tutorial_popup_active") && global.tutorial_popup_active)
 {
 	jobs_cultist_info_reset();
 	exit;
 }
 
-// Tab toggles Assign Duties through the same open and close paths as its buttons.
+// Tab toggles Assign Rites through the same open and close paths as its buttons.
 if (keyboard_check_pressed(vk_tab) && jobs_window_toggle())
 {
 	if (variable_global_exists("ui_confirm_sound_play"))
@@ -79,7 +83,9 @@ if (jobs_input_blocked_until_mouse_release)
 	jobs_input_blocked_until_mouse_release = false;
 }
 
-if (global.day_phase == DAY_PHASE.DAY && global.focus_window == FOCUS_WINDOW.NOONE)
+if (global.day_phase == DAY_PHASE.DAY
+	&& global.focus_window == FOCUS_WINDOW.NOONE
+	&& jobs_show_button_is_visible())
 {
 	var _hover_show_rect = jobs_show_button_rect_get();
 	_show_hovered_now = point_in_rectangle(
@@ -180,7 +186,8 @@ if (global.focus_window != FOCUS_WINDOW.JOBS)
 		var _show_rect = jobs_show_button_rect_get();
 		var _end_rect = jobs_end_day_button_rect_get();
 
-		if (point_in_rectangle(
+		if (jobs_show_button_is_visible()
+			&& point_in_rectangle(
 			_mouse_x,
 			_mouse_y,
 			_show_rect.x,

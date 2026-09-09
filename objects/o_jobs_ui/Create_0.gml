@@ -1,7 +1,7 @@
 // Draw Jobs above gameplay indicators while keeping tutorial popups in front.
 depth = DEPTH_JOBS_UI;
 
-// One shared loop accompanies all currently progressing Rites in Assign Duties.
+// One shared loop accompanies all currently progressing Rites in Assign Rites.
 jobs_rite_loop_handle = noone;
 jobs_rite_loop_stop = function()
 {
@@ -84,7 +84,7 @@ jobs_event_gap = 6;
 // Reminder shown after the final event card in the scrollable list.
 jobs_event_footer_gap = 18;
 jobs_event_footer_height = 34;
-jobs_event_footer_text = "Don't forget that you can build buildings and towers. They require a Cultist, but do not cost HP.";
+jobs_event_footer_text = "Don't forget that you can summon buildings and towers. They require a Cultist, but do not cost HP.";
 jobs_icon_width = 44;
 jobs_icon_height = 60;
 jobs_icon_gap = 8;
@@ -158,6 +158,23 @@ jobs_show_hovered = false;
 jobs_end_hovered = false;
 // Unlocks End Day after the player has opened Cultist Assignment once.
 jobs_window_opened_once = false;
+// First-day Assign Rites onboarding advances from the overview to the recruitment Rite.
+jobs_assign_rites_overview_closed = false;
+jobs_first_squad_rite_event = noone;
+jobs_first_squad_rite_completed = false;
+jobs_cultist_spirit_tutorial_triggered = false;
+// Building onboarding stays locked until the recruitment Rite is complete and Assign Rites closes.
+jobs_building_slots_unlocked = false;
+jobs_building_slot_hint_active = false;
+jobs_blood_bath_selection_started = false;
+jobs_blood_bath_selection_completed = false;
+jobs_blood_bath_construction_event = noone;
+jobs_night_attack_preview_triggered = false;
+jobs_taint_aim_hint_active = false;
+jobs_taint_shot_registered = false;
+jobs_taint_shot_time = -1;
+jobs_end_day_tutorial_unlocked = false;
+jobs_end_day_hint_active = false;
 jobs_confirmation_cancel_hovered = false;
 jobs_confirmation_end_hovered = false;
 jobs_confirmation_previous_pause_state = false;
@@ -192,49 +209,49 @@ jobs_assignment_hint_arrow_tip_offset_x = 19;
 jobs_assignment_hint_arrow_tip_offset_y = 68;
 jobs_assignment_hint_arrow_scale = 0.5;
 jobs_assignment_hint_arrow_angle = 45;
-// First-day Assign Duties onboarding follows the annotated 1920x1080 Figma composition.
+// The first-day world hint leads into the existing Assign Rites button hint.
+jobs_squad_point_hint_text = "Click a Squad Summoning Circle to create a Squad Summoning Rite.";
+jobs_squad_point_hint_max_width = 430;
+jobs_squad_point_hint_line_height = 24;
+jobs_squad_point_hint_padding_x = 14;
+jobs_squad_point_hint_padding_y = 10;
+jobs_squad_point_hint_offset_y = 90;
+jobs_squad_point_hint_background_alpha = 0.86;
+jobs_squad_point_hint_arrow_scale = 0.5;
+jobs_squad_point_hint_arrow_angle = 90;
+// The first recruitment card is explained after the overview popup closes.
+jobs_squad_rite_hint_text = "To perform a Rite, hold LMB on a Cultist and drag them into a free event slot. Fill every required slot, then press the INVOKE button that appears.";
+jobs_squad_rite_hint_max_width = 480;
+jobs_squad_rite_hint_line_height = 24;
+jobs_squad_rite_hint_padding_x = 14;
+jobs_squad_rite_hint_padding_y = 10;
+jobs_squad_rite_hint_gap_from_arrow = 24;
+jobs_squad_rite_hint_background_alpha = 0.92;
+jobs_squad_rite_hint_arrow_scale = 0.35;
+jobs_squad_rite_hint_arrow_angle = 0;
+// Building onboarding continues in the world, the construction menu, and the resulting Rite card.
+jobs_building_slot_hint_text = "Click to choose a building to summon.";
+jobs_building_slot_hint_max_width = 390;
+jobs_building_slot_hint_line_height = 24;
+jobs_building_slot_hint_padding_x = 14;
+jobs_building_slot_hint_padding_y = 10;
+jobs_building_slot_hint_offset_y = 90;
+jobs_building_slot_hint_background_alpha = 0.86;
+jobs_building_slot_hint_arrow_scale = 0.5;
+jobs_building_slot_hint_arrow_angle = 90;
+jobs_blood_bath_rite_hint_text = "Assign a Cultist to the summoning Rite, then press INVOKE.";
+jobs_taint_aim_hint_text = "Press 4 to aim this shell.";
+jobs_end_day_hint_text = "Press this button to start the night.";
+jobs_end_day_hint_max_width = 360;
+jobs_end_day_hint_line_height = 24;
+jobs_end_day_hint_padding_x = 14;
+jobs_end_day_hint_padding_y = 10;
+jobs_end_day_hint_gap_from_arrow = 20;
+jobs_end_day_hint_background_alpha = 0.92;
+jobs_end_day_hint_arrow_scale = 0.35;
+jobs_end_day_hint_arrow_angle = 180;
+// Shared reference point for the second-day Cannon Satisfaction composition.
 jobs_onboarding_design_panel_x = 1099;
-jobs_onboarding_arrow_scale = 0.5;
-jobs_onboarding_text_line_height = 22;
-jobs_onboarding_hints = [
-	{
-		text: "Unassigned Cultists",
-		text_x: 953,
-		text_y: 69,
-		text_width: 228,
-		arrow_x: 1274,
-		arrow_y: 93,
-		arrow_angle: 0
-	},
-	{
-		text: "Each building gives one random Rite per day.",
-		text_x: 839,
-		text_y: 164,
-		text_width: 228,
-		arrow_x: 1155,
-		arrow_y: 194,
-		arrow_angle: 0
-	},
-	{
-		text: "Assign every required Cultist, then press INVOKE. The Rite completes after " + string(BALANCE_DAY_EVENT_EXECUTION_TIME) + " seconds while Assign Duties remains open.",
-		text_x: 1123,
-		text_y: 620,
-		text_width: 250,
-		arrow_x: 1179,
-		arrow_y: 505,
-		arrow_angle: 90
-	},
-	{
-		text: "You can pin 1 Rite per day, so it will remain available tomorrow.\nSome Rites cannot be pinned.",
-		text_with_reroll: "You can pin 1 Rite per day, so it will remain available tomorrow.\nYou can also reroll building Rites while the Cannon is Playful or better.\nSome Rites cannot be rerolled or pinned.",
-		text_x: 1625,
-		text_y: 620,
-		text_width: 250,
-		arrow_x: 1807,
-		arrow_y: 505,
-		arrow_angle: 90
-	}
-];
 // Second-day Cannon Satisfaction introduction follows the annotated Figma composition.
 jobs_cannon_satisfaction_hint_text = "The Cannon is possessed, moody, and bored. "
 	+ "Fulfill its demands to raise Satisfaction and earn unholy bonuses. "
@@ -252,7 +269,7 @@ jobs_end_day_button_bottom_margin = 65;
 jobs_end_day_button_text_padding_x = 20;
 jobs_end_day_button_text_padding_y = 12;
 jobs_first_archdemon_event_id = day_event_world_archdemon_event_id_get(1);
-jobs_first_archdemon_assignment_prompt = "Summon a Archdemon in\nthe assign duties window";
+jobs_first_archdemon_assignment_prompt = "Summon a Archdemon in\nthe assign rites window";
 jobs_confirmation_width = 860;
 jobs_confirmation_height = 270;
 jobs_confirmation_padding = 42;
@@ -415,6 +432,302 @@ jobs_show_button_rect_get = function()
 	};
 };
 
+jobs_show_button_is_visible = function()
+{
+	// The first squad recruitment Rite introduces Assign Rites on day one.
+	return day_event_current_day_get() != 1
+		|| jobs_window_opened_once
+		|| squad_slot_occupied_count_get() > 0;
+};
+
+jobs_squad_point_hint_target_get = function()
+{
+	if (day_event_current_day_get() != 1
+		|| squad_slot_occupied_count_get() > 0
+		|| !instance_exists(o_squad_point))
+	{
+		return noone;
+	}
+
+	var _origin_x = room_width * 0.5;
+	var _origin_y = room_height * 0.5;
+
+	if (instance_exists(o_cannon))
+	{
+		var _cannon = instance_find(o_cannon, 0);
+		_origin_x = _cannon.x;
+		_origin_y = _cannon.y;
+	}
+
+	var _target = noone;
+	var _target_distance = infinity;
+	var _point_count = instance_number(o_squad_point);
+
+	// Prefer the available circle nearest the Cannon for a stable first-day target.
+	for (var _point_index = 0; _point_index < _point_count; ++_point_index)
+	{
+		var _point = instance_find(o_squad_point, _point_index);
+
+		if (!instance_exists(_point)
+			|| !variable_instance_exists(_point, "squad_point_state")
+			|| _point.squad_point_state != SQUAD_POINT_STATE.AVAILABLE)
+		{
+			continue;
+		}
+
+		var _distance = point_distance(_origin_x, _origin_y, _point.x, _point.y);
+
+		if (_distance < _target_distance)
+		{
+			_target = _point;
+			_target_distance = _distance;
+		}
+	}
+
+	return _target;
+};
+
+jobs_first_squad_rite_event_get = function()
+{
+	if (is_struct(jobs_first_squad_rite_event))
+	{
+		return jobs_first_squad_rite_event;
+	}
+
+	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
+	{
+		var _event = global.day_events[_event_index];
+
+		if (is_struct(_event)
+			&& variable_struct_exists(_event, "reserves_squad_slot")
+			&& _event.reserves_squad_slot)
+		{
+			jobs_first_squad_rite_event = _event;
+			return _event;
+		}
+	}
+
+	return noone;
+};
+
+jobs_first_squad_rite_event_index_get = function()
+{
+	var _target_event = jobs_first_squad_rite_event_get();
+
+	if (!is_struct(_target_event))
+	{
+		return -1;
+	}
+
+	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
+	{
+		if (global.day_events[_event_index] == _target_event)
+		{
+			return _event_index;
+		}
+	}
+
+	return -1;
+};
+
+jobs_building_slots_are_visible = function()
+{
+	return day_event_current_day_get() != 1 || jobs_building_slots_unlocked;
+};
+
+jobs_building_slot_hint_target_get = function()
+{
+	if (!jobs_building_slot_hint_active || !jobs_building_slots_are_visible())
+	{
+		return noone;
+	}
+
+	var _origin_x = room_width * 0.5;
+	var _origin_y = room_height * 0.5;
+
+	if (instance_exists(o_cannon))
+	{
+		var _cannon = instance_find(o_cannon, 0);
+		_origin_x = _cannon.x;
+		_origin_y = _cannon.y;
+	}
+
+	var _target = noone;
+	var _target_distance = infinity;
+	var _slot_count = instance_number(o_building_slot);
+
+	// Use the nearest available slot so the hint remains stable and easy to find.
+	for (var _slot_index = 0; _slot_index < _slot_count; ++_slot_index)
+	{
+		var _slot = instance_find(o_building_slot, _slot_index);
+
+		if (!instance_exists(_slot)
+			|| (variable_instance_exists(_slot, "construction_event_pending")
+				&& _slot.construction_event_pending))
+		{
+			continue;
+		}
+
+		var _distance = point_distance(_origin_x, _origin_y, _slot.x, _slot.y);
+
+		if (_distance < _target_distance)
+		{
+			_target = _slot;
+			_target_distance = _distance;
+		}
+	}
+
+	return _target;
+};
+
+jobs_blood_bath_building_window_open = function()
+{
+	if (day_event_current_day_get() != 1
+		|| !jobs_building_slots_unlocked
+		|| jobs_blood_bath_selection_started
+		|| jobs_blood_bath_selection_completed)
+	{
+		return false;
+	}
+
+	jobs_blood_bath_selection_started = true;
+	jobs_building_slot_hint_active = false;
+	return true;
+};
+
+jobs_blood_bath_construction_selected = function(_event)
+{
+	if (!is_struct(_event))
+	{
+		return false;
+	}
+
+	jobs_blood_bath_selection_completed = true;
+	jobs_blood_bath_construction_event = _event;
+	return true;
+};
+
+jobs_blood_bath_construction_event_index_get = function()
+{
+	if (!is_struct(jobs_blood_bath_construction_event)
+		|| (variable_struct_exists(jobs_blood_bath_construction_event, "is_resolved")
+			&& jobs_blood_bath_construction_event.is_resolved))
+	{
+		return -1;
+	}
+
+	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
+	{
+		if (global.day_events[_event_index] == jobs_blood_bath_construction_event)
+		{
+			return _event_index;
+		}
+	}
+
+	return -1;
+};
+
+jobs_first_day_taint_onboarding_is_required = function()
+{
+	return day_event_current_day_get() == 1
+		&& (!variable_global_exists("tutorial_hints_enabled") || global.tutorial_hints_enabled);
+};
+
+// Hide the first attack preview until its tutorial popup is shown.
+jobs_night_attack_warning_is_visible = function()
+{
+	return !jobs_first_day_taint_onboarding_is_required()
+		|| jobs_night_attack_preview_triggered;
+};
+
+jobs_taint_projectile_is_unlocked = function()
+{
+	return !jobs_first_day_taint_onboarding_is_required() || jobs_taint_aim_hint_active;
+};
+
+jobs_projectile_ui_is_visible = function()
+{
+	return !jobs_first_day_taint_onboarding_is_required()
+		|| jobs_taint_aim_hint_active
+		|| jobs_taint_shot_registered;
+};
+
+jobs_taint_aim_hint_start = function()
+{
+	if (!jobs_first_day_taint_onboarding_is_required() || jobs_taint_shot_registered)
+	{
+		return false;
+	}
+
+	jobs_taint_aim_hint_active = true;
+	return true;
+};
+
+jobs_taint_shot_register = function()
+{
+	if (!jobs_first_day_taint_onboarding_is_required()
+		|| !jobs_taint_aim_hint_active
+		|| jobs_taint_shot_registered)
+	{
+		return false;
+	}
+
+	jobs_taint_aim_hint_active = false;
+	jobs_taint_shot_registered = true;
+	jobs_taint_shot_time = current_time;
+	return true;
+};
+
+jobs_taint_onboarding_update = function()
+{
+	if (!jobs_first_day_taint_onboarding_is_required()
+		|| jobs_end_day_tutorial_unlocked
+		|| !jobs_taint_shot_registered
+		|| jobs_taint_shot_time < 0
+		|| current_time < jobs_taint_shot_time + 2000)
+	{
+		return;
+	}
+
+	jobs_end_day_tutorial_unlocked = true;
+	jobs_end_day_hint_active = true;
+};
+
+jobs_onboarding_tutorial_closed = function(_hint_id)
+{
+	if (_hint_id == "assign_rites_overview")
+	{
+		jobs_assign_rites_overview_closed = true;
+		jobs_first_squad_rite_event_get();
+	}
+};
+
+jobs_first_day_onboarding_update = function()
+{
+	if (!jobs_assign_rites_overview_closed || jobs_first_squad_rite_completed)
+	{
+		return;
+	}
+
+	var _squad_rite_event = jobs_first_squad_rite_event_get();
+
+	if (!is_struct(_squad_rite_event)
+		|| !variable_struct_exists(_squad_rite_event, "is_resolved")
+		|| !_squad_rite_event.is_resolved)
+	{
+		return;
+	}
+
+	jobs_first_squad_rite_completed = true;
+
+	if (!jobs_cultist_spirit_tutorial_triggered
+		&& variable_global_exists("tutorial_hint_trigger"))
+	{
+		jobs_cultist_spirit_tutorial_triggered = true;
+		global.tutorial_hint_trigger("assign_rites_cultist_spirit");
+	}
+};
+
 jobs_end_day_button_rect_get = function()
 {
 	var _gui_width = display_get_gui_width();
@@ -434,11 +747,18 @@ jobs_end_day_button_rect_get = function()
 
 jobs_end_day_is_visible = function()
 {
-	return jobs_window_opened_once;
+	return jobs_window_opened_once
+		&& (!jobs_first_day_taint_onboarding_is_required() || jobs_end_day_tutorial_unlocked);
 };
 
 jobs_first_archdemon_assignment_is_missing = function()
 {
+	// The new first-day sequence unlocks a real END DAY button after the Taint shot.
+	if (day_event_current_day_get() == 1 && jobs_end_day_tutorial_unlocked)
+	{
+		return false;
+	}
+
 	if (!jobs_window_opened_once
 		|| global.day_phase != DAY_PHASE.DAY
 		|| day_event_current_day_get() != 1)
@@ -514,23 +834,27 @@ jobs_end_day_confirmation_layout_get = function()
 	};
 };
 
-jobs_unassigned_cultist_count_get = function()
+jobs_unused_spirit_cultist_count_get = function()
 {
-	var _unassigned_count = 0;
+	var _unused_spirit_count = 0;
 
 	for (var _cultist_index = 0; _cultist_index < array_length(global.event_cultists); ++_cultist_index)
 	{
 		var _cultist = global.event_cultists[_cultist_index];
 
 		if (instance_exists(_cultist)
-			&& variable_instance_exists(_cultist, "is_available")
-			&& _cultist.is_available())
+			&& variable_instance_exists(_cultist, "is_unconscious")
+			&& !_cultist.is_unconscious
+			&& variable_instance_exists(_cultist, "hp")
+			&& _cultist.hp > 0
+			&& variable_instance_exists(_cultist, "spirit")
+			&& _cultist.spirit > 0)
 		{
-			_unassigned_count++;
+			_unused_spirit_count++;
 		}
 	}
 
-	return _unassigned_count;
+	return _unused_spirit_count;
 };
 
 jobs_available_assignment_slot_count_get = function()
@@ -612,10 +936,12 @@ jobs_end_day_request = function()
 		return false;
 	}
 
-	var _unassigned_count = jobs_unassigned_cultist_count_get();
+	jobs_end_day_hint_active = false;
+
+	var _unused_spirit_count = jobs_unused_spirit_cultist_count_get();
 	var _available_slot_count = jobs_available_assignment_slot_count_get();
 
-	if (_unassigned_count > 0 && _available_slot_count > 0)
+	if (_unused_spirit_count > 0 && _available_slot_count > 0)
 	{
 		jobs_confirmation_previous_pause_state = global.pause;
 		global.pause = true;
@@ -2035,11 +2361,14 @@ jobs_cultist_info_draw = function()
 
 jobs_window_open = function()
 {
-	if (global.day_phase != DAY_PHASE.DAY || global.focus_window != FOCUS_WINDOW.NOONE)
+	if (global.day_phase != DAY_PHASE.DAY
+		|| global.focus_window != FOCUS_WINDOW.NOONE
+		|| !jobs_show_button_is_visible())
 	{
 		return false;
 	}
 
+	var _is_first_open = !jobs_window_opened_once;
 	jobs_dragged_cultist = noone;
 	jobs_drag_origin_event = noone;
 	jobs_drag_origin_slot_index = -1;
@@ -2085,6 +2414,14 @@ jobs_window_open = function()
 		}
 	}
 
+	// The blocking overview appears only on the first opening of Assign Rites.
+	if (_is_first_open
+		&& day_event_current_day_get() == 1
+		&& variable_global_exists("tutorial_hint_trigger"))
+	{
+		global.tutorial_hint_trigger("assign_rites_overview");
+	}
+
 	return true;
 };
 
@@ -2105,6 +2442,27 @@ jobs_window_close = function()
 	if (instance_exists(jobs_whip))
 	{
 		jobs_whip.whip_release();
+	}
+
+	// Closing Assign Rites after recruitment reveals the settlement construction slots.
+	if (day_event_current_day_get() == 1
+		&& jobs_first_squad_rite_completed
+		&& !jobs_building_slots_unlocked)
+	{
+		jobs_building_slots_unlocked = true;
+		jobs_building_slot_hint_active = true;
+	}
+
+	// The completed Blood Bath closes the construction tutorial with the attack preview.
+	if (jobs_first_day_taint_onboarding_is_required()
+		&& !jobs_night_attack_preview_triggered
+		&& is_struct(jobs_blood_bath_construction_event)
+		&& variable_struct_exists(jobs_blood_bath_construction_event, "is_resolved")
+		&& jobs_blood_bath_construction_event.is_resolved
+		&& variable_global_exists("tutorial_hint_trigger"))
+	{
+		jobs_night_attack_preview_triggered = true;
+		global.tutorial_hint_trigger("night_attack_preview");
 	}
 
 	if (instance_exists(o_camera_controller))

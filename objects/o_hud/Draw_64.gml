@@ -1473,8 +1473,29 @@ if (variable_global_exists("first_night_cultist_projectile_fired")
 	}
 }
 
+// Draw the world meter before contextual windows so their information stays readable above it.
+if (global.focus_window == FOCUS_WINDOW.NOONE
+	|| global.focus_window == FOCUS_WINDOW.TARGET_SELECTION)
+{
+	cannon_satisfaction_world_ui_draw();
+}
+
+// Keep the projectile row hidden until the first-day Taint lesson reaches aiming.
+var _projectile_ui_is_visible = true;
+
+if (instance_exists(o_jobs_ui))
+{
+	var _projectile_ui_jobs = instance_find(o_jobs_ui, 0);
+
+	if (variable_instance_exists(_projectile_ui_jobs, "jobs_projectile_ui_is_visible"))
+	{
+		_projectile_ui_is_visible = _projectile_ui_jobs.jobs_projectile_ui_is_visible();
+	}
+}
+
 // Draw queued cannon projectiles at the bottom center of the HUD.
-if (variable_global_exists("cannon_projectile_queue")
+if (_projectile_ui_is_visible
+	&& variable_global_exists("cannon_projectile_queue")
 	&& variable_global_exists("day_phase"))
 {
 	var _combat_projectiles_are_active = global.day_phase == DAY_PHASE.NIGHT;
@@ -1501,7 +1522,8 @@ if (variable_global_exists("cannon_projectile_queue")
 	{
 		var _jobs_ui = instance_find(o_jobs_ui, 0);
 
-		if (variable_instance_exists(_jobs_ui, "jobs_end_day_button_rect_get"))
+		if (variable_instance_exists(_jobs_ui, "jobs_end_day_button_rect_get")
+			&& _jobs_ui.jobs_end_day_is_visible())
 		{
 			var _end_day_button_rect = _jobs_ui.jobs_end_day_button_rect_get();
 			_projectile_base_y = _end_day_button_rect.y
@@ -1584,6 +1606,7 @@ if (variable_global_exists("cannon_projectile_queue")
 	}
 
 	var _hovered_projectile_index = -1;
+	var _taint_tutorial_slot_rect = noone;
 	var _projectile_payload_data = array_create(_projectile_queue_count, noone);
 	var _deploy_preview_units = array_create(0);
 	var _deploy_preview_cursor = 0;
@@ -1839,6 +1862,16 @@ if (variable_global_exists("cannon_projectile_queue")
 			_slot_width += projectile_current_scale_padding * 2;
 			_slot_height += projectile_current_scale_padding * 2;
 			_circle_radius = projectile_current_circle_radius;
+		}
+
+		if (_projectile_type == PROJECTILE_TYPE.CORRUPTION)
+		{
+			_taint_tutorial_slot_rect = {
+				x: _slot_x,
+				y: _slot_y,
+				width: _slot_width,
+				height: _slot_height
+			};
 		}
 
 		// Center green and red matchup rows above the selected unit shell.
@@ -2122,6 +2155,107 @@ if (variable_global_exists("cannon_projectile_queue")
 				_key_prompt_text
 			);
 		}
+	}
+
+	// Explain the number-key shortcut after both blocking Taint popups are acknowledged.
+	var _show_taint_aim_hint = false;
+	var _taint_aim_hint_text = "";
+
+	if (instance_exists(o_jobs_ui))
+	{
+		var _taint_hint_jobs_ui = instance_find(o_jobs_ui, 0);
+
+		if (variable_instance_exists(_taint_hint_jobs_ui, "jobs_taint_aim_hint_active")
+			&& _taint_hint_jobs_ui.jobs_taint_aim_hint_active)
+		{
+			_show_taint_aim_hint = true;
+			_taint_aim_hint_text = _taint_hint_jobs_ui.jobs_taint_aim_hint_text;
+		}
+	}
+
+	if (_show_taint_aim_hint && is_struct(_taint_tutorial_slot_rect))
+	{
+		var _taint_hint_previous_font = draw_get_font();
+		var _taint_hint_arrow_scale = taint_aim_hint_arrow_scale;
+		var _taint_hint_arrow_height = sprite_exists(s_attack_arrow)
+			? sprite_get_width(s_attack_arrow) * _taint_hint_arrow_scale
+			: 0;
+		var _taint_hint_arrow_x = _taint_tutorial_slot_rect.x
+			+ (_taint_tutorial_slot_rect.width * 0.5);
+		var _taint_hint_arrow_y = _taint_tutorial_slot_rect.y - 8;
+
+		if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+		{
+			draw_set_font(global.ui_font);
+		}
+
+		var _taint_hint_text_width = min(
+			taint_aim_hint_max_width - (taint_aim_hint_padding_x * 2),
+			string_width(_taint_aim_hint_text)
+		);
+		var _taint_hint_width = _taint_hint_text_width + (taint_aim_hint_padding_x * 2);
+		var _taint_hint_height = string_height_ext(
+			_taint_aim_hint_text,
+			taint_aim_hint_line_height,
+			_taint_hint_text_width
+		) + (taint_aim_hint_padding_y * 2);
+		var _taint_hint_margin = 18;
+		var _taint_hint_x = clamp(
+			_taint_hint_arrow_x - (_taint_hint_width * 0.5),
+			_taint_hint_margin,
+			_gui_width - _taint_hint_width - _taint_hint_margin
+		);
+		var _taint_hint_y = clamp(
+			_taint_hint_arrow_y
+				- _taint_hint_arrow_height
+				- taint_aim_hint_gap_from_arrow
+				- _taint_hint_height,
+			_taint_hint_margin,
+			_gui_height - _taint_hint_height - _taint_hint_margin
+		);
+		var _taint_hint_pulse = 0.88 + (sin(current_time * 0.006) * 0.08);
+
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_alpha(taint_aim_hint_background_alpha * _taint_hint_pulse);
+		draw_set_color(COLOR_HUD_BACKGROUND);
+		draw_rectangle(
+			_taint_hint_x,
+			_taint_hint_y,
+			_taint_hint_x + _taint_hint_width,
+			_taint_hint_y + _taint_hint_height,
+			false
+		);
+		draw_set_alpha(_taint_hint_pulse);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text_ext(
+			_taint_hint_x + taint_aim_hint_padding_x,
+			_taint_hint_y + taint_aim_hint_padding_y,
+			_taint_aim_hint_text,
+			taint_aim_hint_line_height,
+			_taint_hint_text_width
+		);
+
+		if (sprite_exists(s_attack_arrow))
+		{
+			draw_sprite_ext(
+				s_attack_arrow,
+				0,
+				_taint_hint_arrow_x,
+				_taint_hint_arrow_y,
+				_taint_hint_arrow_scale,
+				_taint_hint_arrow_scale,
+				taint_aim_hint_arrow_angle,
+				c_white,
+				BALANCE_ATTACK_ARROW_ALPHA * _taint_hint_pulse
+			);
+		}
+
+		draw_set_font(_taint_hint_previous_font);
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_color(c_white);
+		draw_set_alpha(1);
 	}
 
 	// Projectile descriptions stay hidden until the player points at a visible slot.
@@ -2773,10 +2907,3 @@ draw_set_halign(fa_left);
 draw_set_valign(fa_top);
 draw_set_color(c_white);
 draw_set_alpha(1);
-
-// Keep the world meter visible during normal play and while selecting a target.
-if (global.focus_window == FOCUS_WINDOW.NOONE
-	|| global.focus_window == FOCUS_WINDOW.TARGET_SELECTION)
-{
-	cannon_satisfaction_world_ui_draw();
-}

@@ -54,8 +54,21 @@ var _night_warning_time = 10 * _game_speed_normal;
 var _night_elapsed_time = (night_duration_current * _game_speed_normal) - global.day_timer;
 var _night_warning_active = global.day_phase == DAY_PHASE.NIGHT
 	&& _night_elapsed_time <= _night_warning_time;
+var _night_attack_warning_is_visible = day_event_current_day_get() != 1
+	|| (variable_global_exists("tutorial_hints_enabled") && !global.tutorial_hints_enabled);
 
-if ((global.day_phase == DAY_PHASE.DAY || _night_warning_active)
+if (instance_exists(o_jobs_ui))
+{
+	var _jobs_ui = instance_find(o_jobs_ui, 0);
+
+	if (variable_instance_exists(_jobs_ui, "jobs_night_attack_warning_is_visible"))
+	{
+		_night_attack_warning_is_visible = _jobs_ui.jobs_night_attack_warning_is_visible();
+	}
+}
+
+if (_night_attack_warning_is_visible
+	&& (global.day_phase == DAY_PHASE.DAY || _night_warning_active)
 	&& night_attack_plan_exists
 	&& instance_exists(o_cannon)
 	&& instance_exists(o_camera_controller))
@@ -2634,7 +2647,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 		draw_set_font(global.ui_heading_font);
 	}
 
-	var _window_title = instance_exists(building_window_foundry) ? "Foundry" : "Construction";
+	var _window_title = instance_exists(building_window_foundry) ? "Foundry" : "Summoning";
 	draw_text(_panel_x + (building_window_width * 0.5), _panel_y + 36, _window_title);
 
 	if (variable_global_exists("ui_font") && font_exists(global.ui_font))
@@ -2647,7 +2660,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 		draw_set_halign(fa_center);
 		draw_set_valign(fa_middle);
 		draw_set_color(COLOR_STATUS_NEGATIVE_RED);
-		draw_text(_panel_x + (building_window_width * 0.5), _panel_y + 76, "MAX 1 BUILDING PER DAY");
+		draw_text(_panel_x + (building_window_width * 0.5), _panel_y + 76, "MAX 1 SUMMONING PER DAY");
 	}
 
 	if (_is_foundry_window)
@@ -2726,7 +2739,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 
 	draw_set_halign(fa_center);
 	draw_set_valign(fa_middle);
-	draw_set_color(c_white);
+	draw_set_color(building_blood_bath_tutorial_active ? COLOR_HUD_PROJECTILE_DESCRIPTION : c_white);
 	draw_rectangle(_close_x, _close_y, _close_x + _close_size, _close_y + _close_size, true);
 	draw_text(_close_x + (_close_size * 0.5), _close_y + (_close_size * 0.5), "X");
 
@@ -2764,7 +2777,10 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 		var _tile_rect = building_choice_tile_rect_get(_choice_index, _is_foundry_window, _grid_x, _grid_y);
 		var _tile_x = _tile_rect.x;
 		var _tile_y = _tile_rect.y;
-		var _is_hovered = _mouse_x >= _tile_x
+		var _tutorial_choice_blocked = building_blood_bath_tutorial_active
+			&& _choice.building_object != o_meat_bath;
+		var _is_hovered = !_tutorial_choice_blocked
+			&& _mouse_x >= _tile_x
 			&& _mouse_x <= _tile_x + building_tile_width
 			&& _mouse_y >= _tile_y
 			&& _mouse_y <= _tile_y + building_tile_height;
@@ -2785,7 +2801,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 			_limit_reached = _limit_count >= _limit_max;
 		}
 
-		var _choice_is_blocked = _limit_reached || _daily_limit_reached;
+		var _choice_is_blocked = _limit_reached || _daily_limit_reached || _tutorial_choice_blocked;
 		var _can_pay_choice = _is_foundry_window ? building_choice_can_pay(_choice) : true;
 		var _can_build_choice = _can_pay_choice && !_choice_is_blocked;
 		var _requirement_text = building_choice_requirement_text_get(_choice);
@@ -2943,7 +2959,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 			draw_text(
 				_sprite_x,
 				_tile_y + building_tile_height + 4,
-				"Built: " + string(_built_count)
+				"Summoned: " + string(_built_count)
 			);
 		}
 
@@ -3005,7 +3021,7 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 
 		if (_daily_limit_reached)
 		{
-			draw_text(_tooltip_x + building_tooltip_padding, _tooltip_y + building_tooltip_height - 28, "MAX 1 BUILDING PER DAY");
+			draw_text(_tooltip_x + building_tooltip_padding, _tooltip_y + building_tooltip_height - 28, "MAX 1 SUMMONING PER DAY");
 		}
 		else if (_limit_reached)
 		{
@@ -3039,6 +3055,107 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION)
 				"Limit: " + string(_limit_count) + "/" + string(_limit_max)
 					+ " | Cost: " + _construction_cultist_cost_text
 			);
+		}
+	}
+
+	// Lock the first construction choice to Blood Bath and explain why it is required.
+	if (building_blood_bath_tutorial_active && !_is_foundry_window)
+	{
+		var _blood_bath_choice_index = -1;
+
+		for (var _tutorial_choice_index = 0; _tutorial_choice_index < _choice_count; ++_tutorial_choice_index)
+		{
+			if (building_window_choices[_tutorial_choice_index].building_object == o_meat_bath)
+			{
+				_blood_bath_choice_index = _tutorial_choice_index;
+				break;
+			}
+		}
+
+		if (_blood_bath_choice_index >= 0)
+		{
+			var _blood_bath_tile_rect = building_choice_tile_rect_get(
+				_blood_bath_choice_index,
+				false,
+				_grid_x,
+				_grid_y
+			);
+			var _tutorial_previous_font = draw_get_font();
+			var _tutorial_arrow_scale = building_blood_bath_tutorial_arrow_scale;
+			var _tutorial_arrow_width = sprite_exists(s_attack_arrow)
+				? sprite_get_width(s_attack_arrow) * _tutorial_arrow_scale
+				: 0;
+			var _tutorial_arrow_x = _blood_bath_tile_rect.x - 12;
+			var _tutorial_arrow_y = _blood_bath_tile_rect.y + (_blood_bath_tile_rect.height * 0.5);
+
+			if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+			{
+				draw_set_font(global.ui_font);
+			}
+
+			var _tutorial_text_width = min(
+				building_blood_bath_tutorial_max_width - (building_blood_bath_tutorial_padding_x * 2),
+				string_width(building_blood_bath_tutorial_text)
+			);
+			var _tutorial_width = _tutorial_text_width + (building_blood_bath_tutorial_padding_x * 2);
+			var _tutorial_height = string_height_ext(
+				building_blood_bath_tutorial_text,
+				building_blood_bath_tutorial_line_height,
+				_tutorial_text_width
+			) + (building_blood_bath_tutorial_padding_y * 2);
+			var _tutorial_margin = 18;
+			var _tutorial_right = _tutorial_arrow_x
+				- _tutorial_arrow_width
+				- building_blood_bath_tutorial_gap_from_arrow;
+			var _tutorial_x = clamp(
+				_tutorial_right - _tutorial_width,
+				_tutorial_margin,
+				camera_view_width - _tutorial_width - _tutorial_margin
+			);
+			var _tutorial_y = clamp(
+				_tutorial_arrow_y - (_tutorial_height * 0.5),
+				_tutorial_margin,
+				camera_view_height - _tutorial_height - _tutorial_margin
+			);
+			var _tutorial_pulse = 0.88 + (sin(current_time * 0.006) * 0.08);
+
+			draw_set_halign(fa_left);
+			draw_set_valign(fa_top);
+			draw_set_alpha(building_blood_bath_tutorial_background_alpha * _tutorial_pulse);
+			draw_set_color(COLOR_HUD_BACKGROUND);
+			draw_rectangle(
+				_tutorial_x,
+				_tutorial_y,
+				_tutorial_x + _tutorial_width,
+				_tutorial_y + _tutorial_height,
+				false
+			);
+			draw_set_alpha(_tutorial_pulse);
+			draw_set_color(COLOR_HUD_TEXT);
+			draw_text_ext(
+				_tutorial_x + building_blood_bath_tutorial_padding_x,
+				_tutorial_y + building_blood_bath_tutorial_padding_y,
+				building_blood_bath_tutorial_text,
+				building_blood_bath_tutorial_line_height,
+				_tutorial_text_width
+			);
+
+			if (sprite_exists(s_attack_arrow))
+			{
+				draw_sprite_ext(
+					s_attack_arrow,
+					0,
+					_tutorial_arrow_x,
+					_tutorial_arrow_y,
+					_tutorial_arrow_scale,
+					_tutorial_arrow_scale,
+					building_blood_bath_tutorial_arrow_angle,
+					c_white,
+					BALANCE_ATTACK_ARROW_ALPHA * _tutorial_pulse
+				);
+			}
+
+			draw_set_font(_tutorial_previous_font);
 		}
 	}
 

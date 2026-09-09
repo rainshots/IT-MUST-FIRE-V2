@@ -164,12 +164,12 @@ for (var _choice_index = 0; _choice_index < array_length(structure_choice_option
 	draw_text(
 		_tile_x + (structure_choice_tile_width * 0.5),
 		_tile_y + structure_choice_tile_height + 6,
-		"Built: " + string(_built_count)
+		"Summoned: " + string(_built_count)
 	);
 
 	if (_choice_is_blocked)
 	{
-		var _blocked_text = _built_count > 0 ? "Already built" : "Already ordered";
+		var _blocked_text = _built_count > 0 ? "Already summoned" : "Already ordered";
 
 		draw_set_color(COLOR_STATUS_NEGATIVE_RED);
 		draw_text(

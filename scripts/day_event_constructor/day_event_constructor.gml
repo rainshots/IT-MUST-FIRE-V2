@@ -22,7 +22,7 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 	execution_timer = 0;
 	// Only an explicit Invoke starts this card's countdown.
 	execution_started = false;
-	// Completed cards retain their former workers briefly for Assign Duties animations.
+	// Completed cards retain their former workers briefly for Assign Rites animations.
 	completion_animation_timer = 0;
 	completion_animation_cultists = [];
 	completion_animation_slot_count = 0;

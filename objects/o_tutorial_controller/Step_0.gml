@@ -37,6 +37,15 @@ if (popup_active)
 	exit;
 }
 
+// Introduce Taint Compost five real-time seconds after the attack preview closes.
+if (!taint_compost_tutorial_triggered
+	&& night_attack_preview_closed_time >= 0
+	&& current_time >= night_attack_preview_closed_time + taint_compost_tutorial_delay)
+{
+	taint_compost_tutorial_triggered = true;
+	tutorial_trigger("taint_compost_shell");
+}
+
 // Queued hints wait until mandatory cultist choices have closed.
 tutorial_show_next();
 

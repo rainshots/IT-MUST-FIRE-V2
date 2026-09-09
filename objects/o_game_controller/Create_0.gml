@@ -1905,7 +1905,8 @@ ui_hover_candidate_get = function(_mouse_x, _mouse_y)
 		var _foundry_current_height = 78;
 		var _choice_count = array_length(building_window_choices);
 
-		if (ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _construction_close_x, _construction_close_y, _construction_close_size, _construction_close_size))
+		if (!building_blood_bath_tutorial_active
+			&& ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _construction_close_x, _construction_close_y, _construction_close_size, _construction_close_size))
 		{
 			return "building_close";
 		}
@@ -1920,6 +1921,14 @@ ui_hover_candidate_get = function(_mouse_x, _mouse_y)
 
 		for (var _choice_index = 0; _choice_index < _choice_count; ++_choice_index)
 		{
+			var _hover_choice = building_window_choices[_choice_index];
+
+			if (building_blood_bath_tutorial_active
+				&& _hover_choice.building_object != o_meat_bath)
+			{
+				continue;
+			}
+
 			var _tile_rect = building_choice_tile_rect_get(_choice_index, _is_foundry_window, _grid_x, _grid_y);
 
 			if (is_struct(_tile_rect)
@@ -2108,7 +2117,21 @@ ui_hover_candidate_get = function(_mouse_x, _mouse_y)
 		var _camera_height = camera_get_view_height(_camera_controller.camera_id);
 		var _mouse_world_x = _camera_x + ((_mouse_x / camera_view_width) * _camera_width);
 		var _mouse_world_y = _camera_y + ((_mouse_y / camera_view_height) * _camera_height);
-		var _building_slot = find_building_slot_at_position(_mouse_world_x, _mouse_world_y);
+		var _building_slots_visible = day_event_current_day_get() != 1;
+
+		if (instance_exists(o_jobs_ui))
+		{
+			var _jobs_ui = instance_find(o_jobs_ui, 0);
+
+			if (variable_instance_exists(_jobs_ui, "jobs_building_slots_are_visible"))
+			{
+				_building_slots_visible = _jobs_ui.jobs_building_slots_are_visible();
+			}
+		}
+
+		var _building_slot = _building_slots_visible
+			? find_building_slot_at_position(_mouse_world_x, _mouse_world_y)
+			: noone;
 
 		if (instance_exists(_building_slot))
 		{
@@ -2777,6 +2800,17 @@ building_window_slot = noone;
 building_window_foundry = noone;
 building_window_choices = [];
 building_window_input_blocked = false;
+// The first construction window is locked to Blood Bath during onboarding.
+building_blood_bath_tutorial_active = false;
+building_blood_bath_tutorial_text = "Summon a Blood Bath so you can heal your Cultists.";
+building_blood_bath_tutorial_max_width = 390;
+building_blood_bath_tutorial_line_height = 24;
+building_blood_bath_tutorial_padding_x = 14;
+building_blood_bath_tutorial_padding_y = 10;
+building_blood_bath_tutorial_gap_from_arrow = 20;
+building_blood_bath_tutorial_background_alpha = 0.92;
+building_blood_bath_tutorial_arrow_scale = 0.35;
+building_blood_bath_tutorial_arrow_angle = 0;
 building_window_width = 930;
 building_window_height = 590;
 building_window_resource_y = 68;
@@ -2883,7 +2917,7 @@ foundry_shell_choices = [
 		building_object: o_tower_damage,
 		building_sprite: s_damage_tower,
 		building_name: "Damage Tower",
-		building_description: "Forges a shell that builds a tower shooting enemies around itself.",
+		building_description: "Forges a shell that summons a tower shooting enemies around itself.",
 		construction_costs: [
 			{
 				resource: RESOURCES.IRON,
@@ -2899,7 +2933,7 @@ foundry_shell_choices = [
 		building_object: o_orcs_hut,
 		building_sprite: s_orks_hut,
 		building_name: "Orcs Pit",
-		building_description: "Forges a shell that builds a pit with two neutral corpse-hauling orcs.",
+		building_description: "Forges a shell that summons a pit with two neutral corpse-hauling orcs.",
 		construction_costs: [
 			{
 				resource: RESOURCES.FLESH,
@@ -2915,7 +2949,7 @@ foundry_shell_choices = [
 		building_object: o_grave_spire,
 		building_sprite: s_grave_spire,
 		building_name: "Grave Spire",
-		building_description: "Forges a shell that builds a spire spawning Skeletons every morning.",
+		building_description: "Forges a shell that summons a spire spawning Skeletons every morning.",
 		construction_costs: [
 			{
 				resource: RESOURCES.SOULS,
@@ -2931,7 +2965,7 @@ foundry_shell_choices = [
 		building_object: o_ihor_extractor,
 		building_sprite: s_ihor_extractor,
 		building_name: "Ihor Extractor",
-		building_description: "Forges a shell that builds an extractor collecting Ihor from nearby veins each morning.",
+		building_description: "Forges a shell that summons an extractor collecting Ihor from nearby veins each morning.",
 		construction_costs: [
 			{
 				resource: RESOURCES.SOULS,
@@ -3691,7 +3725,19 @@ cannon_projectile_type_can_fire_in_current_phase = function(_projectile_type)
 {
 	if (_projectile_type == PROJECTILE_TYPE.CORRUPTION)
 	{
-		return global.day_phase == DAY_PHASE.DAY;
+		var _taint_projectile_is_unlocked = true;
+
+		if (instance_exists(o_jobs_ui))
+		{
+			var _jobs_ui = instance_find(o_jobs_ui, 0);
+
+			if (variable_instance_exists(_jobs_ui, "jobs_taint_projectile_is_unlocked"))
+			{
+				_taint_projectile_is_unlocked = _jobs_ui.jobs_taint_projectile_is_unlocked();
+			}
+		}
+
+		return global.day_phase == DAY_PHASE.DAY && _taint_projectile_is_unlocked;
 	}
 
 	if (_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL)
@@ -4900,7 +4946,7 @@ drag_cultist_can_be_picked = function(_cultist)
 		return false;
 	}
 
-	// Event workers are managed only through Assign Duties while the world interface is disabled.
+	// Event workers are managed only through Assign Rites while the world interface is disabled.
 	if (!WORLD_EVENT_INTERFACE_ENABLED
 		&& _cultist.object_index == o_cultist
 		&& global.day_phase == DAY_PHASE.DAY)
@@ -5319,6 +5365,29 @@ open_building_window = function(_slot)
 		return false;
 	}
 
+	var _building_slots_visible = day_event_current_day_get() != 1;
+
+	if (instance_exists(o_jobs_ui))
+	{
+		var _jobs_ui = instance_find(o_jobs_ui, 0);
+
+		if (variable_instance_exists(_jobs_ui, "jobs_building_slots_are_visible"))
+		{
+			_building_slots_visible = _jobs_ui.jobs_building_slots_are_visible();
+		}
+
+		if (_building_slots_visible
+			&& variable_instance_exists(_jobs_ui, "jobs_blood_bath_building_window_open"))
+		{
+			building_blood_bath_tutorial_active = _jobs_ui.jobs_blood_bath_building_window_open();
+		}
+	}
+
+	if (!_building_slots_visible)
+	{
+		return false;
+	}
+
 	building_window_slot = _slot;
 	building_window_foundry = noone;
 	building_window_choices = building_choices;
@@ -5535,13 +5604,19 @@ close_cannon_satisfaction_window = function()
 	return true;
 };
 
-close_building_window = function()
+close_building_window = function(_force_close = false)
 {
+	if (building_blood_bath_tutorial_active && !_force_close)
+	{
+		return false;
+	}
+
 	building_window_slot = noone;
 	building_window_foundry = noone;
 	building_window_choices = building_choices;
 	global.pause = false;
 	global.focus_window = FOCUS_WINDOW.NOONE;
+	return true;
 };
 
 close_building_events_window = function()
@@ -5835,7 +5910,7 @@ building_choice_requirement_text_get = function(_choice)
 	}
 
 	return instance_number(_choice.building_object) > 0
-		? "Already built"
+		? "Already summoned"
 		: "Already ordered";
 };
 
@@ -5993,6 +6068,14 @@ construct_building_from_choice = function(_choice)
 		return false;
 	}
 
+	if (building_blood_bath_tutorial_active
+		&& (!is_struct(_choice)
+			|| !variable_struct_exists(_choice, "building_object")
+			|| _choice.building_object != o_meat_bath))
+	{
+		return false;
+	}
+
 	if (!day_event_building_construction_can_start()
 		|| !building_choice_can_construct(_choice))
 	{
@@ -6000,8 +6083,6 @@ construct_building_from_choice = function(_choice)
 	}
 
 	var _slot = building_window_slot;
-	close_building_window();
-
 	var _construction_event = day_event_building_construction_create(_slot, _choice, false);
 
 	if (!is_struct(_construction_event))
@@ -6009,9 +6090,20 @@ construct_building_from_choice = function(_choice)
 		return false;
 	}
 
+	var _is_blood_bath_tutorial_selection = building_blood_bath_tutorial_active
+		&& _choice.building_object == o_meat_bath;
+	building_blood_bath_tutorial_active = false;
+	close_building_window(true);
+
 	if (instance_exists(o_jobs_ui))
 	{
 		var _jobs_ui = instance_find(o_jobs_ui, 0);
+
+		if (_is_blood_bath_tutorial_selection
+			&& variable_instance_exists(_jobs_ui, "jobs_blood_bath_construction_selected"))
+		{
+			_jobs_ui.jobs_blood_bath_construction_selected(_construction_event);
+		}
 
 		if (_jobs_ui.jobs_window_open()
 			&& variable_instance_exists(_jobs_ui, "jobs_input_block_until_mouse_release"))

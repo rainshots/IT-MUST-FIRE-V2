@@ -1,6 +1,7 @@
-// Start the strategy camera in the center of the room.
+// Use the room center until the cannon becomes available after instance creation.
 x = room_width * 0.5;
 y = room_height * 0.5;
+start_center_on_cannon_pending = true;
 
 // Controller reference used for resolution changes.
 game_controller = noone;
@@ -38,14 +39,14 @@ else
 }
 
 // Zoom settings controlled by the mouse wheel.
-zoom_level = 1;
-target_zoom_level = 1;
 minimum_zoom_level = 1;
 maximum_zoom_level = 3;
+zoom_level = maximum_zoom_level;
+target_zoom_level = maximum_zoom_level;
 zoom_step = 0.2;
 zoom_smoothing = 0.18;
 
-// Assign Duties temporarily owns the camera without pausing world simulation.
+// Assign Rites temporarily owns the camera without pausing world simulation.
 jobs_view_active = false;
 jobs_view_target = noone;
 jobs_view_panel_width_share = 0;

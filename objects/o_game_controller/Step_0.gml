@@ -426,14 +426,15 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("archdem
 		var _jobs_ui = instance_find(o_jobs_ui, 0);
 		var _jobs_show_rect = _jobs_ui.jobs_show_button_rect_get();
 		var _jobs_end_rect = _jobs_ui.jobs_end_day_button_rect_get();
-		var _jobs_show_button_clicked = point_in_rectangle(
-			_mouse_gui_x,
-			_mouse_gui_y,
-			_jobs_show_rect.x,
-			_jobs_show_rect.y,
-			_jobs_show_rect.x + _jobs_show_rect.width,
-			_jobs_show_rect.y + _jobs_show_rect.height
-		);
+		var _jobs_show_button_clicked = _jobs_ui.jobs_show_button_is_visible()
+			&& point_in_rectangle(
+				_mouse_gui_x,
+				_mouse_gui_y,
+				_jobs_show_rect.x,
+				_jobs_show_rect.y,
+				_jobs_show_rect.x + _jobs_show_rect.width,
+				_jobs_show_rect.y + _jobs_show_rect.height
+			);
 		var _jobs_end_button_clicked = _jobs_ui.jobs_end_day_is_visible()
 			&& point_in_rectangle(
 				_mouse_gui_x,
@@ -897,7 +898,21 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("archdem
 			}
 			else
 			{
-				var _building_slot = find_building_slot_at_position(_mouse_world_x, _mouse_world_y);
+				var _building_slots_visible = day_event_current_day_get() != 1;
+
+				if (instance_exists(o_jobs_ui))
+				{
+					var _jobs_ui = instance_find(o_jobs_ui, 0);
+
+					if (variable_instance_exists(_jobs_ui, "jobs_building_slots_are_visible"))
+					{
+						_building_slots_visible = _jobs_ui.jobs_building_slots_are_visible();
+					}
+				}
+
+				var _building_slot = _building_slots_visible
+					? find_building_slot_at_position(_mouse_world_x, _mouse_world_y)
+					: noone;
 
 				if (instance_exists(_building_slot))
 				{
@@ -1522,7 +1537,10 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION && mouse_check_but
 		if (_mouse_x >= _close_x && _mouse_x <= _close_x + _close_size
 			&& _mouse_y >= _close_y && _mouse_y <= _close_y + _close_size)
 		{
-			close_building_window();
+			if (!building_blood_bath_tutorial_active)
+			{
+				close_building_window();
+			}
 		}
 		else if (_is_foundry_window
 			&& instance_exists(building_window_foundry)
@@ -1544,12 +1562,20 @@ if (global.focus_window == FOCUS_WINDOW.BUILDING_CONSTRUCTION && mouse_check_but
 
 			for (var _choice_index = 0; !_daily_limit_reached && _choice_index < _choice_count; ++_choice_index)
 			{
+				var _choice = building_window_choices[_choice_index];
+
+				if (building_blood_bath_tutorial_active
+					&& _choice.building_object != o_meat_bath)
+				{
+					continue;
+				}
+
 				var _tile_rect = building_choice_tile_rect_get(_choice_index, _is_foundry_window, _grid_x, _grid_y);
 
 				if (is_struct(_tile_rect)
 					&& ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _tile_rect.x, _tile_rect.y, _tile_rect.width, _tile_rect.height))
 				{
-					construct_building_from_choice(building_window_choices[_choice_index]);
+					construct_building_from_choice(_choice);
 					break;
 				}
 			}
