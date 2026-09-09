@@ -4626,8 +4626,8 @@ world_position_is_revealed_by_fog = function(_world_x, _world_y)
 		return false;
 	}
 
-	var _fog_alpha = ds_grid_get(_fog_of_war.fog_grid, _cell_x, _cell_y);
-	return _fog_alpha <= _fog_of_war.revealed_alpha;
+	var _fog_state = ds_grid_get(_fog_of_war.fog_grid, _cell_x, _cell_y);
+	return _fog_state != _fog_of_war.hidden_state;
 };
 
 // Taint Compost shots must overlap existing visible Taint.

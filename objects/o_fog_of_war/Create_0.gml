@@ -7,11 +7,14 @@ cell_size = BALANCE_GRID_CELL_SIZE;
 grid_width = ceil(room_width / cell_size);
 grid_height = ceil(room_height / cell_size);
 fog_grid = ds_grid_create(grid_width, grid_height);
-ds_grid_clear(fog_grid, 1);
+ds_grid_clear(fog_grid, FOG_STATE.HIDDEN);
 
-// Fog alpha values: hidden, edge transition, and revealed.
+// Logical states drive visibility while alpha values only control rendering.
+hidden_state = FOG_STATE.HIDDEN;
+explored_state = FOG_STATE.EXPLORED;
+revealed_state = FOG_STATE.REVEALED;
 hidden_alpha = 1;
-edge_alpha = 0.5;
+explored_alpha = 0.5;
 revealed_alpha = 0;
 fog_color = c_black;
 
@@ -22,8 +25,6 @@ cannon_starting_reveal_radius = BALANCE_CANNON_STARTING_FOG_REVEAL_RADIUS;
 demon_reveal_radius_in_pixels = BALANCE_DEMON_FOG_REVEAL_RADIUS_IN_PIXELS;
 demon_reveal_radius_in_cells = ceil(demon_reveal_radius_in_pixels / cell_size);
 enemy_tower_reveal_radius = BALANCE_ENEMY_TOWER_FOG_REVEAL_RADIUS;
-neighbor_offset_min = -1;
-neighbor_offset_max = 1;
 
 // Fog is recalculated periodically because corruption does not need instant visual updates every frame.
 update_interval = BALANCE_FOG_UPDATE_INTERVAL;
@@ -39,22 +40,28 @@ taint_reveal_cell_xs = [];
 taint_reveal_cell_ys = [];
 taint_reveal_pending_cell_xs = [];
 taint_reveal_pending_cell_ys = [];
-revealed_cell_xs = [];
-revealed_cell_ys = [];
 
 // Starting Taint is cached immediately so the first visible area does not wait for the full-map scanner.
 starting_taint_reveal_cache_ready = false;
 
 fog_cell_reveal = function(_cell_x, _cell_y)
 {
-	if (ds_grid_get(fog_grid, _cell_x, _cell_y) == revealed_alpha)
+	// Only cells inside the cannon's explored area can receive full vision.
+	if (ds_grid_get(fog_grid, _cell_x, _cell_y) != explored_state)
 	{
 		return;
 	}
 
-	ds_grid_set(fog_grid, _cell_x, _cell_y, revealed_alpha);
-	array_push(revealed_cell_xs, _cell_x);
-	array_push(revealed_cell_ys, _cell_y);
+	ds_grid_set(fog_grid, _cell_x, _cell_y, revealed_state);
+};
+
+fog_cell_explore = function(_cell_x, _cell_y)
+{
+	// Exploration must never cover an area already fully revealed by Taint or vision.
+	if (ds_grid_get(fog_grid, _cell_x, _cell_y) != revealed_state)
+	{
+		ds_grid_set(fog_grid, _cell_x, _cell_y, explored_state);
+	}
 };
 
 // Reveal a circular area in fog grid cell coordinates.
@@ -113,6 +120,37 @@ fog_world_circle_reveal = function(_world_x, _world_y, _radius)
 	}
 };
 
+// Establish the cannon's explored area before applying any full-vision sources.
+fog_world_circle_explore = function(_world_x, _world_y, _radius)
+{
+	var _radius_in_cells = ceil(_radius / cell_size);
+	var _center_cell_x = floor(_world_x / cell_size);
+	var _center_cell_y = floor(_world_y / cell_size);
+	var _left_cell = clamp(_center_cell_x - _radius_in_cells, 0, grid_width - 1);
+	var _right_cell = clamp(_center_cell_x + _radius_in_cells, 0, grid_width - 1);
+	var _top_cell = clamp(_center_cell_y - _radius_in_cells, 0, grid_height - 1);
+	var _bottom_cell = clamp(_center_cell_y + _radius_in_cells, 0, grid_height - 1);
+	var _radius_squared = _radius * _radius;
+
+	for (var _explore_cell_x = _left_cell; _explore_cell_x <= _right_cell; ++_explore_cell_x)
+	{
+		for (var _explore_cell_y = _top_cell; _explore_cell_y <= _bottom_cell; ++_explore_cell_y)
+		{
+			var _cell_center_x = (_explore_cell_x * cell_size) + (cell_size * 0.5);
+			var _cell_center_y = (_explore_cell_y * cell_size) + (cell_size * 0.5);
+			var _distance_x = _cell_center_x - _world_x;
+			var _distance_y = _cell_center_y - _world_y;
+			var _distance_squared = (_distance_x * _distance_x) + (_distance_y * _distance_y);
+			var _is_center_cell = (_explore_cell_x == _center_cell_x && _explore_cell_y == _center_cell_y);
+
+			if (_distance_squared <= _radius_squared || _is_center_cell)
+			{
+				fog_cell_explore(_explore_cell_x, _explore_cell_y);
+			}
+		}
+	}
+};
+
 fog_cell_is_seen = function(_world_x, _world_y)
 {
 	var _cell_x = floor(_world_x / cell_size);
@@ -127,7 +165,7 @@ fog_cell_is_seen = function(_world_x, _world_y)
 		return false;
 	}
 
-	return ds_grid_get(fog_grid, _cell_x, _cell_y) < hidden_alpha;
+	return ds_grid_get(fog_grid, _cell_x, _cell_y) != hidden_state;
 };
 
 fog_taint_reveal_cache_scan_update = function()

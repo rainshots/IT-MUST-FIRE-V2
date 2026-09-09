@@ -666,7 +666,9 @@ if (instance_exists(o_cannon))
 		var _enemy = instance_find(o_enemy_units, _enemy_index);
 
 		if (!instance_exists(_enemy)
-			|| (variable_instance_exists(_enemy, "hp") && _enemy.hp <= 0))
+			|| (variable_instance_exists(_enemy, "hp") && _enemy.hp <= 0)
+			|| (variable_instance_exists(_enemy, "cached_is_hidden_by_fog")
+				&& _enemy.cached_is_hidden_by_fog))
 		{
 			continue;
 		}

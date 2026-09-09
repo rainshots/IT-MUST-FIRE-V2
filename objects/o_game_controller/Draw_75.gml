@@ -338,6 +338,8 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 		var _enemy_unit = instance_find(o_enemy_units, _enemy_index);
 
 		if (instance_exists(_enemy_unit)
+			&& (!variable_instance_exists(_enemy_unit, "cached_is_hidden_by_fog")
+				|| !_enemy_unit.cached_is_hidden_by_fog)
 			&& _mouse_world_x >= _enemy_unit.bbox_left
 			&& _mouse_world_x <= _enemy_unit.bbox_right
 			&& _mouse_world_y >= _enemy_unit.bbox_top

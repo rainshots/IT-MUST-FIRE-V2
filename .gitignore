@@ -60,3 +60,6 @@ Temporary Items
 
 # GMRT build directory
 Build
+
+# Local build verification cache and output
+/.codex-build/

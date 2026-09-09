@@ -1,3 +1,9 @@
+// Do not draw boss-owned effects before the shared enemy fog check.
+if (cached_is_hidden_by_fog)
+{
+	exit;
+}
+
 // Draw Griffith's active area so the player can read the melee splash.
 draw_set_color(COLOR_PROJECTILE_CLEANSE);
 draw_set_alpha(0.18);

@@ -152,6 +152,14 @@ enum UNIT_FACTION
 	ENEMY
 }
 
+// Logical map visibility is separate from the alpha used to draw the fog layer.
+enum FOG_STATE
+{
+	REVEALED,
+	EXPLORED,
+	HIDDEN
+}
+
 enum DAY_PHASE
 {
 	DAY,

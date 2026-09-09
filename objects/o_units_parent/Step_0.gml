@@ -34,17 +34,23 @@ if (global.day_phase == DAY_PHASE.NIGHT
 	exit;
 }
 
-// Pause freezes unit AI and combat.
-if (global.pause)
-{
-	exit;
-}
-
 // Gameplay time can slow independently from rendering, input, and camera movement.
 gameplay_time_scale = variable_global_exists("gameplay_time_scale")
 	? global.gameplay_time_scale
 	: 1;
 image_speed = gameplay_time_scale;
+
+// Fog visibility keeps updating while paused because the fog layer is a visual system.
+if (unit_faction == UNIT_FACTION.ENEMY)
+{
+	unit_is_hidden_by_fog();
+}
+
+// Pause freezes unit AI and combat.
+if (global.pause)
+{
+	exit;
+}
 
 // Child Create events set their final reload time after the parent Create has finished.
 if (initial_attack_reload_pending)

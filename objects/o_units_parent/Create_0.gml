@@ -46,7 +46,7 @@ navigation_has_safe_position = false;
 navigation_recovery_check_interval = BALANCE_WALL_NAVIGATION_RECOVERY_CHECK_INTERVAL;
 navigation_recovery_check_timer = irandom(navigation_recovery_check_interval - 1);
 fog_hidden_check_interval = BALANCE_UNIT_FOG_HIDDEN_CHECK_INTERVAL;
-fog_hidden_check_timer = irandom(fog_hidden_check_interval - 1);
+fog_hidden_check_timer = fog_hidden_check_interval; // Force an accurate result before the first Draw event.
 cached_is_hidden_by_fog = false;
 saint_ground_heal_interval = BALANCE_SAINT_GROUND_ENEMY_HEAL_INTERVAL;
 saint_ground_heal_timer = irandom(max(1, saint_ground_heal_interval) - 1);
@@ -1064,6 +1064,12 @@ unit_move_speed_multiplier_get = function()
 	// March speed is independent from fog visibility and fades before combat.
 	_move_multiplier *= enemy_march_current_multiplier;
 
+	// Hidden enemies travel quickly until they enter fully revealed ground.
+	if (unit_faction == UNIT_FACTION.ENEMY && cached_is_hidden_by_fog)
+	{
+		_move_multiplier *= BALANCE_ENEMY_UNREVEALED_MOVE_SPEED_MULTIPLIER;
+	}
+
 	if (global.day_phase == DAY_PHASE.NIGHT && unit_is_on_tainted_ground())
 	{
 		if (unit_faction == UNIT_FACTION.FRIENDLY && global.ritual_black_pilgrimage_active)
@@ -1201,7 +1207,7 @@ enemy_march_update = function()
 
 unit_is_hidden_by_fog = function()
 {
-	fog_hidden_check_timer += gameplay_time_scale;
+	fog_hidden_check_timer++;
 
 	if (fog_hidden_check_timer < fog_hidden_check_interval)
 	{
@@ -1237,8 +1243,8 @@ unit_is_hidden_by_fog = function()
 		return false;
 	}
 
-	var _fog_alpha = ds_grid_get(_fog_of_war.fog_grid, _cell_x, _cell_y);
-	cached_is_hidden_by_fog = _fog_alpha >= _fog_of_war.hidden_alpha;
+	var _fog_state = ds_grid_get(_fog_of_war.fog_grid, _cell_x, _cell_y);
+	cached_is_hidden_by_fog = _fog_state != _fog_of_war.revealed_state;
 	return cached_is_hidden_by_fog;
 };
 

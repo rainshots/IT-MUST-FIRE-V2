@@ -1,3 +1,9 @@
+// Enemies are visible only on fully revealed ground.
+if (unit_faction == UNIT_FACTION.ENEMY && cached_is_hidden_by_fog)
+{
+	exit;
+}
+
 // Draw the landing shadow while the player is carrying this cultist.
 if (is_being_dragged)
 {
