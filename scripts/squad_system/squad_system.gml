@@ -104,25 +104,10 @@ function squad_type_count_get(_squad_type)
 function squad_limit_for_day_get(_day_number)
 {
 	var _day = max(1, floor(_day_number));
-	var _limit = BALANCE_SQUAD_STARTING_LIMIT;
 
-	// New shared squad slots open on the configured campaign days.
-	if (_day >= BALANCE_SQUAD_LIMIT_UNLOCK_DAY_1)
-	{
-		_limit++;
-	}
-
-	if (_day >= BALANCE_SQUAD_LIMIT_UNLOCK_DAY_2)
-	{
-		_limit++;
-	}
-
-	if (_day >= BALANCE_SQUAD_LIMIT_UNLOCK_DAY_3)
-	{
-		_limit++;
-	}
-
-	return min(_limit, BALANCE_SQUAD_LIMIT);
+	// Open one shared squad slot per day from three on day one, up to the maximum of five.
+	return min(BALANCE_SQUAD_LIMIT,
+		BALANCE_SQUAD_STARTING_LIMIT + ((_day - 1) * BALANCE_SQUAD_LIMIT_INCREASE_PER_DAY));
 }
 
 function squad_limit_current_day_update()

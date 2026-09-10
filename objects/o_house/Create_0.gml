@@ -20,6 +20,15 @@ house_unit_options = [
 house_unit_object = house_unit_options[irandom(array_length(house_unit_options) - 1)];
 house_unit_limit = BALANCE_HOUSE_INITIAL_UNIT_LIMIT;
 house_alive_unit_count = 0;
+// Retain fractional recruits so the spawn reduction stays accurate across small batches.
+house_spawn_remainder = 0;
+house_spawn_amount_scale = function(_amount)
+{
+	var _scaled_amount = (_amount * BALANCE_HOUSE_SPAWN_AMOUNT_MULTIPLIER) + house_spawn_remainder;
+	var _spawn_count = floor(_scaled_amount);
+	house_spawn_remainder = _scaled_amount - _spawn_count;
+	return _spawn_count;
+};
 house_was_visible = false;
 house_guard_radius = BALANCE_HOUSE_GUARD_RADIUS;
 house_spawn_radius = BALANCE_HOUSE_SPAWN_RADIUS;
@@ -444,7 +453,7 @@ house_morning_spawn_units = function()
 	var _unit_limit = floor(house_unit_limit);
 	var _missing_count = max(0, _unit_limit - house_alive_unit_count);
 	var _spawn_count = min(irandom_range(BALANCE_HOUSE_MORNING_SPAWN_MIN, BALANCE_HOUSE_MORNING_SPAWN_MAX), _missing_count);
-	house_alive_unit_count += _spawn_count;
+	house_alive_unit_count += house_spawn_amount_scale(_spawn_count);
 
 	if (house_was_visible)
 	{
@@ -504,7 +513,7 @@ house_combat_spawn_update = function()
 	var _unit_limit = floor(house_unit_limit);
 	var _missing_count = max(0, _unit_limit - house_alive_unit_count);
 	var _combat_spawn_count = max(1, floor(_unit_limit / BALANCE_HOUSE_COMBAT_SPAWN_LIMIT_PER_UNIT));
-	house_alive_unit_count += min(_combat_spawn_count, _missing_count);
+	house_alive_unit_count += house_spawn_amount_scale(min(_combat_spawn_count, _missing_count));
 
 	if (house_was_visible)
 	{

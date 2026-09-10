@@ -3652,7 +3652,8 @@ projectile_target_selection_radius_get = function(_projectile_type)
 
 cannon_projectile_type_is_reusable = function(_projectile_type)
 {
-	return _projectile_type == PROJECTILE_TYPE.BOMB
+	return _projectile_type == PROJECTILE_TYPE.SIEGE
+		|| _projectile_type == PROJECTILE_TYPE.BOMB
 		|| _projectile_type == PROJECTILE_TYPE.HEAL
 		|| _projectile_type == PROJECTILE_TYPE.DOOM_BELL;
 };
@@ -6925,7 +6926,7 @@ cannon_morning_projectile_target_count_get = function(_projectile_type)
 
 cannon_reusable_projectiles_ensure = function()
 {
-	var _projectile_types = [];
+	var _projectile_types = [PROJECTILE_TYPE.SIEGE];
 
 	if (BALANCE_CANNON_STARTING_HELLCOW_AVAILABLE)
 	{
@@ -11834,6 +11835,15 @@ start_day_phase = function()
 	global.day_phase = DAY_PHASE.DAY;
 	night_fast_forward_set(false);
 	global.cannon_corpses_delivered_today = 0;
+
+	// Return the view to the Cannon after a timed RAID Blood Moon.
+	if (raid_blood_moon_active && instance_exists(o_cannon) && instance_exists(o_camera_controller))
+	{
+		var _camera_controller = instance_find(o_camera_controller, 0);
+		var _cannon = instance_find(o_cannon, 0);
+		_camera_controller.camera_center_on_instance(_cannon);
+	}
+
 	global.full_moon_night_active = false;
 	raid_blood_moon_active = false;
 	global.unholy_night_active = false;

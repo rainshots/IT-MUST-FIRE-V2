@@ -146,6 +146,10 @@ cannon_reload_time_get = function(_projectile_type)
 			_reload_penalty = BALANCE_DOOM_BELL_FUNERAL_PAUSE_RELOAD_PENALTY;
 		}
 	}
+	else if (_projectile_type == PROJECTILE_TYPE.SIEGE)
+	{
+		_reload_time = BALANCE_CANNON_RELOAD_SIEGE_TIME;
+	}
 	else if (_projectile_type == PROJECTILE_TYPE.CULTIST
 		|| _projectile_type == PROJECTILE_TYPE.SKELETONS)
 	{

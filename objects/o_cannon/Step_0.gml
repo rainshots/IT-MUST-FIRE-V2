@@ -12,6 +12,11 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 	var _can_fire_selected_target = (!global.pause || global.focus_window == FOCUS_WINDOW.NOONE)
 		&& cannon_reload_is_ready();
 
+	if (target_projectile_type == PROJECTILE_TYPE.SIEGE && global.day_phase != DAY_PHASE.NIGHT)
+	{
+		_can_fire_selected_target = false;
+	}
+
 	// Recheck deployment barriers at firing time before consuming the queued squad.
 	if (_can_fire_selected_target && target_projectile_type == PROJECTILE_TYPE.CULTIST
 		&& instance_exists(o_game_controller))
@@ -60,7 +65,8 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			_camera_controller.camera_shake_start(BALANCE_CANNON_SHOT_SHAKE_TIME, BALANCE_CANNON_SHOT_SHAKE_STRENGTH);
 		}
 
-		if (target_projectile_type == PROJECTILE_TYPE.RALLY
+		if (target_projectile_type == PROJECTILE_TYPE.SIEGE
+			|| target_projectile_type == PROJECTILE_TYPE.RALLY
 			|| target_projectile_type == PROJECTILE_TYPE.CULTIST
 			|| target_projectile_type == PROJECTILE_TYPE.HEAL
 			|| target_projectile_type == PROJECTILE_TYPE.BOMB
@@ -87,7 +93,8 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			var _projectile_y = y + projectile_spawn_offset_y;
 			var _projectile = instance_create_layer(_projectile_x, _projectile_y, projectile_layer_name, o_projectile);
 
-			if (target_projectile_type == PROJECTILE_TYPE.RALLY
+			if (target_projectile_type == PROJECTILE_TYPE.SIEGE
+				|| target_projectile_type == PROJECTILE_TYPE.RALLY
 				|| target_projectile_type == PROJECTILE_TYPE.CULTIST
 				|| target_projectile_type == PROJECTILE_TYPE.HEAL
 				|| target_projectile_type == PROJECTILE_TYPE.BOMB

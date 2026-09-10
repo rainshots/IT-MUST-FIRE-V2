@@ -17,23 +17,55 @@ squad_wander_radius_y = max(
 	(_area_sprite_height * abs(image_yscale) * 0.5) - BALANCE_SQUAD_POINT_MARGIN_Y
 );
 
-// Squad recruitment offers the two base compositions that buildings can later specialize.
+// Squad points recruit specialized undead and demon squads directly.
 squad_point_choices = [
 	{
-		squad_name: "Bonelet Squad",
+		squad_name: "Skeleton Warrior Squad",
 		squad_type: SQUAD_TYPE.UNDEAD,
-		unit_object: o_skeleton_bonelet,
+		unit_object: o_skeleton_warrior,
 		unit_count: BALANCE_SQUAD_SKELETON_COUNT,
-		card_description: "Numerous fragile undead that can later be specialized at a Graveyard.",
-		event_description: "Raise a new Bonelet squad at the selected Squad Point."
+		card_description: "Melee undead warriors.",
+		event_description: "Recruit a Skeleton Warrior squad at the selected Squad Point."
 	},
 	{
-		squad_name: "Mawling Squad",
+		squad_name: "Skeleton Archer Squad",
+		squad_type: SQUAD_TYPE.UNDEAD,
+		unit_object: o_skeleton_archer,
+		unit_count: BALANCE_SQUAD_SKELETON_COUNT,
+		card_description: "Undead ranged archers.",
+		event_description: "Recruit a Skeleton Archer squad at the selected Squad Point."
+	},
+	{
+		squad_name: "Skeleton Mage Squad",
+		squad_type: SQUAD_TYPE.UNDEAD,
+		unit_object: o_skeleton_mage,
+		unit_count: BALANCE_SQUAD_SKELETON_COUNT,
+		card_description: "Undead spellcasters.",
+		event_description: "Recruit a Skeleton Mage squad at the selected Squad Point."
+	},
+	{
+		squad_name: "Succubus Squad",
 		squad_type: SQUAD_TYPE.DEMON,
-		unit_object: o_mawling,
+		unit_object: o_succubus,
 		unit_count: BALANCE_SQUAD_PITLING_COUNT,
-		card_description: "Lesser demons that can later be transformed at a Demons Pit.",
-		event_description: "Summon a new Mawling squad at the selected Squad Point."
+		card_description: "A squad of succubi.",
+		event_description: "Recruit a Succubus squad at the selected Squad Point."
+	},
+	{
+		squad_name: "Balgor Squad",
+		squad_type: SQUAD_TYPE.DEMON,
+		unit_object: o_balgor,
+		unit_count: BALANCE_SQUAD_PITLING_COUNT,
+		card_description: "A squad of balgors.",
+		event_description: "Recruit a Balgor squad at the selected Squad Point."
+	},
+	{
+		squad_name: "Pitling Squad",
+		squad_type: SQUAD_TYPE.DEMON,
+		unit_object: o_pitling,
+		unit_count: BALANCE_SQUAD_PITLING_COUNT,
+		card_description: "A squad of pitlings.",
+		event_description: "Recruit a Pitling squad at the selected Squad Point."
 	}
 ];
 
@@ -51,13 +83,14 @@ squad_point_hover_label = "SUMMON SQUAD";
 squad_point_hover_label_offset_y = 18;
 squad_point_hover_label_padding_x = 10;
 squad_point_hover_label_padding_y = 5;
-squad_point_window_width = 820;
-squad_point_window_height = 430;
+squad_point_window_width = 900;
+squad_point_window_height = 730;
 squad_point_window_margin = 20;
 squad_point_card_width = 260;
 squad_point_card_height = 260;
 squad_point_card_gap = 28;
 squad_point_card_top = 124;
+squad_point_card_columns = 3;
 squad_point_card_sprite_size = 104;
 
 squad_point_pending_event_is_active = function()
@@ -200,14 +233,17 @@ squad_point_choice_rect_get = function(_choice_index)
 {
 	var _layout = squad_point_window_layout_get();
 	var _choice_count = max(1, array_length(squad_point_choices));
-	var _total_width = (squad_point_card_width * _choice_count)
-		+ (squad_point_card_gap * max(0, _choice_count - 1));
+	var _columns = min(squad_point_card_columns, _choice_count);
+	var _total_width = (squad_point_card_width * _columns)
+		+ (squad_point_card_gap * max(0, _columns - 1));
 	var _card_x = _layout.x + ((_layout.width - _total_width) * 0.5)
-		+ ((squad_point_card_width + squad_point_card_gap) * _choice_index);
+		+ ((squad_point_card_width + squad_point_card_gap) * (_choice_index mod _columns));
+	var _card_y = _layout.y + squad_point_card_top
+		+ ((squad_point_card_height + squad_point_card_gap) * floor(_choice_index / _columns));
 
 	return [
 		_card_x,
-		_layout.y + squad_point_card_top,
+		_card_y,
 		squad_point_card_width,
 		squad_point_card_height
 	];

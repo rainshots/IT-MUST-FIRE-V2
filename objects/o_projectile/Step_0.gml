@@ -522,11 +522,13 @@ if (_flight_progress >= 1)
 						}
 					}
 				}
-				else if (variable_instance_exists(id, "on_projectile_hit"))
+				else if (variable_instance_exists(id, "on_projectile_hit")
+					&& other.projectile_type != PROJECTILE_TYPE.SIEGE)
 				{
 					on_projectile_hit(other.projectile_type);
 				}
-				else if (other.projectile_type == PROJECTILE_TYPE.DAMAGE)
+				else if (other.projectile_type == PROJECTILE_TYPE.DAMAGE
+					|| other.projectile_type == PROJECTILE_TYPE.SIEGE)
 				{
 					var _target_limit_is_available = other.damage_target_count <= 0
 						|| other.damage_targets_hit < other.damage_target_count;
@@ -534,6 +536,14 @@ if (_flight_progress >= 1)
 					if (_target_limit_is_available)
 					{
 						var _damage_amount = other.damage_amount;
+
+						// Include every generation of map-object descendants, not only direct children.
+						if (other.projectile_type == PROJECTILE_TYPE.SIEGE
+							&& (object_index == o_map_objects_parent
+								|| object_is_ancestor(object_index, o_map_objects_parent)))
+						{
+							_damage_amount *= BALANCE_SIEGE_SHOT_BUILDING_DAMAGE_MULTIPLIER;
+						}
 
 						if (other.damage_uses_physical_armor && variable_instance_exists(id, "armor"))
 						{

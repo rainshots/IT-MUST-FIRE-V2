@@ -1287,6 +1287,7 @@ projectile_squad_unit_sprite_get = function(_payload)
 
 projectile_names = array_create(PROJECTILE_TYPE.COUNT, "");
 projectile_names[PROJECTILE_TYPE.DAMAGE] = "DAMAGE";
+projectile_names[PROJECTILE_TYPE.SIEGE] = "SIEGE SHOT";
 projectile_names[PROJECTILE_TYPE.CORRUPTION] = "TAINT COMPOST";
 projectile_names[PROJECTILE_TYPE.SUMMON] = "SUMMON";
 projectile_names[PROJECTILE_TYPE.RALLY] = "RALLY";
@@ -1300,6 +1301,7 @@ projectile_names[PROJECTILE_TYPE.DOOM_BELL] = "DOOM BELL";
 
 projectile_descriptions = array_create(PROJECTILE_TYPE.COUNT, "");
 projectile_descriptions[PROJECTILE_TYPE.DAMAGE] = "Damages units and buildings inside the impact area.";
+projectile_descriptions[PROJECTILE_TYPE.SIEGE] = "Night only. Explodes on impact, dealing normal damage to units and 200% damage to buildings.";
 projectile_descriptions[PROJECTILE_TYPE.CORRUPTION] = "Day-only shell. Fires a wide volley that taints the ground and consumes one daily charge. Its impact radius must touch existing Taint.";
 projectile_descriptions[PROJECTILE_TYPE.SUMMON] = "Summons friendly forces through valid target reactions.";
 projectile_descriptions[PROJECTILE_TYPE.RALLY] = "Sends half of nearby friendly units to the impact point.";
