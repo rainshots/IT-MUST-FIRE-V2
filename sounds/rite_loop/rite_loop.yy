@@ -14,8 +14,8 @@
   "exportDir":"",
   "name":"rite_loop",
   "parent":{
-    "name":"New",
-    "path":"folders/Sounds/New.yy",
+    "name":"Sounds",
+    "path":"folders/Sounds.yy",
   },
   "preload":false,
   "resourceType":"GMSound",

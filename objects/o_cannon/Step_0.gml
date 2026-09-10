@@ -173,6 +173,13 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			}
 			else if (target_projectile_type == PROJECTILE_TYPE.BOMB)
 			{
+				// Copy the confirmed drag range only for a manually aimed HellCow shot.
+				if (instance_exists(o_game_controller))
+				{
+					var _hellcow_controller = instance_find(o_game_controller, 0);
+					_projectile.hellcow_charge_distance = _hellcow_controller.hellcow_target_charge_distance;
+				}
+
 				_projectile.effect_radius = BALANCE_PROJECTILE_HELLCOW_RADIUS;
 				_projectile.damage_amount = cannon_projectile_bomb_damage_get();
 				_projectile.projectile_sprite = s_cow;

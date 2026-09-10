@@ -2020,7 +2020,7 @@ if (_can_select_cannon_projectile || _projectile_selection_click_index >= 0)
 	}
 }
 
-// Hellcow uses one drag gesture: press to place it, drag to aim, and release to fire.
+// Hellcow uses one gesture: press to place it, drag for direction and distance, release to fire.
 var _hellcow_target_selection_active = global.focus_window == FOCUS_WINDOW.TARGET_SELECTION
 	&& target_selection_projectile_type == PROJECTILE_TYPE.BOMB;
 
@@ -2168,6 +2168,10 @@ if (_target_selection_should_confirm)
 
 		if (_target_can_be_confirmed)
 		{
+			// Snapshot the range before clearing the gesture; in-flight shells keep their own copy.
+			hellcow_target_charge_distance = _hellcow_target_selection_active
+				? hellcow_aim_charge_distance_get()
+				: BALANCE_PROJECTILE_HELLCOW_CHARGE_DISTANCE;
 			global.cannon_target_exists = true;
 			global.cannon_target_x = _target_world_x;
 			global.cannon_target_y = _target_world_y;

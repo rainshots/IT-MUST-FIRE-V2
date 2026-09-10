@@ -153,9 +153,11 @@ draw_explosion_preview = false;
 
 // Hellcow remains in the projectile instance after landing and becomes a directed charge.
 hellcow_charge_direction = 0;
+// Manual shots override this distance; automatic shots retain the original full charge.
+hellcow_charge_distance = BALANCE_PROJECTILE_HELLCOW_CHARGE_DISTANCE;
 hellcow_charge_active = false;
 hellcow_brace_timer = 0;
-hellcow_distance_remaining = BALANCE_PROJECTILE_HELLCOW_CHARGE_DISTANCE;
+hellcow_distance_remaining = hellcow_charge_distance;
 hellcow_trail_timer = 0;
 hellcow_sticky_trail = noone;
 
@@ -166,7 +168,12 @@ hellcow_charge_start = function()
 	depth = -floor(y);
 	hellcow_charge_active = true;
 	hellcow_brace_timer = max(1, round(BALANCE_PROJECTILE_HELLCOW_BRACE_TIME * room_speed));
-	hellcow_distance_remaining = BALANCE_PROJECTILE_HELLCOW_CHARGE_DISTANCE;
+	hellcow_charge_distance = clamp(
+		hellcow_charge_distance,
+		BALANCE_PROJECTILE_HELLCOW_MIN_CHARGE_DISTANCE,
+		BALANCE_PROJECTILE_HELLCOW_CHARGE_DISTANCE
+	);
+	hellcow_distance_remaining = hellcow_charge_distance;
 	hellcow_trail_timer = 0;
 
 	if (hellcow_enchantment == HELLCOW_ENCHANTMENT.STICKY_TRAIL)
@@ -177,7 +184,7 @@ hellcow_charge_start = function()
 		if (instance_exists(hellcow_sticky_trail))
 		{
 			hellcow_sticky_trail.trail_owner = id;
-			hellcow_sticky_trail.hellcow_sticky_trail_corridor_set(x, y, hellcow_charge_direction);
+			hellcow_sticky_trail.hellcow_sticky_trail_corridor_set(x, y, hellcow_charge_direction, hellcow_charge_distance);
 
 			// Draw above the ground art and below instances on the combat layer.
 			if (_trail_layer_id != -1)
@@ -189,7 +196,7 @@ hellcow_charge_start = function()
 	}
 };
 
-hellcow_enemies_push = function(_move_distance)
+hellcow_enemies_push = function()
 {
 	var _direction_x = lengthdir_x(1, hellcow_charge_direction);
 	var _direction_y = lengthdir_y(1, hellcow_charge_direction);
@@ -213,8 +220,8 @@ hellcow_enemies_push = function(_move_distance)
 
 			if (_is_inside_push_front)
 			{
-				// Keep caught enemies ahead without allowing the charge to push them through terrain.
-				var _required_push = max(_move_distance, _front_reach - _forward_distance);
+				// The cow has already moved. Push only up to its front, never another full step beyond it.
+				var _required_push = max(0, _front_reach - _forward_distance);
 
 				if (variable_instance_exists(id, "unit_hellcow_movement_lock_apply"))
 				{
@@ -289,7 +296,7 @@ hellcow_charge_update = function()
 	y += lengthdir_y(_move_distance, hellcow_charge_direction);
 	depth = -floor(y);
 	hellcow_distance_remaining -= _move_distance;
-	hellcow_enemies_push(_move_distance);
+	hellcow_enemies_push();
 
 	// Hoof smoke makes the fast charge readable without adding more active objects than needed.
 	hellcow_trail_timer += gameplay_time_scale;
@@ -302,7 +309,7 @@ hellcow_charge_update = function()
 		instance_create_layer(_trail_x, _trail_y, particle_layer_name, o_particle_smoke);
 	}
 
-	// The charge ignores all obstacles; only its full distance or leaving the room ends it.
+	// The charge ignores all obstacles; only its selected distance or leaving the room ends it.
 	var _left_room = x < 0 || x > room_width || y < 0 || y > room_height;
 
 	if (hellcow_distance_remaining <= 0 || _left_room)

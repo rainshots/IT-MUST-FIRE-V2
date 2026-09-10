@@ -82,7 +82,7 @@ night_attack_balance_by_day = [
 	},
 	// Day 8: Full Moon.
 	{
-		difficulty_budget: 300, enemy_hp_multiplier: 1.72, enemy_damage_multiplier: 1.6,
+		difficulty_budget: 280, enemy_hp_multiplier: 1.72, enemy_damage_multiplier: 1.6,
 		enemy_types: [
 			[o_enemy_peasant],
 			[o_enemy_mage, o_enemy_knight]
@@ -1689,10 +1689,11 @@ global.explosion_sounds = [
 	explosion_sound04
 ];
 global.ui_hover_sounds = [
-	ui_hover_01,
-	ui_hover_02
+	ui_hover_03,
+	ui_hover_05,
+	
 ];
-global.ui_confirm_sound = ui_confirm;
+global.ui_confirm_sound = ui_confirm97;
 global.damage_sounds = [
 	sword_sound01,
 	sword_sound02,
@@ -3595,7 +3596,19 @@ hellcow_aim_start_x = 0;
 hellcow_aim_start_y = 0;
 hellcow_aim_direction = 0;
 hellcow_aim_drag_distance = 0;
+// Keep the confirmed range until the Cannon copies it, even after aiming is closed.
+hellcow_target_charge_distance = BALANCE_PROJECTILE_HELLCOW_CHARGE_DISTANCE;
 cannon_projectile_night_slots = []; // Fixed number-key assignments captured at the start of each night.
+
+// Preview and firing share the same world-space drag limits, independently of camera zoom.
+hellcow_aim_charge_distance_get = function()
+{
+	return clamp(
+		hellcow_aim_drag_distance,
+		BALANCE_PROJECTILE_HELLCOW_MIN_CHARGE_DISTANCE,
+		BALANCE_PROJECTILE_HELLCOW_CHARGE_DISTANCE
+	);
+};
 
 // Building shell previews use the future structure's gameplay radius when it has one.
 building_shell_preview_radius_get = function(_building_payload)

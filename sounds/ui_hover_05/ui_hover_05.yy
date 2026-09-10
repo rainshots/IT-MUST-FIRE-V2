@@ -1,6 +1,6 @@
 {
   "$GMSound":"v2",
-  "%Name":"moo_sound01",
+  "%Name":"ui_hover_05",
   "audioGroupId":{
     "name":"audiogroup_default",
     "path":"audiogroups/audiogroup_default",
@@ -10,17 +10,17 @@
   "compression":0,
   "compressionQuality":4,
   "conversionMode":0,
-  "duration":4.586009,
+  "duration":2.6214511,
   "exportDir":"",
-  "name":"moo_sound01",
+  "name":"ui_hover_05",
   "parent":{
-    "name":"Sounds",
-    "path":"folders/Sounds.yy",
+    "name":"New",
+    "path":"folders/Sounds/New.yy",
   },
   "preload":false,
   "resourceType":"GMSound",
   "resourceVersion":"2.0",
   "sampleRate":44100,
-  "soundFile":"moo_sound01.ogg",
-  "volume":0.38,
+  "soundFile":"ui_hover_05.ogg",
+  "volume":0.76,
 }

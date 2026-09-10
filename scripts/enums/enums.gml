@@ -18,6 +18,9 @@
 // Each nightly use adds a flat reload penalty to that projectile type, in seconds.
 #macro BALANCE_CANNON_RELOAD_NIGHT_SHOT_PENALTY 0.5
 
+// HellCow drag aiming can shorten the charge to 15% of its existing maximum.
+#macro BALANCE_PROJECTILE_HELLCOW_MIN_CHARGE_DISTANCE (BALANCE_PROJECTILE_HELLCOW_CHARGE_DISTANCE * 0.15)
+
 // Marching reinforcements match the main formation with gentle distance correction.
 #macro BALANCE_SQUAD_MARCH_PACE_UPDATE_TIME 0.1
 #macro BALANCE_SQUAD_MARCH_PACE_DISTANCE_TOLERANCE 64

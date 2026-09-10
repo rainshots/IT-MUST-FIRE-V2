@@ -1,4 +1,4 @@
-// Sticky Trail covers the same full corridor shown while aiming HellCow.
+// Sticky Trail covers the same selected corridor shown while aiming HellCow.
 trail_owner = noone;
 trail_start_x = x;
 trail_start_y = y;
@@ -14,12 +14,12 @@ slow_scan_interval = max(1, BALANCE_PROJECTILE_HELLCOW_STICKY_TRAIL_SCAN_INTERVA
 slow_scan_timer = 0;
 gameplay_time_scale = 1;
 
-hellcow_sticky_trail_corridor_set = function(_start_x, _start_y, _direction)
+hellcow_sticky_trail_corridor_set = function(_start_x, _start_y, _direction, _charge_distance = BALANCE_PROJECTILE_HELLCOW_CHARGE_DISTANCE)
 {
 	trail_start_x = _start_x;
 	trail_start_y = _start_y;
 	trail_direction = _direction;
-	trail_length = BALANCE_PROJECTILE_HELLCOW_CHARGE_DISTANCE;
+	trail_length = _charge_distance;
 	trail_end_x = trail_start_x + lengthdir_x(trail_length, trail_direction);
 	trail_end_y = trail_start_y + lengthdir_y(trail_length, trail_direction);
 };

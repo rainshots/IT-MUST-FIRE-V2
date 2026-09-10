@@ -1,3 +1,6 @@
+// Release the reusable crowd-query buffer, including room changes and removed units.
+ds_list_destroy(separation_query_list);
+
 // Every unit owns at most one reusable path resource.
 if (navigation_path != noone)
 {

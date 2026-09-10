@@ -149,6 +149,8 @@ separation_strength = BALANCE_UNIT_SEPARATION_STRENGTH;
 separation_update_interval = 5;
 separation_update_timer = irandom(separation_update_interval - 1);
 separation_max_neighbors = 6;
+// Reuse the collision query buffer; Clean Up releases it with the unit.
+separation_query_list = ds_list_create();
 separation_push_x = 0;
 separation_push_y = 0;
 separation_push_multiplier = 1;
@@ -596,7 +598,17 @@ target_can_be_attacked = function(_target)
 		return false;
 	}
 
-	// Mountains prevent combat units on opposite sides from seeing or attacking each other.
+	// Automated balance matches are isolated even when their arenas share one room.
+	if (balance_test_match_id >= 0)
+	{
+		if (!variable_instance_exists(_target, "balance_test_match_id")
+			|| _target.balance_test_match_id != balance_test_match_id)
+		{
+			return false;
+		}
+	}
+
+	// Reject other arenas before testing the more expensive mountain line of sight.
 	var _target_is_combat_unit = _target.object_index == o_archdemon
 		|| _target.object_index == o_units_parent
 		|| object_is_ancestor(_target.object_index, o_units_parent);
@@ -606,16 +618,6 @@ target_can_be_attacked = function(_target)
 		&& collision_line(x, y, _target.x, _target.y, o_mountain, false, true) != noone)
 	{
 		return false;
-	}
-
-	// Automated balance matches are isolated even when their arenas share one room.
-	if (balance_test_match_id >= 0)
-	{
-		if (!variable_instance_exists(_target, "balance_test_match_id")
-			|| _target.balance_test_match_id != balance_test_match_id)
-		{
-			return false;
-		}
 	}
 
 	return true;
@@ -1668,8 +1670,7 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 					|| !variable_instance_exists(_ally, "unit_faction")
 					|| _ally.unit_faction != unit_faction
 					|| !variable_instance_exists(_ally, "hp")
-					|| _ally.hp <= 0
-					|| _ally.target_can_be_attacked(_ally.target_instance))
+					|| _ally.hp <= 0)
 				{
 					continue;
 				}
@@ -1679,7 +1680,9 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 				var _ally_distance_squared = (_ally_distance_x * _ally_distance_x)
 					+ (_ally_distance_y * _ally_distance_y);
 
-				if (_ally_distance_squared > _damage_alert_radius_squared)
+				// Distant allies never receive this alert, so do not test their targets through mountains.
+				if (_ally_distance_squared > _damage_alert_radius_squared
+					|| _ally.target_can_be_attacked(_ally.target_instance))
 				{
 					continue;
 				}
@@ -2609,7 +2612,7 @@ find_nearest_target = function(_object_index, _max_distance)
 	{
 		var _target = instance_find(_object_index, _target_index);
 
-		if (!target_can_be_attacked(_target))
+		if (!instance_exists(_target))
 		{
 			continue;
 		}
@@ -2618,7 +2621,8 @@ find_nearest_target = function(_object_index, _max_distance)
 		var _target_distance_y = _target.y - y;
 		var _target_distance_squared = (_target_distance_x * _target_distance_x) + (_target_distance_y * _target_distance_y);
 
-		if (_target_distance_squared < _nearest_distance_squared)
+		// Range and nearest-distance rejection avoid line-of-sight checks for irrelevant candidates.
+		if (_target_distance_squared < _nearest_distance_squared && target_can_be_attacked(_target))
 		{
 			_nearest_target = _target;
 			_nearest_distance_squared = _target_distance_squared;
@@ -2648,29 +2652,22 @@ find_nearest_enemy_unit_target = function(_max_distance)
 	var _enemy_count = instance_number(o_enemy_units);
 	var _use_switch_margin = false;
 
-	// Keep the current enemy-unit target when it is still nearby.
-	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	// Validate the current reference directly instead of scanning every enemy to find it again.
+	if (instance_exists(target_instance)
+		&& (target_instance.object_index == o_enemy_units
+			|| object_is_ancestor(target_instance.object_index, o_enemy_units)))
 	{
-		var _enemy = instance_find(o_enemy_units, _enemy_index);
-
-		if (_enemy != target_instance || !target_can_be_attacked(_enemy))
-		{
-			continue;
-		}
-
-		var _current_distance_x = _enemy.x - x;
-		var _current_distance_y = _enemy.y - y;
+		var _current_distance_x = target_instance.x - x;
+		var _current_distance_y = target_instance.y - y;
 		var _current_distance_squared = (_current_distance_x * _current_distance_x)
 			+ (_current_distance_y * _current_distance_y);
 
-		if (_current_distance_squared <= _nearest_distance_squared)
+		if (_current_distance_squared <= _nearest_distance_squared && target_can_be_attacked(target_instance))
 		{
-			_nearest_target = _enemy;
+			_nearest_target = target_instance;
 			_nearest_distance_squared = _current_distance_squared;
 			_use_switch_margin = true;
 		}
-
-		break;
 	}
 
 	// Switch only when another enemy is clearly closer than the current one.
@@ -2678,7 +2675,7 @@ find_nearest_enemy_unit_target = function(_max_distance)
 	{
 		var _enemy = instance_find(o_enemy_units, _enemy_index);
 
-		if (_enemy == _nearest_target || !target_can_be_attacked(_enemy))
+		if (_enemy == _nearest_target || !instance_exists(_enemy))
 		{
 			continue;
 		}
@@ -2692,7 +2689,7 @@ find_nearest_enemy_unit_target = function(_max_distance)
 			_enemy_distance_squared,
 			_nearest_distance_squared,
 			_use_switch_margin
-		))
+		) && target_can_be_attacked(_enemy))
 		{
 			_nearest_target = _enemy;
 			_nearest_distance_squared = _enemy_distance_squared;
@@ -2726,13 +2723,13 @@ find_nearest_player_unit_target = function(_max_distance)
 	var _use_switch_margin = false;
 
 	// Keep the current player-unit target unless another target is clearly closer.
-	if (target_can_be_attacked(target_instance) && target_is_player_unit(target_instance))
+	if (target_is_player_unit(target_instance))
 	{
 		var _current_target_distance_x = target_instance.x - x;
 		var _current_target_distance_y = target_instance.y - y;
 		var _current_target_distance_squared = (_current_target_distance_x * _current_target_distance_x) + (_current_target_distance_y * _current_target_distance_y);
 
-		if (_current_target_distance_squared <= _nearest_distance_squared)
+		if (_current_target_distance_squared <= _nearest_distance_squared && target_can_be_attacked(target_instance))
 		{
 			_nearest_target = target_instance;
 			_nearest_distance_squared = _current_target_distance_squared;
@@ -2746,7 +2743,7 @@ find_nearest_player_unit_target = function(_max_distance)
 	{
 		var _friendly_unit = instance_find(o_friendly_units, _friendly_index);
 
-		if (!target_can_be_attacked(_friendly_unit))
+		if (!instance_exists(_friendly_unit))
 		{
 			continue;
 		}
@@ -2755,7 +2752,8 @@ find_nearest_player_unit_target = function(_max_distance)
 		var _friendly_distance_y = _friendly_unit.y - y;
 		var _friendly_distance_squared = (_friendly_distance_x * _friendly_distance_x) + (_friendly_distance_y * _friendly_distance_y);
 
-		if (target_candidate_should_replace(_friendly_distance_squared, _nearest_distance_squared, _use_switch_margin))
+		if (target_candidate_should_replace(_friendly_distance_squared, _nearest_distance_squared, _use_switch_margin)
+			&& target_can_be_attacked(_friendly_unit))
 		{
 			_nearest_target = _friendly_unit;
 			_nearest_distance_squared = _friendly_distance_squared;
@@ -2775,12 +2773,7 @@ find_nearest_player_unit_target = function(_max_distance)
 	{
 		var _cultist = global.archdemons[_cultist_index];
 
-		if (!target_can_be_attacked(_cultist))
-		{
-			continue;
-		}
-
-		if (!_cultist.visible)
+		if (!instance_exists(_cultist) || !_cultist.visible)
 		{
 			continue;
 		}
@@ -2789,7 +2782,8 @@ find_nearest_player_unit_target = function(_max_distance)
 		var _cultist_distance_y = _cultist.y - y;
 		var _cultist_distance_squared = (_cultist_distance_x * _cultist_distance_x) + (_cultist_distance_y * _cultist_distance_y);
 
-		if (target_candidate_should_replace(_cultist_distance_squared, _nearest_distance_squared, _use_switch_margin))
+		if (target_candidate_should_replace(_cultist_distance_squared, _nearest_distance_squared, _use_switch_margin)
+			&& target_can_be_attacked(_cultist))
 		{
 			_nearest_target = _cultist;
 			_nearest_distance_squared = _cultist_distance_squared;
@@ -3020,7 +3014,7 @@ find_nearest_cannon_attacker = function()
 	{
 		var _enemy = instance_find(o_enemy_units, _enemy_index);
 
-		if (!target_can_be_attacked(_enemy)
+		if (!instance_exists(_enemy)
 			|| !variable_instance_exists(_enemy, "target_instance")
 			|| !variable_instance_exists(_enemy, "is_attacking_target")
 			|| !_enemy.is_attacking_target
@@ -3033,7 +3027,7 @@ find_nearest_cannon_attacker = function()
 		var _enemy_distance_y = _enemy.y - y;
 		var _enemy_distance_squared = (_enemy_distance_x * _enemy_distance_x) + (_enemy_distance_y * _enemy_distance_y);
 
-		if (_enemy_distance_squared < _nearest_distance_squared)
+		if (_enemy_distance_squared < _nearest_distance_squared && target_can_be_attacked(_enemy))
 		{
 			_nearest_attacker = _enemy;
 			_nearest_distance_squared = _enemy_distance_squared;
@@ -3998,7 +3992,7 @@ find_nearest_reachable_enemy_target = function(_max_distance)
 	{
 		var _enemy = instance_find(o_enemy_units, _enemy_index);
 
-		if (!target_can_be_attacked(_enemy))
+		if (!instance_exists(_enemy))
 		{
 			continue;
 		}
@@ -4008,7 +4002,7 @@ find_nearest_reachable_enemy_target = function(_max_distance)
 		var _enemy_distance_squared = (_enemy_distance_x * _enemy_distance_x)
 			+ (_enemy_distance_y * _enemy_distance_y);
 
-		if (_enemy_distance_squared <= _maximum_distance_squared)
+		if (_enemy_distance_squared <= _maximum_distance_squared && target_can_be_attacked(_enemy))
 		{
 			ds_priority_add(_candidate_queue, _enemy, _enemy_distance_squared);
 		}
@@ -4020,7 +4014,7 @@ find_nearest_reachable_enemy_target = function(_max_distance)
 	{
 		var _structure = instance_find(o_map_objects_parent, _structure_index);
 
-		if (!friendly_enemy_structure_can_be_targeted(_structure))
+		if (!instance_exists(_structure))
 		{
 			continue;
 		}
@@ -4030,7 +4024,8 @@ find_nearest_reachable_enemy_target = function(_max_distance)
 		var _structure_distance_squared = (_structure_distance_x * _structure_distance_x)
 			+ (_structure_distance_y * _structure_distance_y);
 
-		if (_structure_distance_squared <= _maximum_distance_squared)
+		if (_structure_distance_squared <= _maximum_distance_squared
+			&& friendly_enemy_structure_can_be_targeted(_structure))
 		{
 			ds_priority_add(_candidate_queue, _structure, _structure_distance_squared);
 		}
@@ -4335,7 +4330,8 @@ update_separation_push = function()
 		_separation_object = o_friendly_units;
 	}
 
-	var _nearby_units = ds_list_create();
+	var _nearby_units = separation_query_list;
+	ds_list_clear(_nearby_units);
 	var _nearby_unit_count = collision_circle_list(x, y, separation_radius, _separation_object, false, true, _nearby_units, false);
 	var _checked_unit_count = min(_nearby_unit_count, separation_max_neighbors);
 	var _push_x = 0;
@@ -4364,7 +4360,8 @@ update_separation_push = function()
 		}
 	}
 
-	ds_list_destroy(_nearby_units);
+	// Do not keep stale instance references between queries.
+	ds_list_clear(_nearby_units);
 
 	separation_push_x = clamp(_push_x, -1, 1) * separation_strength;
 	separation_push_y = clamp(_push_y, -1, 1) * separation_strength;

@@ -1528,7 +1528,10 @@ projectile_descriptions[PROJECTILE_TYPE.HEAL] = "Remains on the ground for "
 	+ " pixel base radius. Payload Mastery improves each pulse.";
 projectile_descriptions[PROJECTILE_TYPE.BOMB] = "Hold and drag from the landing point to aim a "
 	+ string(BALANCE_PROJECTILE_HELLCOW_CORRIDOR_WIDTH)
-	+ "px-wide HellCow charge. It pushes enemies along the arrow.";
+	+ "px-wide HellCow charge. Drag farther to increase its range from "
+	+ string(BALANCE_PROJECTILE_HELLCOW_MIN_CHARGE_DISTANCE)
+	+ " to " + string(BALANCE_PROJECTILE_HELLCOW_CHARGE_DISTANCE)
+	+ " pixels. It pushes enemies along the arrow.";
 projectile_descriptions[PROJECTILE_TYPE.SKELETONS] = "Summons " + string(BALANCE_PROJECTILE_SKELETON_COUNT) + " skeleton inside a " + string(BALANCE_PROJECTILE_SKELETON_RADIUS) + " pixel radius. Payload Mastery improves it.";
 projectile_descriptions[PROJECTILE_TYPE.BUILDING_SHELL] = "Summons its stored structure where it lands. Must be fired onto tainted ground.";
 projectile_descriptions[PROJECTILE_TYPE.CLEANSE] = "Enemy projectile that removes Taint where it lands.";

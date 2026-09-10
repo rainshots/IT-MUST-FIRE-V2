@@ -524,11 +524,17 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 
 		if (!hellcow_aim_is_dragging)
 		{
-			_target_hint_text = "Hold and drag to set charge direction";
+			_target_hint_text = "Hold and drag to set direction and distance";
 		}
 		else if (hellcow_aim_drag_distance < BALANCE_PROJECTILE_HELLCOW_AIM_MIN_DRAG)
 		{
 			_target_hint_text = "Drag farther to fire";
+		}
+		else
+		{
+			var _hellcow_range_percent = round(hellcow_aim_charge_distance_get()
+				/ BALANCE_PROJECTILE_HELLCOW_CHARGE_DISTANCE * 100);
+			_target_hint_text = "Release to fire | Range: " + string(_hellcow_range_percent) + "%";
 		}
 	}
 	else if (target_selection_projectile_type == PROJECTILE_TYPE.SKELETONS)
@@ -586,7 +592,10 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 
 		var _hellcow_start_x = ((_hellcow_start_world_x - _camera_x) / _camera_width) * camera_view_width;
 		var _hellcow_start_y = ((_hellcow_start_world_y - _camera_y) / _camera_height) * camera_view_height;
-		var _hellcow_corridor_length = BALANCE_PROJECTILE_HELLCOW_CHARGE_DISTANCE * _radius_scale;
+		var _hellcow_charge_distance = hellcow_aim_charge_distance_get();
+		// Enemies stop ahead of the cows, so include the push front in the shown boundary.
+		var _hellcow_corridor_length = (_hellcow_charge_distance
+			+ BALANCE_PROJECTILE_HELLCOW_PUSH_FRONT_DISTANCE) * _radius_scale;
 		var _hellcow_half_width = BALANCE_PROJECTILE_HELLCOW_CORRIDOR_WIDTH * 0.5 * _radius_scale;
 		var _hellcow_end_x = _hellcow_start_x + lengthdir_x(_hellcow_corridor_length, _hellcow_direction);
 		var _hellcow_end_y = _hellcow_start_y + lengthdir_y(_hellcow_corridor_length, _hellcow_direction);
@@ -675,7 +684,7 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 		var _hellcow_taint_side_step = BALANCE_PROJECTILE_HELLCOW_CORRIDOR_WIDTH * 0.32;
 
 		for (var _hellcow_taint_forward = _hellcow_taint_step;
-			_hellcow_taint_forward < BALANCE_PROJECTILE_HELLCOW_CHARGE_DISTANCE;
+			_hellcow_taint_forward < _hellcow_charge_distance;
 			_hellcow_taint_forward += _hellcow_taint_step)
 		{
 			for (var _hellcow_taint_lane = -1; _hellcow_taint_lane <= 1; ++_hellcow_taint_lane)

@@ -773,19 +773,8 @@ if (!_special_behavior_handled
 	}
 }
 
-// Enemies keep attacking the cannon only while no player units are visible.
-if (!_special_behavior_handled
-	&& _is_enemy_unit
-	&& instance_exists(target_instance)
-	&& target_instance.object_index == o_cannon)
-{
-	var _visible_friendly_target = find_nearest_player_unit_target(target_detection_radius);
-
-	if (instance_exists(_visible_friendly_target))
-	{
-		target_instance = _visible_friendly_target;
-	}
-}
+// The timed enemy search above already gives nearby player units priority over the Cannon.
+// Do not repeat the full search every frame while a wave is approaching the settlement.
 
 // Move to target or attack it when close enough.
 if (!_special_behavior_handled && instance_exists(target_instance))
