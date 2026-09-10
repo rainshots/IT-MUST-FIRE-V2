@@ -1297,6 +1297,7 @@ projectile_names[PROJECTILE_TYPE.SKELETONS] = "SKELETONS";
 projectile_names[PROJECTILE_TYPE.BUILDING_SHELL] = "STRUCTURE";
 projectile_names[PROJECTILE_TYPE.CLEANSE] = "CLEANSE";
 projectile_names[PROJECTILE_TYPE.DOOM_BELL] = "DOOM BELL";
+projectile_names[PROJECTILE_TYPE.BOMB_SHOT] = "BOMB SHOT";
 
 projectile_descriptions = array_create(PROJECTILE_TYPE.COUNT, "");
 projectile_descriptions[PROJECTILE_TYPE.DAMAGE] = "Damages units and buildings inside the impact area.";
@@ -1328,3 +1329,8 @@ projectile_descriptions[PROJECTILE_TYPE.DOOM_BELL] = "Stuns all friendly and ene
 	+ " pixel radius for "
 	+ string(BALANCE_PROJECTILE_DOOM_BELL_STUN_TIME)
 	+ " seconds. Deals no damage.";
+
+projectile_descriptions[PROJECTILE_TYPE.BOMB_SHOT] = "Night only. Places a bomb that explodes after "
+	+ string(BALANCE_BOMB_SHOT_FUSE_TIME) + " seconds, dealing "
+	+ string(BALANCE_BOMB_SHOT_DAMAGE) + " damage to enemies within "
+	+ string(BALANCE_BOMB_SHOT_RADIUS) + " pixels.";

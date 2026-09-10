@@ -184,7 +184,8 @@ function squad_slot_is_available(_squad_type = -1, _excluded_event = noone)
 	// The player can summon no more than one Archdemon during a run.
 	if (_squad_type == SQUAD_TYPE.ARCHDEMON)
 	{
-		return squad_type_count_get(SQUAD_TYPE.ARCHDEMON) < BALANCE_SQUAD_ARCHDEMON_LIMIT;
+		return BALANCE_ARCHDEMON_ENABLED
+			&& squad_type_count_get(SQUAD_TYPE.ARCHDEMON) < BALANCE_SQUAD_ARCHDEMON_LIMIT;
 	}
 
 	return true;

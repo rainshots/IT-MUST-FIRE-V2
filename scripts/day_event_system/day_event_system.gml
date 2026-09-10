@@ -2535,6 +2535,11 @@ function day_event_world_archdemon_event_id_get(_archdemon_number)
 
 function day_event_world_archdemon_job_is_available(_archdemon_number)
 {
+	if (!BALANCE_ARCHDEMON_ENABLED)
+	{
+		return false;
+	}
+
 	var _last_archdemon_number = 3; // Three sequential Archdemon Jobs are authored.
 
 	if (_archdemon_number < 1
@@ -3290,6 +3295,12 @@ function day_event_foundry_legacy_events_add(_foundry)
 		}
 	}
 
+	// The remaining legacy jobs train Archdemons or create their personal artifacts.
+	if (!BALANCE_ARCHDEMON_ENABLED)
+	{
+		return;
+	}
+
 	// Training locks one random Archdemon when the card is generated.
 	var _eligible_archdemon_indices = [];
 
@@ -3999,7 +4010,7 @@ function day_event_building_catalog_get(_building_object)
 			];
 
 		case o_foundry:
-			return [
+			var _foundry_entries = [
 				_entry("Flesh of the Pit", "Permanently increase maximum health of all Demons by 10%, excluding Archdemons."),
 				_entry("Lessons in Cruelty", "Permanently increase damage of all Demons by 10%, excluding Archdemons."),
 				_entry("Reinforced Bones", "Permanently increase maximum health of all Undead units by 10%."),
@@ -4017,6 +4028,15 @@ function day_event_building_catalog_get(_building_object)
 				_entry("Relics of Great Power", "Create one artifact granting +1 Body, Fervor, or Spirit."),
 				_entry("Spoils of the Abyss", "Create 2 identical random artifacts for an Archdemon.")
 			];
+
+			if (!BALANCE_ARCHDEMON_ENABLED)
+			{
+				// Training and the two personal artifact jobs are the final entries.
+				var _archdemon_entry_count = 3;
+				array_resize(_foundry_entries, array_length(_foundry_entries) - _archdemon_entry_count);
+			}
+
+			return _foundry_entries;
 
 		case o_ritual_circle:
 			return [
@@ -5130,7 +5150,8 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 				day_event_blood_bath_crimson_baptism_execute
 			));
 
-			if (global.blood_bath_infernal_regeneration_uses
+			if (BALANCE_ARCHDEMON_ENABLED
+				&& global.blood_bath_infernal_regeneration_uses
 				< BALANCE_BLOOD_BATH_INFERNAL_REGENERATION_ACTIVATION_LIMIT)
 			{
 				day_event_add(day_event_blood_bath_create(

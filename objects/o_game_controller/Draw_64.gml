@@ -515,6 +515,10 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 			_target_hint_text = "Drag farther to fire";
 		}
 	}
+	else if (target_selection_projectile_type == PROJECTILE_TYPE.BOMB_SHOT)
+	{
+		_target_color = COLOR_BOMB_SHOT_FUSE;
+	}
 	else if (target_selection_projectile_type == PROJECTILE_TYPE.SKELETONS)
 	{
 		_target_color = COLOR_PROJECTILE_SKELETONS;

@@ -1,8 +1,11 @@
+// Currently active mission type.
+mission_type = MISSION_TYPES.TOWER_DEFENSE;
+
 // Global pause state used by gameplay objects.
 randomise()
 global.pause = false;
 global.focus_window = FOCUS_WINDOW.NOONE;
-global.fog_of_war_visible = true;
+global.fog_of_war_visible = false;
 global.cheats_enabled = BALANCE_CHEATS_ENABLED;
 // F2 toggles the Cannon's automatic reaction to night damage.
 global.cannon_damage_reaction_enabled = true;
@@ -3627,6 +3630,11 @@ projectile_target_selection_radius_get = function(_projectile_type)
 		return BALANCE_PROJECTILE_HELLCOW_RADIUS;
 	}
 
+	if (_projectile_type == PROJECTILE_TYPE.BOMB_SHOT)
+	{
+		return BALANCE_BOMB_SHOT_RADIUS;
+	}
+
 	if (_projectile_type == PROJECTILE_TYPE.DOOM_BELL)
 	{
 		return BALANCE_PROJECTILE_DOOM_BELL_RADIUS;
@@ -3649,7 +3657,8 @@ cannon_projectile_type_is_reusable = function(_projectile_type)
 {
 	return _projectile_type == PROJECTILE_TYPE.BOMB
 		|| _projectile_type == PROJECTILE_TYPE.HEAL
-		|| _projectile_type == PROJECTILE_TYPE.DOOM_BELL;
+		|| _projectile_type == PROJECTILE_TYPE.DOOM_BELL
+		|| _projectile_type == PROJECTILE_TYPE.BOMB_SHOT;
 };
 
 cannon_projectile_type_can_fire_in_current_phase = function(_projectile_type)
@@ -4035,7 +4044,7 @@ settings_edge_toggle_rect_get = function()
 };
 
 // Cultist prototype state.
-starting_archdemon_count = BALANCE_STARTING_ARCHDEMON_COUNT;
+starting_archdemon_count = BALANCE_ARCHDEMON_ENABLED ? BALANCE_STARTING_ARCHDEMON_COUNT : 0;
 starting_goblin_count = BALANCE_STARTING_GOBLIN_COUNT;
 starting_event_cultist_count = BALANCE_STARTING_EVENT_CULTIST_COUNT;
 cultist_reward_days = [];
@@ -4339,6 +4348,9 @@ balance_log_night_hp_append = function()
 boss_griffith_night_interval = BALANCE_BOSS_GRIFFITH_NIGHT_INTERVAL;
 boss_griffith_pending_next_night = false;
 boss_griffith_pending_direction = 0;
+// The night plan records the selected marker's center for either boss encounter.
+boss_griffith_pending_spawn_x = 0;
+boss_griffith_pending_spawn_y = 0;
 boss_griffith_force_next_night = false;
 boss_griffith_night_active = false;
 full_moon_night_interval = BALANCE_FULL_MOON_NIGHT_INTERVAL;
@@ -6910,6 +6922,11 @@ cannon_reusable_projectiles_ensure = function()
 		array_push(_projectile_types, PROJECTILE_TYPE.HEAL);
 	}
 
+	if (BALANCE_CANNON_STARTING_BOMB_SHOT_AVAILABLE)
+	{
+		array_push(_projectile_types, PROJECTILE_TYPE.BOMB_SHOT);
+	}
+
 	if (BALANCE_CANNON_STARTING_DOOM_BELL_AVAILABLE)
 	{
 		array_push(_projectile_types, PROJECTILE_TYPE.DOOM_BELL);
@@ -8649,6 +8666,11 @@ clear_dragged_unit = function()
 
 transform_demons_to_archdemons = function()
 {
+	if (!BALANCE_ARCHDEMON_ENABLED)
+	{
+		return;
+	}
+
 	var _unit_count = array_length(global.archdemons);
 	var _new_cultists = array_create(0);
 
@@ -10687,7 +10709,7 @@ night_attack_marker_directions_get = function()
 	var _cannon = instance_find(o_cannon, 0);
 	var _marker_count = instance_number(o_attack_direction);
 
-	// Every placed marker contributes one exact angle measured from the cannon.
+	// Keep each marker position with its angle so shuffled directions retain their spawn centers.
 	for (var _marker_index = 0; _marker_index < _marker_count; ++_marker_index)
 	{
 		var _marker = instance_find(o_attack_direction, _marker_index);
@@ -10700,7 +10722,11 @@ night_attack_marker_directions_get = function()
 
 		array_push(
 			_directions,
-			point_direction(_cannon.x, _cannon.y, _marker.x, _marker.y)
+			{
+				direction: point_direction(_cannon.x, _cannon.y, _marker.x, _marker.y),
+				spawn_x: _marker.x,
+				spawn_y: _marker.y
+			}
 		);
 	}
 
@@ -10770,7 +10796,9 @@ night_attack_plan_create = function()
 		array_push(
 			_directions,
 			{
-				direction: _marker_directions[_roll_index],
+				direction: _marker_directions[_roll_index].direction,
+				spawn_x: _marker_directions[_roll_index].spawn_x,
+				spawn_y: _marker_directions[_roll_index].spawn_y,
 				source_shrine: _source_shrine
 			}
 		);
@@ -10789,6 +10817,8 @@ night_attack_plan_create = function()
 	if (boss_griffith_pending_next_night)
 	{
 		boss_griffith_pending_direction = _directions[0].direction;
+		boss_griffith_pending_spawn_x = _directions[0].spawn_x;
+		boss_griffith_pending_spawn_y = _directions[0].spawn_y;
 	}
 
 	var _direction_difficulty_cap = BALANCE_NIGHT_ATTACK_DIRECTION_DIFFICULTY_MAX;
@@ -10847,6 +10877,8 @@ night_attack_plan_create = function()
 			night_attack_directions,
 			{
 				direction: _direction_source.direction,
+				spawn_x: _direction_source.spawn_x,
+				spawn_y: _direction_source.spawn_y,
 				source_shrine: _direction_source.source_shrine,
 				enemy_objects: _enemy_objects,
 				direction_difficulty: _direction_difficulty,
@@ -10978,9 +11010,9 @@ night_attack_enemy_spawn = function(_direction_index, _direction_data, _enemy_ob
 		return;
 	}
 
-	var _cannon = instance_find(o_cannon, 0);
-	var _spawn_x = _cannon.x + lengthdir_x(BALANCE_NIGHT_ATTACK_SPAWN_DISTANCE, _direction_data.direction);
-	var _spawn_y = _cannon.y + lengthdir_y(BALANCE_NIGHT_ATTACK_SPAWN_DISTANCE, _direction_data.direction);
+	// Preserve the wave's formation spread around its selected room marker.
+	var _spawn_x = _direction_data.spawn_x;
+	var _spawn_y = _direction_data.spawn_y;
 	var _side_offset = random_range(-BALANCE_NIGHT_ATTACK_SPAWN_SPREAD_RADIUS, BALANCE_NIGHT_ATTACK_SPAWN_SPREAD_RADIUS);
 	var _forward_offset = random_range(
 		-BALANCE_NIGHT_ATTACK_SPAWN_SPREAD_RADIUS * 0.25,
@@ -11123,9 +11155,8 @@ boss_griffith_spawn_for_night = function()
 		return noone;
 	}
 
-	var _cannon = instance_find(o_cannon, 0);
-	var _spawn_x = _cannon.x + lengthdir_x(BALANCE_NIGHT_ATTACK_SPAWN_DISTANCE, boss_griffith_pending_direction);
-	var _spawn_y = _cannon.y + lengthdir_y(BALANCE_NIGHT_ATTACK_SPAWN_DISTANCE, boss_griffith_pending_direction);
+	var _spawn_x = boss_griffith_pending_spawn_x;
+	var _spawn_y = boss_griffith_pending_spawn_y;
 	var _boss = instance_create_layer(_spawn_x, _spawn_y, "Instances", o_boss_griffith);
 
 	if (!instance_exists(_boss))
@@ -11186,11 +11217,8 @@ boss_crusader_horde_spawn_for_night = function()
 		return noone;
 	}
 
-	var _cannon = instance_find(o_cannon, 0);
-	var _spawn_x = _cannon.x
-		+ lengthdir_x(BALANCE_NIGHT_ATTACK_SPAWN_DISTANCE, boss_griffith_pending_direction);
-	var _spawn_y = _cannon.y
-		+ lengthdir_y(BALANCE_NIGHT_ATTACK_SPAWN_DISTANCE, boss_griffith_pending_direction);
+	var _spawn_x = boss_griffith_pending_spawn_x;
+	var _spawn_y = boss_griffith_pending_spawn_y;
 	var _first_crusader = noone;
 
 	// The second boss encounter replaces Griffith with independent Crusaders.
@@ -11889,11 +11917,11 @@ start_day_phase = function()
 	}
 
 	// Habitat populations return to their full count and HP every morning.
-	with (o_orcs_pit)
+	with (o_habitat_parent)
 	{
-		if (variable_instance_exists(id, "orcs_pit_morning_restore"))
+		if (variable_instance_exists(id, "habitat_morning_restore"))
 		{
-			orcs_pit_morning_restore();
+			habitat_morning_restore();
 		}
 	}
 

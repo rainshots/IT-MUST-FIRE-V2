@@ -1,21 +1,19 @@
 {
   "$GMObject":"",
-  "%Name":"o_demon_wizard",
+  "%Name":"o_bomb_shot",
   "eventList":[
     {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":0,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
     {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":3,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
+    {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":8,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
   ],
   "managed":true,
-  "name":"o_demon_wizard",
+  "name":"o_bomb_shot",
   "overriddenProperties":[],
   "parent":{
-    "name":"Friendly",
-    "path":"folders/Objects/Units/Friendly.yy",
+    "name":"Objects",
+    "path":"folders/Objects.yy",
   },
-  "parentObjectId":{
-    "name":"o_friendly_units",
-    "path":"objects/o_friendly_units/o_friendly_units.yy",
-  },
+  "parentObjectId":null,
   "persistent":false,
   "physicsAngularDamping":0.1,
   "physicsDensity":0.5,
@@ -33,10 +31,7 @@
   "resourceType":"GMObject",
   "resourceVersion":"2.0",
   "solid":false,
-  "spriteId":{
-    "name":"s_demon_wizard",
-    "path":"sprites/s_demon_wizard/s_demon_wizard.yy",
-  },
+  "spriteId":null,
   "spriteMaskId":null,
   "visible":true,
 }

@@ -41,6 +41,18 @@ var _habitat_choices = [
 		building_sprite: s_orks_hut,
 		building_name: "Orcs Pit",
 		building_description: "Houses two strong allied Orcs that defend the surrounding area."
+	},
+	{
+		building_object: o_habit_graveyard,
+		building_sprite: s_graveyardv3,
+		building_name: "Graveyard",
+		building_description: "Houses two Skeleton Archers that defend the surrounding area with ranged attacks."
+	},
+	{
+		building_object: o_habit_demons,
+		building_sprite: s_pitlings_house,
+		building_name: "Demon Habitat",
+		building_description: "Houses two Balgors whose melee attacks damage groups of nearby enemies."
 	}
 ];
 

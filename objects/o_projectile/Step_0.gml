@@ -58,6 +58,21 @@ if (smoke_trail_enabled && _flight_progress < 1)
 // Apply the projectile effect when it lands.
 if (_flight_progress >= 1)
 {
+	// Bomb Shot lands harmlessly; the ground bomb owns its fuse and explosion.
+	if (projectile_type == PROJECTILE_TYPE.BOMB_SHOT)
+	{
+		var _bomb = instance_create_layer(target_x, target_y, particle_layer_name, o_bomb_shot);
+
+		if (instance_exists(_bomb))
+		{
+			_bomb.effect_radius = effect_radius;
+			_bomb.damage_amount = damage_amount;
+			_bomb.source_instance = source_instance;
+		}
+
+		instance_destroy();
+		exit;
+	}
 	// Play a random impact sound for any landed projectile.
 	if (variable_global_exists("explosion_sounds") && variable_global_exists("sound_play_random"))
 	{

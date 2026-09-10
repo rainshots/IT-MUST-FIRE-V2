@@ -1,0 +1,14 @@
+// Configure this habitat before shared initialization spawns its residents.
+habitat_sprite = s_graveyardv3;
+habitat_unit_object = o_skeleton_archer;
+habitat_display_name = "Graveyard";
+habitat_unit_display_name = "Skeleton Archers";
+habitat_max_hp = BALANCE_HABIT_GRAVEYARD_MAX_HP;
+habitat_unit_count = BALANCE_HABIT_GRAVEYARD_UNIT_COUNT;
+habitat_home_spacing = BALANCE_HABIT_GRAVEYARD_HOME_SPACING;
+habitat_home_offset_y = BALANCE_HABIT_GRAVEYARD_HOME_OFFSET_Y;
+habitat_defense_radius = BALANCE_HABIT_GRAVEYARD_DEFENSE_RADIUS;
+habitat_return_delay = BALANCE_HABIT_GRAVEYARD_RETURN_DELAY * room_speed;
+habitat_return_radius = BALANCE_HABIT_GRAVEYARD_RETURN_RADIUS;
+
+event_inherited();

@@ -45,6 +45,10 @@ else if (projectile_type == PROJECTILE_TYPE.ARTILLERY)
 {
 	_projectile_color = COLOR_PROJECTILE_BOMB;
 }
+else if (projectile_type == PROJECTILE_TYPE.BOMB_SHOT)
+{
+	_projectile_color = COLOR_BOMB_SHOT_FUSE;
+}
 else if (projectile_type == PROJECTILE_TYPE.DOOM_BELL)
 {
 	_projectile_color = COLOR_PROJECTILE_BOMB;

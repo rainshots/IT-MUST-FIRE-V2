@@ -1,20 +1,21 @@
 {
   "$GMObject":"",
-  "%Name":"o_demon_wizard",
+  "%Name":"o_habitat_parent",
   "eventList":[
     {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":0,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
     {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":3,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
+    {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":12,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
   ],
   "managed":true,
-  "name":"o_demon_wizard",
+  "name":"o_habitat_parent",
   "overriddenProperties":[],
   "parent":{
-    "name":"Friendly",
-    "path":"folders/Objects/Units/Friendly.yy",
+    "name":"Map buidlings",
+    "path":"folders/Objects/buildings v13/Map buidlings.yy",
   },
   "parentObjectId":{
-    "name":"o_friendly_units",
-    "path":"objects/o_friendly_units/o_friendly_units.yy",
+    "name":"o_map_objects_parent",
+    "path":"objects/o_map_objects_parent/o_map_objects_parent.yy",
   },
   "persistent":false,
   "physicsAngularDamping":0.1,
@@ -34,8 +35,8 @@
   "resourceVersion":"2.0",
   "solid":false,
   "spriteId":{
-    "name":"s_demon_wizard",
-    "path":"sprites/s_demon_wizard/s_demon_wizard.yy",
+    "name":"s_orks_hut",
+    "path":"sprites/s_orks_hut/s_orks_hut.yy",
   },
   "spriteMaskId":null,
   "visible":true,

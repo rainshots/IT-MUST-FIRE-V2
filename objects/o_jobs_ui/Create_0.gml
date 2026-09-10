@@ -371,6 +371,11 @@ jobs_end_day_is_visible = function()
 
 jobs_first_archdemon_assignment_is_missing = function()
 {
+	if (!BALANCE_ARCHDEMON_ENABLED)
+	{
+		return false;
+	}
+
 	if (!jobs_window_opened_once
 		|| global.day_phase != DAY_PHASE.DAY
 		|| day_event_current_day_get() != 1)

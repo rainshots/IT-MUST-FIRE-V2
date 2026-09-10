@@ -14,8 +14,8 @@
     "path":"folders/Objects/buildings v13/Map buidlings.yy",
   },
   "parentObjectId":{
-    "name":"o_map_objects_parent",
-    "path":"objects/o_map_objects_parent/o_map_objects_parent.yy",
+    "name":"o_habitat_parent",
+    "path":"objects/o_habitat_parent/o_habitat_parent.yy",
   },
   "persistent":false,
   "physicsAngularDamping":0.1,

@@ -9,6 +9,12 @@
 // Windows reports Shift + NumPad 5 as the keypad center virtual key.
 #macro KEY_CODE_NUMPAD_CENTER 12
 
+enum MISSION_TYPES
+{
+	SURVIVE,
+	TOWER_DEFENSE
+}
+
 enum PROJECTILE_TYPE
 {
 	DAMAGE,
@@ -24,6 +30,7 @@ enum PROJECTILE_TYPE
 	CLEANSE,
 	ARTILLERY,
 	DOOM_BELL,
+	BOMB_SHOT,
 	COUNT
 }
 
@@ -410,3 +417,7 @@ enum STATUS_EFFECT
 #macro COLOR_BALANCE_TEST_PLAYER_WIN #78e696
 #macro COLOR_BALANCE_TEST_ENEMY_WIN #f08278
 #macro COLOR_BALANCE_TEST_NEUTRAL #d2d2dc
+
+// Bomb Shot body and fuse colors.
+#macro COLOR_BOMB_SHOT_BODY #302823
+#macro COLOR_BOMB_SHOT_FUSE #ff9b2f
