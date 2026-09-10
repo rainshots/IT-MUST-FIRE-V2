@@ -8,15 +8,17 @@ spirit = max_spirit;
 assigned_event = noone;
 // Completed Rite building sprites are stored oldest-first for the Assign Rites history.
 work_history = [];
-// Building work counts unlock a queued Mastery offer; only completing it grants the bonus.
+// Building-type and construction counts unlock a queued Mastery offer; accepting it grants the bonus.
 building_work_counts = [];
-mastery_building_object = noone;
+mastery_building_object = noone; // o_building_slot identifies the shared Construction specialization.
 mastery_building_name = "";
 mastery_building_sprite = noone;
 // Event execution consumes this temporary discount across all HP costs in one Rite.
 event_mastery_hp_discount_remaining = 0;
 // Prepared knife reduction is shared by this participant's HP costs during one Rite.
 event_knife_hp_discount_remaining = 0;
+// Shift + F8 protects this worker from HP costs only while an automatic Rite executes.
+debug_day_progress_hp_cost_ignored = false;
 is_being_dragged = false;
 drag_drop_x = x;
 drag_drop_y = y;

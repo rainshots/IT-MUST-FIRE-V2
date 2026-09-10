@@ -1264,20 +1264,45 @@ if (global.cheats_enabled)
 		resource_add(RESOURCES.IHOR, BALANCE_DEBUG_RESOURCE_CHEAT_AMOUNT);
 	}
 
-	// F8 skips the current day or night phase.
+	// Shift + F8 prepares daytime progress before the ordinary phase skip.
 	if (keyboard_check_pressed(vk_f8)
 		&& global.day_cycle_enabled
 		&& global.focus_window == FOCUS_WINDOW.NOONE)
 	{
 		if (global.day_phase == DAY_PHASE.DAY)
 		{
+			var _auto_progress_day = keyboard_check(vk_shift);
+			if (_auto_progress_day)
+			{
+				debug_day_progress_apply(id);
+			}
+
 			day_event_finish_day();
+
+			// Apply the cheat target after all Rite effects and ignored-demand penalties, refreshing tier effects.
+			if (_auto_progress_day)
+			{
+				cannon_satisfaction_add(BALANCE_DEBUG_DAY_PROGRESS_CANNON_SATISFACTION - cannon_satisfaction_get());
+			}
+
+			// Show the completed day's snapshot when tomorrow begins, not during this night.
+			debug_previous_day_report_pending = _auto_progress_day;
 			start_night_phase_after_day_events();
 		}
 		else
 		{
-			debug_kill_all_enemies();
-			start_day_phase();
+			// Keep the current Satisfaction and tier effects intact throughout Shift + F8 night skips.
+			var _previous_satisfaction_lock = debug_night_skip_satisfaction_locked;
+			debug_night_skip_satisfaction_locked = _previous_satisfaction_lock || keyboard_check(vk_shift);
+			try
+			{
+				debug_kill_all_enemies();
+				start_day_phase();
+			}
+			finally
+			{
+				debug_night_skip_satisfaction_locked = _previous_satisfaction_lock;
+			}
 		}
 	}
 }

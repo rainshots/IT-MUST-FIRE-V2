@@ -12,6 +12,17 @@ function cannon_satisfaction_get()
 
 function cannon_satisfaction_add(_amount)
 {
+	// Suppress both gains and losses during the debug skip, before tier side effects can run.
+	if (instance_exists(o_game_controller))
+	{
+		var _controller = instance_find(o_game_controller, 0);
+		if (variable_instance_exists(_controller, "debug_night_skip_satisfaction_locked")
+			&& _controller.debug_night_skip_satisfaction_locked)
+		{
+			return cannon_satisfaction_get();
+		}
+	}
+
 	var _previous_level = cannon_satisfaction_level_get();
 	global.cannon_satisfaction = clamp(
 		cannon_satisfaction_get() + _amount,

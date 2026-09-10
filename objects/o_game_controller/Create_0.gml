@@ -74,7 +74,7 @@ night_attack_balance_by_day = [
 	},
 	// Day 7.
 	{
-		difficulty_budget: 235, enemy_hp_multiplier: 1.38, enemy_damage_multiplier: 1.5,
+		difficulty_budget: 220, enemy_hp_multiplier: 1.38, enemy_damage_multiplier: 1.5,
 		enemy_types: [
 			[o_enemy_mage],
 			[o_enemy_mage]
@@ -82,7 +82,7 @@ night_attack_balance_by_day = [
 	},
 	// Day 8: Full Moon.
 	{
-		difficulty_budget: 364, enemy_hp_multiplier: 1.72, enemy_damage_multiplier: 1.6,
+		difficulty_budget: 300, enemy_hp_multiplier: 1.72, enemy_damage_multiplier: 1.6,
 		enemy_types: [
 			[o_enemy_peasant],
 			[o_enemy_mage, o_enemy_knight]
@@ -106,7 +106,7 @@ night_attack_balance_by_day = [
 	},
 	// Day 11: Full Moon.
 	{
-		difficulty_budget: 400, enemy_hp_multiplier: 2.45, enemy_damage_multiplier: 2.55,
+		difficulty_budget: 300, enemy_hp_multiplier: 2.45, enemy_damage_multiplier: 2.55,
 		enemy_types: [
 			[o_enemy_archer, o_enemy_knight, o_enemy_mage]
 		]
@@ -128,7 +128,7 @@ night_attack_balance_by_day = [
 	},
 	// Day 14.
 	{
-		difficulty_budget: 250, enemy_hp_multiplier: 2.9, enemy_damage_multiplier: 3.2,
+		difficulty_budget: 230, enemy_hp_multiplier: 2.9, enemy_damage_multiplier: 3.2,
 		enemy_types: [
 			[o_enemy_knight, o_enemy_archer],
 			[o_enemy_catapult, o_enemy_archer]
@@ -136,7 +136,7 @@ night_attack_balance_by_day = [
 	},
 	// Day 15.
 	{
-		difficulty_budget: 250, enemy_hp_multiplier: 3.3, enemy_damage_multiplier: 3.3,
+		difficulty_budget: 230, enemy_hp_multiplier: 3.3, enemy_damage_multiplier: 3.3,
 		enemy_types: [
 			[o_enemy_peasant],
 			[o_enemy_knight],
@@ -146,7 +146,7 @@ night_attack_balance_by_day = [
 	},
 	// Day 16.
 	{
-		difficulty_budget: 250, enemy_hp_multiplier: 3.8, enemy_damage_multiplier: 3.4,
+		difficulty_budget: 230, enemy_hp_multiplier: 3.8, enemy_damage_multiplier: 3.4,
 		enemy_types: [
 			[o_enemy_peasant, o_enemy_catapult],
 			[o_enemy_peasant, o_enemy_archer]
@@ -154,7 +154,7 @@ night_attack_balance_by_day = [
 	},
 	// Day 17 and later.
 	{
-		difficulty_budget: 250, enemy_hp_multiplier: 4.5, enemy_damage_multiplier: 3.5,
+		difficulty_budget: 230, enemy_hp_multiplier: 4.5, enemy_damage_multiplier: 3.5,
 		enemy_types: [
 			[o_enemy_knight, o_enemy_archer],
 			[o_enemy_peasant, o_enemy_mage]
@@ -216,6 +216,8 @@ global.event_cultists = array_create(0);
 global.cultist_limit = BALANCE_STARTING_CULTIST_LIMIT;
 // The possessed cannon's mood is shared by Jobs, shell recharge, and HUD systems.
 global.cannon_satisfaction = BALANCE_CANNON_SATISFACTION_START;
+// Shift + F8 blocks Satisfaction changes only during forced enemy cleanup and morning setup.
+debug_night_skip_satisfaction_locked = false;
 // Creating a regular building event immediately consumes its daily allowance.
 global.building_construction_count_today = 0;
 global.blood_bath_infernal_regeneration_uses = 0;
@@ -263,6 +265,11 @@ cultist_mastery_generated_day = -1;
 global.next_rite_hp_discount = 0;
 global.blood_bath_daily_heal_bonus = 0;
 global.day_event_executed_log_lines = [];
+// Assign Rites shows this completed-day snapshot on the morning after a Shift + F8 day skip.
+debug_previous_day_event_lines = [];
+debug_previous_day_event_day = -1;
+debug_previous_day_report_visible = false;
+debug_previous_day_report_pending = false;
 // Jobs actions have daily use counts; pinned events are consumed the following morning.
 global.day_event_rerolls_remaining = cannon_satisfaction_daily_reroll_count_get();
 global.day_event_pins_remaining = BALANCE_DAY_EVENT_DAILY_PIN_COUNT;
@@ -11825,6 +11832,12 @@ start_night_phase = function()
 	{
 		var _cannon = instance_find(o_cannon, 0);
 
+		// Clear last night's reload penalties while preserving current reload progress.
+		if (variable_instance_exists(_cannon, "cannon_reload_night_reset"))
+		{
+			_cannon.cannon_reload_night_reset();
+		}
+
 		if (variable_instance_exists(_cannon, "cannon_opening_barrage_night_start"))
 		{
 			_cannon.cannon_opening_barrage_night_start();
@@ -11925,6 +11938,8 @@ start_night_phase = function()
 
 start_day_phase = function()
 {
+	// Hide the old report until a new day has actually started.
+	debug_previous_day_report_visible = false;
 	clear_dragged_unit();
 	holy_cannon_night_end();
 
@@ -12027,6 +12042,11 @@ start_day_phase = function()
 	}
 
 	night_attack_night_index++;
+
+	// A daytime Shift + F8 requests this report, regardless of how the following night ends.
+	debug_previous_day_report_visible = debug_previous_day_report_pending
+		&& debug_previous_day_event_day == night_attack_night_index - 1;
+	debug_previous_day_report_pending = false;
 
 	if (full_moon_night_is_scheduled(night_attack_night_index))
 	{

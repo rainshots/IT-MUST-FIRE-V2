@@ -9,6 +9,22 @@
 // Windows reports Shift + NumPad 5 as the keypad center virtual key.
 #macro KEY_CODE_NUMPAD_CENTER 12
 
+// Shift + F8 expands Taint toward a nearby attack lane.
+#macro BALANCE_DEBUG_DAY_PROGRESS_DIRECTION_HALF_ANGLE 45
+
+// Finish every auto-progressed day with the same Cannon Satisfaction for balance testing.
+#macro BALANCE_DEBUG_DAY_PROGRESS_CANNON_SATISFACTION 55
+
+// Each nightly use adds a flat reload penalty to that projectile type, in seconds.
+#macro BALANCE_CANNON_RELOAD_NIGHT_SHOT_PENALTY 0.5
+
+// Marching reinforcements match the main formation with gentle distance correction.
+#macro BALANCE_SQUAD_MARCH_PACE_UPDATE_TIME 0.1
+#macro BALANCE_SQUAD_MARCH_PACE_DISTANCE_TOLERANCE 64
+#macro BALANCE_SQUAD_MARCH_PACE_CORRECTION_DISTANCE 160
+#macro BALANCE_SQUAD_MARCH_PACE_CATCH_UP_MULTIPLIER 1.25
+#macro BALANCE_SQUAD_MARCH_PACE_AHEAD_MULTIPLIER 0.7
+
 // Worker count and HP budget variants for ordinary building Rites.
 enum BUILDING_EVENT_COST_TYPE
 {
@@ -278,7 +294,7 @@ enum STATUS_EFFECT
 #macro TREE_CORRUPTION_SPREAD_ENABLED false
 
 // Wall durability, collision, and shared pathfinding settings.
-#macro BALANCE_WALL_MAX_HP 1000
+#macro BALANCE_WALL_MAX_HP (1000 * BALANCE_GLOBAL_HP_MULTIPLIER)
 #macro BALANCE_WALL_NAVIGATION_CELL_SIZE 32
 #macro BALANCE_WALL_NAVIGATION_OBSTACLE_PADDING 8
 #macro BALANCE_WALL_NAVIGATION_RETRY_TIME 1

@@ -29,9 +29,9 @@ function cultist_points_roll()
 function cultist_base_stats_get(_demon_type)
 {
 	var _stats = {
-		hp: 1,
+		hp: 1 * BALANCE_GLOBAL_HP_MULTIPLIER,
 		armor: 100,
-		damage: 1,
+		damage: 1 * BALANCE_GLOBAL_DAMAGE_MULTIPLIER,
 		magic_damage: 0,
 		aoe_radius: 0,
 		crit_chance: 0,
@@ -42,7 +42,7 @@ function cultist_base_stats_get(_demon_type)
 		magic_effectiveness: 1,
 		resistance: 100,
 		attack_radius: 34,
-		move_speed: 1.2
+		move_speed: 1.2 * BALANCE_GLOBAL_MOVE_SPEED_MULTIPLIER
 	};
 
 	if (_demon_type == DEMON_TYPE.IMP)

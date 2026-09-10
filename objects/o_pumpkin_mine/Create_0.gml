@@ -5,13 +5,23 @@ image_xscale = 0.5;
 image_yscale = image_xscale;
 // Pumpkin Mine gameplay settings.
 trap_radius = BALANCE_PUMPKIN_MINE_EXPLOSION_RADIUS;
-trap_damage = BALANCE_PUMPKIN_MINE_DAMAGE;
+trap_damage = BALANCE_PUMPKIN_MINE_DAMAGE; // Base damage; the current night's HP scale is applied on detonation.
 smoke_particle_count = BALANCE_PUMPKIN_MINE_SMOKE_COUNT;
 warning_color = COLOR_PUMPKIN_MINE_RADIUS;
 particle_layer_name = "Instances";
 
 trap_activate = function()
 {
+	// Persistent and rearmed mines use this night's configured HP multiplier without compounding it.
+	var _explosion_damage = trap_damage;
+
+	if (instance_exists(o_game_controller))
+	{
+		var _game_controller = instance_find(o_game_controller, 0);
+		var _night_balance = _game_controller.night_attack_balance_get(_game_controller.night_attack_night_index);
+		_explosion_damage *= _night_balance.enemy_hp_multiplier;
+	}
+
 	// Damage every living enemy inside the radius at the moment of detonation.
 	var _enemy_list = ds_list_create();
 	var _enemy_count = collision_circle_list(
@@ -33,7 +43,7 @@ trap_activate = function()
 			&& variable_instance_exists(_enemy, "unit_damage_receive"))
 		{
 			_enemy.unit_damage_receive(
-				trap_damage,
+				_explosion_damage,
 				UNIT_FACTION.FRIENDLY,
 				false,
 				false,

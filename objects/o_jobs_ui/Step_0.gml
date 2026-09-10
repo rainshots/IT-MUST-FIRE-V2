@@ -12,6 +12,9 @@ jobs_whip_hovered = false;
 jobs_hovered_hp_modifier_source = "";
 jobs_spirit_assignment_blocked = false;
 
+// Keep the previous-day report current independently of the scrolling assignment cards.
+jobs_previous_day_history_update();
+
 // Whip labels expire independently of gameplay and modal input handling.
 jobs_whip_feedback_update();
 
@@ -313,6 +316,19 @@ if (instance_exists(jobs_whip))
 	}
 }
 
+// The read-only history panel has its own scroll range and does not move today's cards.
+if (jobs_previous_day_history_visible)
+{
+	var _history_layout = jobs_previous_day_history_layout_get();
+	if (point_in_rectangle(_mouse_x, _mouse_y, _history_layout.x, _history_layout.y,
+		_history_layout.x + _history_layout.width, _history_layout.y + _history_layout.height))
+	{
+		var _history_scroll_direction = mouse_wheel_down() ? 1 : (mouse_wheel_up() ? -1 : 0);
+		jobs_previous_day_history_scroll_offset = clamp(jobs_previous_day_history_scroll_offset
+			+ _history_scroll_direction * jobs_scroll_step, 0, jobs_previous_day_history_scroll_max);
+	}
+}
+
 // Scroll only the event-card list while the cultist pool and actions remain fixed.
 if (_mouse_is_over_event_list)
 {
@@ -412,8 +428,13 @@ for (var _event_index = 0; _event_index < array_length(global.day_events); ++_ev
 	var _slot_count = _event.cultist_cost * _event.activation_limit;
 	var _assigned_count = array_length(_event.assigned_cultists);
 
-	for (var _slot_index = _assigned_count; _slot_index < _slot_count; ++_slot_index)
+	for (var _slot_index = 0; _slot_index < _slot_count; ++_slot_index)
 	{
+		if (_slot_index < _assigned_count && instance_exists(_event.assigned_cultists[_slot_index]))
+		{
+			continue;
+		}
+
 		var _slot_rect = jobs_event_slot_rect_get(_event_index, _slot_index);
 
 		if (_mouse_is_over_event_viewport
@@ -807,6 +828,7 @@ if (mouse_check_button_pressed(mb_left))
 		var _separator_position = string_pos(":", jobs_hovered_empty_slot_key);
 		var _event_index_text = string_copy(jobs_hovered_empty_slot_key, 1, _separator_position - 1);
 		var _clicked_event_index = real(_event_index_text);
+		var _clicked_slot_index = real(string_delete(jobs_hovered_empty_slot_key, 1, _separator_position));
 
 		if (_clicked_event_index >= 0
 			&& _clicked_event_index < array_length(global.day_events))
@@ -825,7 +847,7 @@ if (mouse_check_button_pressed(mb_left))
 			}
 
 			if (instance_exists(_auto_assign_cultist)
-				&& _clicked_event.cultist_assign(_auto_assign_cultist))
+				&& _clicked_event.cultist_assign(_auto_assign_cultist, _clicked_slot_index))
 			{
 				// Clicking a plus uses the same Cultist response as a successful drag release.
 				if (variable_global_exists("sound_play_random")
@@ -916,76 +938,8 @@ if (instance_exists(jobs_dragged_cultist) && mouse_check_button_released(mb_left
 				continue;
 			}
 
-			var _target_is_occupied = _target_slot_index < array_length(_target_event.assigned_cultists);
-			var _target_cultist = _target_is_occupied
-				? _target_event.assigned_cultists[_target_slot_index]
-				: noone;
-
-			if (_target_cultist == jobs_dragged_cultist)
-			{
-				_drop_was_handled = true;
-			}
-			else if (instance_exists(_target_cultist))
-			{
-				if (variable_struct_exists(_target_event, "cultist_is_eligible_check")
-					&& !_target_event.cultist_is_eligible_check(jobs_dragged_cultist))
-				{
-					continue;
-				}
-
-				// The displaced cultist takes the dragged cultist's former slot or returns to the pool.
-				if (is_struct(jobs_drag_origin_event)
-					&& !jobs_drag_origin_event.cultist_is_eligible_check(_target_cultist))
-				{
-					continue;
-				}
-
-				if (is_struct(jobs_drag_origin_event) && jobs_drag_origin_slot_index >= 0)
-				{
-					jobs_drag_origin_event.assigned_cultists[jobs_drag_origin_slot_index] = _target_cultist;
-					_target_cultist.assigned_event = jobs_drag_origin_event;
-				}
-				else
-				{
-					_target_cultist.assigned_event = noone;
-				}
-
-				// Moving a Cultist between Rites restarts both affected execution timers.
-				if (!is_struct(jobs_drag_origin_event) || jobs_drag_origin_event != _target_event)
-				{
-					day_event_execution_timer_reset(_target_event);
-				}
-
-				if (is_struct(jobs_drag_origin_event) && jobs_drag_origin_event != _target_event)
-				{
-					day_event_execution_timer_reset(jobs_drag_origin_event);
-				}
-
-				_target_event.assigned_cultists[_target_slot_index] = jobs_dragged_cultist;
-				jobs_dragged_cultist.assigned_event = _target_event;
-				_drop_was_handled = true;
-			}
-			else
-			{
-				// Empty slots use the event's regular capacity and availability validation.
-				if (is_struct(jobs_drag_origin_event))
-				{
-					jobs_drag_origin_event.cultist_unassign(jobs_dragged_cultist);
-				}
-
-				_drop_was_handled = _target_event.cultist_assign(jobs_dragged_cultist);
-
-				// Restore the original slot if the target rejected the cultist.
-				if (!_drop_was_handled && is_struct(jobs_drag_origin_event))
-				{
-					array_insert(
-						jobs_drag_origin_event.assigned_cultists,
-						clamp(jobs_drag_origin_slot_index, 0, array_length(jobs_drag_origin_event.assigned_cultists)),
-						jobs_dragged_cultist
-					);
-					jobs_dragged_cultist.assigned_event = jobs_drag_origin_event;
-				}
-			}
+			// The event owns exact-slot transfers, validation and displaced-worker fallback.
+			_drop_was_handled = _target_event.cultist_assign(jobs_dragged_cultist, _target_slot_index);
 
 			break;
 		}

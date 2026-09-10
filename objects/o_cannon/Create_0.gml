@@ -124,6 +124,16 @@ cannon_reload_duration = 0;
 cannon_reload_projectile_type = PROJECTILE_TYPE.DAMAGE;
 cannon_opening_barrage_free_shots_remaining = 0;
 
+// Per-type use counts add a flat reload penalty during the night and reset at the next nightfall.
+cannon_night_projectile_shot_counts = array_create(PROJECTILE_TYPE.COUNT, 0);
+
+cannon_reload_night_reset = function()
+{
+	cannon_night_projectile_shot_counts = array_create(PROJECTILE_TYPE.COUNT, 0);
+	// Preserve any existing reload progress while removing the previous night's penalty.
+	cannon_reload_satisfaction_recalculate();
+};
+
 cannon_opening_barrage_night_start = function()
 {
 	cannon_opening_barrage_free_shots_remaining = variable_global_exists("shell_factory_opening_barrage_event_completed")
@@ -171,6 +181,15 @@ cannon_reload_time_get = function(_projectile_type)
 		_reload_time *= BALANCE_SHELL_FACTORY_FAVORED_AMMUNITION_RELOAD_TIME_MULTIPLIER;
 	}
 
+	// Apply the exact per-use cost after upgrades so each shot always adds half a second.
+	if (global.day_phase == DAY_PHASE.NIGHT
+		&& _projectile_type >= 0
+		&& _projectile_type < PROJECTILE_TYPE.COUNT)
+	{
+		_reload_time += cannon_night_projectile_shot_counts[_projectile_type]
+			* BALANCE_CANNON_RELOAD_NIGHT_SHOT_PENALTY;
+	}
+
 	return _reload_time;
 };
 
@@ -196,6 +215,14 @@ cannon_reload_remaining_seconds_get = function()
 
 cannon_reload_start = function(_projectile_type)
 {
+	// Count each fired volley once, including automatic fire and Opening Barrage's free shots.
+	if (global.day_phase == DAY_PHASE.NIGHT
+		&& _projectile_type >= 0
+		&& _projectile_type < PROJECTILE_TYPE.COUNT)
+	{
+		cannon_night_projectile_shot_counts[_projectile_type]++;
+	}
+
 	// Opening Barrage skips the complete reload after the first shots of each night.
 	if (global.day_phase == DAY_PHASE.NIGHT
 		&& cannon_opening_barrage_free_shots_remaining > 0)

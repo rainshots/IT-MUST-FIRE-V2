@@ -109,7 +109,7 @@ has_warlock_curseweaver = false;
 has_warlock_demonic_infusion = false;
 
 // Day-form health is synced with the chosen demon form after selection.
-max_hp = 10;
+max_hp = 10 * BALANCE_GLOBAL_HP_MULTIPLIER;
 hp = max_hp;
 // Cheat balance UI carries this nightly HP snapshot marker into demon form.
 balance_player_hp_snapshot_id = 0;

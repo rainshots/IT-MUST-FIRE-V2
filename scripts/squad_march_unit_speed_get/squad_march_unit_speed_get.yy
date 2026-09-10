@@ -1,0 +1,10 @@
+{
+  "$GMScript":"v1",
+  "%Name":"squad_march_unit_speed_get",
+  "isCompatibility":false,
+  "isDnD":false,
+  "name":"squad_march_unit_speed_get",
+  "parent":{"name":"squad_movement","path":"folders/squad_movement.yy"},
+  "resourceType":"GMScript",
+  "resourceVersion":"2.0"
+}

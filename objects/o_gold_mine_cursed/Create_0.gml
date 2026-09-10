@@ -2,7 +2,7 @@
 event_inherited();
 
 // Cursed iron mine durability.
-max_hp = 1000;
+max_hp = 1000 * BALANCE_GLOBAL_HP_MULTIPLIER;
 hp = max_hp;
 max_corruption = 100;
 corruption = max_corruption;

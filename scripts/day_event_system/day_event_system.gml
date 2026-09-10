@@ -255,9 +255,9 @@ function day_event_cultist_mastery_progress_add(_cultist, _event)
 		return false;
 	}
 
-	var _source_building = day_event_mastery_source_building_get(_event);
+	var _building_object = day_event_mastery_building_object_get(_event);
 
-	if (!instance_exists(_source_building))
+	if (_building_object == noone)
 	{
 		return false;
 	}
@@ -268,7 +268,6 @@ function day_event_cultist_mastery_progress_add(_cultist, _event)
 		_cultist.building_work_counts = [];
 	}
 
-	var _building_object = _source_building.object_index;
 	var _building_work_counts = _cultist.building_work_counts;
 	var _building_work_count_entry = noone;
 	var _building_work_count_entry_count = array_length(_building_work_counts);
@@ -306,16 +305,24 @@ function day_event_cultist_mastery_progress_add(_cultist, _event)
 		return false;
 	}
 
-	var _building_name = variable_instance_exists(_source_building, "building_display_name")
-		? _source_building.building_display_name
-		: "";
-	var _building_sprite = variable_instance_exists(_source_building, "player_building_active_sprite")
-		? _source_building.player_building_active_sprite
-		: _source_building.sprite_index;
+	// Construction offers retain their own identity after the completed site disappears.
+	var _building_name = "Construction";
+	var _building_sprite = s_build_icon;
 
-	if (_building_name == "")
+	if (_building_object != o_building_slot)
 	{
-		_building_name = string_replace_all(object_get_name(_building_object), "_", " ");
+		var _source_building = _event.source_building;
+		_building_name = variable_instance_exists(_source_building, "building_display_name")
+			? _source_building.building_display_name
+			: "";
+		_building_sprite = variable_instance_exists(_source_building, "player_building_active_sprite")
+			? _source_building.player_building_active_sprite
+			: _source_building.sprite_index;
+
+		if (_building_name == "")
+		{
+			_building_name = string_replace_all(object_get_name(_building_object), "_", " ");
+		}
 	}
 
 	// Queue the offer once; qualifying never grants the HP discount automatically.
@@ -413,8 +420,11 @@ function day_event_cultist_mastery_generate()
 		}
 
 		var _flavor = "The powers below recognize the taste of my blood by now. Perhaps we can negotiate smaller portions.";
-		var _benefit = "All events at " + _request.building_name
-			+ " cost this cultist -" + string(BALANCE_CULTIST_MASTERY_HP_DISCOUNT) + "HP.";
+		var _is_construction_mastery = _request.building_object == o_building_slot;
+		var _benefit = _is_construction_mastery
+			? "All construction costs this cultist " + string(BALANCE_CULTIST_MASTERY_HP_DISCOUNT) + " HP less."
+			: "All events at " + _request.building_name
+				+ " cost this cultist -" + string(BALANCE_CULTIST_MASTERY_HP_DISCOUNT) + "HP.";
 		_event = new day_event_constructor(
 			"cultist_mastery_" + string(_request.cultist.id) + "_" + string(_request.building_object),
 			"Cultist Mastery",
@@ -490,23 +500,26 @@ function day_event_cultist_mastery_hp_discount_get(_cultist, _event)
 		return 0;
 	}
 
-	var _source_building = day_event_mastery_source_building_get(_event);
+	var _building_object = day_event_mastery_building_object_get(_event);
 
-	return instance_exists(_source_building)
-		&& _source_building.object_index == _cultist.mastery_building_object
+	return _building_object != noone
+		&& _building_object == _cultist.mastery_building_object
 		? BALANCE_CULTIST_MASTERY_HP_DISCOUNT
 		: 0;
 }
 
 function day_event_cultist_work_history_add(_cultist, _event)
 {
-	if (!instance_exists(_cultist))
+	if (!instance_exists(_cultist) || !is_struct(_event))
 	{
 		return false;
 	}
 
-	// Only real player buildings advance mastery; every source still appears in history.
-	day_event_cultist_mastery_progress_add(_cultist, _event);
+	// Construction advances Mastery only after creating the building successfully.
+	if (!variable_struct_exists(_event, "construction_site"))
+	{
+		day_event_cultist_mastery_progress_add(_cultist, _event);
+	}
 
 	var _source_sprite = day_event_source_sprite_get(_event);
 
@@ -631,6 +644,12 @@ function day_event_cultist_unconscious_enter(_cultist)
 		global.dragged_cultist = noone;
 	}
 
+	// Explain the first actual collapse; the tutorial controller suppresses repeat hints.
+	if (!_was_unconscious && variable_global_exists("tutorial_hint_trigger"))
+	{
+		global.tutorial_hint_trigger("cultist_recovery");
+	}
+
 	return !_was_unconscious;
 }
 
@@ -657,6 +676,13 @@ function day_event_cultist_assignment_release(_cultist)
 function day_event_cultist_damage_apply(_cultist, _amount, _release_assignment = true)
 {
 	if (!instance_exists(_cultist) || !variable_instance_exists(_cultist, "hp"))
+	{
+		return 0;
+	}
+
+	// Automatic debug Rites keep real participation and rewards without charging worker HP.
+	if (variable_instance_exists(_cultist, "debug_day_progress_hp_cost_ignored")
+		&& _cultist.debug_day_progress_hp_cost_ignored)
 	{
 		return 0;
 	}
@@ -887,6 +913,14 @@ function day_event_building_construction_execute(_event, _assigned_cultists, _da
 		{
 			global.tutorial_hint_trigger("workers");
 		}
+	}
+
+	// Credit each successful participant before HP costs or site removal can invalidate the source.
+	var _construction_cultist_count = array_length(_assigned_cultists);
+
+	for (var _cultist_index = 0; _cultist_index < _construction_cultist_count; ++_cultist_index)
+	{
+		day_event_cultist_mastery_progress_add(_assigned_cultists[_cultist_index], _event);
 	}
 
 	// Every successful construction charges its assigned workers the displayed HP cost.
@@ -3522,11 +3556,6 @@ function day_event_world_archdemon_create(
 	);
 	_event.is_world_job = true;
 
-	if (_archdemon_number == 1)
-	{
-		_event.assignment_tutorial_hint_id = "cultist_recovery";
-	}
-
 	return _event;
 }
 
@@ -5046,7 +5075,7 @@ function day_event_shell_factory_favored_ammunition_create(_shell_factory)
 	var _event = new day_event_constructor(
 		"shell_factory_favored_ammunition_" + string(_shell_factory),
 		"Favored Ammunition",
-		"Choose Doom Bell, First Aid Meat, or HellCow. Hover an option to inspect the selected shell.",
+		"Reduces the selected shell’s reload time by 20%.",
 		BALANCE_SHELL_FACTORY_UPGRADE_CULTIST_COUNT,
 		1,
 		[
@@ -5477,10 +5506,26 @@ function day_event_building_action_is_available(_event)
 
 function day_event_has_funded_activation(_event)
 {
-	return is_struct(_event)
-		&& variable_struct_exists(_event, "assigned_cultists")
-		&& variable_struct_exists(_event, "cultist_cost")
-		&& array_length(_event.assigned_cultists) >= _event.cultist_cost;
+	if (!is_struct(_event)
+		|| !variable_struct_exists(_event, "assigned_cultists")
+		|| !variable_struct_exists(_event, "cultist_cost")
+		|| !variable_struct_exists(_event, "activation_limit"))
+	{
+		return false;
+	}
+
+	// Workers separated by empty required slots do not form a funded activation.
+	var _activation_limit = _event.activation_limit;
+
+	for (var _activation_index = 0; _activation_index < _activation_limit; ++_activation_index)
+	{
+		if (day_event_activation_staffing_is_ready(_event, _activation_index))
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
 
 function day_event_execution_staffing_is_ready(_event)
@@ -5505,7 +5550,19 @@ function day_event_execution_staffing_is_ready(_event)
 	var _required_cultist_count = variable_struct_exists(_event, "execution_cultist_minimum")
 		? _event.execution_cultist_minimum
 		: _event.cultist_cost * _event.activation_limit;
-	return array_length(_event.assigned_cultists) >= _required_cultist_count;
+	var _funded_cultist_count = 0;
+	var _activation_limit = _event.activation_limit;
+
+	// Only complete fixed-slot groups count, including optional groups after empty positions.
+	for (var _activation_index = 0; _activation_index < _activation_limit; ++_activation_index)
+	{
+		if (day_event_activation_staffing_is_ready(_event, _activation_index))
+		{
+			_funded_cultist_count += _event.cultist_cost;
+		}
+	}
+
+	return _funded_cultist_count >= _required_cultist_count;
 }
 
 function day_event_execution_is_active(_event)
@@ -5632,6 +5689,26 @@ function day_event_execution_complete(_event_index)
 	var _event_name = variable_struct_exists(_event, "title")
 		? string(_event.title)
 		: string(_event.event_id);
+
+	// Keep the actual specialization, Relic or enchantment choice in the completed-day report.
+	if (variable_struct_exists(_event, "unit_choice_options")
+		&& is_array(_event.unit_choice_options)
+		&& variable_struct_exists(_event, "selected_unit_choice_index"))
+	{
+		var _choice_index = floor(_event.selected_unit_choice_index);
+		if (_choice_index >= 0 && _choice_index < array_length(_event.unit_choice_options))
+		{
+			var _choice = _event.unit_choice_options[_choice_index];
+			if (is_struct(_choice) && variable_struct_exists(_choice, "label"))
+			{
+				_event_name += " - " + string(_choice.label);
+			}
+			else if (is_struct(_choice) && variable_struct_exists(_choice, "title"))
+			{
+				_event_name += " - " + string(_choice.title);
+			}
+		}
+	}
 
 	if (_event_activation_count > 1)
 	{
@@ -6972,6 +7049,15 @@ function day_event_finish_day()
 		var _executed_event_lines = variable_global_exists("day_event_executed_log_lines")
 			? global.day_event_executed_log_lines
 			: [];
+
+		// Store strings before End Day clears the live log and morning removes the event instances.
+		var _executed_event_count = array_length(_executed_event_lines);
+		_game_controller.debug_previous_day_event_lines = array_create(_executed_event_count, "");
+		array_copy(_game_controller.debug_previous_day_event_lines, 0,
+			_executed_event_lines, 0, _executed_event_count);
+		_game_controller.debug_previous_day_event_day = day_event_current_day_get();
+		_game_controller.debug_previous_day_report_visible = false;
+		_game_controller.debug_previous_day_report_pending = false;
 
 		if (variable_instance_exists(_game_controller, "balance_log_day_append"))
 		{

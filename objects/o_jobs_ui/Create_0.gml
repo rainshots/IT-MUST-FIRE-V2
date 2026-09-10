@@ -148,6 +148,21 @@ jobs_scroll_offset = 0;
 jobs_scroll_step = 80;
 jobs_scrollbar_width = 8;
 jobs_scrollbar_gap = 12;
+// Read-only report beside Assign Rites on the day after an auto-progress cheat; wrapping is cached in Step.
+jobs_previous_day_history_visible = false;
+jobs_previous_day_history_day = -1;
+jobs_previous_day_history_count = 0;
+jobs_previous_day_history_text = "";
+jobs_previous_day_history_text_height = 0;
+jobs_previous_day_history_wrap_width = -1;
+jobs_previous_day_history_scroll_offset = 0;
+jobs_previous_day_history_scroll_max = 0;
+jobs_previous_day_history_width = 360;
+jobs_previous_day_history_gap = 18;
+jobs_previous_day_history_padding = 16;
+jobs_previous_day_history_header_height = 76;
+jobs_previous_day_history_footer_height = 30;
+jobs_previous_day_history_line_spacing = 24;
 jobs_dragged_cultist = noone;
 jobs_drag_origin_event = noone;
 jobs_drag_origin_slot_index = -1;
@@ -349,6 +364,87 @@ jobs_layout_get = function()
 		close_y: _panel_y + (10 * _scale),
 		close_size: 56 * _scale
 	};
+};
+
+// Attach the report to the left of the existing window without covering its cards or worker pool.
+jobs_previous_day_history_layout_get = function()
+{
+	var _layout = jobs_layout_get();
+	var _scale = max(0.01, _layout.scale);
+	var _gap = jobs_previous_day_history_gap * _scale;
+	var _padding = jobs_previous_day_history_padding * _scale;
+	var _width = min(jobs_previous_day_history_width * _scale, max(0, _layout.panel_x - _gap * 2));
+	var _height = max(0, display_get_gui_height() - _layout.event_y - _gap);
+	var _header_height = jobs_previous_day_history_header_height * _scale;
+	var _footer_height = jobs_previous_day_history_footer_height * _scale;
+	var _panel_x = _layout.panel_x - _gap - _width;
+	return {
+		x: _panel_x,
+		y: _layout.event_y,
+		width: _width,
+		height: _height,
+		scale: _scale,
+		padding: _padding,
+		content_x: _panel_x + _padding,
+		content_y: _layout.event_y + _header_height,
+		content_width: max(1, _width - _padding * 2),
+		content_height: max(1, _height - _header_height - _footer_height)
+	};
+};
+
+// Rebuild the report only when its day or available text width changes, never in Draw.
+jobs_previous_day_history_update = function()
+{
+	jobs_previous_day_history_visible = false;
+	if (!global.cheats_enabled
+		|| global.day_phase != DAY_PHASE.DAY
+		|| global.focus_window != FOCUS_WINDOW.JOBS
+		|| !instance_exists(o_game_controller))
+	{
+		return;
+	}
+	var _controller = instance_find(o_game_controller, 0);
+	if (!_controller.debug_previous_day_report_visible
+		|| _controller.debug_previous_day_event_day != day_event_current_day_get() - 1)
+	{
+		return;
+	}
+	var _layout = jobs_previous_day_history_layout_get();
+	var _wrap_width = _layout.content_width / _layout.scale;
+	var _report_day = _controller.debug_previous_day_event_day;
+	if (jobs_previous_day_history_day != _report_day || jobs_previous_day_history_wrap_width != _wrap_width)
+	{
+		var _lines = _controller.debug_previous_day_event_lines;
+		var _line_count = array_length(_lines);
+		var _text = "";
+		for (var _line_index = 0; _line_index < _line_count; ++_line_index)
+		{
+			if (_line_index > 0)
+			{
+				_text += "\n\n";
+			}
+			_text += string(_line_index + 1) + ". " + string(_lines[_line_index]);
+		}
+		if (_line_count <= 0)
+		{
+			_text = "No events were completed yesterday.";
+		}
+		var _previous_font = draw_get_font();
+		draw_set_font(jobs_action_font);
+		jobs_previous_day_history_text_height = string_height_ext(
+			_text, jobs_previous_day_history_line_spacing, _wrap_width);
+		draw_set_font(_previous_font);
+		jobs_previous_day_history_day = _report_day;
+		jobs_previous_day_history_count = _line_count;
+		jobs_previous_day_history_text = _text;
+		jobs_previous_day_history_wrap_width = _wrap_width;
+		jobs_previous_day_history_scroll_offset = 0;
+	}
+	jobs_previous_day_history_scroll_max = max(0, jobs_previous_day_history_text_height
+		- _layout.content_height / _layout.scale);
+	jobs_previous_day_history_scroll_offset = clamp(jobs_previous_day_history_scroll_offset,
+		0, jobs_previous_day_history_scroll_max);
+	jobs_previous_day_history_visible = _layout.width > _layout.padding * 2;
 };
 
 jobs_whip_home_position_get = function()
@@ -848,7 +944,7 @@ jobs_first_archdemon_assignment_is_missing = function()
 			&& variable_struct_exists(_event, "assigned_cultists")
 			&& _event.event_id == jobs_first_archdemon_event_id)
 		{
-			return array_length(_event.assigned_cultists) <= 0;
+			return day_event_assigned_cultist_count_get(_event) <= 0;
 		}
 	}
 
@@ -945,7 +1041,7 @@ jobs_available_assignment_slot_count_get = function()
 		}
 
 		var _event_capacity = _event.cultist_cost * _event.activation_limit;
-		_available_slot_count += max(0, _event_capacity - array_length(_event.assigned_cultists));
+		_available_slot_count += max(0, _event_capacity - day_event_assigned_cultist_count_get(_event));
 	}
 
 	return _available_slot_count;
@@ -2046,14 +2142,10 @@ jobs_hp_modifier_hover_update = function(_mouse_x, _mouse_y)
 			var _rows = [];
 			var _row_offset_y = jobs_slot_hp_cost_offset_y;
 
-			if (_slot_index < _assigned_count)
+			if (_slot_index < _assigned_count
+				&& instance_exists(_display_event.assigned_cultists[_slot_index]))
 			{
 				var _cultist = _display_event.assigned_cultists[_slot_index];
-
-				if (!instance_exists(_cultist))
-				{
-					continue;
-				}
 
 				var _hp_rows = jobs_event_cultist_hp_rows_get(_display_event, _slot_index, _cultist);
 				_rows = _hp_rows.rows;
@@ -2572,6 +2664,7 @@ jobs_window_open = function()
 	}
 
 	global.focus_window = FOCUS_WINDOW.JOBS;
+	jobs_previous_day_history_update();
 
 	// Frame the Cannon in the center of the unobstructed left side without pausing simulation.
 	if (instance_exists(o_camera_controller) && instance_exists(o_cannon))

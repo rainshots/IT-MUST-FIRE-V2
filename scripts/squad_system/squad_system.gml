@@ -16,6 +16,10 @@ function squad_constructor(_squad_type, _primary_unit_object, _unit_count) const
 		march_is_active: false,
 		march_enemy_check_timer: 0,
 		march_speed_bonus_active: false,
+		// Cached main-formation pace is used only by marching reinforcements.
+		march_pace_update_timer: 0,
+		march_pace_move_speed: 0,
+		march_pace_destination_distance: 0,
 		unholy_roar_triggered: false
 	};
 	name = "";
@@ -1240,6 +1244,9 @@ function squad_units_restore_morning()
 		_squad.properties.march_is_active = false;
 		_squad.properties.march_enemy_check_timer = 0;
 		_squad.properties.march_speed_bonus_active = false;
+		_squad.properties.march_pace_update_timer = 0;
+		_squad.properties.march_pace_move_speed = 0;
+		_squad.properties.march_pace_destination_distance = 0;
 		_squad.properties.combat_guide_unit = noone;
 		_squad.properties.unholy_roar_triggered = false;
 
@@ -1468,6 +1475,9 @@ function squad_march_begin(_squad)
 	_squad.properties.march_is_active = true;
 	_squad.properties.march_enemy_check_timer = BALANCE_SQUAD_MARCH_ENEMY_CHECK_TIME * room_speed;
 	_squad.properties.march_speed_bonus_active = false;
+	_squad.properties.march_pace_update_timer = 0;
+	_squad.properties.march_pace_move_speed = 0;
+	_squad.properties.march_pace_destination_distance = 0;
 	_squad.properties.combat_guide_unit = noone;
 
 	// A direct player destination interrupts movement-owning leap abilities immediately.
@@ -1493,6 +1503,8 @@ function squad_march_begin(_squad)
 		}
 	}
 
+	// Populate the reference before any member processes the new move order.
+	squad_march_pace_update(_squad);
 	return true;
 }
 
@@ -1506,6 +1518,9 @@ function squad_march_end(_squad)
 	_squad.properties.march_is_active = false;
 	_squad.properties.march_enemy_check_timer = 0;
 	_squad.properties.march_speed_bonus_active = false;
+	_squad.properties.march_pace_update_timer = 0;
+	_squad.properties.march_pace_move_speed = 0;
+	_squad.properties.march_pace_destination_distance = 0;
 	_squad.properties.combat_guide_unit = noone;
 
 	// Let every surviving unit immediately search for a combat target again.
@@ -1546,6 +1561,9 @@ function squad_march_update(_squad)
 
 	// The expensive all-units enemy proximity scan runs only once per gameplay second.
 	squad_march_speed_bonus_update(_squad);
+
+	// Refresh one shared pace periodically instead of scanning allies from every unit.
+	squad_march_pace_update(_squad);
 
 	// A held flag remains a live destination but cannot finish the march until released.
 	if (variable_struct_exists(_squad.properties, "marker_is_dragged")

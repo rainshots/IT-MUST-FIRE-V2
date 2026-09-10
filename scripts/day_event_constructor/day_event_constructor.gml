@@ -15,6 +15,7 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 	// Invoke normally requires all slots; optional-participant Rites may lower this minimum.
 	execution_cultist_minimum = cultist_cost * activation_limit;
 	actions = _actions;
+	// Array indices are fixed UI/HP-cost slots; unoccupied positions contain noone.
 	assigned_cultists = [];
 	modifiers = [];
 	activation_count = 0;
@@ -37,7 +38,7 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 			|| !_cultist.is_available()
 			|| is_resolved
 			|| (!_ignore_capacity
-				&& array_length(assigned_cultists) >= cultist_cost * activation_limit))
+				&& day_event_assigned_cultist_count_get(self) >= cultist_cost * activation_limit))
 		{
 			return false;
 		}
@@ -52,8 +53,11 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 
 	cultist_is_eligible_check = function(_cultist)
 	{
-		// Also enforce Spirit for direct occupied-slot swaps, which bypass availability.
-		if (!instance_exists(_cultist) || _cultist.spirit <= 0)
+		// Slot transfers bypass pool availability, but still require a conscious worker with Spirit.
+		if (!instance_exists(_cultist)
+			|| _cultist.hp <= 0
+			|| _cultist.spirit <= 0
+			|| (variable_instance_exists(_cultist, "is_unconscious") && _cultist.is_unconscious))
 		{
 			return false;
 		}
@@ -79,19 +83,115 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 			return 0;
 		}
 
-		var _assigned_count = array_length(assigned_cultists);
-		var _funded_count = floor(_assigned_count / cultist_cost);
+		var _funded_count = 0;
+
+		// Count complete groups in place; optional participants need not occupy the first slots.
+		for (var _activation_index = 0; _activation_index < activation_limit; ++_activation_index)
+		{
+			if (day_event_activation_staffing_is_ready(self, _activation_index))
+			{
+				_funded_count++;
+			}
+		}
+
 		return min(_funded_count, activation_limit - activation_count);
 	};
 
-	cultist_assign = function(_cultist)
+	// An explicit slot supports transfers and swaps; automatic assignment fills the first vacancy.
+	cultist_assign = function(_cultist, _slot_index = -1)
 	{
-		if (!cultist_can_assign(_cultist))
+		if (is_resolved || !cultist_is_eligible_check(_cultist))
 		{
 			return false;
 		}
 
-		array_push(assigned_cultists, _cultist);
+		var _slot_count = cultist_cost * activation_limit;
+		var _stored_slot_count = array_length(assigned_cultists);
+
+		if (_slot_index == -1)
+		{
+			for (var _search_index = 0; _search_index < _slot_count; ++_search_index)
+			{
+				if (_search_index >= _stored_slot_count || !instance_exists(assigned_cultists[_search_index]))
+				{
+					_slot_index = _search_index;
+					break;
+				}
+			}
+		}
+
+		if (_slot_index < 0 || _slot_index >= _slot_count || _slot_index != floor(_slot_index))
+		{
+			return false;
+		}
+
+		var _displaced_cultist = _slot_index < _stored_slot_count ? assigned_cultists[_slot_index] : noone;
+
+		if (_displaced_cultist == _cultist)
+		{
+			return true;
+		}
+
+		// Validate the current source before changing either event, so rejected drops leave both intact.
+		var _origin_event = _cultist.assigned_event;
+		var _origin_slot_index = -1;
+
+		if (is_struct(_origin_event))
+		{
+			if (_origin_event.is_resolved)
+			{
+				return false;
+			}
+
+			var _origin_slot_count = array_length(_origin_event.assigned_cultists);
+
+			for (var _search_index = 0; _search_index < _origin_slot_count; ++_search_index)
+			{
+				if (_origin_event.assigned_cultists[_search_index] == _cultist)
+				{
+					_origin_slot_index = _search_index;
+					break;
+				}
+			}
+
+			if (_origin_slot_index < 0)
+			{
+				return false;
+			}
+		}
+		else if (!cultist_can_assign(_cultist, true))
+		{
+			return false;
+		}
+
+		// The displaced worker takes the vacated slot only if that event can accept them.
+		var _can_swap = instance_exists(_displaced_cultist)
+			&& is_struct(_origin_event)
+			&& _origin_slot_index < _origin_event.cultist_cost * _origin_event.activation_limit
+			&& _origin_event.cultist_is_eligible_check(_displaced_cultist);
+
+		if (is_struct(_origin_event))
+		{
+			_origin_event.assigned_cultists[_origin_slot_index] = _can_swap ? _displaced_cultist : noone;
+
+			if (_origin_event != self)
+			{
+				day_event_execution_timer_reset(_origin_event);
+			}
+		}
+
+		if (instance_exists(_displaced_cultist))
+		{
+			_displaced_cultist.assigned_event = _can_swap ? _origin_event : noone;
+		}
+
+		// Pad with noone explicitly: GameMaker's default array growth value is not an empty instance.
+		for (var _empty_index = _stored_slot_count; _empty_index <= _slot_index; ++_empty_index)
+		{
+			array_push(assigned_cultists, noone);
+		}
+
+		assigned_cultists[_slot_index] = _cultist;
 		_cultist.assigned_event = self;
 		day_event_execution_timer_reset(self);
 
@@ -124,7 +224,8 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 		{
 			if (assigned_cultists[_cultist_index] == _cultist)
 			{
-				array_delete(assigned_cultists, _cultist_index, 1);
+				// Leave a vacancy instead of shifting another worker into a different HP-cost slot.
+				assigned_cultists[_cultist_index] = noone;
 				_cultist.assigned_event = noone;
 				day_event_execution_timer_reset(self);
 				return true;
@@ -137,6 +238,7 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 	execute = function()
 	{
 		var _ready_count = activation_ready_count_get();
+		var _executed_count = 0;
 		// Consume the prepared knife once, before actions can prepare another one.
 		var _knife_discount = _ready_count > 0 ? global.next_rite_hp_discount : 0;
 		if (_ready_count > 0)
@@ -144,8 +246,16 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 			global.next_rite_hp_discount = 0;
 		}
 
-		for (var _activation_index = 0; _activation_index < _ready_count; ++_activation_index)
+		for (var _activation_index = 0;
+			_activation_index < activation_limit && _executed_count < _ready_count;
+			++_activation_index)
 		{
+			// Preserve slot order for asymmetric HP costs and skip unstaffed optional groups.
+			if (!day_event_activation_staffing_is_ready(self, _activation_index))
+			{
+				continue;
+			}
+
 			var _first_cultist_index = _activation_index * cultist_cost;
 			var _activation_cultists = array_create(cultist_cost);
 			array_copy(_activation_cultists, 0, assigned_cultists, _first_cultist_index, cultist_cost);
@@ -207,10 +317,11 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 			}
 
 			activation_count++;
+			_executed_count++;
 		}
 
 		// Event-wide Satisfaction costs apply once per successfully funded card.
-		if (_ready_count > 0
+		if (_executed_count > 0
 			&& variable_struct_exists(self, "cannon_satisfaction_cost"))
 		{
 			cannon_satisfaction_add(-max(0, cannon_satisfaction_cost));
@@ -228,6 +339,6 @@ function day_event_constructor(_event_id, _title, _description, _cultist_cost, _
 			}
 		}
 
-		return _ready_count;
+		return _executed_count;
 	};
 }

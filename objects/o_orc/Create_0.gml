@@ -9,7 +9,7 @@ y_sort_enabled = true;
 image_speed = 0;
 
 // Minimal health keeps shared corpse helper checks valid without making orcs combat units.
-max_hp = 1;
+max_hp = 1 * BALANCE_GLOBAL_HP_MULTIPLIER;
 hp = max_hp;
 
 // Cannon corpse hauling state is controlled by the owner hut during the day.

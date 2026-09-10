@@ -811,7 +811,8 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 				_mastery_line_height, _description_width);
 			var _benefit_y = _description_y + string_height_ext(_display_event.mastery_flavor_text,
 				_mastery_line_height, _description_width) + _mastery_gap;
-			var _benefit_prefix = "All events at ";
+			var _is_construction_mastery = _mastery_request.building_object == o_building_slot;
+			var _benefit_prefix = _is_construction_mastery ? "All " : "All events at ";
 			draw_text(_description_x, _benefit_y, _benefit_prefix);
 			var _building_name_x = _description_x + string_width(_benefit_prefix);
 			draw_set_font(jobs_description_bold_font);
@@ -827,8 +828,11 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 					sprite_get_height(_building_sprite) * _building_icon_scale, c_white, 1);
 			}
 			draw_set_font(jobs_description_font);
+			var _benefit_text = _is_construction_mastery
+				? "costs this cultist " + string(BALANCE_CULTIST_MASTERY_HP_DISCOUNT) + " HP less."
+				: "cost this cultist -" + string(BALANCE_CULTIST_MASTERY_HP_DISCOUNT) + "HP.";
 			draw_text(_description_x, _benefit_y + _mastery_line_height,
-				"cost this cultist -" + string(BALANCE_CULTIST_MASTERY_HP_DISCOUNT) + "HP.");
+				_benefit_text);
 		}
 		else
 		{
@@ -1175,7 +1179,8 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 			);
 
 			// Empty slots show the centered gray Spirit eye as the assignment affordance.
-			if (_slot_index >= array_length(_display_event.assigned_cultists))
+			if (_slot_index >= array_length(_display_event.assigned_cultists)
+				|| !instance_exists(_display_event.assigned_cultists[_slot_index]))
 			{
 				var _slot_key = string(_event_index) + ":" + string(_slot_index);
 				var _eye_hover_scale = jobs_hovered_empty_slot_key == _slot_key ? 1.35 : 1;
@@ -2279,6 +2284,55 @@ if (global.focus_window == FOCUS_WINDOW.JOBS)
 		draw_set_font(_popup_previous_font);
 		draw_set_halign(fa_left);
 		draw_set_valign(fa_top);
+		draw_set_color(c_white);
+		draw_set_alpha(1);
+	}
+
+	// Read-only yesterday report, shown only on the morning after a Shift + F8 day skip.
+	if (jobs_previous_day_history_visible)
+	{
+		var _history_layout = jobs_previous_day_history_layout_get();
+		var _history_scale = _history_layout.scale;
+		var _history_previous_font = draw_get_font();
+		var _history_previous_scissor = gpu_get_scissor();
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_alpha(1);
+		draw_set_color(COLOR_JOBS_WINDOW_BACKGROUND);
+		draw_rectangle(_history_layout.x, _history_layout.y,
+			_history_layout.x + _history_layout.width, _history_layout.y + _history_layout.height, false);
+		draw_set_color(COLOR_JOBS_POOL_BORDER);
+		draw_rectangle(_history_layout.x, _history_layout.y,
+			_history_layout.x + _history_layout.width, _history_layout.y + _history_layout.height, true);
+		draw_set_color(COLOR_JOBS_ASSIGN_TEXT);
+		draw_set_font(jobs_title_font);
+		draw_text_transformed(_history_layout.content_x, _history_layout.y + _history_layout.padding,
+			"YESTERDAY - DAY " + string(jobs_previous_day_history_day), _history_scale, _history_scale, 0);
+		draw_set_font(jobs_action_font);
+		var _history_subtitle_y = _history_layout.y + _history_layout.padding + (30 * _history_scale);
+		draw_text_transformed(_history_layout.content_x, _history_subtitle_y,
+			"Completed events: " + string(jobs_previous_day_history_count), _history_scale, _history_scale, 0);
+
+		// Clip wrapped text independently so a long log never covers the header or other UI.
+		var _history_viewport = {
+			x: _history_layout.content_x,
+			y: _history_layout.content_y,
+			width: _history_layout.content_width,
+			height: _history_layout.content_height
+		};
+		gpu_set_scissor(jobs_scissor_rect_get(_history_viewport));
+		draw_text_ext_transformed(_history_layout.content_x,
+			_history_layout.content_y - jobs_previous_day_history_scroll_offset * _history_scale,
+			jobs_previous_day_history_text, jobs_previous_day_history_line_spacing,
+			jobs_previous_day_history_wrap_width, _history_scale, _history_scale, 0);
+		gpu_set_scissor(_history_previous_scissor);
+		if (jobs_previous_day_history_scroll_max > 0)
+		{
+			var _history_footer_y = _history_layout.content_y + _history_layout.content_height + (6 * _history_scale);
+			draw_text_transformed(_history_layout.content_x, _history_footer_y,
+				"Mouse wheel to scroll", _history_scale, _history_scale, 0);
+		}
+		draw_set_font(_history_previous_font);
 		draw_set_color(c_white);
 		draw_set_alpha(1);
 	}

@@ -402,7 +402,8 @@ if (_squad_march_is_active)
 	visual_attack_offset_y = 0;
 
 	update_separation_push();
-	move_towards_world_point(squad.properties.marker_x, squad.properties.marker_y);
+	var _march_move_speed = squad_march_unit_speed_get(id);
+	move_towards_world_point(squad.properties.marker_x, squad.properties.marker_y, _march_move_speed);
 	apply_separation_push();
 	update_walk_sway();
 	exit;

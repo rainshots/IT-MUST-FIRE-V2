@@ -1,5 +1,5 @@
 // Base durability values for map objects.
-max_hp = 1000;
+max_hp = 1000 * BALANCE_GLOBAL_HP_MULTIPLIER;
 hp = max_hp;
 max_corruption = 100;
 corruption = 0;

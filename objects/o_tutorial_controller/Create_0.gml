@@ -117,8 +117,15 @@ tutorial_items = [
 	},
 	{
 		id: "cultist_recovery",
-		title: "Cultist Recovery",
-		body: "Fortunately (or unfortunately), the demons imprisoned inside the Cannon will not let Cultists die. If a Cultist loses too much blood (HP <= 0), they will fall unconscious and be unable to work for a while, but will gradually recover.\n\nOn the day after falling unconscious, they will still be unable to work. On each following day, they will recover 40 HP until they return to their feet."
+		title: "Cultist Unconscious",
+		body: "A Cultist has fallen unconscious (HP <= 0). They cannot work or perform Rites while unconscious.\n\n"
+			+ "Natural recovery starts on morning "
+			+ string(BALANCE_EVENT_CULTIST_UNCONSCIOUS_RECOVERY_DELAY_MORNINGS + 1)
+			+ " after the collapse. From then on, they regain "
+			+ string(BALANCE_EVENT_CULTIST_UNCONSCIOUS_RECOVERY_HP)
+			+ " HP each morning until their HP is above 0 and they can work again.\n\n"
+			+ "The deeper their HP falls below 0, the longer recovery takes.",
+		button_text: "OK"
 	},
 	{
 		id: "workers",

@@ -1,8 +1,8 @@
 // Base unit combat stats.
 unit_faction = UNIT_FACTION.NOONE;
-max_hp = 200;
+max_hp = 200 * BALANCE_GLOBAL_HP_MULTIPLIER;
 hp = max_hp;
-damage = 10;
+damage = 10 * BALANCE_GLOBAL_DAMAGE_MULTIPLIER;
 magic_damage = 0;
 reload_time = room_speed;
 reload_timer = reload_time;
@@ -11,7 +11,7 @@ attack_radius = 32;
 y_sort_enabled = true;
 
 // Base unit movement and target search settings.
-move_speed = 1.2;
+move_speed = 1.2 * BALANCE_GLOBAL_MOVE_SPEED_MULTIPLIER;
 gameplay_time_scale = 1; // Updated from the global simulation scale every Step.
 target_detection_radius = BALANCE_UNIT_VISION_RADIUS;
 vision_radius = BALANCE_UNIT_VISION_RADIUS;
@@ -4126,7 +4126,8 @@ move_towards_target = function(_target, _navigation_arrive_radius = attack_radiu
 	is_walking = _has_moved;
 };
 
-move_towards_world_point = function(_target_x, _target_y)
+// Optional base speed lets march orders preserve the unit's normal combat stats.
+move_towards_world_point = function(_target_x, _target_y, _base_move_speed = move_speed)
 {
 	if (!navigation_world_point_prepare(_target_x, _target_y))
 	{
@@ -4134,7 +4135,8 @@ move_towards_world_point = function(_target_x, _target_y)
 		return;
 	}
 
-	var _current_move_speed = move_speed * unit_move_speed_multiplier_get() * gameplay_time_scale;
+	// Status effects, terrain, auras, and march bonuses still apply to the selected base speed.
+	var _current_move_speed = _base_move_speed * unit_move_speed_multiplier_get() * gameplay_time_scale;
 	var _has_moved = false;
 
 	face_world_x(_target_x);

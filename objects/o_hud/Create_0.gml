@@ -65,6 +65,8 @@ cheat_hud_draw = function()
 		"F6  Show all day events",
 		"F7  +" + string(BALANCE_DEBUG_RESOURCE_CHEAT_AMOUNT) + " resources",
 		"F8  Skip day / night",
+		"Shift+F8  Auto progress + skip day",
+		"Shift+F8  Skip night, keep Satisfaction",
 		"F9  Open balance test",
 		"F10 Music debug: " + (_music_debug_visible ? _on_text : _off_text),
 		"F11 +" + string(BALANCE_DEBUG_CANNON_SATISFACTION_CHEAT_AMOUNT) + " Cannon Satisfaction",
