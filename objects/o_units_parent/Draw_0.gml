@@ -4,6 +4,19 @@ if (unit_faction == UNIT_FACTION.ENEMY && cached_is_hidden_by_fog)
 	exit;
 }
 
+// Selection is a ground aura, drawn before the member's sprite rather than over it.
+if (unit_faction == UNIT_FACTION.FRIENDLY && hp > 0 && global.day_phase == DAY_PHASE.NIGHT
+	&& is_struct(squad) && variable_struct_exists(squad.properties, "is_selected")
+	&& squad.properties.is_selected)
+{
+	draw_set_color(COLOR_SQUAD_ORDER_MOVE);
+	draw_set_alpha(BALANCE_SQUAD_SELECTION_ALPHA);
+	draw_ellipse(x - BALANCE_SQUAD_SELECTION_RADIUS_X, y - BALANCE_SQUAD_SELECTION_RADIUS_Y,
+		x + BALANCE_SQUAD_SELECTION_RADIUS_X, y + BALANCE_SQUAD_SELECTION_RADIUS_Y, false);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+}
+
 // Draw the landing shadow while the player is carrying this cultist.
 if (is_being_dragged)
 {

@@ -1,14 +1,17 @@
 /// @description Periodically caches the living main formation's base speed and distance to the march destination.
-/// @param {Struct} squad Marching squad initialized by squad_march_begin.
+/// @param {Struct} squad Marching squad initialized by squad_march_begin or squad_order_issue.
 function squad_march_pace_update(_squad)
 {
-	if (!squad_is_marching(_squad))
+	var _has_order = squad_order_is_active(_squad);
+	if (!squad_is_marching(_squad) && !_has_order)
 	{
 		return;
 	}
 
 	// Use gameplay time so pace sampling follows pauses, time scaling, and room speed.
 	var _properties = _squad.properties;
+	var _destination_x = _has_order ? _properties.order_x : _properties.marker_x;
+	var _destination_y = _has_order ? _properties.order_y : _properties.marker_y;
 	var _time_scale = global.gameplay_time_scale;
 	_properties.march_pace_update_timer -= _time_scale;
 
@@ -46,8 +49,8 @@ function squad_march_pace_update(_squad)
 		_destination_distance_sum += point_distance(
 			_unit.x,
 			_unit.y,
-			_properties.marker_x,
-			_properties.marker_y
+			_destination_x,
+			_destination_y
 		);
 		_main_unit_count++;
 	}

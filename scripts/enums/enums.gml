@@ -1,5 +1,27 @@
 /// @description Project-wide enums and macros.
 
+// Keep legacy flag dragging as the default; preserve the experimental system and its hidden switch.
+#macro SQUAD_FLAG_SYSTEM_2_ENABLED false
+#macro SQUAD_FLAG_SYSTEM_SETTING_VISIBLE false
+#macro BALANCE_SQUAD_ORDER_MOVE_ARRIVE_RADIUS 50
+#macro BALANCE_SQUAD_ORDER_ATTACK_MOVE_ARRIVE_RADIUS 100
+#macro BALANCE_SQUAD_ORDER_ATTACK_RADIUS 100
+#macro BALANCE_SQUAD_SELECTION_ALPHA 0.5
+#macro BALANCE_SQUAD_SELECTION_RADIUS_X 24
+#macro BALANCE_SQUAD_SELECTION_RADIUS_Y 12
+#macro BALANCE_SQUAD_ORDER_POINT_RADIUS 6
+#macro BALANCE_SQUAD_ORDER_LINE_WIDTH 1
+#macro BALANCE_SQUAD_ORDER_LINE_ALPHA 0.2
+#macro COLOR_SQUAD_ORDER_MOVE $ffffff
+#macro COLOR_SQUAD_ORDER_ATTACK $0000ff
+
+enum SQUAD_ORDER
+{
+	NONE,
+	MOVE,
+	MOVE_AND_ATTACK
+}
+
 // Keep event management inside Assign Rites until the optional world interface returns.
 #macro WORLD_EVENT_INTERFACE_ENABLED false
 

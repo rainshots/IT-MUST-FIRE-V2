@@ -1,5 +1,7 @@
 // Player-issued squad movement immediately overrides Demon Leap.
-var _squad_march_is_active = is_struct(squad) && squad_is_marching(squad);
+var _squad_march_is_active = is_struct(squad)
+	&& (squad_is_marching(squad)
+		|| (squad_order_is_active(squad) && !squad_order_arrived && !squad_order_in_combat));
 
 if (_squad_march_is_active && demon_leap_is_active)
 {
@@ -25,6 +27,10 @@ if (unholy_savage_leap_active || global.pause || hp <= 0)
 
 gameplay_time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
 var _time_scale = gameplay_time_scale;
+
+// Direct movement suppresses new active casts; cooldowns and passive effects still update.
+var _direct_order_allows_abilities = !squad_order_is_active(squad)
+	|| squad_order_arrived || squad_order_in_combat;
 
 imp_ability_damage_meter_update();
 
@@ -145,7 +151,7 @@ if (demon_leap_is_active)
 }
 
 // Use only the active ability this Imp currently owns.
-if (cultist_active_ability_has(id, DEMON_ABILITY.IMP_DEMON_LEAP)
+if (_direct_order_allows_abilities && cultist_active_ability_has(id, DEMON_ABILITY.IMP_DEMON_LEAP)
 	&& !_squad_march_is_active
 	&& demon_leap_timer <= 0
 	&& demon_leap_retry_timer <= 0)
@@ -166,7 +172,7 @@ if (cultist_active_ability_has(id, DEMON_ABILITY.IMP_DEMON_LEAP)
 	}
 }
 
-if (cultist_active_ability_has(id, DEMON_ABILITY.IMP_CRIMSON_GUILLOTINE)
+if (_direct_order_allows_abilities && cultist_active_ability_has(id, DEMON_ABILITY.IMP_CRIMSON_GUILLOTINE)
 	&& crimson_guillotine_timer <= 0
 	&& crimson_guillotine_strike_timer <= 0
 	&& crimson_guillotine_retry_timer <= 0)
@@ -181,7 +187,7 @@ if (cultist_active_ability_has(id, DEMON_ABILITY.IMP_CRIMSON_GUILLOTINE)
 	}
 }
 
-if (cultist_active_ability_has(id, DEMON_ABILITY.IMP_BLOODY_CLONE)
+if (_direct_order_allows_abilities && cultist_active_ability_has(id, DEMON_ABILITY.IMP_BLOODY_CLONE)
 	&& bloody_clone_timer <= 0
 	&& bloody_clone_retry_timer <= 0)
 {

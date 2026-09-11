@@ -9,10 +9,11 @@ function squad_march_unit_speed_get(_unit)
 
 	var _base_move_speed = _unit.move_speed;
 	var _squad = _unit.squad;
+	var _has_order = squad_order_is_active(_squad);
 
 	if (global.day_phase != DAY_PHASE.NIGHT
 		|| _unit.unit_faction != UNIT_FACTION.FRIENDLY
-		|| !squad_is_marching(_squad))
+		|| (!squad_is_marching(_squad) && !_has_order))
 	{
 		return _base_move_speed;
 	}
@@ -36,7 +37,9 @@ function squad_march_unit_speed_get(_unit)
 	}
 
 	// Compare progress toward the shared destination in any march direction.
-	var _destination_distance = point_distance(_unit.x, _unit.y, _properties.marker_x, _properties.marker_y);
+	var _destination_x = _has_order ? _properties.order_x : _properties.marker_x;
+	var _destination_y = _has_order ? _properties.order_y : _properties.marker_y;
+	var _destination_distance = point_distance(_unit.x, _unit.y, _destination_x, _destination_y);
 	var _distance_gap = _destination_distance - _properties.march_pace_destination_distance;
 	var _correction_distance = max(0, abs(_distance_gap) - BALANCE_SQUAD_MARCH_PACE_DISTANCE_TOLERANCE);
 	var _correction_share = clamp(_correction_distance / BALANCE_SQUAD_MARCH_PACE_CORRECTION_DISTANCE, 0, 1);

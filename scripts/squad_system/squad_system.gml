@@ -11,8 +11,17 @@ function squad_constructor(_squad_type, _primary_unit_object, _unit_count) const
 	unit_objects = array_create(max(1, floor(_unit_count)), _primary_unit_object);
 	units = [];
 	properties = {
+		is_selected: false,
+		order_mode: SQUAD_ORDER.NONE,
+		order_serial: 0,
+		order_x: 0,
+		order_y: 0,
 		day_point: noone,
 		marker_is_dragged: false,
+		marker_drag_button: mb_left,
+		marker_drag_order_mode: SQUAD_ORDER.MOVE,
+		marker_drag_start_x: 0,
+		marker_drag_start_y: 0,
 		march_is_active: false,
 		march_enemy_check_timer: 0,
 		march_speed_bonus_active: false,
@@ -1249,6 +1258,7 @@ function squad_units_restore_morning()
 		_squad.properties.march_pace_destination_distance = 0;
 		_squad.properties.combat_guide_unit = noone;
 		_squad.properties.unholy_roar_triggered = false;
+		squad_order_clear(_squad);
 
 		if (_squad.squad_type == SQUAD_TYPE.ARCHDEMON) continue;
 
@@ -1343,7 +1353,7 @@ function squad_is_marching(_squad)
 
 function squad_march_speed_multiplier_get(_squad)
 {
-	var _speed_bonus_is_active = squad_is_marching(_squad)
+	var _speed_bonus_is_active = (squad_is_marching(_squad) || squad_order_is_active(_squad))
 		&& variable_struct_exists(_squad.properties, "march_speed_bonus_active")
 		&& _squad.properties.march_speed_bonus_active;
 
@@ -1442,7 +1452,7 @@ function squad_march_marker_enemy_is_nearby(_squad)
 
 function squad_march_speed_bonus_update(_squad)
 {
-	if (!squad_is_marching(_squad))
+	if (!squad_is_marching(_squad) && !squad_order_is_active(_squad))
 	{
 		return false;
 	}
@@ -1646,7 +1656,7 @@ function squad_combat_guide_update(_squad)
 		return noone;
 	}
 
-	if (squad_is_marching(_squad))
+	if (squad_is_marching(_squad) || squad_order_is_active(_squad))
 	{
 		_squad.properties.combat_guide_unit = noone;
 		return noone;
@@ -1723,6 +1733,7 @@ function squad_night_markers_update()
 	for (var _squad_index = 0; _squad_index < array_length(global.squads); ++_squad_index)
 	{
 		var _squad = global.squads[_squad_index];
+		squad_order_update(_squad);
 		squad_march_update(_squad);
 		squad_marker_position_update(_squad);
 	}
@@ -1742,7 +1753,7 @@ function squad_marker_find_at_position(_world_x, _world_y)
 
 	var _half_width = BALANCE_SQUAD_MARKER_WIDTH * 0.5 * _world_per_gui_x;
 	var _half_height = BALANCE_SQUAD_MARKER_HEIGHT * 0.5 * _world_per_gui_y;
-	var _marker_offset_y = BALANCE_SQUAD_MARKER_OFFSET_Y * _world_per_gui_y;
+	var _marker_offset_y = BALANCE_SQUAD_MARKER_DISPLAY_OFFSET_Y * _world_per_gui_y;
 
 	for (var _squad_index = array_length(global.squads) - 1; _squad_index >= 0; --_squad_index)
 	{
@@ -1770,14 +1781,20 @@ function squad_marker_find_at_position(_world_x, _world_y)
 	return noone;
 }
 
-function squad_drag_begin(_squad)
+function squad_drag_begin(_squad, _mouse_button = mb_left, _order_mode = SQUAD_ORDER.MOVE)
 {
-	if (!is_struct(_squad))
+	if (!is_struct(_squad)
+		|| (_mouse_button != mb_left && _mouse_button != mb_right)
+		|| (_order_mode != SQUAD_ORDER.MOVE && _order_mode != SQUAD_ORDER.MOVE_AND_ATTACK))
 	{
 		return false;
 	}
 
 	_squad.properties.marker_is_dragged = true;
+	_squad.properties.marker_drag_button = _mouse_button;
+	_squad.properties.marker_drag_order_mode = _order_mode;
+	_squad.properties.marker_drag_start_x = _squad.properties.marker_x;
+	_squad.properties.marker_drag_start_y = _squad.properties.marker_y;
 	global.dragged_squad = _squad;
 
 	return true;
@@ -1802,7 +1819,7 @@ function squad_drag_update(_squad, _target_x, _target_y)
 	return true;
 }
 
-function squad_drag_end(_squad, _start_march = true)
+function squad_drag_end(_squad, _issue_order = true)
 {
 	if (!is_struct(_squad))
 	{
@@ -1812,12 +1829,27 @@ function squad_drag_end(_squad, _start_march = true)
 
 	_squad.properties.marker_is_dragged = false;
 
-	if (_start_march)
+	if (_issue_order)
 	{
-		squad_march_begin(_squad);
+		var _order_mode = variable_struct_exists(_squad.properties, "marker_drag_order_mode")
+			? _squad.properties.marker_drag_order_mode
+			: SQUAD_ORDER.MOVE;
+		squad_order_issue(
+			_squad,
+			_squad.properties.marker_x,
+			_squad.properties.marker_y,
+			_order_mode
+		);
 	}
 	else
 	{
+		// A cancelled drag keeps any previous direct order and its visible destination intact.
+		if (squad_order_is_active(_squad))
+		{
+			_squad.properties.marker_x = _squad.properties.marker_drag_start_x;
+			_squad.properties.marker_y = _squad.properties.marker_drag_start_y;
+		}
+
 		squad_march_end(_squad);
 	}
 
@@ -1839,6 +1871,18 @@ function squad_night_markers_draw_gui()
 	var _camera_height = max(1, camera_get_view_height(_camera_controller.camera_id));
 	var _gui_width = display_get_gui_width();
 	var _gui_height = display_get_gui_height();
+	var _mouse_gui_x = device_mouse_x_to_gui(0);
+	var _mouse_gui_y = device_mouse_y_to_gui(0);
+	var _hovered_marker_x = -1;
+	var _hovered_marker_y = -1;
+	var _legacy_drag_controls_enabled = global.focus_window == FOCUS_WINDOW.NOONE;
+
+	if (instance_exists(o_game_controller))
+	{
+		var _game_controller = instance_find(o_game_controller, 0);
+		_legacy_drag_controls_enabled = _legacy_drag_controls_enabled
+			&& !_game_controller.squad_flag_system_2_enabled;
+	}
 
 	for (var _squad_index = 0; _squad_index < array_length(global.squads); ++_squad_index)
 	{
@@ -1852,8 +1896,11 @@ function squad_night_markers_draw_gui()
 		var _marker_world_x = _squad.properties.marker_x;
 		var _marker_world_y = _squad.properties.marker_y;
 		var _marker_x = ((_marker_world_x - _camera_x) / _camera_width) * _gui_width;
+		var _marker_offset_y = _squad.properties.marker_is_dragged
+			? BALANCE_SQUAD_MARKER_DRAG_TARGET_OFFSET_Y
+			: BALANCE_SQUAD_MARKER_DISPLAY_OFFSET_Y;
 		var _marker_y = ((_marker_world_y - _camera_y) / _camera_height) * _gui_height
-			- BALANCE_SQUAD_MARKER_OFFSET_Y;
+			- _marker_offset_y;
 
 		if (_marker_x < -BALANCE_SQUAD_MARKER_WIDTH
 			|| _marker_x > _gui_width + BALANCE_SQUAD_MARKER_WIDTH
@@ -1868,8 +1915,17 @@ function squad_night_markers_draw_gui()
 		var _right = _left + BALANCE_SQUAD_MARKER_WIDTH;
 		var _body_bottom = _top + BALANCE_SQUAD_MARKER_BODY_HEIGHT;
 		var _bottom = _top + BALANCE_SQUAD_MARKER_HEIGHT;
+		var _marker_is_hovered = _legacy_drag_controls_enabled
+			&& !_squad.properties.marker_is_dragged
+			&& point_in_rectangle(_mouse_gui_x, _mouse_gui_y, _left, _top, _right, _bottom);
 
-		var _marker_background_color = squad_is_marching(_squad)
+		if (_marker_is_hovered)
+		{
+			_hovered_marker_x = _marker_x;
+			_hovered_marker_y = _marker_y;
+		}
+
+		var _marker_background_color = squad_is_marching(_squad) || squad_order_is_active(_squad)
 			? COLOR_SQUAD_MARKER_MARCH_BACKGROUND
 			: COLOR_SQUAD_CARD_BACKGROUND;
 
@@ -1909,6 +1965,69 @@ function squad_night_markers_draw_gui()
 		draw_rectangle(_hp_left + 2, _hp_top + 2, _hp_left + 2 + ((BALANCE_SQUAD_MARKER_HP_WIDTH - 4) * _hp_progress), _hp_top + BALANCE_SQUAD_MARKER_HP_HEIGHT - 2, false);
 	}
 
+	// Draw the legacy controls above every marker so the tooltip stays unobstructed.
+	if (_hovered_marker_x >= 0)
+	{
+		var _move_text = "HOLD LMB - MOVE";
+		var _attack_text = "HOLD RMB ATTACK";
+		var _previous_font = draw_get_font();
+
+		if (variable_global_exists("ui_font") && font_exists(global.ui_font))
+		{
+			draw_set_font(global.ui_font);
+		}
+
+		var _line_height = string_height(_move_text);
+		var _tooltip_width = max(string_width(_move_text), string_width(_attack_text))
+			+ (BALANCE_SQUAD_MARKER_TOOLTIP_PADDING * 2);
+		var _tooltip_height = (_line_height * 2) + (BALANCE_SQUAD_MARKER_TOOLTIP_PADDING * 2);
+		var _tooltip_x = clamp(
+			_hovered_marker_x + (BALANCE_SQUAD_MARKER_WIDTH * 0.5) + BALANCE_SQUAD_MARKER_TOOLTIP_GAP,
+			0,
+			_gui_width - _tooltip_width
+		);
+		var _tooltip_y = clamp(
+			_hovered_marker_y - (_tooltip_height * 0.5),
+			0,
+			_gui_height - _tooltip_height
+		);
+
+		draw_set_alpha(BALANCE_SQUAD_MARKER_TOOLTIP_BACKGROUND_ALPHA);
+		draw_set_color(COLOR_HUD_BACKGROUND);
+		draw_rectangle(
+			_tooltip_x,
+			_tooltip_y,
+			_tooltip_x + _tooltip_width,
+			_tooltip_y + _tooltip_height,
+			false
+		);
+		draw_set_alpha(1);
+		draw_set_color(COLOR_SQUAD_CARD_BORDER);
+		draw_rectangle(
+			_tooltip_x,
+			_tooltip_y,
+			_tooltip_x + _tooltip_width,
+			_tooltip_y + _tooltip_height,
+			true
+		);
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_text(
+			_tooltip_x + BALANCE_SQUAD_MARKER_TOOLTIP_PADDING,
+			_tooltip_y + BALANCE_SQUAD_MARKER_TOOLTIP_PADDING,
+			_move_text
+		);
+		draw_text(
+			_tooltip_x + BALANCE_SQUAD_MARKER_TOOLTIP_PADDING,
+			_tooltip_y + BALANCE_SQUAD_MARKER_TOOLTIP_PADDING + _line_height,
+			_attack_text
+		);
+		draw_set_font(_previous_font);
+	}
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
 	draw_set_color(c_white);
 	draw_set_alpha(1);
 }
@@ -1922,6 +2041,15 @@ function squad_unit_reference_replace(_old_unit, _new_unit)
 	var _previous_unit_max_hp = _old_unit.max_hp;
 	_new_unit.squad = _squad;
 	_new_unit.squad_unit_index = _unit_index;
+	// A form change keeps that member's arrival state instead of restarting an old order.
+	if (variable_instance_exists(_old_unit, "squad_order_serial")
+		&& variable_instance_exists(_new_unit, "squad_order_serial"))
+	{
+		_new_unit.squad_order_serial = _old_unit.squad_order_serial;
+		_new_unit.squad_order_arrived = _old_unit.squad_order_arrived;
+		_new_unit.squad_order_in_combat = _old_unit.squad_order_in_combat;
+		_new_unit.squad_order_search_timer = 0;
+	}
 	squad_relic_bonuses_apply(_squad, _new_unit);
 	foundry_unit_permanent_bonuses_apply(_new_unit);
 	_new_unit.foundry_permanent_bonuses_pending = false;

@@ -58,6 +58,12 @@ tainted_ground_heal_timer = irandom(tainted_ground_heal_interval - 1);
 forced_attack_target = noone;
 forced_attack_target_timer = 0;
 manual_structure_target = noone;
+
+// Flag System 2 tracks arrival and combat independently for each squad member.
+squad_order_serial = -1;
+squad_order_arrived = false;
+squad_order_in_combat = false;
+squad_order_search_timer = 0;
 is_being_hooked = false;
 
 // Rally command state is assigned by rally projectiles.
@@ -1058,7 +1064,8 @@ unit_move_speed_multiplier_get = function()
 	}
 
 	// A marching squad runs faster only while its shared proximity check allows it.
-	if (is_struct(squad))
+	if (is_struct(squad) && (!squad_order_is_active(squad)
+		|| (!squad_order_arrived && !squad_order_in_combat)))
 	{
 		_move_multiplier *= squad_march_speed_multiplier_get(squad);
 	}
@@ -2175,6 +2182,7 @@ unholy_savage_leap_update = function()
 		&& global.day_phase == DAY_PHASE.NIGHT
 		&& is_struct(squad)
 		&& !squad_is_marching(squad)
+		&& (!squad_order_is_active(squad) || squad_order_arrived || squad_order_in_combat)
 		&& squad_unholy_trait_get(squad) == UNHOLY_TRAIT.SAVAGE_LEAP
 		&& attack_radius <= BALANCE_UNIT_MELEE_DAMAGE_RADIUS_MAX
 		&& !is_stunned

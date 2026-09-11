@@ -381,7 +381,14 @@ else
 	forced_attack_target = noone;
 }
 
-// Marching squad members run to their flag and ignore every combat target.
+// System 2 may own movement, or prepare one nearby target for the normal combat code below.
+if (squad_order_unit_update(id))
+{
+	update_walk_sway();
+	exit;
+}
+
+// System 1 marching squad members run to their flag and ignore every combat target.
 var _squad_march_is_active = unit_faction == UNIT_FACTION.FRIENDLY
 	&& global.day_phase == DAY_PHASE.NIGHT
 	&& is_struct(squad)
@@ -616,7 +623,8 @@ else if (!_special_behavior_handled && _should_search_target && _is_enemy_unit)
 else if (!_special_behavior_handled
 	&& !_uses_squad_day_point
 	&& _should_search_target
-	&& _is_friendly_unit)
+	&& _is_friendly_unit
+	&& !squad_order_in_combat)
 {
 	if (instance_exists(alert_target))
 	{

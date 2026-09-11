@@ -46,7 +46,22 @@ else if (global.day_phase == DAY_PHASE.NIGHT)
 wall_navigation_debug_draw();
 
 // Draw night squad markers above world units but below the rest of the GUI.
+squad_orders_draw_gui();
 squad_night_markers_draw_gui();
+
+if (squad_flag_system_2_enabled && is_struct(selected_squad) && squad_attack_move_armed
+	&& global.day_phase == DAY_PHASE.NIGHT && global.focus_window == FOCUS_WINDOW.NOONE)
+{
+	var _order_hint_offset = 18;
+	var _order_hint_scale = 0.7;
+	draw_set_color(COLOR_SQUAD_ORDER_MOVE);
+	draw_set_alpha(1);
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_text_transformed(device_mouse_x_to_gui(0) + _order_hint_offset,
+		device_mouse_y_to_gui(0) + _order_hint_offset, "Move And Attack", _order_hint_scale, _order_hint_scale, 0);
+	draw_set_color(c_white);
+}
 
 // Draw attack warning arrows during the day and briefly at the start of the night.
 var _game_speed_normal = variable_global_exists("game_speed_normal") ? global.game_speed_normal : room_speed;
@@ -4138,7 +4153,8 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 			{
 				_hand_world_x = global.dragged_squad.properties.marker_x;
 				_hand_world_y = global.dragged_squad.properties.marker_y
-					- (BALANCE_SQUAD_MARKER_OFFSET_Y * (_drag_hand_camera_height / max(1, camera_view_height)));
+					- (BALANCE_SQUAD_MARKER_DRAG_TARGET_OFFSET_Y
+						* (_drag_hand_camera_height / max(1, camera_view_height)));
 			}
 			else
 			{
@@ -4638,6 +4654,20 @@ if (pause_menu_open)
 			_edge_toggle_rect.y + _edge_toggle_rect.height - _check_padding,
 			false
 		);
+	}
+
+	// The experimental control switch stays hidden until explicitly enabled again.
+	if (SQUAD_FLAG_SYSTEM_SETTING_VISIBLE)
+	{
+		var _flag_system_rect = settings_flag_system_rect_get();
+		draw_set_color(c_black);
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_middle);
+		draw_rectangle(_flag_system_rect.x, _flag_system_rect.y,
+			_flag_system_rect.x + _flag_system_rect.width, _flag_system_rect.y + _flag_system_rect.height, true);
+		draw_text(_flag_system_rect.x + _flag_system_rect.width * 0.5,
+			_flag_system_rect.y + _flag_system_rect.height * 0.5,
+			squad_flag_system_2_enabled ? "Flag System 2" : "Flag System 1");
 	}
 
 	draw_set_halign(fa_center);

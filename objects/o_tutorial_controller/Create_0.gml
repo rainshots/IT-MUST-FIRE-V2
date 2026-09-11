@@ -53,7 +53,7 @@ tutorial_items = [
 		title: "Welcome",
 		body: "Greetings, Great Pontiff! This is the prototype of IT MUST FIRE. You lead a cult that worships a possessed cannon with a demon sealed inside.\n\nYour goal: Survive "
 			+ string(BALANCE_SURVIVAL_OBJECTIVE_DAYS)
-			+ " days."
+			+ " nights."
 	},
 	{
 		id: "construction_start",
@@ -159,8 +159,8 @@ tutorial_items = [
 	},
 	{
 		id: "squad_dragging",
-		title: "Squad Marching",
-		body: "During combat at night, drag a squad flag with LMB and release it at the destination.\n\nThe red flag means the squad is marching. Its units ignore enemies until every surviving member reaches the flag."
+		title: "Squad Orders",
+		body: "During combat at night, drag a squad flag with LMB to issue a Move order. Units ignore enemies while moving and arrive within 50 pixels of the destination.\n\nDrag the flag with RMB to issue a Move + Attack order. Units attack nearby enemies within 100 pixels while moving and arrive within 100 pixels of the destination.\n\nEach unit resumes its normal behavior after arriving."
 	},
 	{
 		id: "tainted_ground",

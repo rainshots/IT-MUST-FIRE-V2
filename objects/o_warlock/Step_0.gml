@@ -8,6 +8,10 @@ if (unholy_savage_leap_active || global.pause || hp <= 0)
 
 var _time_scale = gameplay_time_scale;
 
+// Direct movement suppresses new active casts; cooldowns and passive effects still update.
+var _direct_order_allows_abilities = !squad_order_is_active(squad)
+	|| squad_order_arrived || squad_order_in_combat;
+
 if (is_being_dragged || is_stunned)
 {
 	exit;
@@ -42,7 +46,7 @@ if (raise_lesser_demon_retry_timer > 0)
 	raise_lesser_demon_retry_timer -= _time_scale;
 }
 
-if (cultist_active_ability_has(id, DEMON_ABILITY.WARLOCK_RAISE_LESSER_DEMON)
+if (_direct_order_allows_abilities && cultist_active_ability_has(id, DEMON_ABILITY.WARLOCK_RAISE_LESSER_DEMON)
 	&& raise_lesser_demon_timer <= 0
 	&& raise_lesser_demon_retry_timer <= 0)
 {
@@ -66,7 +70,7 @@ if (soul_chain_retry_timer > 0)
 	soul_chain_retry_timer -= _time_scale;
 }
 
-if (cultist_active_ability_has(id, DEMON_ABILITY.WARLOCK_SOUL_CHAIN)
+if (_direct_order_allows_abilities && cultist_active_ability_has(id, DEMON_ABILITY.WARLOCK_SOUL_CHAIN)
 	&& soul_chain_cooldown_timer <= 0
 	&& soul_chain_retry_timer <= 0)
 {
@@ -90,7 +94,7 @@ if (hex_totem_retry_timer > 0)
 	hex_totem_retry_timer -= _time_scale;
 }
 
-if (cultist_active_ability_has(id, DEMON_ABILITY.WARLOCK_HEX_TOTEM)
+if (_direct_order_allows_abilities && cultist_active_ability_has(id, DEMON_ABILITY.WARLOCK_HEX_TOTEM)
 	&& hex_totem_timer <= 0
 	&& hex_totem_retry_timer <= 0)
 {

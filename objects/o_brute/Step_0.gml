@@ -8,6 +8,10 @@ if (unholy_savage_leap_active || global.pause || hp <= 0)
 
 var _time_scale = gameplay_time_scale;
 
+// Direct movement suppresses new active casts; cooldowns and passive effects still update.
+var _direct_order_allows_abilities = !squad_order_is_active(squad)
+	|| squad_order_arrived || squad_order_in_combat;
+
 if (attack_aoe_circle_timer > 0)
 {
 	attack_aoe_circle_timer -= _time_scale;
@@ -116,7 +120,7 @@ if (grave_slam_retry_timer > 0)
 	grave_slam_retry_timer -= _time_scale;
 }
 
-if (cultist_active_ability_has(id, DEMON_ABILITY.BRUTE_GRAVE_SLAM)
+if (_direct_order_allows_abilities && cultist_active_ability_has(id, DEMON_ABILITY.BRUTE_GRAVE_SLAM)
 	&& grave_slam_timer <= 0
 	&& grave_slam_retry_timer <= 0)
 {
@@ -140,7 +144,7 @@ if (butcher_chains_retry_timer > 0)
 	butcher_chains_retry_timer -= _time_scale;
 }
 
-if (cultist_active_ability_has(id, DEMON_ABILITY.BRUTE_BUTCHER_CHAINS)
+if (_direct_order_allows_abilities && cultist_active_ability_has(id, DEMON_ABILITY.BRUTE_BUTCHER_CHAINS)
 	&& butcher_chains_timer <= 0
 	&& butcher_chains_retry_timer <= 0
 	&& array_length(hook_targets) <= 0)
@@ -165,7 +169,7 @@ if (corpse_armor_retry_timer > 0)
 	corpse_armor_retry_timer -= _time_scale;
 }
 
-if (cultist_active_ability_has(id, DEMON_ABILITY.BRUTE_CORPSE_ARMOR)
+if (_direct_order_allows_abilities && cultist_active_ability_has(id, DEMON_ABILITY.BRUTE_CORPSE_ARMOR)
 	&& corpse_armor_ability_timer <= 0
 	&& corpse_armor_retry_timer <= 0)
 {

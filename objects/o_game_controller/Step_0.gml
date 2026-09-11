@@ -393,6 +393,7 @@ if (!global.pause
 full_moon_hint_delay_update();
 
 // Keep squad combat signals and world markers synchronized with surviving units.
+var _squad_selection_escape_consumed = squad_control_selection_update();
 squad_combat_guides_update();
 squad_night_markers_update();
 
@@ -501,12 +502,23 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("archdem
 		}
 	}
 
-	// Night squad markers move independently and become march destinations when released.
+	// Night flag input uses either click-selection orders or drag-and-release orders.
 	if (global.day_phase == DAY_PHASE.NIGHT)
 	{
-		if (is_struct(global.dragged_squad))
+		if (squad_flag_system_2_enabled)
 		{
-			var _squad_marker_world_offset_y = BALANCE_SQUAD_MARKER_OFFSET_Y
+			_squad_marker_input_handled = squad_control_world_input_update(
+				_mouse_world_x, _mouse_world_y, _mouse_gui_x, _mouse_gui_y);
+		}
+		else if (is_struct(global.dragged_squad))
+		{
+			var _squad_drag_button = variable_struct_exists(
+				global.dragged_squad.properties,
+				"marker_drag_button"
+			)
+				? global.dragged_squad.properties.marker_drag_button
+				: mb_left;
+			var _squad_marker_world_offset_y = BALANCE_SQUAD_MARKER_DRAG_TARGET_OFFSET_Y
 				* (_camera_height / max(1, camera_view_height));
 			squad_drag_update(
 				global.dragged_squad,
@@ -515,17 +527,23 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("archdem
 			);
 			_squad_marker_input_handled = true;
 
-			if (!mouse_check_button(mb_left))
+			if (!mouse_check_button(_squad_drag_button))
 			{
 				squad_drag_end(global.dragged_squad, true);
 				global.sound_play_random(global.release_worker_sounds);
 			}
 		}
-		else if (!_squad_roster_card_clicked && mouse_check_button_pressed(mb_left))
+		else if (!_squad_roster_card_clicked
+			&& (mouse_check_button_pressed(mb_left) || mouse_check_button_pressed(mb_right)))
 		{
 			var _picked_squad = squad_marker_find_at_position(_mouse_world_x, _mouse_world_y);
+			var _squad_drag_button = mouse_check_button_pressed(mb_right) ? mb_right : mb_left;
+			var _squad_drag_order_mode = _squad_drag_button == mb_right
+				? SQUAD_ORDER.MOVE_AND_ATTACK
+				: SQUAD_ORDER.MOVE;
 
-			if (is_struct(_picked_squad) && squad_drag_begin(_picked_squad))
+			if (is_struct(_picked_squad)
+				&& squad_drag_begin(_picked_squad, _squad_drag_button, _squad_drag_order_mode))
 			{
 				_squad_marker_input_handled = true;
 				global.sound_play_random(global.pick_worker_sounds);
@@ -1317,7 +1335,7 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION
 }
 
 // Resolve Escape by the current focused window.
-if (keyboard_check_pressed(vk_escape))
+if (keyboard_check_pressed(vk_escape) && !_squad_selection_escape_consumed)
 {
 	if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION)
 	{
@@ -2248,12 +2266,20 @@ if (pause_menu_open && (mouse_check_button_pressed(mb_left) || settings_open))
 		var _close_button_x = _panel_x + ((settings_panel_width - button_width) * 0.5);
 		var _close_button_y = _panel_y + settings_panel_height - button_height - settings_close_bottom_padding;
 		var _edge_toggle_rect = settings_edge_toggle_rect_get();
+		var _flag_system_rect = settings_flag_system_rect_get();
 		var _settings_slider_index = settings_slider_find_at_gui(_mouse_x, _mouse_y);
 
 		if (mouse_check_button_pressed(mb_left)
 			&& ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _edge_toggle_rect.x, _edge_toggle_rect.y, _edge_toggle_rect.width, _edge_toggle_rect.height))
 		{
 			global.edge_scroll_enabled = !global.edge_scroll_enabled;
+			settings_drag_slider_index = -1;
+		}
+		else if (SQUAD_FLAG_SYSTEM_SETTING_VISIBLE && mouse_check_button_pressed(mb_left)
+			&& ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _flag_system_rect.x, _flag_system_rect.y,
+				_flag_system_rect.width, _flag_system_rect.height))
+		{
+			squad_flag_system_set(!squad_flag_system_2_enabled);
 			settings_drag_slider_index = -1;
 		}
 		else if (mouse_check_button_pressed(mb_left) && _settings_slider_index >= 0)

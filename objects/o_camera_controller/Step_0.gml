@@ -81,7 +81,13 @@ if (zoom_level != target_zoom_level)
 }
 
 // Read normalized WASD movement input.
-var _input_x = keyboard_check(ord("D")) - keyboard_check(ord("A"));
+// A arms attack-move while a squad is selected, instead of also panning the camera left.
+var _squad_uses_attack_key = instance_exists(game_controller)
+	&& game_controller.squad_flag_system_2_enabled
+	&& is_struct(game_controller.selected_squad)
+	&& global.day_phase == DAY_PHASE.NIGHT
+	&& global.focus_window == FOCUS_WINDOW.NOONE;
+var _input_x = keyboard_check(ord("D")) - (!_squad_uses_attack_key && keyboard_check(ord("A")));
 var _input_y = keyboard_check(ord("S")) - keyboard_check(ord("W"));
 var _edge_input_x = 0;
 var _edge_input_y = 0;

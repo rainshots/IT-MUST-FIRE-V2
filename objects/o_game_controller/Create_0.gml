@@ -28,14 +28,14 @@ game_set_speed(global.game_speed_normal, gamespeed_fps);
 night_attack_balance_by_day = [
 	// Day 1.
 	{
-		difficulty_budget: 70, enemy_hp_multiplier: 1.1, enemy_damage_multiplier: 1.1,
+		difficulty_budget: 60, enemy_hp_multiplier: 1, enemy_damage_multiplier: 1.1,
 		enemy_types: [
 			[o_enemy_peasant]
 		]
 	},
 	// Day 2.
 	{
-		difficulty_budget: 85, enemy_hp_multiplier: 1.14, enemy_damage_multiplier: 1.15,
+		difficulty_budget: 75, enemy_hp_multiplier: 1.1, enemy_damage_multiplier: 1.15,
 		enemy_types: [
 			[o_enemy_archer],
 			[o_enemy_peasant]
@@ -43,7 +43,7 @@ night_attack_balance_by_day = [
 	},
 	// Day 3.
 	{
-		difficulty_budget: 105, enemy_hp_multiplier: 1.2, enemy_damage_multiplier: 1.25,
+		difficulty_budget: 95, enemy_hp_multiplier: 1.2, enemy_damage_multiplier: 1.25,
 		enemy_types: [
 			[o_enemy_knight]
 		]
@@ -1878,6 +1878,7 @@ ui_hover_candidate_get = function(_mouse_x, _mouse_y)
 			var _close_button_x = _settings_panel_x + ((settings_panel_width - button_width) * 0.5);
 			var _close_button_y = _settings_panel_y + settings_panel_height - button_height - settings_close_bottom_padding;
 			var _edge_toggle_rect = settings_edge_toggle_rect_get();
+			var _flag_system_rect = settings_flag_system_rect_get();
 			var _settings_slider_index = settings_slider_find_at_gui(_mouse_x, _mouse_y);
 
 			if (_settings_slider_index >= 0)
@@ -1888,6 +1889,13 @@ ui_hover_candidate_get = function(_mouse_x, _mouse_y)
 			if (ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _edge_toggle_rect.x, _edge_toggle_rect.y, _edge_toggle_rect.width, _edge_toggle_rect.height))
 			{
 				return "settings_edge_scroll_toggle";
+			}
+
+			if (SQUAD_FLAG_SYSTEM_SETTING_VISIBLE
+				&& ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _flag_system_rect.x, _flag_system_rect.y,
+				_flag_system_rect.width, _flag_system_rect.height))
+			{
+				return "settings_flag_system_toggle";
 			}
 
 			if (ui_mouse_is_inside_rect(_mouse_x, _mouse_y, _close_button_x, _close_button_y, button_width, button_height))
@@ -3586,7 +3594,121 @@ settings_open = false;
 player_pause_active = false;
 fullscreen_enabled = window_get_fullscreen();
 
-// Target selection state.
+// Flag System 2 selection belongs to the controller; orders remain on their squads after deselection.
+squad_flag_system_2_enabled = SQUAD_FLAG_SYSTEM_2_ENABLED;
+selected_squad = noone;
+squad_attack_move_armed = false;
+
+squad_control_selection_clear = function()
+{
+	if (is_struct(selected_squad))
+	{
+		selected_squad.properties.is_selected = false;
+	}
+	selected_squad = noone;
+	squad_attack_move_armed = false;
+};
+
+squad_flag_system_set = function(_use_system_2)
+{
+	squad_control_selection_clear();
+	if (is_struct(global.dragged_squad))
+	{
+		squad_drag_end(global.dragged_squad, false);
+	}
+	var _squad_count = array_length(global.squads);
+	for (var _index = 0; _index < _squad_count; ++_index)
+	{
+		squad_order_clear(global.squads[_index]);
+		squad_march_end(global.squads[_index]);
+	}
+	squad_flag_system_2_enabled = _use_system_2;
+};
+
+// Run before other input, so a click elsewhere always deselects and Escape cannot open the menu.
+squad_control_selection_update = function()
+{
+	if (!is_struct(selected_squad))
+	{
+		return false;
+	}
+	if (!squad_flag_system_2_enabled || global.day_phase != DAY_PHASE.NIGHT
+		|| global.focus_window != FOCUS_WINDOW.NOONE
+		|| !squad_active_is_registered(selected_squad)
+		|| squad_living_unit_count_get(selected_squad) <= 0)
+	{
+		squad_control_selection_clear();
+		return false;
+	}
+	if (keyboard_check_pressed(vk_escape))
+	{
+		squad_control_selection_clear();
+		return true;
+	}
+	if (mouse_check_button_pressed(mb_left))
+	{
+		squad_control_selection_clear();
+	}
+	else if (keyboard_check_pressed(ord("A")))
+	{
+		squad_attack_move_armed = true;
+	}
+	return false;
+};
+
+squad_control_pointer_over_hud = function(_mouse_x, _mouse_y)
+{
+	if (!instance_exists(o_hud))
+	{
+		return false;
+	}
+	var _hud = instance_find(o_hud, 0);
+	var _minimap_position = _hud.minimap_world_position_from_gui(_mouse_x, _mouse_y);
+	return _minimap_position[0]
+		|| is_struct(_hud.hud_squad_at_gui_position(_mouse_x, _mouse_y))
+		|| is_struct(_hud.projectile_slot_at_gui_position(_mouse_x, _mouse_y, id))
+		|| (variable_global_exists("squad_info_window_open") && global.squad_info_window_open);
+};
+
+squad_control_world_input_update = function(_world_x, _world_y, _gui_x, _gui_y)
+{
+	// HUD hit testing builds slot layouts, so only do it when a click can issue a command.
+	if (!mouse_check_button_pressed(mb_left) && !mouse_check_button_pressed(mb_right))
+	{
+		return false;
+	}
+	if (!squad_flag_system_2_enabled || global.day_phase != DAY_PHASE.NIGHT
+		|| global.focus_window != FOCUS_WINDOW.NOONE
+		|| instance_exists(global.dragged_cultist) || instance_exists(global.dragged_artifact)
+		|| squad_control_pointer_over_hud(_gui_x, _gui_y))
+	{
+		return false;
+	}
+	if (mouse_check_button_pressed(mb_left))
+	{
+		var _picked = squad_marker_find_at_position(_world_x, _world_y);
+		if (is_struct(_picked) && squad_living_unit_count_get(_picked) > 0)
+		{
+			selected_squad = _picked;
+			_picked.properties.is_selected = true;
+			global.sound_play_random(global.pick_worker_sounds);
+			return true;
+		}
+	}
+	else if (is_struct(selected_squad) && mouse_check_button_pressed(mb_right))
+	{
+		var _mode = squad_attack_move_armed ? SQUAD_ORDER.MOVE_AND_ATTACK : SQUAD_ORDER.MOVE;
+		if (squad_order_issue(selected_squad, _world_x, _world_y, _mode))
+		{
+			squad_attack_move_armed = false;
+			global.sound_play_random(global.release_worker_sounds);
+			return true;
+		}
+	}
+	return false;
+};
+
+// Cannon target selection state.
 target_selection_projectile_type = PROJECTILE_TYPE.DAMAGE;
 target_selection_radius = BALANCE_PROJECTILE_EFFECT_RADIUS;
 target_selection_alpha = 0.35;
@@ -3976,7 +4098,7 @@ button_width = 280;
 button_height = 58;
 button_gap = 18;
 settings_panel_width = 420;
-settings_panel_height = 560;
+settings_panel_height = SQUAD_FLAG_SYSTEM_SETTING_VISIBLE ? 620 : 560;
 settings_close_bottom_padding = 28;
 settings_slider_count = 5;
 settings_slider_labels = ["Music", "Ambient", "Sounds", "Edge Speed", "Camera Speed"];
@@ -3990,6 +4112,10 @@ settings_drag_slider_index = -1;
 settings_edge_toggle_x = 150;
 settings_edge_toggle_y = 426;
 settings_edge_toggle_size = 24;
+settings_flag_system_x = 48;
+settings_flag_system_y = 468;
+settings_flag_system_width = 324;
+settings_flag_system_height = 36;
 pause_feedback_button_width = 460;
 pause_feedback_button_height = 76;
 pause_button_labels = ["CONTINUE", "SETTINGS", "PLEASE LEAVE A FEEDBACK", "QUIT"];
@@ -4144,6 +4270,16 @@ settings_edge_toggle_rect_get = function()
 		y: _panel_y + settings_edge_toggle_y,
 		width: settings_edge_toggle_size,
 		height: settings_edge_toggle_size
+	};
+};
+
+settings_flag_system_rect_get = function()
+{
+	return {
+		x: (camera_view_width - settings_panel_width) * 0.5 + settings_flag_system_x,
+		y: (camera_view_height - settings_panel_height) * 0.5 + settings_flag_system_y,
+		width: settings_flag_system_width,
+		height: settings_flag_system_height
 	};
 };
 
@@ -11951,6 +12087,13 @@ start_night_phase = function()
 
 start_day_phase = function()
 {
+	squad_control_selection_clear();
+	var _ordered_squad_count = array_length(global.squads);
+	for (var _ordered_index = 0; _ordered_index < _ordered_squad_count; ++_ordered_index)
+	{
+		squad_order_clear(global.squads[_ordered_index]);
+	}
+
 	// Hide the old report until a new day has actually started.
 	debug_previous_day_report_visible = false;
 	clear_dragged_unit();
@@ -11967,7 +12110,7 @@ start_day_phase = function()
 		}
 	}
 
-	// Completing the thirteenth night ends the prototype before another day can begin.
+	// Completing the final required night ends the prototype before another day can begin.
 	if (night_attack_night_index == BALANCE_SURVIVAL_OBJECTIVE_DAYS
 		&& !game_completion_popup_was_shown)
 	{

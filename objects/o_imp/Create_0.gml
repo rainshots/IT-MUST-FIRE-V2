@@ -148,6 +148,19 @@ imp_demon_leap_cancel_for_march = function()
 	return true;
 };
 
+imp_active_ability_cancel_for_order = function()
+{
+	// A direct order also interrupts the pending Guillotine strike, not just Demon Leap.
+	imp_demon_leap_cancel_for_march();
+	crimson_guillotine_strike_timer = 0;
+	crimson_guillotine_target = noone;
+	crimson_guillotine_repeat_count = 0;
+	visual_offset_is_ability_controlled = false;
+	visual_attack_offset_x = 0;
+	visual_attack_offset_y = 0;
+	image_alpha = 1;
+};
+
 brute_blood_anvil_active_recharge = function(_recharge_share)
 {
 	var _recharge_amount = 0;
