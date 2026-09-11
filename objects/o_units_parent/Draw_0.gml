@@ -66,7 +66,7 @@ if (sprite_exists(sprite_index))
 		image_yscale,
 		image_angle,
 		image_blend,
-		image_alpha
+		status_effect_has(STATUS_EFFECT.INVISIBILITY) ? BALANCE_STATUS_INVISIBILITY_ALPHA : image_alpha
 	);
 
 	if (_damage_flash_is_active)

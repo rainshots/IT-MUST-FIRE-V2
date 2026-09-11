@@ -17,3 +17,8 @@ unit_damage_received = function(_source_instance, _source_faction, _applied_dama
 {
 	ranged_unit_melee_flee_on_damage(_source_instance);
 };
+
+// Begin invisible and renew the status every ten gameplay seconds.
+invisibility_reapply_interval = BALANCE_ENEMY_ARCHER_INVISIBILITY_INTERVAL * room_speed;
+invisibility_reapply_timer = invisibility_reapply_interval;
+invisibility_apply();

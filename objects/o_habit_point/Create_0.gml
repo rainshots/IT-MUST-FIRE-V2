@@ -1,4 +1,4 @@
-// Reuse Cursed Point capture, construction-menu, and Cultist-job behavior.
+// Reuse shared daytime construction-menu and Cultist-job behavior.
 event_inherited();
 
 // Use the authored Habitat Point sprites when they are present in the project.
@@ -31,7 +31,7 @@ summon_button_night_text = "Available at daytime";
 structure_selection_title = "Build Habitat";
 structure_selection_subtitle = "Choose a habitat to build";
 tooltip_lines = [
-	"Taint the ground under this point",
+	"Use this point during the day",
 	"to build a unit habitat here."
 ];
 
@@ -40,19 +40,19 @@ var _habitat_choices = [
 		building_object: o_orcs_pit,
 		building_sprite: s_orks_hut,
 		building_name: "Orcs Pit",
-		building_description: "Houses two strong allied Orcs that defend the surrounding area."
+		building_description: "Houses three strong allied Orcs that defend the surrounding area."
 	},
 	{
 		building_object: o_habit_graveyard,
 		building_sprite: s_graveyardv3,
 		building_name: "Graveyard",
-		building_description: "Houses two Skeleton Archers that defend the surrounding area with ranged attacks."
+		building_description: "Houses three Skeleton Mages that defend the surrounding area with magic attacks."
 	},
 	{
 		building_object: o_habit_demons,
 		building_sprite: s_pitlings_house,
 		building_name: "Demon Habitat",
-		building_description: "Houses two Balgors whose melee attacks damage groups of nearby enemies."
+		building_description: "Houses three Balgors whose melee attacks damage groups of nearby enemies."
 	}
 ];
 

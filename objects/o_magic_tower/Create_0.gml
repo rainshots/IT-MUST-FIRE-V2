@@ -68,7 +68,8 @@ magic_tower_damage_get = function(_target)
 
 magic_tower_attack = function(_target)
 {
-	if (!instance_exists(_target))
+	if (!instance_exists(_target)
+		|| (variable_instance_exists(_target, "status_effect_has") && _target.status_effect_has(STATUS_EFFECT.INVISIBILITY)))
 	{
 		return false;
 	}

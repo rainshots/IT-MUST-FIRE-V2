@@ -31,6 +31,8 @@ enum PROJECTILE_TYPE
 	ARTILLERY,
 	DOOM_BELL,
 	BOMB_SHOT,
+	SUBZERO_FIELD,
+	WAKING_CALL,
 	COUNT
 }
 
@@ -242,6 +244,13 @@ enum DEMON_ABILITY
 	COUNT
 }
 
+// Damage categories allow unit-specific vulnerabilities independently of armor.
+enum DAMAGE_CATEGORY
+{
+	DEFAULT,
+	EXPLOSION
+}
+
 enum STATUS_EFFECT
 {
 	BLEED,
@@ -250,6 +259,8 @@ enum STATUS_EFFECT
 	CURSE,
 	STUN,
 	SLOW,
+	INVISIBILITY,
+	LAST_STAND,
 	COUNT
 }
 
@@ -421,3 +432,6 @@ enum STATUS_EFFECT
 // Bomb Shot body and fuse colors.
 #macro COLOR_BOMB_SHOT_BODY #302823
 #macro COLOR_BOMB_SHOT_FUSE #ff9b2f
+
+#macro COLOR_SUBZERO_FIELD #70dfff
+#macro COLOR_WAKING_CALL #b5ed94

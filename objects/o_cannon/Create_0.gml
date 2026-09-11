@@ -136,6 +136,14 @@ cannon_reload_time_get = function(_projectile_type)
 	{
 		_reload_time = BALANCE_CANNON_RELOAD_FIRST_AID_TIME;
 	}
+	else if (_projectile_type == PROJECTILE_TYPE.SUBZERO_FIELD)
+	{
+		_reload_time = BALANCE_CANNON_RELOAD_SUBZERO_FIELD_TIME;
+	}
+	else if (_projectile_type == PROJECTILE_TYPE.WAKING_CALL)
+	{
+		_reload_time = BALANCE_CANNON_RELOAD_WAKING_CALL_TIME;
+	}
 	else if (_projectile_type == PROJECTILE_TYPE.BOMB_SHOT)
 	{
 		_reload_time = BALANCE_CANNON_RELOAD_BOMB_SHOT_TIME;

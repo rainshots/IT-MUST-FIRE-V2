@@ -58,6 +58,57 @@ if (smoke_trail_enabled && _flight_progress < 1)
 // Apply the projectile effect when it lands.
 if (_flight_progress >= 1)
 {
+	// Ground fields and corpse summons do not apply generic impact damage or corruption.
+	if (projectile_type == PROJECTILE_TYPE.SUBZERO_FIELD)
+	{
+		var _field = instance_create_layer(target_x, target_y, particle_layer_name, o_subzero_field);
+		if (instance_exists(_field))
+		{
+			_field.effect_radius = effect_radius;
+			_field.damage_amount = damage_amount;
+			_field.source_instance = source_instance;
+		}
+		instance_destroy();
+		exit;
+	}
+
+	if (projectile_type == PROJECTILE_TYPE.WAKING_CALL)
+	{
+		if (global.day_phase == DAY_PHASE.NIGHT && instance_exists(o_game_controller))
+		{
+			var _controller = instance_find(o_game_controller, 0);
+			for (var _summon_index = 0; _summon_index < summon_count; ++_summon_index)
+			{
+				var _corpse = _controller.corpse_nearest_take(target_x, target_y, effect_radius);
+				if (!is_struct(_corpse))
+				{
+					break;
+				}
+
+				var _skeleton = instance_create_layer(_corpse.x, _corpse.y, particle_layer_name, o_skeleton);
+				if (!instance_exists(_skeleton))
+				{
+					array_push(_controller.corpse_draw_data, _corpse);
+					continue;
+				}
+
+				_skeleton.projectile_skeleton_dies_at_morning = true;
+				_skeleton.regroup_is_active = false;
+				_skeleton.rally_is_active = false;
+				_skeleton.target_instance = noone;
+				_skeleton.alert_target = noone;
+				var _effect = instance_create_layer(_corpse.x, _corpse.y, particle_layer_name, o_particle_explosion);
+				if (instance_exists(_effect))
+				{
+					_effect.inner_color = COLOR_WAKING_CALL;
+					_effect.outer_color = COLOR_WAKING_CALL;
+				}
+			}
+		}
+		instance_destroy();
+		exit;
+	}
+
 	// Bomb Shot lands harmlessly; the ground bomb owns its fuse and explosion.
 	if (projectile_type == PROJECTILE_TYPE.BOMB_SHOT)
 	{

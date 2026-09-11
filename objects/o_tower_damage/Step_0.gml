@@ -71,6 +71,7 @@ for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
 			|| !variable_instance_exists(_enemy, "balance_test_match_id")
 			|| _enemy.balance_test_match_id == balance_test_match_id);
 	var _can_attack_enemy = _matches_balance_test
+		&& (!variable_instance_exists(_enemy, "status_effect_has") || !_enemy.status_effect_has(STATUS_EFFECT.INVISIBILITY))
 		&& (!variable_instance_exists(_enemy, "hp") || _enemy.hp > 0)
 		&& (!variable_instance_exists(_enemy, "is_being_dragged") || !_enemy.is_being_dragged);
 

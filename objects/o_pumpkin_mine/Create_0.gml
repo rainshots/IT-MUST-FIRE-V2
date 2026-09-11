@@ -37,7 +37,8 @@ trap_activate = function()
 				UNIT_FACTION.FRIENDLY,
 				false,
 				false,
-				noone
+				noone,
+				DAMAGE_CATEGORY.EXPLOSION
 			);
 		}
 	}

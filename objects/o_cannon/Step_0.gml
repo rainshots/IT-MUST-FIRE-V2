@@ -11,7 +11,9 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 	// Fire once at the freshly selected target, including player-paused target selection.
 	var _can_fire_selected_target = (!global.pause || global.focus_window == FOCUS_WINDOW.NOONE)
 		&& cannon_reload_is_ready()
-		&& (target_projectile_type != PROJECTILE_TYPE.BOMB_SHOT || global.day_phase == DAY_PHASE.NIGHT);
+		&& ((target_projectile_type != PROJECTILE_TYPE.BOMB_SHOT
+			&& target_projectile_type != PROJECTILE_TYPE.SUBZERO_FIELD
+			&& target_projectile_type != PROJECTILE_TYPE.WAKING_CALL) || global.day_phase == DAY_PHASE.NIGHT);
 
 	if (_can_fire_selected_target)
 	{
@@ -59,7 +61,9 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			|| target_projectile_type == PROJECTILE_TYPE.BOMB
 			|| target_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL
 			|| target_projectile_type == PROJECTILE_TYPE.DOOM_BELL
-			|| target_projectile_type == PROJECTILE_TYPE.BOMB_SHOT)
+			|| target_projectile_type == PROJECTILE_TYPE.BOMB_SHOT
+			|| target_projectile_type == PROJECTILE_TYPE.SUBZERO_FIELD
+			|| target_projectile_type == PROJECTILE_TYPE.WAKING_CALL)
 		{
 			_fired_projectile_count = 1;
 		}
@@ -87,7 +91,9 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 				|| target_projectile_type == PROJECTILE_TYPE.BOMB
 				|| target_projectile_type == PROJECTILE_TYPE.BUILDING_SHELL
 				|| target_projectile_type == PROJECTILE_TYPE.DOOM_BELL
-				|| target_projectile_type == PROJECTILE_TYPE.BOMB_SHOT)
+				|| target_projectile_type == PROJECTILE_TYPE.BOMB_SHOT
+				|| target_projectile_type == PROJECTILE_TYPE.SUBZERO_FIELD
+				|| target_projectile_type == PROJECTILE_TYPE.WAKING_CALL)
 			{
 				_spread_target_x = target_x;
 				_spread_target_y = target_y;
@@ -172,6 +178,16 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 				_projectile.taint_compost_enchantment_primary = _projectile_index == 0;
 				_projectile.taint_compost_enchantment_x = target_x;
 				_projectile.taint_compost_enchantment_y = target_y;
+			}
+			else if (target_projectile_type == PROJECTILE_TYPE.SUBZERO_FIELD)
+			{
+				_projectile.effect_radius = BALANCE_SUBZERO_FIELD_RADIUS;
+				_projectile.damage_amount = BALANCE_SUBZERO_FIELD_DAMAGE;
+			}
+			else if (target_projectile_type == PROJECTILE_TYPE.WAKING_CALL)
+			{
+				_projectile.effect_radius = BALANCE_WAKING_CALL_RADIUS;
+				_projectile.summon_count = BALANCE_WAKING_CALL_SKELETON_COUNT;
 			}
 			else if (target_projectile_type == PROJECTILE_TYPE.BOMB_SHOT)
 			{

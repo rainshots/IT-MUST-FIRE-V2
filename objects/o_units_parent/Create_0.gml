@@ -200,6 +200,8 @@ demonic_infusion_timer = 0;
 demonic_infusion_reload_multiplier = 1;
 heal_feedback_pending_amount = 0;
 heal_feedback_next_popup_time = 0;
+// Incoming explosion damage scales independently of physical and magical resistance.
+explosion_damage_multiplier = 1;
 corpse_armor_bonus = 0;
 corpse_armor_timer = 0;
 corpse_armor_retaliation_damage = 0;
@@ -384,6 +386,11 @@ doom_bell_silence_is_active = function()
 };
 
 // Status effects store one active slot per status type.
+// Zero disables automatic Invisibility renewal; individual unit types can enable it.
+last_stand_enabled = false; // Enemy Knights enable one lethal-hit recovery.
+last_stand_used = false;
+invisibility_reapply_interval = 0;
+invisibility_reapply_timer = 0;
 status_effect_timers = array_create(STATUS_EFFECT.COUNT, 0);
 status_effect_durations = array_create(STATUS_EFFECT.COUNT, 0);
 status_effect_strengths = array_create(STATUS_EFFECT.COUNT, 0);
@@ -530,9 +537,17 @@ face_world_x = function(_target_x)
 	}
 };
 
-target_can_be_attacked = function(_target)
+target_can_be_attacked = function(_target, _allow_invisible = false)
 {
 	if (!instance_exists(_target))
+	{
+		return false;
+	}
+
+	// Invisibility blocks direct targeting, while area damage can opt into hitting it.
+	if (!_allow_invisible
+		&& variable_instance_exists(_target, "status_effect_has")
+		&& _target.status_effect_has(STATUS_EFFECT.INVISIBILITY))
 	{
 		return false;
 	}
@@ -947,18 +962,20 @@ status_effect_movement_multiplier = function()
 		_slow_amount = max(_slow_amount, status_effect_strengths[STATUS_EFFECT.SLOW]);
 	}
 
-	return 1 - clamp(_slow_amount, 0, 0.95);
+	var _last_stand_multiplier = status_effect_has(STATUS_EFFECT.LAST_STAND) ? BALANCE_LAST_STAND_STAT_MULTIPLIER : 1;
+	return (1 - clamp(_slow_amount, 0, 0.95)) * _last_stand_multiplier;
 };
 
 status_effect_attack_reload_multiplier = function()
 {
+	var _last_stand_multiplier = status_effect_has(STATUS_EFFECT.LAST_STAND) ? BALANCE_LAST_STAND_STAT_MULTIPLIER : 1;
 	if (!status_effect_has(STATUS_EFFECT.FEAR))
 	{
-		return 1;
+		return 1 / _last_stand_multiplier;
 	}
 
 	var _slow_amount = clamp(status_effect_secondary_values[STATUS_EFFECT.FEAR], 0, 0.95);
-	return 1 / max(0.05, 1 - _slow_amount);
+	return 1 / (max(0.05, 1 - _slow_amount) * _last_stand_multiplier);
 };
 
 demonic_infusion_reload_multiplier_get = function()
@@ -1353,8 +1370,25 @@ status_effect_bleed_tick = function()
 	status_effect_tick_timers[STATUS_EFFECT.BLEED] = status_effect_tick_intervals[STATUS_EFFECT.BLEED];
 };
 
+// Apply without a time limit by default; normal status clearing removes Invisibility.
+invisibility_apply = function(_duration_seconds = infinity)
+{
+	status_effect_apply(STATUS_EFFECT.INVISIBILITY, _duration_seconds);
+};
+
 status_effect_update = function()
 {
+	// Renewal runs before damage ticks so damage on this frame still reveals the unit.
+	if (hp > 0 && invisibility_reapply_interval > 0)
+	{
+		invisibility_reapply_timer -= gameplay_time_scale;
+
+		if (invisibility_reapply_timer <= 0)
+		{
+			invisibility_reapply_timer = invisibility_reapply_interval;
+			invisibility_apply();
+		}
+	}
 	status_effect_particles_update();
 	status_effect_bleed_tick();
 
@@ -1369,6 +1403,10 @@ status_effect_update = function()
 
 		if (status_effect_timers[_status_type] <= 0)
 		{
+			if (_status_type == STATUS_EFFECT.LAST_STAND)
+			{
+				hp = 0;
+			}
 			status_effect_clear(_status_type);
 		}
 	}
@@ -1443,7 +1481,7 @@ soul_chain_death_effect_apply = function()
 	{
 		var _member = soul_chain_members[_member_index];
 
-		if (target_can_be_attacked(_member)
+		if (target_can_be_attacked(_member, true)
 			&& _member != id
 			&& variable_instance_exists(_member, "soul_chain_id")
 			&& _member.soul_chain_id == soul_chain_id)
@@ -1468,7 +1506,22 @@ soul_chain_death_effect_apply = function()
 	}
 };
 
-unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true, _source_instance = noone)
+// Recover immediately so the first lethal hit never triggers death rewards or corpse creation.
+last_stand_try = function()
+{
+	if (!last_stand_enabled || last_stand_used || hp > 0)
+	{
+		return false;
+	}
+
+	last_stand_used = true;
+	hp = max_hp * BALANCE_KNIGHT_LAST_STAND_HP_SHARE;
+	status_effect_apply(STATUS_EFFECT.LAST_STAND, BALANCE_LAST_STAND_DURATION);
+	reload_timer /= BALANCE_LAST_STAND_STAT_MULTIPLIER;
+	return true;
+};
+
+unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true, _source_instance = noone, _damage_category = DAMAGE_CATEGORY.DEFAULT)
 {
 	if (hp <= 0 || _damage_amount <= 0)
 	{
@@ -1556,8 +1609,21 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 		_damage_amount *= BALANCE_RITUAL_AWAKEN_TAINT_DAMAGE_TAKEN_MULTIPLIER;
 	}
 
+	// Apply category vulnerability before calculating actual HP loss and damage feedback.
+	if (_damage_category == DAMAGE_CATEGORY.EXPLOSION)
+	{
+		_damage_amount *= explosion_damage_multiplier;
+	}
+
 	var _applied_damage = min(_damage_amount, max(0, hp - _minimum_hp));
 	hp = max(hp - _damage_amount, _minimum_hp);
+
+	if (_applied_damage > 0)
+	{
+		status_effect_clear(STATUS_EFFECT.INVISIBILITY);
+	}
+
+	last_stand_try();
 	damage_flash_timer = damage_flash_duration;
 
 	// The Roar reacts as soon as the squad's combined HP falls below half.
@@ -1677,7 +1743,7 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 	{
 		var _member = soul_chain_members[_member_index];
 
-		if (target_can_be_attacked(_member)
+		if (target_can_be_attacked(_member, true)
 			&& _member != id
 			&& variable_instance_exists(_member, "soul_chain_id")
 			&& _member.soul_chain_id == soul_chain_id)
@@ -1794,7 +1860,7 @@ warlock_skeleton_death_effect_apply = function()
 		{
 			var _enemy = _enemy_list[| _enemy_index];
 
-			if (target_can_be_attacked(_enemy) && variable_instance_exists(_enemy, "unit_damage_receive"))
+			if (target_can_be_attacked(_enemy, true) && variable_instance_exists(_enemy, "unit_damage_receive"))
 			{
 				_enemy.unit_damage_receive(warlock_skeleton_explosion_damage, unit_faction);
 			}
@@ -1849,7 +1915,7 @@ unholy_boiling_blood_death_explosion_apply = function()
 	{
 		var _enemy = _enemy_list[| _enemy_index];
 
-		if (target_can_be_attacked(_enemy)
+		if (target_can_be_attacked(_enemy, true)
 			&& variable_instance_exists(_enemy, "unit_damage_receive"))
 		{
 			_enemy.unit_damage_receive(
@@ -2189,7 +2255,7 @@ player_death_explosion_apply = function()
 	{
 		var _enemy = _enemy_list[| _enemy_index];
 
-		if (target_can_be_attacked(_enemy)
+		if (target_can_be_attacked(_enemy, true)
 			&& variable_instance_exists(_enemy, "unit_damage_receive"))
 		{
 			_enemy.unit_damage_receive(
@@ -2269,6 +2335,12 @@ unit_death_sound_play = function()
 
 unit_death_process = function()
 {
+	// Also cover lethal HP changes that bypass the shared damage entry point.
+	if (last_stand_try())
+	{
+		return;
+	}
+
 	// Balance tests only need combat results and skip normal drops and corpse systems.
 	if (balance_test_match_id >= 0)
 	{
@@ -4605,8 +4677,9 @@ attack_target = function(_target)
 	}
 
 	// Physical and magic components are calculated independently before being combined.
-	var _raw_physical_damage = damage * next_attack_damage_multiplier;
-	var _raw_magic_damage = magic_damage * next_attack_damage_multiplier;
+	var _last_stand_multiplier = status_effect_has(STATUS_EFFECT.LAST_STAND) ? BALANCE_LAST_STAND_STAT_MULTIPLIER : 1;
+	var _raw_physical_damage = damage * next_attack_damage_multiplier * _last_stand_multiplier;
+	var _raw_magic_damage = magic_damage * next_attack_damage_multiplier * _last_stand_multiplier;
 
 	if (variable_instance_exists(id, "unit_damage_modifier_get"))
 	{
@@ -4709,7 +4782,7 @@ attack_target = function(_target)
 
 			var _aoe_target = _aoe_list[| _aoe_index];
 
-			if (target_can_be_attacked(_aoe_target) && _aoe_target != _target && variable_instance_exists(_aoe_target, "hp"))
+			if (target_can_be_attacked(_aoe_target, true) && _aoe_target != _target && variable_instance_exists(_aoe_target, "hp"))
 			{
 				var _aoe_target_x = _aoe_target.x;
 				var _aoe_target_y = _aoe_target.y;

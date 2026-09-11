@@ -4,6 +4,7 @@ event_inherited();
 // Knight is a slow melee enemy with heavy armor.
 max_hp = BALANCE_ENEMY_KNIGHT_HP;
 hp = max_hp;
+last_stand_enabled = true;
 armor = BALANCE_ENEMY_KNIGHT_ARMOR;
 magic_resistance = BALANCE_ENEMY_KNIGHT_MAGIC_RESISTANCE;
 damage = BALANCE_ENEMY_KNIGHT_DAMAGE;

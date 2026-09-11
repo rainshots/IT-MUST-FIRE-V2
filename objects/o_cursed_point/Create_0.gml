@@ -1,12 +1,12 @@
-// Initialize shared map object state and make this point a corruption capture target.
+// Construction points are available from the start, regardless of ground corruption.
 event_inherited();
 
-tower_capture_enabled = true;
-is_captured = false;
+tower_capture_enabled = false;
+is_captured = true;
 capture_ground_radius = BALANCE_GRID_CELL_SIZE * 0.5;
 uncaptured_sprite_index = s_point_force_disabled;
 captured_sprite_index = s_point_force_active;
-sprite_index = uncaptured_sprite_index;
+sprite_index = captured_sprite_index;
 image_speed = 0;
 inactive_sprite_scale = BALANCE_CONSTRUCTION_POINT_INACTIVE_SCALE;
 active_sprite_scale = BALANCE_CONSTRUCTION_POINT_ACTIVE_SCALE;
@@ -20,7 +20,9 @@ cursed_point_sprite_scale_update = function()
 
 cursed_point_sprite_scale_update();
 
-// Cursed points are choice nodes, not combat targets.
+// Construction points are interaction nodes, never enemy combat targets.
+is_attackable = false;
+ignored_by_enemies = true;
 max_hp = 1;
 hp = max_hp;
 corruption = 0;
@@ -39,9 +41,9 @@ summon_button_hover_scale = 2;
 summon_button_hovered = false;
 summon_button_hover_key = "";
 
-// Hover tooltip explains the inactive cursed point goal.
+// Explain when the construction point can be used.
 tooltip_lines = [
-	"When the ground under this pictogram is tainted,",
+	"During the day,",
 	"you can summon a structure here."
 ];
 tooltip_width = 360;
@@ -379,40 +381,6 @@ cursed_point_structure_selection_close = function()
 
 	global.pause = structure_selection_previous_pause_state;
 	global.focus_window = FOCUS_WINDOW.NOONE;
-};
-
-cursed_point_deactivate = function()
-{
-	if (structure_selection_open)
-	{
-		cursed_point_structure_selection_close();
-	}
-
-	is_captured = false;
-	corruption = 0;
-	cursed_point_sprite_scale_update();
-	summon_button_hovered = false;
-	summon_button_hover_key = "";
-	structure_choice_options = [];
-	structure_choice_options_rolled = false;
-
-	if (uncaptured_sprite_index != noone)
-	{
-		sprite_index = uncaptured_sprite_index;
-		image_index = 0;
-		image_speed = 0;
-	}
-};
-
-cursed_point_ground_state_update = function()
-{
-	var _ground_is_tainted = ground_area_is_tainted(x, y, capture_ground_radius);
-	corruption = _ground_is_tainted ? max_corruption : 0;
-
-	if (is_captured && !_ground_is_tainted)
-	{
-		cursed_point_deactivate();
-	}
 };
 
 cursed_point_structure_choice_rect_get = function(_choice_index)

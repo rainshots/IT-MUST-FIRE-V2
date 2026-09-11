@@ -22,7 +22,7 @@ with (o_enemy_units)
 
 		if ((_distance_x * _distance_x) + (_distance_y * _distance_y) <= _radius_squared)
 		{
-			unit_damage_receive(other.damage_amount, UNIT_FACTION.FRIENDLY, false, true, other.source_instance);
+			unit_damage_receive(other.damage_amount, UNIT_FACTION.FRIENDLY, false, true, other.source_instance, DAMAGE_CATEGORY.EXPLOSION);
 		}
 	}
 }

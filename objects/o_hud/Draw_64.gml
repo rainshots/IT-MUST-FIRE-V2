@@ -1772,6 +1772,14 @@ if (variable_global_exists("cannon_projectile_queue")
 			_projectile_color = COLOR_PROJECTILE_BOMB;
 			_projectile_sprite = s_cow;
 		}
+		else if (_projectile_type == PROJECTILE_TYPE.SUBZERO_FIELD)
+		{
+			_projectile_color = COLOR_SUBZERO_FIELD;
+		}
+		else if (_projectile_type == PROJECTILE_TYPE.WAKING_CALL)
+		{
+			_projectile_color = COLOR_WAKING_CALL;
+		}
 		else if (_projectile_type == PROJECTILE_TYPE.BOMB_SHOT)
 		{
 			_projectile_color = COLOR_BOMB_SHOT_FUSE;

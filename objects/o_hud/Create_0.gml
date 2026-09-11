@@ -1334,3 +1334,15 @@ projectile_descriptions[PROJECTILE_TYPE.BOMB_SHOT] = "Night only. Places a bomb 
 	+ string(BALANCE_BOMB_SHOT_FUSE_TIME) + " seconds, dealing "
 	+ string(BALANCE_BOMB_SHOT_DAMAGE) + " damage to enemies within "
 	+ string(BALANCE_BOMB_SHOT_RADIUS) + " pixels.";
+
+projectile_names[PROJECTILE_TYPE.SUBZERO_FIELD] = "SUBZERO FIELD";
+projectile_names[PROJECTILE_TYPE.WAKING_CALL] = "WAKING CALL";
+projectile_descriptions[PROJECTILE_TYPE.SUBZERO_FIELD] = "Night only. Creates a field for "
+	+ string(BALANCE_SUBZERO_FIELD_DURATION) + " seconds. Every "
+	+ string(BALANCE_SUBZERO_FIELD_PULSE_INTERVAL) + " second it deals "
+	+ string(BALANCE_SUBZERO_FIELD_DAMAGE) + " magic damage and slows enemies by "
+	+ string(BALANCE_SUBZERO_FIELD_SLOW_AMOUNT * 100) + "% for "
+	+ string(BALANCE_SUBZERO_FIELD_SLOW_DURATION) + " second.";
+projectile_descriptions[PROJECTILE_TYPE.WAKING_CALL] = "Night only. Consumes up to "
+	+ string(BALANCE_WAKING_CALL_SKELETON_COUNT) + " available corpses within "
+	+ string(BALANCE_WAKING_CALL_RADIUS) + " pixels to raise temporary Skeletons. They perish at daybreak.";

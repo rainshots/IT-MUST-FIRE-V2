@@ -1,7 +1,7 @@
-// Reuse Cursed Point capture, construction-menu, and Cultist-job behavior.
+// Reuse shared daytime construction-menu and Cultist-job behavior.
 event_inherited();
 
-// The point switches appearance according to the Taint under it.
+// Use the active point appearance for daytime construction.
 uncaptured_sprite_index = s_point_trap_disabled;
 captured_sprite_index = s_point_trap_active;
 sprite_index = is_captured ? captured_sprite_index : uncaptured_sprite_index;
@@ -18,7 +18,7 @@ summon_button_night_text = "Available at daytime";
 structure_selection_title = "Install Trap";
 structure_selection_subtitle = "Choose one trap to install";
 tooltip_lines = [
-	"Taint the ground under this point",
+	"Use this point during the day",
 	"to install a trap here."
 ];
 

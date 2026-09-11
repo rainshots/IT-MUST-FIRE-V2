@@ -1,6 +1,3 @@
-// Cleansed ground makes the point inactive even if the selection window is open.
-cursed_point_ground_state_update();
-
 // Handle an already opened structure choice even while gameplay is paused.
 if (structure_selection_open)
 {
@@ -39,8 +36,7 @@ if (structure_selection_open)
 	exit;
 }
 
-// Check whether visible Taint overlaps the ground under the cursed point.
-tower_capture_update();
+// Keep the active point sprite at its configured scale.
 cursed_point_sprite_scale_update();
 
 // The summon button stays interactive during lightweight gameplay pause.

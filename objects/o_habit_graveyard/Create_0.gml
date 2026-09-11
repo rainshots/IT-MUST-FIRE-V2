@@ -1,8 +1,8 @@
 // Configure this habitat before shared initialization spawns its residents.
 habitat_sprite = s_graveyardv3;
-habitat_unit_object = o_skeleton_archer;
+habitat_unit_object = o_skeleton_mage;
 habitat_display_name = "Graveyard";
-habitat_unit_display_name = "Skeleton Archers";
+habitat_unit_display_name = "Skeleton Mages";
 habitat_max_hp = BALANCE_HABIT_GRAVEYARD_MAX_HP;
 habitat_unit_count = BALANCE_HABIT_GRAVEYARD_UNIT_COUNT;
 habitat_home_spacing = BALANCE_HABIT_GRAVEYARD_HOME_SPACING;

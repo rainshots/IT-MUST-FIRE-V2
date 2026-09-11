@@ -2433,7 +2433,7 @@ cannon_morning_skeletons_raise = function()
 	}
 };
 
-corpse_nearest_take = function(_origin_x, _origin_y)
+corpse_nearest_take = function(_origin_x, _origin_y, _max_distance = infinity)
 {
 	var _corpse_count = array_length(corpse_draw_data);
 	var _nearest_corpse_index = -1;
@@ -2454,7 +2454,7 @@ corpse_nearest_take = function(_origin_x, _origin_y)
 
 		var _corpse_distance = point_distance(_origin_x, _origin_y, _corpse.x, _corpse.y);
 
-		if (_corpse_distance < _nearest_corpse_distance)
+		if (_corpse_distance <= _max_distance && _corpse_distance < _nearest_corpse_distance)
 		{
 			_nearest_corpse_distance = _corpse_distance;
 			_nearest_corpse_index = _corpse_index;
@@ -3630,6 +3630,16 @@ projectile_target_selection_radius_get = function(_projectile_type)
 		return BALANCE_PROJECTILE_HELLCOW_RADIUS;
 	}
 
+	if (_projectile_type == PROJECTILE_TYPE.SUBZERO_FIELD)
+	{
+		return BALANCE_SUBZERO_FIELD_RADIUS;
+	}
+
+	if (_projectile_type == PROJECTILE_TYPE.WAKING_CALL)
+	{
+		return BALANCE_WAKING_CALL_RADIUS;
+	}
+
 	if (_projectile_type == PROJECTILE_TYPE.BOMB_SHOT)
 	{
 		return BALANCE_BOMB_SHOT_RADIUS;
@@ -3658,7 +3668,9 @@ cannon_projectile_type_is_reusable = function(_projectile_type)
 	return _projectile_type == PROJECTILE_TYPE.BOMB
 		|| _projectile_type == PROJECTILE_TYPE.HEAL
 		|| _projectile_type == PROJECTILE_TYPE.DOOM_BELL
-		|| _projectile_type == PROJECTILE_TYPE.BOMB_SHOT;
+		|| _projectile_type == PROJECTILE_TYPE.BOMB_SHOT
+		|| _projectile_type == PROJECTILE_TYPE.SUBZERO_FIELD
+		|| _projectile_type == PROJECTILE_TYPE.WAKING_CALL;
 };
 
 cannon_projectile_type_can_fire_in_current_phase = function(_projectile_type)
@@ -6920,6 +6932,16 @@ cannon_reusable_projectiles_ensure = function()
 	if (BALANCE_CANNON_STARTING_FIRST_AID_AVAILABLE)
 	{
 		array_push(_projectile_types, PROJECTILE_TYPE.HEAL);
+	}
+
+	if (BALANCE_CANNON_STARTING_SUBZERO_FIELD_AVAILABLE)
+	{
+		array_push(_projectile_types, PROJECTILE_TYPE.SUBZERO_FIELD);
+	}
+
+	if (BALANCE_CANNON_STARTING_WAKING_CALL_AVAILABLE)
+	{
+		array_push(_projectile_types, PROJECTILE_TYPE.WAKING_CALL);
 	}
 
 	if (BALANCE_CANNON_STARTING_BOMB_SHOT_AVAILABLE)
@@ -10882,7 +10904,8 @@ night_attack_plan_create = function()
 				source_shrine: _direction_source.source_shrine,
 				enemy_objects: _enemy_objects,
 				direction_difficulty: _direction_difficulty,
-				wave_count: _wave_count,
+				wave_count: ceil(_wave_count / 2),
+				source_waves_remaining: _wave_count,
 				wave_difficulty: _direction_difficulty / _wave_count,
 				remaining_difficulty: _direction_difficulty,
 				remaining_enemy_difficulties: night_attack_enemy_difficulty_share_create(_enemy_objects, _direction_difficulty),
@@ -10901,45 +10924,70 @@ night_attack_plan_create = function()
 night_attack_direction_wave_start = function(_direction_index)
 {
 	var _direction_data = night_attack_directions[_direction_index];
-	var _remaining_wave_count = max(1, _direction_data.wave_count - _direction_data.wave_index);
+	var _waves_to_combine = min(2, _direction_data.source_waves_remaining);
+	_direction_data.current_wave_units = [];
+	_direction_data.wave_difficulty = _direction_data.remaining_difficulty
+		/ max(1, _direction_data.wave_count - _direction_data.wave_index);
 
-	_direction_data.wave_difficulty = _direction_data.remaining_difficulty / _remaining_wave_count;
-	_direction_data.current_wave_units = night_attack_wave_units_create(
-		_direction_data.enemy_objects,
-		_direction_data.remaining_enemy_difficulties,
-		_remaining_wave_count
-	);
-	_direction_data.remaining_enemy_difficulties = night_attack_enemy_difficulties_spend(
-		_direction_data.enemy_objects,
-		_direction_data.remaining_enemy_difficulties,
-		_direction_data.current_wave_units
-	);
-
-	// Bonus guests do not consume the regular night difficulty budget.
-	if (global.ritual_invite_worthy_active && array_length(_direction_data.current_wave_units) > 0)
+	// Generate each original wave with its original rounding, bonuses, and budget spending.
+	for (var _source_wave_index = 0; _source_wave_index < _waves_to_combine; ++_source_wave_index)
 	{
-		var _base_unit_count = array_length(_direction_data.current_wave_units);
-		var _extra_unit_count = round(
-			_base_unit_count * (BALANCE_RITUAL_INVITE_WORTHY_ENEMY_MULTIPLIER - 1)
+		var _remaining_wave_count = max(1, _direction_data.source_waves_remaining);
+		var _source_wave_units = night_attack_wave_units_create(
+			_direction_data.enemy_objects,
+			_direction_data.remaining_enemy_difficulties,
+			_remaining_wave_count
+		);
+		_direction_data.remaining_enemy_difficulties = night_attack_enemy_difficulties_spend(
+			_direction_data.enemy_objects,
+			_direction_data.remaining_enemy_difficulties,
+			_source_wave_units
 		);
 
-		for (var _extra_index = 0; _extra_index < _extra_unit_count; ++_extra_index)
+		// Bonus guests do not consume the regular night difficulty budget.
+		if (global.ritual_invite_worthy_active && array_length(_source_wave_units) > 0)
 		{
-			array_push(
-				_direction_data.current_wave_units,
-				_direction_data.current_wave_units[irandom(_base_unit_count - 1)]
+			var _base_unit_count = array_length(_source_wave_units);
+			var _extra_unit_count = round(
+				_base_unit_count * (BALANCE_RITUAL_INVITE_WORTHY_ENEMY_MULTIPLIER - 1)
+			);
+
+			for (var _extra_index = 0; _extra_index < _extra_unit_count; ++_extra_index)
+			{
+				array_push(
+					_source_wave_units,
+					_source_wave_units[irandom(_base_unit_count - 1)]
+				);
+			}
+
+			_source_wave_units = night_attack_wave_units_shuffle(
+				_source_wave_units
 			);
 		}
 
-		_direction_data.current_wave_units = night_attack_wave_units_shuffle(
-			_direction_data.current_wave_units
+		// Multiply the completed roster after budget spending so later waves keep their population.
+		var _original_unit_count = array_length(_source_wave_units);
+
+		for (var _copy_index = 1; _copy_index < BALANCE_NIGHT_ENEMY_SPAWN_MULTIPLIER; ++_copy_index)
+		{
+			for (var _unit_index = 0; _unit_index < _original_unit_count; ++_unit_index)
+			{
+				array_push(_source_wave_units, _source_wave_units[_unit_index]);
+			}
+		}
+
+		_direction_data.remaining_difficulty = max(
+			0,
+			night_attack_array_sum(_direction_data.remaining_enemy_difficulties)
 		);
+		var _source_unit_count = array_length(_source_wave_units);
+		for (var _unit_index = 0; _unit_index < _source_unit_count; ++_unit_index)
+		{
+			array_push(_direction_data.current_wave_units, _source_wave_units[_unit_index]);
+		}
+		_direction_data.source_waves_remaining--;
 	}
 
-	_direction_data.remaining_difficulty = max(
-		0,
-		night_attack_array_sum(_direction_data.remaining_enemy_difficulties)
-	);
 	_direction_data.current_wave_spawn_index = 0;
 	night_attack_directions[_direction_index] = _direction_data;
 };
@@ -11173,11 +11221,11 @@ boss_griffith_spawn_for_night = function()
 
 	var _entourage_archer_count = round(
 		BALANCE_BOSS_GRIFFITH_ENTOURAGE_ARCHER_COUNT
-			* BALANCE_BOSS_NIGHT_REGULAR_UNIT_MULTIPLIER
+			* BALANCE_BOSS_NIGHT_REGULAR_UNIT_MULTIPLIER * BALANCE_NIGHT_ENEMY_SPAWN_MULTIPLIER
 	);
 	var _entourage_knight_count = round(
 		BALANCE_BOSS_GRIFFITH_ENTOURAGE_KNIGHT_COUNT
-			* BALANCE_BOSS_NIGHT_REGULAR_UNIT_MULTIPLIER
+			* BALANCE_BOSS_NIGHT_REGULAR_UNIT_MULTIPLIER * BALANCE_NIGHT_ENEMY_SPAWN_MULTIPLIER
 	);
 
 	for (var _archer_index = 0; _archer_index < _entourage_archer_count; ++_archer_index)
@@ -11222,7 +11270,7 @@ boss_crusader_horde_spawn_for_night = function()
 	var _first_crusader = noone;
 
 	// The second boss encounter replaces Griffith with independent Crusaders.
-	for (var _crusader_index = 0; _crusader_index < BALANCE_BOSS_CRUSADER_HORDE_COUNT; ++_crusader_index)
+	for (var _crusader_index = 0; _crusader_index < BALANCE_BOSS_CRUSADER_HORDE_COUNT * BALANCE_NIGHT_ENEMY_SPAWN_MULTIPLIER; ++_crusader_index)
 	{
 		var _crusader = boss_enemy_spawn(
 			_spawn_x,

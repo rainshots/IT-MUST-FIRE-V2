@@ -4,6 +4,8 @@ event_inherited();
 // Catapult exclusively attacks player structures with physical artillery projectiles.
 max_hp = BALANCE_ENEMY_CATAPULT_HP;
 hp = max_hp;
+// Bomb Shot and Pumpkin Mine explosions deal double damage to Catapults.
+explosion_damage_multiplier = BALANCE_ENEMY_CATAPULT_EXPLOSION_DAMAGE_MULTIPLIER;
 armor = BALANCE_ENEMY_CATAPULT_ARMOR;
 magic_resistance = BALANCE_ENEMY_CATAPULT_MAGIC_RESISTANCE;
 damage = BALANCE_ENEMY_CATAPULT_DAMAGE;
