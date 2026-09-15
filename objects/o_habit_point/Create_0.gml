@@ -7,12 +7,12 @@ var _active_sprite = asset_get_index("s_point_habit_active");
 
 if (!sprite_exists(_disabled_sprite))
 {
-	_disabled_sprite = s_point_trap_disabled;
+	_disabled_sprite = s_point_habit_disabled;
 }
 
 if (!sprite_exists(_active_sprite))
 {
-	_active_sprite = s_point_trap_active;
+	_active_sprite = s_point_habit_active;
 }
 
 uncaptured_sprite_index = _disabled_sprite;

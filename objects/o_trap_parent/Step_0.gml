@@ -8,6 +8,20 @@ var _time_scale = variable_global_exists("gameplay_time_scale")
 	? global.gameplay_time_scale
 	: 1;
 
+// Hidden traps cannot detect enemies or activate until their full cooldown has elapsed.
+if (is_respawning)
+{
+	respawn_timer = max(0, respawn_timer - _time_scale);
+	if (respawn_timer <= 0)
+	{
+		is_respawning = false;
+		visible = true;
+		image_index = 0;
+		detection_timer = 0;
+	}
+	exit;
+}
+
 // Once armed, a trap always completes its countdown.
 if (is_armed)
 {

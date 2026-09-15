@@ -11615,6 +11615,8 @@ start_night_phase = function()
 	var _is_unholy_night = BALANCE_UNHOLY_NIGHT_ENABLED && unholy_night_pending;
 
 	global.day_phase = DAY_PHASE.NIGHT;
+	// Reset the nightly mood through the shared helper so tier effects and visuals refresh.
+	cannon_satisfaction_add(BALANCE_CANNON_SATISFACTION_NIGHT_START - cannon_satisfaction_get());
 	night_fast_forward_set(false);
 	global.full_moon_night_active = _is_full_moon_night;
 	global.unholy_night_active = _is_unholy_night;

@@ -232,16 +232,14 @@ trap_point_morning_restore = function()
 		return false;
 	}
 
-	// A trap that was activated just before morning can still exist until its delayed effect fires.
-	// Replacing the entire formation also resets activation and detection state consistently.
-	trap_point_installed_traps_destroy();
+	// Preserve active traps and respawn cooldowns across daybreak; only replace missing instances.
 
 	var _restored_trap_count = 0;
 
-	// Recreate every formation slot from the trap type saved by the hidden construction point.
+	// Ensure every formation slot still has its trap without resetting existing instances.
 	for (var _slot_index = 0; _slot_index < trap_formation_count; ++_slot_index)
 	{
-		if (trap_point_trap_create(_slot_index))
+		if (instance_exists(installed_traps[_slot_index]) || trap_point_trap_create(_slot_index))
 		{
 			_restored_trap_count++;
 		}

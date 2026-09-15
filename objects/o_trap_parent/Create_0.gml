@@ -5,6 +5,10 @@ activation_delay = BALANCE_TRAP_ACTIVATION_DELAY * room_speed;
 activation_timer = 0;
 is_armed = false;
 is_activated = false;
+// Consumed traps remain hidden while their independent respawn timer runs.
+respawn_duration = BALANCE_TRAP_RESPAWN_TIME * room_speed;
+respawn_timer = 0;
+is_respawning = false;
 
 // Stagger detection checks so many traps do not scan on the same frame.
 detection_interval = max(1, round(BALANCE_TRAP_DETECTION_INTERVAL * room_speed));
@@ -66,8 +70,19 @@ trap_enemy_count_get = function(_stop_after_count)
 	return _valid_enemy_count;
 };
 
-// Child traps replace this with their one-time gameplay effect.
+// Keep the instance and owner slot while temporarily removing the trap from play.
+trap_respawn_start = function()
+{
+	is_respawning = true;
+	respawn_timer = respawn_duration;
+	is_armed = false;
+	is_activated = false;
+	activation_timer = 0;
+	visible = false;
+};
+
+// Child traps replace this with their gameplay effect, then start their respawn timer.
 trap_activate = function()
 {
-	instance_destroy();
+	trap_respawn_start();
 };

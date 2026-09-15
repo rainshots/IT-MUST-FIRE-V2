@@ -44,6 +44,7 @@
 #macro BALANCE_CANNON_STARTING_CORRUPTION_RADIUS_IN_CELLS 10
 #macro BALANCE_CANNON_STARTING_CORRUPTION_AMOUNT 1
 #macro BALANCE_CANNON_SATISFACTION_START 35
+#macro BALANCE_CANNON_SATISFACTION_NIGHT_START 30
 #macro BALANCE_CANNON_SATISFACTION_MAX 120
 #macro BALANCE_CANNON_SATISFACTION_UNLOCK_DAY 2
 #macro BALANCE_CANNON_DEMAND_DAY_INTERVAL 2
@@ -220,7 +221,7 @@
 // Technical maximum number of units in one batch, even if its Difficulty target was not reached.
 #macro BALANCE_NIGHT_ATTACK_BATCH_UNIT_COUNT_MAX 48
 // Delay in seconds after a batch spawns before the next batch may spawn.
-#macro BALANCE_NIGHT_ATTACK_BATCH_INTERVAL 7
+#macro BALANCE_NIGHT_ATTACK_BATCH_INTERVAL (5.6 / 1.5)
 // Retry delay in seconds when the next complete batch is blocked by either alive limit below.
 #macro BALANCE_NIGHT_ATTACK_BATCH_LIMIT_RECHECK_INTERVAL 1
 // Maximum total Difficulty of living night enemies from one direction before its next batch waits.
@@ -228,7 +229,7 @@
 // Technical maximum number of living night enemies from one direction before its next batch waits.
 #macro BALANCE_NIGHT_ATTACK_ALIVE_UNIT_COUNT_LIMIT 48
 // Minimum pause in seconds between waves. It runs at the same time as the batch interval.
-#macro BALANCE_NIGHT_ATTACK_WAVE_INTERVAL 5
+#macro BALANCE_NIGHT_ATTACK_WAVE_INTERVAL (4 / 1.5)
 // Maximum night duration in seconds before all surviving enemies are ordered to retreat.
 #macro BALANCE_NIGHT_FORCE_END_TIME 210
 // Distance enemies must retreat from the cannon before the timed-out night can finish.
@@ -673,6 +674,8 @@
 #macro BALANCE_FIRST_AID_MEAT_PULL_CHAIN_GLOW_WIDTH 7
 #macro BALANCE_FIRST_AID_MEAT_PULL_CHAIN_WIDTH 3
 
+// Used traps return at the same position after ten gameplay seconds.
+#macro BALANCE_TRAP_RESPAWN_TIME 10
 #macro BALANCE_TRAP_MINIMUM_ENEMY_COUNT 2
 #macro BALANCE_TRAP_DETECTION_INTERVAL 0.1
 #macro BALANCE_TRAP_ACTIVATION_DELAY 1
@@ -963,7 +966,7 @@
 #macro BALANCE_RANGED_UNIT_MELEE_FLEE_DURATION 2.6
 #macro BALANCE_RANGED_UNIT_MELEE_FLEE_COOLDOWN 7
 #macro BALANCE_RANGED_UNIT_MELEE_FLEE_SPEED_MULTIPLIER 1.18
-#macro BALANCE_ENEMY_BASE_MOVE_SPEED_MULTIPLIER 1.75
+#macro BALANCE_ENEMY_BASE_MOVE_SPEED_MULTIPLIER 2.0
 #macro BALANCE_ENEMY_MARCH_ENABLED false
 #macro BALANCE_ENEMY_MARCH_MOVE_SPEED_MULTIPLIER 3
 #macro BALANCE_ENEMY_MARCH_FADE_TIME 0.4
@@ -1680,14 +1683,14 @@
 #macro BALANCE_CANNON_RELOAD_WAKING_CALL_TIME 6
 #macro BALANCE_SUBZERO_FIELD_DURATION 5
 #macro BALANCE_SUBZERO_FIELD_PULSE_INTERVAL 1
-#macro BALANCE_SUBZERO_FIELD_DAMAGE 30
-#macro BALANCE_SUBZERO_FIELD_RADIUS 200
-#macro BALANCE_SUBZERO_FIELD_SLOW_AMOUNT 0.5
+#macro BALANCE_SUBZERO_FIELD_DAMAGE 50
+#macro BALANCE_SUBZERO_FIELD_RADIUS 250
+#macro BALANCE_SUBZERO_FIELD_SLOW_AMOUNT 0.7
 #macro BALANCE_SUBZERO_FIELD_SLOW_DURATION 1
 #macro BALANCE_SUBZERO_FIELD_FILL_ALPHA 0.15
 #macro BALANCE_SUBZERO_FIELD_OUTLINE_ALPHA 0.65
 #macro BALANCE_WAKING_CALL_RADIUS 200
-#macro BALANCE_WAKING_CALL_SKELETON_COUNT 3
+#macro BALANCE_WAKING_CALL_SKELETON_COUNT 5
 
 // Enemy Mage teleport cooldown, distance, and forward landing search.
 #macro BALANCE_ENEMY_MAGE_TELEPORT_COOLDOWN_MIN 15
