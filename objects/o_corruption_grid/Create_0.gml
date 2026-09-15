@@ -17,6 +17,11 @@ if (_roads_layer != -1)
 corruption_grid = ds_grid_create(grid_width, grid_height);
 ds_grid_clear(corruption_grid, 0);
 
+// Wall occupancy prevents corruption from existing or spreading beneath walls.
+wall_block_grid = ds_grid_create(grid_width, grid_height);
+ds_grid_clear(wall_block_grid, false);
+wall_block_grid_dirty = true;
+
 // Saint values are stored from 0 to 1 and block Taint while above zero.
 saint_grid = ds_grid_create(grid_width, grid_height);
 ds_grid_clear(saint_grid, 0);
@@ -47,6 +52,75 @@ maximum_saint_alpha = 0.72;
 uncorrupted_color = c_black;
 maximum_corruption_color = COLOR_CORRUPTION_MAX;
 maximum_saint_color = COLOR_SAINT_MAX;
+
+wall_block_grid_mark_dirty = function()
+{
+	wall_block_grid_dirty = true;
+};
+
+wall_block_grid_rebuild = function()
+{
+	ds_grid_clear(wall_block_grid, false);
+
+	var _wall_count = instance_number(o_wall_parent);
+
+	for (var _wall_index = 0; _wall_index < _wall_count; ++_wall_index)
+	{
+		var _wall = instance_find(o_wall_parent, _wall_index);
+
+		if (!instance_exists(_wall)
+			|| !variable_instance_exists(_wall, "hp")
+			|| _wall.hp <= 0)
+		{
+			continue;
+		}
+
+		var _first_cell_x = clamp(floor(_wall.bbox_left / cell_size), 0, grid_width - 1);
+		var _last_cell_x = clamp(floor(_wall.bbox_right / cell_size), 0, grid_width - 1);
+		var _first_cell_y = clamp(floor(_wall.bbox_top / cell_size), 0, grid_height - 1);
+		var _last_cell_y = clamp(floor(_wall.bbox_bottom / cell_size), 0, grid_height - 1);
+
+		// Rectangle With Rotation masks retain their angle and scale in this collision check.
+		for (var _cell_x = _first_cell_x; _cell_x <= _last_cell_x; ++_cell_x)
+		{
+			for (var _cell_y = _first_cell_y; _cell_y <= _last_cell_y; ++_cell_y)
+			{
+				var _cell_left = _cell_x * cell_size;
+				var _cell_top = _cell_y * cell_size;
+				var _cell_right = _cell_left + cell_size;
+				var _cell_bottom = _cell_top + cell_size;
+				var _wall_collision = collision_rectangle(
+					_cell_left,
+					_cell_top,
+					_cell_right,
+					_cell_bottom,
+					_wall,
+					false,
+					true
+				);
+
+				if (_wall_collision != noone)
+				{
+					ds_grid_set(wall_block_grid, _cell_x, _cell_y, true);
+					ds_grid_set(corruption_grid, _cell_x, _cell_y, 0);
+				}
+			}
+		}
+	}
+
+	wall_block_grid_dirty = false;
+	return wall_block_grid;
+};
+
+wall_block_grid_get = function()
+{
+	if (wall_block_grid_dirty)
+	{
+		return wall_block_grid_rebuild();
+	}
+
+	return wall_block_grid;
+};
 
 captured_building_rift_noise_get = function(_source_seed, _segment_index)
 {
@@ -244,10 +318,14 @@ captured_building_rifts_draw = function()
 	}
 };
 
-// Adds corruption to cells inside a world-space circle.
-corrupt_circle = function(_center_x, _center_y, _radius, _corruption)
+// Adds corruption to visible cells inside a world-space circle.
+corrupt_circle = function(_center_x, _center_y, _radius, _corruption, _mountains_block_corruption = false)
 {
+	wall_block_grid_get();
+
 	var _safe_radius = max(_radius, 1);
+	var _check_mountain_visibility = _mountains_block_corruption
+		&& instance_number(o_mountain) > 0;
 	var _center_cell_x = clamp(floor(_center_x / cell_size), 0, grid_width - 1);
 	var _center_cell_y = clamp(floor(_center_y / cell_size), 0, grid_height - 1);
 	var _left_cell = clamp(floor((_center_x - _safe_radius) / cell_size), 0, grid_width - 1);
@@ -259,6 +337,11 @@ corrupt_circle = function(_center_x, _center_y, _radius, _corruption)
 	{
 		for (var _cell_y = _top_cell; _cell_y <= _bottom_cell; ++_cell_y)
 		{
+			if (ds_grid_get(wall_block_grid, _cell_x, _cell_y))
+			{
+				continue;
+			}
+
 			var _cell_center_x = (_cell_x * cell_size) + (cell_size * 0.5);
 			var _cell_center_y = (_cell_y * cell_size) + (cell_size * 0.5);
 			var _cell_distance = point_distance(_center_x, _center_y, _cell_center_x, _cell_center_y);
@@ -266,6 +349,20 @@ corrupt_circle = function(_center_x, _center_y, _radius, _corruption)
 
 			if (_cell_distance <= _safe_radius || _is_center_cell)
 			{
+				if (_check_mountain_visibility
+					&& collision_line(
+						_center_x,
+						_center_y,
+						_cell_center_x,
+						_cell_center_y,
+						o_mountain,
+						false,
+						true
+					) != noone)
+				{
+					continue;
+				}
+
 				var _current_saint = ds_grid_get(saint_grid, _cell_x, _cell_y);
 
 				if (_current_saint > 0)
@@ -435,6 +532,8 @@ cleanse_circle = function(_center_x, _center_y, _radius, _cleanse_amount)
 // Checks whether a world-space circle overlaps at least one visibly tainted cell.
 circle_touches_corruption = function(_center_x, _center_y, _radius)
 {
+	wall_block_grid_get();
+
 	var _safe_radius = max(_radius, 1);
 	var _left_cell = clamp(floor((_center_x - _safe_radius) / cell_size), 0, grid_width - 1);
 	var _right_cell = clamp(floor((_center_x + _safe_radius) / cell_size), 0, grid_width - 1);
@@ -445,6 +544,11 @@ circle_touches_corruption = function(_center_x, _center_y, _radius)
 	{
 		for (var _cell_y = _top_cell; _cell_y <= _bottom_cell; ++_cell_y)
 		{
+			if (ds_grid_get(wall_block_grid, _cell_x, _cell_y))
+			{
+				continue;
+			}
+
 			var _corruption = ds_grid_get(corruption_grid, _cell_x, _cell_y);
 			var _saint = ds_grid_get(saint_grid, _cell_x, _cell_y);
 

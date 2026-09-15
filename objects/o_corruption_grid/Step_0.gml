@@ -4,6 +4,9 @@ if (global.pause)
 	exit;
 }
 
+// Rebuild only after wall geometry changes and remove any Taint covered by it.
+wall_block_grid_get();
+
 var _time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
 passive_spread_update_timer += _time_scale;
 saint_update_timer += _time_scale;
@@ -89,6 +92,11 @@ for (var _cell_x = 0; _cell_x < grid_width; ++_cell_x)
 
 						if (_is_inside_grid)
 						{
+							if (ds_grid_get(wall_block_grid, _target_cell_x, _target_cell_y))
+							{
+								continue;
+							}
+
 							var _target_saint = ds_grid_get(saint_grid, _target_cell_x, _target_cell_y);
 
 							if (_target_saint > 0)

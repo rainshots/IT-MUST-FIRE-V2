@@ -4820,6 +4820,22 @@ taint_compost_target_touches_corruption = function(_world_x, _world_y)
 	);
 };
 
+taint_compost_target_overlaps_wall = function(_world_x, _world_y)
+{
+	if (instance_number(o_wall_parent) <= 0)
+	{
+		return false;
+	}
+
+	return collision_point(
+		_world_x,
+		_world_y,
+		o_wall_parent,
+		false,
+		true
+	) != noone;
+};
+
 cannon_corrupted_ground_damage_update = function()
 {
 	if (global.pause || !instance_exists(o_cannon) || !instance_exists(o_corruption_grid))
@@ -5058,7 +5074,7 @@ find_worker_building_at_position = function(_world_x, _world_y)
 	return noone;
 };
 
-// Find the topmost empty building slot under a world-space point.
+// Find the topmost tainted, available building slot under a world-space point.
 find_building_slot_at_position = function(_world_x, _world_y)
 {
 	var _slot_count = instance_number(o_building_slot);
@@ -5070,13 +5086,13 @@ find_building_slot_at_position = function(_world_x, _world_y)
 		var _slot = instance_find(o_building_slot, _slot_index);
 
 		if (instance_exists(_slot)
-			&& (!variable_instance_exists(_slot, "construction_event_pending")
-				|| !_slot.construction_event_pending)
+			&& !_slot.construction_event_pending
 			&& _world_x >= _slot.bbox_left
 			&& _world_x <= _slot.bbox_right
 			&& _world_y >= _slot.bbox_top
 			&& _world_y <= _slot.bbox_bottom
-			&& _slot.depth < _target_depth)
+			&& _slot.depth < _target_depth
+			&& _slot.building_slot_is_active())
 		{
 			_target_slot = _slot;
 			_target_depth = _slot.depth;
@@ -5516,7 +5532,9 @@ ihor_extractor_morning_income_preview = function(_world_x, _world_y)
 
 open_building_window = function(_slot)
 {
-	if (!instance_exists(_slot))
+	if (!instance_exists(_slot)
+		|| _slot.construction_event_pending
+		|| !_slot.building_slot_is_active())
 	{
 		return false;
 	}
@@ -11026,19 +11044,19 @@ night_attack_shrine_source_roll = function()
 	return noone;
 };
 
-night_attack_marker_directions_get = function()
+night_attack_marker_spawn_data_get = function()
 {
-	var _directions = [];
+	var _marker_spawn_data = [];
 
 	if (!instance_exists(o_cannon))
 	{
-		return _directions;
+		return _marker_spawn_data;
 	}
 
 	var _cannon = instance_find(o_cannon, 0);
 	var _marker_count = instance_number(o_attack_direction);
 
-	// Every placed marker contributes one exact angle measured from the cannon.
+	// Every placed marker contributes an attack direction and its spawn origin.
 	for (var _marker_index = 0; _marker_index < _marker_count; ++_marker_index)
 	{
 		var _marker = instance_find(o_attack_direction, _marker_index);
@@ -11050,24 +11068,28 @@ night_attack_marker_directions_get = function()
 		}
 
 		array_push(
-			_directions,
-			point_direction(_cannon.x, _cannon.y, _marker.x, _marker.y)
+			_marker_spawn_data,
+			{
+				direction: point_direction(_cannon.x, _cannon.y, _marker.x, _marker.y),
+				spawn_origin_x: _marker.x,
+				spawn_origin_y: _marker.y
+			}
 		);
 	}
 
 	// Shuffle once so the first requested directions are unique and random each night.
-	var _direction_count = array_length(_directions);
+	var _direction_count = array_length(_marker_spawn_data);
 
 	for (var _direction_index = _direction_count - 1; _direction_index > 0; --_direction_index)
 	{
 		var _swap_index = irandom(_direction_index);
-		var _swap_direction = _directions[_swap_index];
+		var _swap_data = _marker_spawn_data[_swap_index];
 
-		_directions[_swap_index] = _directions[_direction_index];
-		_directions[_direction_index] = _swap_direction;
+		_marker_spawn_data[_swap_index] = _marker_spawn_data[_direction_index];
+		_marker_spawn_data[_direction_index] = _swap_data;
 	}
 
-	return _directions;
+	return _marker_spawn_data;
 };
 
 night_attack_plan_create = function()
@@ -11090,12 +11112,12 @@ night_attack_plan_create = function()
 	var _direction_count = array_length(_direction_enemy_types);
 
 	var _total_difficulty = night_attack_total_difficulty_get();
-	var _marker_directions = night_attack_marker_directions_get();
-	var _marker_direction_count = array_length(_marker_directions);
+	var _marker_spawn_data = night_attack_marker_spawn_data_get();
+	var _marker_count = array_length(_marker_spawn_data);
 	var _directions = [];
 
 	// Both a configured direction and a placed marker are required for an attack.
-	if (_direction_count <= 0 || _marker_direction_count <= 0)
+	if (_direction_count <= 0 || _marker_count <= 0)
 	{
 		night_attack_directions = [];
 		night_attack_plan_exists = true;
@@ -11103,16 +11125,19 @@ night_attack_plan_create = function()
 		return;
 	}
 
-	_direction_count = min(_direction_count, _marker_direction_count);
+	_direction_count = min(_direction_count, _marker_count);
 
 	for (var _roll_index = 0; _roll_index < _direction_count; ++_roll_index)
 	{
 		var _source_shrine = night_attack_shrine_source_roll();
+		var _marker_data = _marker_spawn_data[_roll_index];
 
 		array_push(
 			_directions,
 			{
-				direction: _marker_directions[_roll_index],
+				direction: _marker_data.direction,
+				spawn_origin_x: _marker_data.spawn_origin_x,
+				spawn_origin_y: _marker_data.spawn_origin_y,
 				source_shrine: _source_shrine
 			}
 		);
@@ -11194,6 +11219,8 @@ night_attack_plan_create = function()
 			night_attack_directions,
 			{
 				direction: _direction_source.direction,
+				spawn_origin_x: _direction_source.spawn_origin_x,
+				spawn_origin_y: _direction_source.spawn_origin_y,
 				source_shrine: _direction_source.source_shrine,
 				enemy_objects: _enemy_objects,
 				direction_difficulty: _direction_difficulty,
@@ -11339,19 +11366,11 @@ night_attack_enemy_spawn = function(_direction_index, _direction_data, _enemy_ob
 		return;
 	}
 
-	var _cannon = instance_find(o_cannon, 0);
-	var _spawn_x = _cannon.x + lengthdir_x(BALANCE_NIGHT_ATTACK_SPAWN_DISTANCE, _direction_data.direction);
-	var _spawn_y = _cannon.y + lengthdir_y(BALANCE_NIGHT_ATTACK_SPAWN_DISTANCE, _direction_data.direction);
-	var _side_offset = random_range(-BALANCE_NIGHT_ATTACK_SPAWN_SPREAD_RADIUS, BALANCE_NIGHT_ATTACK_SPAWN_SPREAD_RADIUS);
-	var _forward_offset = random_range(
-		-BALANCE_NIGHT_ATTACK_SPAWN_SPREAD_RADIUS * 0.25,
-		BALANCE_NIGHT_ATTACK_SPAWN_SPREAD_RADIUS * 0.25
-	);
-
-	_spawn_x += lengthdir_x(_side_offset, _direction_data.direction + 90)
-		+ lengthdir_x(_forward_offset, _direction_data.direction);
-	_spawn_y += lengthdir_y(_side_offset, _direction_data.direction + 90)
-		+ lengthdir_y(_forward_offset, _direction_data.direction);
+	// Distribute spawns evenly across the area surrounding the selected marker.
+	var _spawn_direction = random(360);
+	var _spawn_distance = sqrt(random(1)) * BALANCE_NIGHT_ATTACK_DIRECTION_SPAWN_RADIUS;
+	var _spawn_x = _direction_data.spawn_origin_x + lengthdir_x(_spawn_distance, _spawn_direction);
+	var _spawn_y = _direction_data.spawn_origin_y + lengthdir_y(_spawn_distance, _spawn_direction);
 
 	var _enemy = instance_create_layer(_spawn_x, _spawn_y, "Instances", _enemy_object);
 
@@ -12567,6 +12586,58 @@ wall_navigation_grid_mark_dirty = function()
 	wall_navigation_grid_dirty = true;
 };
 
+wall_navigation_mountain_add = function(_navigation_grid, _mountain, _horizontal_cell_count, _vertical_cell_count)
+{
+	var _cell_size = wall_navigation_cell_size;
+	var _padding = BALANCE_WALL_NAVIGATION_OBSTACLE_PADDING;
+	var _first_cell_x = clamp(
+		floor((_mountain.bbox_left - _padding) / _cell_size),
+		0,
+		_horizontal_cell_count - 1
+	);
+	var _last_cell_x = clamp(
+		floor((_mountain.bbox_right + _padding) / _cell_size),
+		0,
+		_horizontal_cell_count - 1
+	);
+	var _first_cell_y = clamp(
+		floor((_mountain.bbox_top - _padding) / _cell_size),
+		0,
+		_vertical_cell_count - 1
+	);
+	var _last_cell_y = clamp(
+		floor((_mountain.bbox_bottom + _padding) / _cell_size),
+		0,
+		_vertical_cell_count - 1
+	);
+
+	// Test candidate cells against the rotated collision mask instead of its axis-aligned bounds.
+	for (var _cell_y = _first_cell_y; _cell_y <= _last_cell_y; ++_cell_y)
+	{
+		for (var _cell_x = _first_cell_x; _cell_x <= _last_cell_x; ++_cell_x)
+		{
+			var _cell_left = _cell_x * _cell_size - _padding;
+			var _cell_top = _cell_y * _cell_size - _padding;
+			var _cell_right = (_cell_x + 1) * _cell_size + _padding;
+			var _cell_bottom = (_cell_y + 1) * _cell_size + _padding;
+			var _mountain_collision = collision_rectangle(
+				_cell_left,
+				_cell_top,
+				_cell_right,
+				_cell_bottom,
+				_mountain,
+				false,
+				true
+			);
+
+			if (_mountain_collision != noone)
+			{
+				mp_grid_add_cell(_navigation_grid, _cell_x, _cell_y);
+			}
+		}
+	}
+};
+
 wall_navigation_grid_rebuild = function()
 {
 	if (wall_navigation_grid != noone)
@@ -12595,6 +12666,17 @@ wall_navigation_grid_rebuild = function()
 
 		if (!instance_exists(_wall) || _wall.hp <= 0)
 		{
+			continue;
+		}
+
+		if (_wall.object_index == o_mountain)
+		{
+			wall_navigation_mountain_add(
+				wall_navigation_grid,
+				_wall,
+				_horizontal_cell_count,
+				_vertical_cell_count
+			);
 			continue;
 		}
 

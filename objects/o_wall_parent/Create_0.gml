@@ -14,16 +14,24 @@ bar_offset_y = 38;
 
 wall_navigation_mark_dirty = function()
 {
-	if (!instance_exists(o_game_controller))
+	if (instance_exists(o_game_controller))
 	{
-		return;
+		var _game_controller = instance_find(o_game_controller, 0);
+
+		if (variable_instance_exists(_game_controller, "wall_navigation_grid_mark_dirty"))
+		{
+			_game_controller.wall_navigation_grid_mark_dirty();
+		}
 	}
 
-	var _game_controller = instance_find(o_game_controller, 0);
-
-	if (variable_instance_exists(_game_controller, "wall_navigation_grid_mark_dirty"))
+	if (instance_exists(o_corruption_grid))
 	{
-		_game_controller.wall_navigation_grid_mark_dirty();
+		var _corruption_grid = instance_find(o_corruption_grid, 0);
+
+		if (variable_instance_exists(_corruption_grid, "wall_block_grid_mark_dirty"))
+		{
+			_corruption_grid.wall_block_grid_mark_dirty();
+		}
 	}
 };
 

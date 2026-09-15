@@ -139,7 +139,13 @@ if (_flight_progress >= 1)
 	// Corruption projectiles infect ground cells in the explosion radius.
 	if (projectile_type == PROJECTILE_TYPE.CORRUPTION)
 	{
-		corrupt_circle(target_x, target_y, effect_radius, ground_corruption_amount);
+		corrupt_circle(
+			target_x,
+			target_y,
+			effect_radius,
+			ground_corruption_amount,
+			true
+		);
 		taint_compost_enchantment_apply();
 	}
 	else if (projectile_type == PROJECTILE_TYPE.CLEANSE)

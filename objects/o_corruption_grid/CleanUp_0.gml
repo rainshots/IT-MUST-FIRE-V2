@@ -4,6 +4,11 @@ if (ds_exists(corruption_grid, ds_type_grid))
 	ds_grid_destroy(corruption_grid);
 }
 
+if (ds_exists(wall_block_grid, ds_type_grid))
+{
+	ds_grid_destroy(wall_block_grid);
+}
+
 if (ds_exists(saint_grid, ds_type_grid))
 {
 	ds_grid_destroy(saint_grid);

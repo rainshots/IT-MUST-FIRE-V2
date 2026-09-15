@@ -500,7 +500,12 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 	{
 		_target_color = COLOR_PROJECTILE_CORRUPTION;
 
-		if (!taint_compost_target_touches_corruption(_mouse_world_x, _mouse_world_y))
+		if (taint_compost_target_overlaps_wall(_mouse_world_x, _mouse_world_y))
+		{
+			_target_color = COLOR_STATUS_NEGATIVE_RED;
+			_target_hint_text = "Cannot target walls";
+		}
+		else if (!taint_compost_target_touches_corruption(_mouse_world_x, _mouse_world_y))
 		{
 			_target_color = COLOR_STATUS_NEGATIVE_RED;
 			_target_hint_text = "Must touch existing Taint";

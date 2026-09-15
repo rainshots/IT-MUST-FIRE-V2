@@ -2174,7 +2174,8 @@ if (_target_selection_should_confirm)
 			_target_can_be_confirmed = false;
 		}
 		else if (target_selection_projectile_type == PROJECTILE_TYPE.CORRUPTION
-			&& !taint_compost_target_touches_corruption(_target_world_x, _target_world_y))
+			&& (taint_compost_target_overlaps_wall(_target_world_x, _target_world_y)
+				|| !taint_compost_target_touches_corruption(_target_world_x, _target_world_y)))
 		{
 			_target_can_be_confirmed = false;
 		}

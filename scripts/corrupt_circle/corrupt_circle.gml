@@ -3,7 +3,8 @@
 /// @param {real} center_y World Y coordinate.
 /// @param {real} rad Radius in pixels. A radius of 1 corrupts only the cell containing the center.
 /// @param {real} corruption Corruption amount to add, clamped by the grid to 0..1.
-function corrupt_circle(center_x, center_y, rad, corruption)
+/// @param {bool} [mountains_block_corruption=false] Whether mountains block corruption from the circle center.
+function corrupt_circle(center_x, center_y, rad, corruption, mountains_block_corruption = false)
 {
 	if (!instance_exists(o_corruption_grid))
 	{
@@ -11,5 +12,11 @@ function corrupt_circle(center_x, center_y, rad, corruption)
 	}
 
 	var _corruption_grid = instance_find(o_corruption_grid, 0);
-	_corruption_grid.corrupt_circle(center_x, center_y, rad, corruption);
+	_corruption_grid.corrupt_circle(
+		center_x,
+		center_y,
+		rad,
+		corruption,
+		mountains_block_corruption
+	);
 }

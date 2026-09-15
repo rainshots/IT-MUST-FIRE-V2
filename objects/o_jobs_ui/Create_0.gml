@@ -730,8 +730,8 @@ jobs_building_slot_hint_target_get = function()
 		var _slot = instance_find(o_building_slot, _slot_index);
 
 		if (!instance_exists(_slot)
-			|| (variable_instance_exists(_slot, "construction_event_pending")
-				&& _slot.construction_event_pending))
+			|| _slot.construction_event_pending
+			|| !_slot.building_slot_is_active())
 		{
 			continue;
 		}

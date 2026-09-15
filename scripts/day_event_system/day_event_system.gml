@@ -1001,6 +1001,13 @@ function day_event_building_construction_create(_construction_site, _choice, _is
 		return noone;
 	}
 
+	// Regular building slots require Taint before a construction card can be created.
+	if (!_is_cursed_point
+		&& (_construction_site.construction_event_pending || !_construction_site.building_slot_is_active()))
+	{
+		return noone;
+	}
+
 	// Duplicate limits apply only to regular settlement buildings, never to Cursed Point towers.
 	if (!_is_cursed_point
 		&& BALANCE_BUILDING_DUPLICATE_LIMIT_ENABLED
@@ -5535,6 +5542,14 @@ function day_event_execution_staffing_is_ready(_event)
 		|| !variable_struct_exists(_event, "cultist_cost")
 		|| !variable_struct_exists(_event, "activation_limit")
 		|| (variable_struct_exists(_event, "is_resolved") && _event.is_resolved))
+	{
+		return false;
+	}
+
+	// Cleansing a regular slot pauses its construction before any worker costs are consumed.
+	if (variable_struct_exists(_event, "is_cursed_point_construction")
+		&& !_event.is_cursed_point_construction
+		&& (!instance_exists(_event.construction_site) || !_event.construction_site.building_slot_is_active()))
 	{
 		return false;
 	}

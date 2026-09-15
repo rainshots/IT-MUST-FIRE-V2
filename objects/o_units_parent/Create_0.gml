@@ -151,16 +151,18 @@ enemy_march_defense_check_timer = irandom(enemy_march_defense_check_interval - 1
 
 // Unit separation keeps units from stacking into one point.
 separation_radius = BALANCE_UNIT_SEPARATION_RADIUS;
+separation_minimum_distance = BALANCE_UNIT_SEPARATION_MINIMUM_DISTANCE;
 separation_strength = BALANCE_UNIT_SEPARATION_STRENGTH;
-separation_update_interval = 5;
+separation_overlap_multiplier = 1;
+separation_update_interval = BALANCE_UNIT_SEPARATION_UPDATE_INTERVAL;
 separation_update_timer = irandom(separation_update_interval - 1);
-separation_max_neighbors = 6;
+separation_max_neighbors = BALANCE_UNIT_SEPARATION_MAX_NEIGHBORS;
 // Reuse the collision query buffer; Clean Up releases it with the unit.
 separation_query_list = ds_list_create();
 separation_push_x = 0;
 separation_push_y = 0;
 separation_push_multiplier = 1;
-combat_separation_multiplier = 0.45;
+combat_separation_multiplier = BALANCE_UNIT_SEPARATION_COMBAT_MULTIPLIER;
 is_attacking_target = false;
 attack_ring_slot_seed = irandom(999999);
 
@@ -4164,8 +4166,7 @@ move_towards_world_point = function(_target_x, _target_y, _base_move_speed = mov
 
 attack_ring_should_use = function(_target, _attack_radius)
 {
-	if (unit_faction != UNIT_FACTION.ENEMY
-		|| !instance_exists(_target)
+	if (!instance_exists(_target)
 		|| _target.object_index == o_cannon
 		|| _target == guard_target
 		|| (variable_instance_exists(_target, "is_wall") && _target.is_wall)
@@ -4177,7 +4178,8 @@ attack_ring_should_use = function(_target, _attack_radius)
 
 	if (variable_instance_exists(_target, "unit_faction"))
 	{
-		return _target.unit_faction == UNIT_FACTION.FRIENDLY;
+		return _target.unit_faction != UNIT_FACTION.NOONE
+			&& _target.unit_faction != unit_faction;
 	}
 
 	return false;
@@ -4189,8 +4191,9 @@ attack_ring_point_get = function(_target, _attack_radius)
 	var _slot_angle_size = 360 / _slot_count;
 	var _direction_from_target = point_direction(_target.x, _target.y, x, y);
 	var _base_slot_index = round(_direction_from_target / _slot_angle_size);
-	var _nearby_slot_spread = 3; // Previous, current, and next nearest slots.
-	var _slot_offset = (attack_ring_slot_seed mod _nearby_slot_spread) - 1;
+	var _nearby_slot_spread = max(1, BALANCE_UNIT_ATTACK_RING_NEARBY_SLOT_SPREAD);
+	var _slot_offset_center = floor(_nearby_slot_spread * 0.5);
+	var _slot_offset = (attack_ring_slot_seed mod _nearby_slot_spread) - _slot_offset_center;
 	var _slot_index = (_base_slot_index + _slot_offset) mod _slot_count;
 	var _ring_radius = min(BALANCE_UNIT_ATTACK_RING_MAX_RADIUS, max(0, _attack_radius - BALANCE_UNIT_ATTACK_RING_ATTACK_PADDING));
 
@@ -4340,12 +4343,22 @@ update_separation_push = function()
 
 	var _nearby_units = separation_query_list;
 	ds_list_clear(_nearby_units);
-	var _nearby_unit_count = collision_circle_list(x, y, separation_radius, _separation_object, false, true, _nearby_units, false);
+	var _nearby_unit_count = collision_circle_list(
+		x,
+		y,
+		separation_radius,
+		_separation_object,
+		false,
+		true,
+		_nearby_units,
+		true
+	);
 	var _checked_unit_count = min(_nearby_unit_count, separation_max_neighbors);
 	var _push_x = 0;
 	var _push_y = 0;
+	var _maximum_overlap = 0;
 
-	// Push away from a few nearby units. This avoids expensive full crowd checks.
+	// Nearest units contribute first so dense crowds cannot hide an overlap.
 	for (var _unit_index = 0; _unit_index < _checked_unit_count; ++_unit_index)
 	{
 		var _nearby_unit = _nearby_units[| _unit_index];
@@ -4358,10 +4371,16 @@ update_separation_push = function()
 			if (_distance_to_unit <= 0)
 			{
 				_distance_to_unit = 1;
-				_push_direction = (_unit_index * 47) mod 360;
+				var _pair_direction = (id + _nearby_unit.id) mod 360;
+				_push_direction = id < _nearby_unit.id
+					? _pair_direction
+					: _pair_direction + 180;
 			}
 
 			var _push_amount = 1 - clamp(_distance_to_unit / separation_radius, 0, 1);
+			var _overlap = 1 - clamp(_distance_to_unit / separation_minimum_distance, 0, 1);
+
+			_maximum_overlap = max(_maximum_overlap, _overlap);
 
 			_push_x += lengthdir_x(_push_amount, _push_direction);
 			_push_y += lengthdir_y(_push_amount, _push_direction);
@@ -4373,11 +4392,13 @@ update_separation_push = function()
 
 	separation_push_x = clamp(_push_x, -1, 1) * separation_strength;
 	separation_push_y = clamp(_push_y, -1, 1) * separation_strength;
+	separation_overlap_multiplier = 1
+		+ (_maximum_overlap * BALANCE_UNIT_SEPARATION_OVERLAP_MULTIPLIER);
 };
 
 apply_separation_push = function()
 {
-	var _separation_multiplier = separation_push_multiplier;
+	var _separation_multiplier = separation_push_multiplier * separation_overlap_multiplier;
 
 	if (is_attacking_target)
 	{
