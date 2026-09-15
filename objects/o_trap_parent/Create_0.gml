@@ -1,5 +1,8 @@
 // Shared trigger settings are configured by each child trap after this event.
 trap_radius = 0;
+// Children can reverse the target faction without duplicating detection and countdown logic.
+trap_target_object = o_enemy_units;
+trap_damage_faction = UNIT_FACTION.FRIENDLY;
 minimum_enemy_count = BALANCE_TRAP_MINIMUM_ENEMY_COUNT;
 activation_delay = BALANCE_TRAP_ACTIVATION_DELAY * room_speed;
 activation_timer = 0;
@@ -38,7 +41,7 @@ trap_enemy_count_get = function(_stop_after_count)
 		x,
 		y,
 		trap_radius,
-		o_enemy_units,
+		trap_target_object,
 		false,
 		true,
 		_enemy_list,

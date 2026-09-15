@@ -334,17 +334,17 @@ house_destroyed_guards_spawn = function()
 
 house_artifact_drop_try = function()
 {
-	if (random(1) >= BALANCE_HOUSE_ARTIFACT_DROP_CHANCE)
-	{
-		return;
-	}
+	//if (random(1) >= BALANCE_HOUSE_ARTIFACT_DROP_CHANCE)
+	//{
+	//	return;
+	//}
 
-	var _drop_direction = random(360);
-	var _drop_distance = random_range(12, 42);
-	var _drop_x = x + lengthdir_x(_drop_distance, _drop_direction);
-	var _drop_y = y + lengthdir_y(_drop_distance, _drop_direction);
+	//var _drop_direction = random(360);
+	//var _drop_distance = random_range(12, 42);
+	//var _drop_x = x + lengthdir_x(_drop_distance, _drop_direction);
+	//var _drop_y = y + lengthdir_y(_drop_distance, _drop_direction);
 
-	instance_create_layer(_drop_x, _drop_y, "Instances", o_artifact);
+	//instance_create_layer(_drop_x, _drop_y, "Instances", o_artifact);
 };
 
 house_ruins_create = function()
@@ -545,6 +545,11 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 	return house_damage_receive(_damage_amount, _is_critical);
 };
 
+// Child buildings can grant a destruction reward without duplicating house cleanup.
+house_destruction_reward = function()
+{
+};
+
 house_destroy = function()
 {
 	if (is_destroyed)
@@ -565,6 +570,7 @@ house_destroy = function()
 
 	is_destroyed = true;
 	hp = 0;
+	house_destruction_reward();
 	house_ruins_create();
 	instance_destroy();
 };

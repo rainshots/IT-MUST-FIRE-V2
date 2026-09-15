@@ -396,7 +396,26 @@ if (_squad_march_is_active)
 	visual_attack_offset_y = 0;
 
 	update_separation_push();
-	move_towards_world_point(squad.properties.marker_x, squad.properties.marker_y);
+	var _flag_target = squad.properties.marker_attack_target;
+	if (squad_flag_target_is_valid(_flag_target))
+	{
+		target_instance = _flag_target;
+		face_world_x(_flag_target.x);
+		if (navigation_target_distance_get(_flag_target) <= attack_radius)
+		{
+			is_walking = false;
+			is_attacking_target = true;
+			attack_target(_flag_target);
+		}
+		else
+		{
+			move_towards_target(_flag_target, attack_radius);
+		}
+	}
+	else
+	{
+		move_towards_world_point(squad.properties.marker_x, squad.properties.marker_y);
+	}
 	apply_separation_push();
 	update_walk_sway();
 	exit;

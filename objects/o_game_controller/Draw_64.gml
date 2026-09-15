@@ -486,6 +486,10 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 	{
 		_target_color = COLOR_PROJECTILE_RALLY;
 	}
+	else if (target_selection_projectile_type == PROJECTILE_TYPE.HOLY_SHOWER)
+	{
+		_target_color = COLOR_HOLY_SHOWER_OUTER;
+	}
 	else if (target_selection_projectile_type == PROJECTILE_TYPE.CULTIST)
 	{
 		_target_color = COLOR_PROJECTILE_CULTIST;

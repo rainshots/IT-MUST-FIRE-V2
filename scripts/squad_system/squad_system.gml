@@ -13,6 +13,7 @@ function squad_constructor(_squad_type, _primary_unit_object, _unit_count) const
 	properties = {
 		day_point: noone,
 		marker_is_dragged: false,
+		marker_attack_target: noone,
 		march_is_active: false,
 		march_enemy_check_timer: 0,
 		march_speed_bonus_active: false,
@@ -1220,6 +1221,7 @@ function squad_units_restore_morning()
 	{
 		var _squad = global.squads[_squad_index];
 		_squad.properties.marker_is_dragged = false;
+		_squad.properties.marker_attack_target = noone;
 		_squad.properties.march_is_active = false;
 		_squad.properties.march_enemy_check_timer = 0;
 		_squad.properties.march_speed_bonus_active = false;
@@ -1272,8 +1274,69 @@ function squad_total_hp_get(_squad)
 	return [_hp, max(1, _max_hp)];
 }
 
+// Only destructible hostile map objects can receive persistent flag attack orders.
+function squad_flag_target_is_valid(_target)
+{
+	if (!instance_exists(_target)
+		|| !variable_instance_exists(_target, "hp") || _target.hp <= 0
+		|| !(_target.object_index == o_map_objects_parent
+			|| object_is_ancestor(_target.object_index, o_map_objects_parent)))
+	{
+		return false;
+	}
+	if ((variable_instance_exists(_target, "is_attackable") && !_target.is_attackable)
+		|| (variable_instance_exists(_target, "is_destroyed") && _target.is_destroyed)
+		|| (variable_instance_exists(_target, "is_captured") && _target.is_captured)
+		|| _target.building_constructed_by_shell || _target.building_constructed_by_cursed_point)
+	{
+		return false;
+	}
+	if (variable_instance_exists(_target, "unit_faction"))
+	{
+		return _target.unit_faction == UNIT_FACTION.ENEMY;
+	}
+	var _hostile_objects = [o_house, o_garnizon, o_holy_tower, o_main_tower,
+		o_defense_tower_close_range, o_defense_tower_long_range, o_shrine];
+	for (var _index = 0; _index < array_length(_hostile_objects); ++_index)
+	{
+		if (_target.object_index == _hostile_objects[_index]
+			|| object_is_ancestor(_target.object_index, _hostile_objects[_index]))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 function squad_marker_position_update(_squad)
 {
+	var _attached_target = _squad.properties.marker_attack_target;
+	if (squad_flag_target_is_valid(_attached_target) && !_squad.properties.marker_is_dragged)
+	{
+		var _attached_count = 0;
+		var _attached_index = 0;
+		for (var _index = 0; _index < array_length(global.squads); ++_index)
+		{
+			var _other_squad = global.squads[_index];
+			if (_other_squad.properties.marker_attack_target == _attached_target
+				&& !_other_squad.properties.marker_is_dragged)
+			{
+				if (_other_squad == _squad) _attached_index = _attached_count;
+				_attached_count++;
+			}
+		}
+		var _world_per_pixel = 1;
+		if (instance_exists(o_camera_controller))
+		{
+			var _camera = instance_find(o_camera_controller, 0);
+			_world_per_pixel = camera_get_view_width(_camera.camera_id) / max(1, display_get_gui_width());
+		}
+		var _flag_gap = 8;
+		_squad.properties.marker_x = (_attached_target.bbox_left + _attached_target.bbox_right) * 0.5
+			+ (_attached_index - (_attached_count - 1) * 0.5) * (BALANCE_SQUAD_MARKER_WIDTH + _flag_gap) * _world_per_pixel;
+		_squad.properties.marker_y = _attached_target.bbox_top - _flag_gap * _world_per_pixel;
+		return true;
+	}
 	var _marker_is_dragged = variable_struct_exists(_squad.properties, "marker_is_dragged")
 		&& _squad.properties.marker_is_dragged;
 	var _march_is_active = variable_struct_exists(_squad.properties, "march_is_active")
@@ -1448,6 +1511,7 @@ function squad_march_end(_squad)
 	}
 
 	_squad.properties.march_is_active = false;
+	_squad.properties.marker_attack_target = noone;
 	_squad.properties.march_enemy_check_timer = 0;
 	_squad.properties.march_speed_bonus_active = false;
 	_squad.properties.combat_guide_unit = noone;
@@ -1489,6 +1553,16 @@ function squad_march_update(_squad)
 	}
 
 	// The expensive all-units enemy proximity scan runs only once per gameplay second.
+	if (_squad.properties.marker_attack_target != noone)
+	{
+		if (squad_flag_target_is_valid(_squad.properties.marker_attack_target))
+		{
+			return true;
+		}
+		squad_march_end(_squad);
+		return false;
+	}
+
 	squad_march_speed_bonus_update(_squad);
 
 	// A held flag remains a live destination but cannot finish the march until released.
@@ -1688,6 +1762,7 @@ function squad_drag_begin(_squad)
 	}
 
 	_squad.properties.marker_is_dragged = true;
+	_squad.properties.marker_attack_target = noone;
 	global.dragged_squad = _squad;
 
 	return true;
@@ -1712,7 +1787,28 @@ function squad_drag_update(_squad, _target_x, _target_y)
 	return true;
 }
 
-function squad_drag_end(_squad, _start_march = true)
+// Flag attachment uses the complete sprite rectangle rather than its collision mask.
+function squad_flag_sprite_contains_point(_target, _world_x, _world_y)
+{
+	if (!instance_exists(_target) || !sprite_exists(_target.sprite_index)
+		|| _target.image_xscale == 0 || _target.image_yscale == 0)
+	{
+		return false;
+	}
+	// Undo rotation and scale, then account for the sprite origin and flipped sprites.
+	var _offset_x = _world_x - _target.x;
+	var _offset_y = _world_y - _target.y;
+	var _cos = dcos(_target.image_angle);
+	var _sin = dsin(_target.image_angle);
+	var _sprite_x = ((_offset_x * _cos) - (_offset_y * _sin)) / _target.image_xscale
+		+ sprite_get_xoffset(_target.sprite_index);
+	var _sprite_y = ((_offset_x * _sin) + (_offset_y * _cos)) / _target.image_yscale
+		+ sprite_get_yoffset(_target.sprite_index);
+	return point_in_rectangle(_sprite_x, _sprite_y, 0, 0,
+		sprite_get_width(_target.sprite_index), sprite_get_height(_target.sprite_index));
+}
+
+function squad_drag_end(_squad, _start_march = true, _drop_world_x = undefined, _drop_world_y = undefined)
 {
 	if (!is_struct(_squad))
 	{
@@ -1725,6 +1821,27 @@ function squad_drag_end(_squad, _start_march = true)
 	if (_start_march)
 	{
 		squad_march_begin(_squad);
+		// The flag destination includes its display offset; building attachment uses the actual cursor.
+		var _hit_x = is_undefined(_drop_world_x) ? _squad.properties.marker_x : _drop_world_x;
+		var _hit_y = is_undefined(_drop_world_y) ? _squad.properties.marker_y : _drop_world_y;
+		var _target_count = world_position_is_revealed_by_fog(_hit_x, _hit_y)
+			? instance_number(o_map_objects_parent) : 0;
+		var _nearest_distance = infinity;
+		for (var _target_index = 0; _target_index < _target_count; ++_target_index)
+		{
+			var _target = instance_find(o_map_objects_parent, _target_index);
+			if (squad_flag_target_is_valid(_target)
+				&& squad_flag_sprite_contains_point(_target, _hit_x, _hit_y))
+			{
+				var _distance = point_distance(_hit_x, _hit_y, _target.x, _target.y);
+				if (_distance < _nearest_distance)
+				{
+					_nearest_distance = _distance;
+					_squad.properties.marker_attack_target = _target;
+					_squad.properties.march_speed_bonus_active = false;
+				}
+			}
+		}
 	}
 	else
 	{

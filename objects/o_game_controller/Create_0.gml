@@ -2945,6 +2945,11 @@ debug_menu_tab_labels = ["Shells", "Units", "Squads", "Events"];
 
 debug_shell_choices = [
 	{
+		label: "Holy Shower",
+		projectile_type: PROJECTILE_TYPE.HOLY_SHOWER,
+		payload: noone
+	},
+	{
 		label: "Damage",
 		projectile_type: PROJECTILE_TYPE.DAMAGE,
 		payload: noone
@@ -3602,6 +3607,10 @@ building_shell_preview_color_get = function(_building_payload)
 
 projectile_target_selection_radius_get = function(_projectile_type)
 {
+	if (_projectile_type == PROJECTILE_TYPE.HOLY_SHOWER)
+	{
+		return BALANCE_HOLY_SHOWER_SPREAD_RADIUS;
+	}
 	if (_projectile_type == PROJECTILE_TYPE.CORRUPTION)
 	{
 		if (instance_exists(o_cannon))
@@ -3822,7 +3831,7 @@ cannon_projectile_display_slots_get = function(_max_display_count)
 			array_push(_slots, _live_slots[_matching_live_index]);
 			_live_slot_was_used[_matching_live_index] = true;
 		}
-		else
+		else if (_fixed_slot.projectile_type != PROJECTILE_TYPE.HOLY_SHOWER)
 		{
 			array_push(_slots, {
 				projectile_type: _fixed_slot.projectile_type,
@@ -6860,7 +6869,8 @@ cannon_satiety_spend_feast = function()
 	return true;
 };
 
-cannon_projectile_queue_add = function(_projectile_type, _payload = noone)
+// Guaranteed rewards can exceed the normal pickup capacity instead of losing charges.
+cannon_projectile_queue_add = function(_projectile_type, _payload = noone, _guaranteed_reward = false)
 {
 	// Taint Compost is the only player-usable Taint projectile.
 	if (_projectile_type == PROJECTILE_TYPE.FEAST)
@@ -6875,7 +6885,7 @@ cannon_projectile_queue_add = function(_projectile_type, _payload = noone)
 		return false;
 	}
 
-	if (array_length(global.cannon_projectile_queue) >= global.cannon_projectile_queue_max)
+	if (!_guaranteed_reward && array_length(global.cannon_projectile_queue) >= global.cannon_projectile_queue_max)
 	{
 		return false;
 	}
@@ -11567,6 +11577,55 @@ night_effect_layers_disable = function()
 
 night_effect_layers_disable();
 
+// Add a limited number of mines each night; existing mines count toward the map-wide cap.
+enemy_mines_night_spawn = function()
+{
+	var _spawn_count = min(BALANCE_ENEMY_MINE_NIGHT_SPAWN_COUNT,
+		max(0, BALANCE_ENEMY_MINE_MAX_COUNT - instance_number(o_enemy_mine)));
+	if (_spawn_count <= 0)
+	{
+		return;
+	}
+
+	var _towers = [];
+	var _tower_count = instance_number(o_holy_tower);
+	for (var _tower_index = 0; _tower_index < _tower_count; ++_tower_index)
+	{
+		var _tower = instance_find(o_holy_tower, _tower_index);
+		if (instance_exists(_tower) && !_tower.is_destroyed && _tower.hp > 0)
+		{
+			array_push(_towers, _tower);
+		}
+	}
+	var _living_tower_count = array_length(_towers);
+	if (_living_tower_count <= 0)
+	{
+		return;
+	}
+
+	for (var _mine_index = 0; _mine_index < _spawn_count; ++_mine_index)
+	{
+		// Bounded retries skip crowded or obstructed positions without stalling nightfall.
+		for (var _attempt = 0; _attempt < BALANCE_ENEMY_MINE_SPAWN_ATTEMPTS; ++_attempt)
+		{
+			var _tower = _towers[irandom(_living_tower_count - 1)];
+			var _direction = random(360);
+			var _distance = sqrt(random(1)) * BALANCE_ENEMY_MINE_SPAWN_RADIUS;
+			var _mine_x = _tower.x + lengthdir_x(_distance, _direction);
+			var _mine_y = _tower.y + lengthdir_y(_distance, _direction);
+			if (_mine_x < 0 || _mine_x >= room_width || _mine_y < 0 || _mine_y >= room_height
+				|| collision_point(_mine_x, _mine_y, o_map_objects_parent, false, true) != noone
+				|| collision_circle(_mine_x, _mine_y, BALANCE_ENEMY_MINE_MINIMUM_SPACING,
+					o_enemy_mine, false, true) != noone)
+			{
+				continue;
+			}
+			instance_create_layer(_mine_x, _mine_y, "Instances", o_enemy_mine);
+			break;
+		}
+	}
+};
+
 start_night_phase = function()
 {
 	clear_dragged_unit();
@@ -11576,6 +11635,7 @@ start_night_phase = function()
 	raid_blood_moon_active = mission_type == MISSION_TYPES.RAID && _is_full_moon_night;
 
 	global.day_phase = DAY_PHASE.NIGHT;
+	enemy_mines_night_spawn();
 	night_fast_forward_set(false);
 	global.full_moon_night_active = _is_full_moon_night;
 	global.unholy_night_active = _is_unholy_night;

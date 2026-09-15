@@ -4,6 +4,8 @@ start_y = y;
 target_x = x;
 target_y = y;
 projectile_type = PROJECTILE_TYPE.DAMAGE;
+// Secondary Holy Shower projectiles are invisible timed explosions.
+holy_shower_strike = false;
 cultist_payload = noone;
 cultist_deploy_units = [];
 building_payload = noone;

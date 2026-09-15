@@ -517,7 +517,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("archdem
 
 			if (!mouse_check_button(mb_left))
 			{
-				squad_drag_end(global.dragged_squad, true);
+				squad_drag_end(global.dragged_squad, true, _mouse_world_x, _mouse_world_y);
 				global.sound_play_random(global.release_worker_sounds);
 			}
 		}

@@ -7,6 +7,13 @@ if (variable_global_exists("balance_test_active")
 	exit;
 }
 
+// Night-only shower impacts cannot spill into the morning.
+if (projectile_type == PROJECTILE_TYPE.HOLY_SHOWER && global.day_phase != DAY_PHASE.NIGHT)
+{
+	instance_destroy();
+	exit;
+}
+
 // Move the projectile along a simple artillery arc.
 if (global.pause && !ignore_pause)
 {
@@ -58,6 +65,36 @@ if (smoke_trail_enabled && _flight_progress < 1)
 // Apply the projectile effect when it lands.
 if (_flight_progress >= 1)
 {
+	// Schedule ground impacts at equal intervals, with independently randomized positions.
+	if (projectile_type == PROJECTILE_TYPE.HOLY_SHOWER && !holy_shower_strike)
+	{
+		var _blast_count = max(1, BALANCE_HOLY_SHOWER_EXPLOSION_COUNT);
+		for (var _blast_index = 0; _blast_index < _blast_count; ++_blast_index)
+		{
+			var _direction = random(360);
+			var _distance = sqrt(random(1)) * BALANCE_HOLY_SHOWER_SPREAD_RADIUS;
+			var _blast_x = clamp(target_x + lengthdir_x(_distance, _direction), 0, room_width - 1);
+			var _blast_y = clamp(target_y + lengthdir_y(_distance, _direction), 0, room_height - 1);
+			var _blast = instance_create_layer(_blast_x, _blast_y, particle_layer_name, o_projectile);
+			_blast.projectile_type = PROJECTILE_TYPE.HOLY_SHOWER;
+			_blast.holy_shower_strike = true;
+			_blast.start_x = _blast_x;
+			_blast.start_y = _blast_y;
+			_blast.target_x = _blast_x;
+			_blast.target_y = _blast_y;
+			_blast.arc_height = 0;
+			_blast.flight_time = BALANCE_HOLY_SHOWER_DURATION * room_speed * (_blast_index + 1) / _blast_count;
+			_blast.flight_speed_multiplier = 1;
+			_blast.damage_amount = BALANCE_HOLY_SHOWER_DAMAGE;
+			_blast.effect_radius = BALANCE_HOLY_SHOWER_EXPLOSION_RADIUS;
+			_blast.damage_faction = damage_faction;
+			_blast.source_instance = source_instance;
+			_blast.ignore_pause = false;
+		}
+		instance_destroy();
+		exit;
+	}
+
 	// Play a random impact sound for any landed projectile.
 	if (variable_global_exists("explosion_sounds") && variable_global_exists("sound_play_random"))
 	{
@@ -65,7 +102,13 @@ if (_flight_progress >= 1)
 	}
 
 	// Spawn the main explosion flash at the impact point.
-	instance_create_layer(target_x, target_y, particle_layer_name, o_particle_explosion);
+	var _impact_explosion = instance_create_layer(target_x, target_y, particle_layer_name, o_particle_explosion);
+	if (projectile_type == PROJECTILE_TYPE.HOLY_SHOWER && instance_exists(_impact_explosion))
+	{
+		_impact_explosion.outer_color = COLOR_HOLY_SHOWER_OUTER;
+		_impact_explosion.inner_color = COLOR_HOLY_SHOWER_INNER;
+		_impact_explosion.end_radius = effect_radius;
+	}
 
 	// Stunning Arrival adds its trait shockwave before the shell deploys the squad.
 	unholy_stunning_arrival_apply();
@@ -523,12 +566,14 @@ if (_flight_progress >= 1)
 					}
 				}
 				else if (variable_instance_exists(id, "on_projectile_hit")
-					&& other.projectile_type != PROJECTILE_TYPE.SIEGE)
+					&& other.projectile_type != PROJECTILE_TYPE.SIEGE
+					&& other.projectile_type != PROJECTILE_TYPE.HOLY_SHOWER)
 				{
 					on_projectile_hit(other.projectile_type);
 				}
 				else if (other.projectile_type == PROJECTILE_TYPE.DAMAGE
-					|| other.projectile_type == PROJECTILE_TYPE.SIEGE)
+					|| other.projectile_type == PROJECTILE_TYPE.SIEGE
+					|| other.projectile_type == PROJECTILE_TYPE.HOLY_SHOWER)
 				{
 					var _target_limit_is_available = other.damage_target_count <= 0
 						|| other.damage_targets_hit < other.damage_target_count;

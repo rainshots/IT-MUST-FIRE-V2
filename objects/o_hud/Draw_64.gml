@@ -1721,6 +1721,10 @@ if (variable_global_exists("cannon_projectile_queue")
 				&& _projectile_type != PROJECTILE_TYPE.CULTIST
 				&& _projectile_type != PROJECTILE_TYPE.BUILDING_SHELL);
 		var _projectile_color = COLOR_PROJECTILE_DAMAGE;
+		if (_projectile_type == PROJECTILE_TYPE.HOLY_SHOWER)
+		{
+			_projectile_color = COLOR_HOLY_SHOWER_OUTER;
+		}
 		var _projectile_sprite = noone;
 		var _projectile_squad_unit_sprite = noone;
 		var _circle_radius = projectile_circle_radius;

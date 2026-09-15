@@ -1,5 +1,14 @@
+if (holy_shower_strike)
+{
+	exit;
+}
+
 // Select projectile color by type.
 var _projectile_color = COLOR_PROJECTILE_DAMAGE;
+if (projectile_type == PROJECTILE_TYPE.HOLY_SHOWER)
+{
+	_projectile_color = COLOR_HOLY_SHOWER_OUTER;
+}
 
 if (projectile_type == PROJECTILE_TYPE.CORRUPTION)
 {

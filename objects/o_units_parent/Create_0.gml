@@ -4013,7 +4013,8 @@ friendly_enemy_structure_can_be_targeted = function(_target)
 		|| _target.object_index == o_defense_tower_long_range
 		|| _target.object_index == o_shrine
 		|| _target.object_index == o_garnizon
-		|| _target.object_index == o_house;
+		|| _target.object_index == o_house
+		|| object_is_ancestor(_target.object_index, o_house);
 };
 
 // Reusable planning path is separate from the collision-safe movement path.

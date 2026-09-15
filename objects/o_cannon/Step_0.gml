@@ -12,7 +12,8 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 	var _can_fire_selected_target = (!global.pause || global.focus_window == FOCUS_WINDOW.NOONE)
 		&& cannon_reload_is_ready();
 
-	if (target_projectile_type == PROJECTILE_TYPE.SIEGE && global.day_phase != DAY_PHASE.NIGHT)
+	if ((target_projectile_type == PROJECTILE_TYPE.SIEGE || target_projectile_type == PROJECTILE_TYPE.HOLY_SHOWER)
+		&& global.day_phase != DAY_PHASE.NIGHT)
 	{
 		_can_fire_selected_target = false;
 	}
@@ -66,6 +67,7 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 		}
 
 		if (target_projectile_type == PROJECTILE_TYPE.SIEGE
+			|| target_projectile_type == PROJECTILE_TYPE.HOLY_SHOWER
 			|| target_projectile_type == PROJECTILE_TYPE.RALLY
 			|| target_projectile_type == PROJECTILE_TYPE.CULTIST
 			|| target_projectile_type == PROJECTILE_TYPE.HEAL
@@ -94,6 +96,7 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 			var _projectile = instance_create_layer(_projectile_x, _projectile_y, projectile_layer_name, o_projectile);
 
 			if (target_projectile_type == PROJECTILE_TYPE.SIEGE
+				|| target_projectile_type == PROJECTILE_TYPE.HOLY_SHOWER
 				|| target_projectile_type == PROJECTILE_TYPE.RALLY
 				|| target_projectile_type == PROJECTILE_TYPE.CULTIST
 				|| target_projectile_type == PROJECTILE_TYPE.HEAL

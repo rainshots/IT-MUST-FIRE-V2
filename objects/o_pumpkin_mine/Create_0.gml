@@ -12,13 +12,13 @@ particle_layer_name = "Instances";
 
 trap_activate = function()
 {
-	// Damage every living enemy inside the radius at the moment of detonation.
+	// Damage every valid unit of the configured target faction inside the blast radius.
 	var _enemy_list = ds_list_create();
 	var _enemy_count = collision_circle_list(
 		x,
 		y,
 		trap_radius,
-		o_enemy_units,
+		trap_target_object,
 		false,
 		true,
 		_enemy_list,
@@ -34,7 +34,7 @@ trap_activate = function()
 		{
 			_enemy.unit_damage_receive(
 				trap_damage,
-				UNIT_FACTION.FRIENDLY,
+				trap_damage_faction,
 				false,
 				false,
 				noone

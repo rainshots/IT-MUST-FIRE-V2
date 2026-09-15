@@ -8,8 +8,15 @@ if (is_destroyed)
 // Draw inherited map object visuals.
 event_inherited();
 
-// Show the squad deployment exclusion radius only while hovering this tower.
-if (deployment_block_radius > 0 && map_object_is_hovered())
+// Show deployment barriers while aiming a squad shell or hovering this tower.
+var _aiming_squad_shell = false;
+if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_game_controller))
+{
+	var _controller = instance_find(o_game_controller, 0);
+	_aiming_squad_shell = _controller.target_selection_projectile_type == PROJECTILE_TYPE.CULTIST;
+}
+
+if (deployment_block_radius > 0 && (_aiming_squad_shell || map_object_is_hovered()))
 {
 	draw_set_alpha(radius_alpha);
 	draw_set_color(COLOR_HOLY_TOWER_RADIUS);
