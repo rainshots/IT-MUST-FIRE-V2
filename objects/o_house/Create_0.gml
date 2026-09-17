@@ -1,5 +1,6 @@
 // Initialize shared map object state.
 event_inherited();
+enemy_building_shield_enabled = true;
 
 // House durability and ground protection.
 max_hp = BALANCE_HOUSE_MAX_HP;
@@ -514,7 +515,7 @@ house_combat_spawn_update = function()
 
 house_damage_receive = function(_damage_amount, _is_critical = false)
 {
-	if (is_destroyed || hp <= 0 || _damage_amount <= 0)
+	if (is_destroyed || hp <= 0 || _damage_amount <= 0 || enemy_building_shield_is_active())
 	{
 		return 0;
 	}

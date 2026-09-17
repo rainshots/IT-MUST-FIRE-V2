@@ -1112,9 +1112,11 @@ if (global.focus_window == FOCUS_WINDOW.NOONE && instance_exists(o_game_controll
 	draw_text_transformed(
 		_day_label_x + (_day_label_width * 0.5),
 		_day_label_y + (_day_label_height * 0.5),
-		"DAY " + string(_night_panel_current_day),
-		_night_panel_scale,
-		_night_panel_scale,
+		"DAY " + string(_night_panel_current_day) + "\n"
+			+ (_night_panel_game_controller.night_is_player_attack(_night_panel_current_day)
+				? "ATTACK NIGHT" : "DEFENSE NIGHT"),
+		_night_panel_scale * night_panel_day_label_text_scale,
+		_night_panel_scale * night_panel_day_label_text_scale,
 		0
 	);
 

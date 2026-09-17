@@ -569,6 +569,13 @@ target_can_be_attacked = function(_target)
 		return false;
 	}
 
+	// Shielded enemy structures are outside combat targeting on defense nights.
+	if (variable_instance_exists(_target, "enemy_building_shield_is_active")
+		&& _target.enemy_building_shield_is_active())
+	{
+		return false;
+	}
+
 	// Hidden and undeployed units are outside combat targeting.
 	if (variable_instance_exists(_target, "unit_faction") && !_target.visible)
 	{
@@ -3061,7 +3068,7 @@ find_nearest_enemy_object_from_point = function(_origin_x, _origin_y, _max_dista
 		{
 			var _tower = instance_find(o_holy_tower, _tower_index);
 
-			if (instance_exists(_tower) && _tower.hp > 0)
+			if (target_can_be_attacked(_tower))
 			{
 				var _tower_distance_x = _tower.x - _origin_x;
 				var _tower_distance_y = _tower.y - _origin_y;
@@ -3109,7 +3116,7 @@ find_nearest_enemy_object_from_point = function(_origin_x, _origin_y, _max_dista
 		{
 			var _garnizon = instance_find(o_garnizon, _garnizon_index);
 
-			if (instance_exists(_garnizon) && _garnizon.hp > 0)
+			if (target_can_be_attacked(_garnizon))
 			{
 				var _garnizon_distance_x = _garnizon.x - _origin_x;
 				var _garnizon_distance_y = _garnizon.y - _origin_y;
@@ -3133,7 +3140,7 @@ find_nearest_enemy_object_from_point = function(_origin_x, _origin_y, _max_dista
 		{
 			var _house = instance_find(o_house, _house_index);
 
-			if (instance_exists(_house) && _house.hp > 0)
+			if (target_can_be_attacked(_house))
 			{
 				var _house_distance_x = _house.x - _origin_x;
 				var _house_distance_y = _house.y - _origin_y;

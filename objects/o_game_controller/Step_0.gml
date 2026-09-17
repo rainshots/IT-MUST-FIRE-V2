@@ -1432,7 +1432,7 @@ if (keyboard_check_pressed(vk_escape) && !_squad_selection_escape_consumed)
 // Play UI feedback for the currently hovered or clicked button.
 ui_audio_update();
 
-// Track elapsed night time; Unholy Night always ends after its dedicated duration.
+// Assaults and Unholy Night end on a timer; defense nights wait for their waves.
 if (!global.pause && global.day_cycle_enabled)
 {
 	var _blood_moon_is_active = variable_global_exists("full_moon_night_active")
@@ -1447,7 +1447,7 @@ if (!global.pause && global.day_cycle_enabled)
 			: 1;
 		global.day_timer = max(global.day_timer - _gameplay_time_scale, 0);
 
-		if (_unholy_night_is_active)
+		if (_unholy_night_is_active || night_is_player_attack(night_attack_night_index))
 		{
 			if (global.day_timer <= 0)
 			{
@@ -1917,6 +1917,7 @@ if (!global.pause
 	&& global.day_cycle_enabled
 	&& global.day_phase == DAY_PHASE.NIGHT
 	&& !global.unholy_night_active
+	&& !night_is_player_attack(night_attack_night_index)
 	&& night_attack_is_complete())
 {
 	start_day_phase();

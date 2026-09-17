@@ -67,6 +67,7 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 {
 	if (hp <= 0
 		|| _damage_amount <= 0
+		|| enemy_building_shield_is_active()
 		|| _source_faction == unit_faction)
 	{
 		return 0;

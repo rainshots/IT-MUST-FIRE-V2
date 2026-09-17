@@ -1,6 +1,23 @@
 // Draw the map object sprite.
 draw_self();
 
+// A translucent dome marks buildings that cannot take damage this night.
+if (enemy_building_shield_is_active())
+{
+	var _shield_padding = enemy_building_shield_padding;
+	var _shield_left = bbox_left - _shield_padding;
+	var _shield_top = bbox_top - _shield_padding;
+	var _shield_right = bbox_right + _shield_padding;
+	var _shield_bottom = bbox_bottom + _shield_padding;
+	draw_set_color(COLOR_ENEMY_BUILDING_SHIELD);
+	draw_set_alpha(enemy_building_shield_fill_alpha);
+	draw_ellipse(_shield_left, _shield_top, _shield_right, _shield_bottom, false);
+	draw_set_alpha(enemy_building_shield_outline_alpha);
+	draw_ellipse(_shield_left, _shield_top, _shield_right, _shield_bottom, true);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+}
+
 // Draw health and corruption bars.
 var _is_cursed_point_building = variable_instance_exists(id, "building_constructed_by_cursed_point")
 	&& building_constructed_by_cursed_point;

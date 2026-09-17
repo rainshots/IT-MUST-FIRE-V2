@@ -4341,6 +4341,12 @@ global.cultist_available_sprite_indices = global.cultist_all_sprite_indices;
 
 // Night attack state stores the planned directions shown during the next day.
 night_attack_night_index = 1;
+
+// Even calendar nights are reserved for attacking enemy structures.
+night_is_player_attack = function(_night_index)
+{
+	return _night_index > 0 && (_night_index mod NIGHT_CYCLE_LENGTH) == 0;
+};
 night_attack_plan_exists = false;
 night_attack_directions = [];
 
@@ -11094,8 +11100,9 @@ night_attack_marker_spawn_data_get = function()
 
 night_attack_plan_create = function()
 {
-	// The day after a Blood Moon deliberately previews no incoming attack.
-	if (unholy_night_pending || global.unholy_night_active)
+	// Player assaults and peaceful special nights have no incoming wave preview.
+	if (night_is_player_attack(night_attack_night_index)
+		|| unholy_night_pending || global.unholy_night_active)
 	{
 		night_attack_directions = [];
 		night_attack_plan_exists = false;
@@ -11385,6 +11392,11 @@ night_attack_enemy_spawn = function(_direction_index, _direction_data, _enemy_ob
 
 boss_griffith_night_is_scheduled = function(_night_index)
 {
+	if (night_is_player_attack(_night_index))
+	{
+		return false;
+	}
+
 	if (boss_griffith_force_next_night)
 	{
 		return true;
@@ -11406,7 +11418,9 @@ boss_griffith_night_is_scheduled = function(_night_index)
 		return true;
 	}
 
-	return _night_index > 0 && (_night_index mod boss_griffith_night_interval) == 0;
+	// Regular even-date boss encounters move to the following defense night.
+	var _scheduled_night = _night_index - 1;
+	return _scheduled_night > 0 && (_scheduled_night mod boss_griffith_night_interval) == 0;
 };
 
 boss_crusader_horde_is_scheduled = function(_night_index)
@@ -11420,7 +11434,7 @@ boss_crusader_horde_is_scheduled = function(_night_index)
 
 full_moon_night_is_scheduled = function(_night_index)
 {
-	if (boss_griffith_night_is_scheduled(_night_index))
+	if (night_is_player_attack(_night_index) || boss_griffith_night_is_scheduled(_night_index))
 	{
 		return false;
 	}
@@ -11436,7 +11450,9 @@ full_moon_night_is_scheduled = function(_night_index)
 		return true;
 	}
 
-	return _night_index > 0 && (_night_index mod full_moon_night_interval) == 0;
+	// Blood Moons also belong to defense nights, after their original even date.
+	var _scheduled_night = _night_index - 1;
+	return _scheduled_night > 0 && (_scheduled_night mod full_moon_night_interval) == 0;
 };
 
 boss_griffith_prepare_next_night = function()
@@ -11601,6 +11617,7 @@ night_attack_spawning_update = function()
 {
 	if (global.pause
 		|| global.day_phase != DAY_PHASE.NIGHT
+		|| night_is_player_attack(night_attack_night_index)
 		|| global.unholy_night_active
 		|| !night_attack_plan_exists)
 	{
@@ -11917,6 +11934,7 @@ start_night_phase = function()
 	cannon_corpse_workers_drop_all();
 	var _is_full_moon_night = full_moon_night_is_scheduled(night_attack_night_index);
 	var _is_unholy_night = BALANCE_UNHOLY_NIGHT_ENABLED && unholy_night_pending;
+	var _is_player_attack_night = night_is_player_attack(night_attack_night_index);
 
 	global.day_phase = DAY_PHASE.NIGHT;
 	no_rest_for_the_dead_used = false;
@@ -11937,7 +11955,7 @@ start_night_phase = function()
 	unholy_night_pending = false;
 	night_duration_current = _is_unholy_night
 		? BALANCE_UNHOLY_NIGHT_DURATION
-		: global.night_duration;
+		: (_is_player_attack_night ? PLAYER_ATTACK_NIGHT_DURATION : global.night_duration);
 	global.day_timer = night_duration_current * global.game_speed_normal;
 	global.night_attack_unit_count = 0;
 	night_force_end_timer = _is_unholy_night
@@ -11946,11 +11964,20 @@ start_night_phase = function()
 	night_force_end_active = false;
 	holy_cannon_night_start();
 	adaptive_night_cultist_knocked_out = false;
-	phase_banner_show(
-		_is_full_moon_night
-			? "BLOOD MOON"
-			: (_is_unholy_night ? "UNHOLY NIGHT" : "NIGHT FALLS")
-	);
+	var _night_banner = "DEFENSE NIGHT";
+	if (_is_player_attack_night)
+	{
+		_night_banner = "ATTACK NIGHT";
+	}
+	else if (_is_full_moon_night)
+	{
+		_night_banner = "BLOOD MOON";
+	}
+	else if (_is_unholy_night)
+	{
+		_night_banner = "UNHOLY NIGHT";
+	}
+	phase_banner_show(_night_banner);
 
 	night_effect_transition_start();
 	global.sound_play_random(global.night_start_sounds);
@@ -12034,13 +12061,13 @@ start_night_phase = function()
 		night_attack_plan_exists = false;
 	}
 
-	if (!_is_unholy_night && !night_attack_plan_exists)
+	if (_is_player_attack_night || (!_is_unholy_night && !night_attack_plan_exists))
 	{
 		night_attack_plan_create();
 	}
 
 	// Boss nights have no forced time limit and end only after the army is defeated.
-	boss_griffith_night_active = !_is_unholy_night && boss_griffith_pending_next_night;
+	boss_griffith_night_active = !_is_player_attack_night && !_is_unholy_night && boss_griffith_pending_next_night;
 
 	start_cultists_loading_into_cannon();
 	cannon_projectile_night_slots_capture();
@@ -12048,7 +12075,7 @@ start_night_phase = function()
 
 	with (o_garnizon)
 	{
-		if (!global.unholy_night_active && is_activated)
+		if (!_is_player_attack_night && !global.unholy_night_active && is_activated)
 		{
 			release_owned_units();
 		}
@@ -12060,7 +12087,7 @@ start_night_phase = function()
 	{
 		var _enemy = instance_find(o_enemy_units, _enemy_index);
 
-		if (!global.unholy_night_active
+		if (!_is_player_attack_night && !global.unholy_night_active
 			&& instance_exists(_enemy)
 			&& variable_instance_exists(_enemy, "owner_garnizon")
 			&& instance_exists(_enemy.owner_garnizon)
@@ -12085,7 +12112,7 @@ start_night_phase = function()
 		enemy_night_balance_scale_apply(_existing_enemy);
 	}
 
-	if (!global.unholy_night_active && boss_griffith_pending_next_night)
+	if (!_is_player_attack_night && !global.unholy_night_active && boss_griffith_pending_next_night)
 	{
 		if (boss_crusader_horde_is_scheduled(night_attack_night_index))
 		{
@@ -12210,8 +12237,8 @@ start_day_phase = function()
 	phase_banner_show("DAY BREAKS");
 	night_effect_layers_disable();
 
-	// A peaceful Unholy Night does not influence combat difficulty adjustment.
-	if (!_previous_night_was_unholy)
+	// Only defense battles influence the incoming-wave difficulty adjustment.
+	if (!_previous_night_was_unholy && !night_is_player_attack(night_attack_night_index))
 	{
 		adaptive_difficulty_evaluate_night();
 	}

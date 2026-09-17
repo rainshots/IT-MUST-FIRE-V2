@@ -1,5 +1,6 @@
 // Initialize shared map object state.
 event_inherited();
+enemy_building_shield_enabled = true;
 
 // Shrine objective state is updated by corruption projectiles and infected ground.
 is_corrupted = false;
@@ -54,7 +55,7 @@ tooltip_lines = [
 
 unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true, _source_instance = noone)
 {
-	if (!is_attackable || is_corrupted)
+	if (!is_attackable || is_corrupted || enemy_building_shield_is_active())
 	{
 		return 0;
 	}

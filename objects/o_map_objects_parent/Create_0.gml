@@ -5,6 +5,25 @@ max_corruption = 100;
 corruption = 0;
 y_sort_enabled = true;
 
+// Enemy children opt into the defense-night shield; player buildings never do.
+enemy_building_shield_enabled = false;
+enemy_building_shield_padding = 12;
+enemy_building_shield_fill_alpha = 0.16;
+enemy_building_shield_outline_alpha = 0.8;
+
+enemy_building_shield_is_active = function()
+{
+	if (!enemy_building_shield_enabled || hp <= 0
+		|| global.day_phase != DAY_PHASE.NIGHT
+		|| !instance_exists(o_game_controller))
+	{
+		return false;
+	}
+
+	var _game_controller = instance_find(o_game_controller, 0);
+	return !_game_controller.night_is_player_attack(_game_controller.night_attack_night_index);
+};
+
 // Health and corruption bar visual settings.
 bar_width = 72;
 bar_height = 6;
@@ -690,7 +709,7 @@ player_building_ground_state_update = function()
 // Shared damage receiver keeps player structure damage feedback consistent.
 unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true, _source_instance = noone)
 {
-	if (hp <= 0 || _damage_amount <= 0)
+	if (hp <= 0 || _damage_amount <= 0 || enemy_building_shield_is_active())
 	{
 		return 0;
 	}

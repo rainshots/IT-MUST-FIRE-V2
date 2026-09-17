@@ -1,5 +1,6 @@
 // Initialize shared map object state.
 event_inherited();
+enemy_building_shield_enabled = true;
 
 // Holy tower durability.
 max_hp = BALANCE_HOLY_TOWER_MAX_HP;
@@ -251,7 +252,7 @@ holy_tower_saint_source_register();
 
 holy_tower_damage_receive = function(_damage_amount, _is_critical = false, _show_popup = true)
 {
-	if (is_destroyed || hp <= 0 || _damage_amount <= 0)
+	if (is_destroyed || hp <= 0 || _damage_amount <= 0 || enemy_building_shield_is_active())
 	{
 		return 0;
 	}

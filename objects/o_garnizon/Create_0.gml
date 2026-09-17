@@ -1,5 +1,6 @@
 // Initialize shared map object state.
 event_inherited();
+enemy_building_shield_enabled = true;
 
 // Garnizon durability.
 max_hp = 3000 * BALANCE_GLOBAL_HP_MULTIPLIER;
@@ -31,6 +32,16 @@ tooltip_lines = [
 
 release_owned_units = function()
 {
+	// Assault nights keep the garrison at its building instead of launching a wave.
+	if (instance_exists(o_game_controller))
+	{
+		var _game_controller = instance_find(o_game_controller, 0);
+		if (_game_controller.night_is_player_attack(_game_controller.night_attack_night_index))
+		{
+			return;
+		}
+	}
+
 	has_released_current_night = true;
 
 	var _enemy_count = instance_number(o_enemy_units);
@@ -78,6 +89,11 @@ activate_garnizon = function()
 
 on_damage_projectile_hit = function()
 {
+	if (enemy_building_shield_is_active())
+	{
+		return;
+	}
+
 	var _damage_amount = BALANCE_PROJECTILE_DAMAGE_AMOUNT;
 
 	hp = max(hp - _damage_amount, 0);

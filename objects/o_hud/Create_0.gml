@@ -691,6 +691,7 @@ night_panel_icon_size = 28;
 night_panel_visible_count = 11;
 night_panel_day_label_width = 150;
 night_panel_day_label_height = 48;
+night_panel_day_label_text_scale = 0.65;
 cultist_counter_x = 53;
 cultist_counter_y = 219;
 cultist_counter_width = 167;

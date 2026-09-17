@@ -1,5 +1,10 @@
 /// @description Project-wide enums and macros.
 
+// Alternate defense nights with timed player assaults.
+#macro NIGHT_CYCLE_LENGTH 2
+#macro PLAYER_ATTACK_NIGHT_DURATION 210
+#macro COLOR_ENEMY_BUILDING_SHIELD $ffe6a6
+
 // Keep legacy flag dragging as the default; preserve the experimental system and its hidden switch.
 #macro SQUAD_FLAG_SYSTEM_2_ENABLED false
 #macro SQUAD_FLAG_SYSTEM_SETTING_VISIBLE false

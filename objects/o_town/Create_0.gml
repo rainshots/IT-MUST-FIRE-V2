@@ -1,5 +1,6 @@
 // Initialize shared map object state.
 event_inherited();
+enemy_building_shield_enabled = true;
 
 // Town durability.
 max_hp = 1000 * BALANCE_GLOBAL_HP_MULTIPLIER;
@@ -17,6 +18,11 @@ tooltip_lines = [
 // Town projectile reactions.
 on_damage_projectile_hit = function()
 {
+	if (enemy_building_shield_is_active())
+	{
+		return;
+	}
+
 	var _damage_amount = 200 * BALANCE_GLOBAL_DAMAGE_MULTIPLIER;
 	var _souls_reward = 3;
 
