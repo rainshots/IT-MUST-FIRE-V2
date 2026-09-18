@@ -65,17 +65,18 @@ function cannon_satisfaction_level_get()
 
 function cannon_satisfaction_sprite_get(_level = cannon_satisfaction_level_get())
 {
+	var _config = cannon_config_get();
 	switch (_level)
 	{
 		case CANNON_SATISFACTION_LEVEL.SULKING:
-			return s_cannon_angry;
+			return _config.sprite_angry;
 
 		case CANNON_SATISFACTION_LEVEL.ECSTATIC:
 		case CANNON_SATISFACTION_LEVEL.IT_MUST_FIRE:
-			return s_cannon_pleased;
+			return _config.sprite_pleased;
 	}
 
-	return s_cannon_awake;
+	return _config.sprite_awake;
 }
 
 function cannon_satisfaction_level_name_get(_level = cannon_satisfaction_level_get())

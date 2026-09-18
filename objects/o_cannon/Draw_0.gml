@@ -1,3 +1,13 @@
+// Gaze is a world-space ring; abilities can change its center and radius independently.
+if (gaze_enabled && gaze_radius > 0)
+{
+	draw_set_color(COLOR_CANNON_GAZE);
+	draw_set_alpha(1);
+	draw_circle(gaze_x, gaze_y, gaze_radius, true);
+	draw_set_color(c_white);
+	draw_set_alpha(1);
+}
+
 // Draw cannon sprite.
 var _cannon_alpha = image_alpha;
 

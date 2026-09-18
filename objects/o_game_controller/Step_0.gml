@@ -1894,8 +1894,7 @@ if (!global.pause
 				_new_projectile_type = _valid_drop_types[irandom(array_length(_valid_drop_types) - 1)];
 			}
 
-			array_push(global.cannon_projectile_queue, _new_projectile_type);
-			array_push(global.cannon_projectile_payload_queue, noone);
+			cannon_projectile_queue_add(_new_projectile_type);
 			global.cannon_selected_projectile_index = clamp(global.cannon_selected_projectile_index, 0, array_length(global.cannon_projectile_queue) - 1);
 			global.cannon_projectile_gain_timer = 0;
 		}
@@ -2034,7 +2033,17 @@ if (_can_select_cannon_projectile || _projectile_selection_click_index >= 0)
 		target_selection_radius = projectile_target_selection_radius_get(_selected_projectile_type);
 		hellcow_aim_is_dragging = false;
 		hellcow_aim_drag_distance = 0;
-		global.focus_window = FOCUS_WINDOW.TARGET_SELECTION;
+		if (cannon_shot_category_get(_selected_projectile_type) == CANNON_SHOT_CATEGORY.INSTANT_UNTARGETED
+			|| cannon_shot_category_get(_selected_projectile_type) == CANNON_SHOT_CATEGORY.PROJECTILE_UNTARGETED)
+		{
+			// Untargeted actions resolve from the slot/hotkey without entering aiming mode.
+			cannon_untargeted_shot_execute(_selected_projectile_type, _selected_projectile_index);
+			global.focus_window = FOCUS_WINDOW.NOONE;
+		}
+		else
+		{
+			global.focus_window = FOCUS_WINDOW.TARGET_SELECTION;
+		}
 	}
 }
 
@@ -2185,7 +2194,16 @@ if (_target_selection_should_confirm)
 			_target_can_be_confirmed = false;
 		}
 
-		if (_target_can_be_confirmed)
+		if (_target_can_be_confirmed
+			&& cannon_shot_category_get(target_selection_projectile_type) == CANNON_SHOT_CATEGORY.INSTANT)
+		{
+			if (cannon_instant_shot_execute(target_selection_projectile_type,
+				_target_world_x, _target_world_y, _selected_projectile_index))
+			{
+				global.focus_window = FOCUS_WINDOW.NOONE;
+			}
+		}
+		else if (_target_can_be_confirmed)
 		{
 			// Snapshot the range before clearing the gesture; in-flight shells keep their own copy.
 			hellcow_target_charge_distance = _hellcow_target_selection_active

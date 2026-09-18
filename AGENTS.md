@@ -85,9 +85,10 @@ x = _multiplier * y;
 
 ## Enums And Macros
 
-- Declare enums and macros in the `enums` script.
+- Declare enums and general-purpose macros in the `enums` script.
+- Declare gameplay balance constants in `scripts/balance/balance.gml`. Keep all new Cannon shot and Gaze constants there, including cooldowns, charges, radii, durations, scaling, upgrade tuning, and their effect colors.
 - The `enums` script is expected to run before any object `Create` event.
-- Colors must be defined through macros. If a color is missing, add it to the `enums` script instead of hardcoding it.
+- Colors must be defined through macros. Add shot and Gaze effect colors to `balance`; add other colors to `enums` instead of hardcoding them.
 
 ## Timers
 

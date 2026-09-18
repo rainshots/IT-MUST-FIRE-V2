@@ -58,6 +58,44 @@ if (smoke_trail_enabled && _flight_progress < 1)
 // Apply the projectile effect when it lands.
 if (_flight_progress >= 1)
 {
+	// Curing Spit becomes a timed field only after landing, without generic impact damage.
+	if (projectile_type == PROJECTILE_TYPE.CURING_SPIT)
+	{
+		if (global.day_phase == DAY_PHASE.NIGHT)
+		{
+			var _field = instance_create_layer(target_x, target_y, "Instances", o_curing_spit);
+			_field.source_cannon = source_instance;
+			_field.effect_radius = effect_radius;
+			_field.upgrade = curing_spit_upgrade;
+		}
+		instance_destroy();
+		exit;
+	}
+	// Seeds start their growth clock on landing and never apply generic shell damage.
+	if (projectile_type == PROJECTILE_TYPE.DARK_GARDEN)
+	{
+		if (global.day_phase == DAY_PHASE.NIGHT)
+		{
+			var _seed = instance_create_layer(target_x, target_y, "Instances", o_dark_seed);
+			_seed.source_cannon = source_instance;
+		}
+		instance_destroy();
+		exit;
+	}
+	// Quicksand starts only on landing and bypasses generic impact damage and corpse effects.
+	if (projectile_type == PROJECTILE_TYPE.QUICKSAND)
+	{
+		if (global.day_phase == DAY_PHASE.NIGHT)
+		{
+			var _quicksand = instance_create_layer(target_x, target_y, particle_layer_name, o_quicksand);
+			_quicksand.effect_radius = effect_radius;
+			_quicksand.source_cannon = source_instance;
+			_quicksand.upgrade = quicksand_upgrade;
+		}
+		instance_destroy();
+		exit;
+	}
+
 	// Play a random impact sound for any landed projectile.
 	if (variable_global_exists("explosion_sounds") && variable_global_exists("sound_play_random"))
 	{

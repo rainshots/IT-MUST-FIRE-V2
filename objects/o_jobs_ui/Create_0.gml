@@ -797,7 +797,8 @@ jobs_blood_bath_construction_event_index_get = function()
 
 jobs_first_day_taint_onboarding_is_required = function()
 {
-	return day_event_current_day_get() == 1
+	return cannon_shot_is_available(PROJECTILE_TYPE.CORRUPTION)
+		&& day_event_current_day_get() == 1
 		&& (!variable_global_exists("tutorial_hints_enabled") || global.tutorial_hints_enabled);
 };
 

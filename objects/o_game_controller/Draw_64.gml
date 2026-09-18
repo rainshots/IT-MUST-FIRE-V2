@@ -490,13 +490,21 @@ if (global.focus_window == FOCUS_WINDOW.TARGET_SELECTION && instance_exists(o_ca
 	var _target_hint_text = "";
 	var _target_hint_color = COLOR_STATUS_NEGATIVE_RED;
 	var _radius_scale = camera_view_width / _camera_controller.view_width;
-	var _draw_radius = target_selection_radius * _radius_scale;
+	// Keep the Gaze preview in sync with future radius-changing abilities while aiming.
+	var _preview_radius = target_selection_projectile_type == PROJECTILE_TYPE.LOOK_OVER_THERE
+		? projectile_target_selection_radius_get(target_selection_projectile_type)
+		: target_selection_radius;
+	var _draw_radius = _preview_radius * _radius_scale;
 	var _target_color = COLOR_PROJECTILE_DAMAGE;
 	var _projectile_payload = noone;
 	var _building_preview_radius = 0;
 	var _building_preview_radius_draw = 0;
 
-	if (target_selection_projectile_type == PROJECTILE_TYPE.CORRUPTION)
+	if (target_selection_projectile_type == PROJECTILE_TYPE.LOOK_OVER_THERE)
+	{
+		_target_color = COLOR_CANNON_GAZE;
+	}
+	else if (target_selection_projectile_type == PROJECTILE_TYPE.CORRUPTION)
 	{
 		_target_color = COLOR_PROJECTILE_CORRUPTION;
 

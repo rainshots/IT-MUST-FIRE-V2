@@ -1,10 +1,34 @@
+// Both cannon variants use this object and its shared mechanics.
+cannon_config = cannon_config_get();
+cannon_type = cannon_config.cannon_type;
+
+// Gaze world position and radius are mutable so future abilities can move or enlarge it.
+gaze_enabled = cannon_config.gaze_enabled;
+gaze_x = x;
+gaze_y = y + cannon_config.gaze_offset_y;
+gaze_base_radius = cannon_config.gaze_radius; // Absorption growth always uses this fixed base.
+gaze_radius = gaze_base_radius;
+// The Factory grants one permanent Absorption upgrade; the count affects only the latest cooldown.
+absorption_upgrade = ABSORPTION_UPGRADE.NONE;
+quicksand_upgrade = QUICKSAND_UPGRADE.NONE; // Permanent Factory choice, copied into each shot.
+absorption_last_corpse_count = 0;
+// Lifetime absorption total powers every subsequent Dark Garden volley.
+absorption_total_corpse_count = 0;
+dark_garden_upgrade = DARK_GARDEN_UPGRADE.NONE;
+curing_spit_upgrade = CURING_SPIT_UPGRADE.NONE; // Permanent Factory choice, captured at launch.
+// Factory unlock changes phase eligibility only; daily charges are still shared.
+look_over_there_night_unlocked = false;
+gaze_night_corruption_share = cannon_config.gaze_night_corruption_share;
+// The night index prevents repeated daybreak calls from applying Gaze twice.
+gaze_last_completed_night = -1;
+
 // Cannon target selected by the player.
 sprite_index = cannon_satisfaction_sprite_get();
 image_index = 0;
-max_hp = BALANCE_CANNON_MAX_HP;
+max_hp = cannon_config.max_hp;
 hp = max_hp;
 // Units measure attack distance from this circular footprint around the pivot.
-combat_radius = BALANCE_CANNON_COMBAT_RADIUS;
+combat_radius = cannon_config.combat_radius;
 global.cannon_fire_version = 0;
 y_sort_enabled = true;
 
@@ -110,11 +134,11 @@ hidden_unit_alpha = BALANCE_CANNON_HIDDEN_UNIT_ALPHA;
 hidden_unit_front_offset_y = BALANCE_CANNON_HIDDEN_UNIT_FRONT_OFFSET_Y;
 
 // Projectile settings passed to created projectile instances.
-projectile_effect_radius = BALANCE_PROJECTILE_EFFECT_RADIUS;
-volley_projectile_count = BALANCE_CANNON_VOLLEY_PROJECTILE_COUNT;
-volley_spread_radius = BALANCE_CANNON_VOLLEY_SPREAD_RADIUS;
-volley_launch_delay_min = BALANCE_CANNON_VOLLEY_LAUNCH_DELAY_MIN;
-volley_launch_delay_max = BALANCE_CANNON_VOLLEY_LAUNCH_DELAY_MAX;
+projectile_effect_radius = cannon_config.projectile_effect_radius;
+volley_projectile_count = cannon_config.volley_projectile_count;
+volley_spread_radius = cannon_config.volley_spread_radius;
+volley_launch_delay_min = cannon_config.volley_launch_delay_min;
+volley_launch_delay_max = cannon_config.volley_launch_delay_max;
 projectile_spawn_offset_y = -20;
 projectile_layer_name = "Instances";
 
@@ -144,20 +168,36 @@ cannon_opening_barrage_night_start = function()
 
 cannon_reload_time_get = function(_projectile_type)
 {
-	var _reload_time = BALANCE_CANNON_RELOAD_DEFAULT_TIME;
+	var _reload_time = cannon_config.reload_default_time;
 	var _reload_penalty = 0;
 
-	if (_projectile_type == PROJECTILE_TYPE.BOMB)
+	if (_projectile_type == PROJECTILE_TYPE.CURING_SPIT)
 	{
-		_reload_time = BALANCE_CANNON_RELOAD_HELLCOW_TIME;
+		_reload_time = BALANCE_CURING_SPIT_RELOAD_TIME;
+	}
+	else if (_projectile_type == PROJECTILE_TYPE.DARK_GARDEN)
+	{
+		_reload_time = BALANCE_DARK_GARDEN_RELOAD_TIME;
+	}
+	else if (_projectile_type == PROJECTILE_TYPE.QUICKSAND)
+	{
+		_reload_time = BALANCE_QUICKSAND_RELOAD_TIME;
+	}
+	else if (_projectile_type == PROJECTILE_TYPE.ABSORPTION)
+	{
+		_reload_time = cannon_config.absorption_cooldown;
+	}
+	else if (_projectile_type == PROJECTILE_TYPE.BOMB)
+	{
+		_reload_time = cannon_config.reload_hellcow_time;
 	}
 	else if (_projectile_type == PROJECTILE_TYPE.HEAL)
 	{
-		_reload_time = BALANCE_CANNON_RELOAD_FIRST_AID_TIME;
+		_reload_time = cannon_config.reload_first_aid_time;
 	}
 	else if (_projectile_type == PROJECTILE_TYPE.DOOM_BELL)
 	{
-		_reload_time = BALANCE_CANNON_RELOAD_DOOM_BELL_TIME;
+		_reload_time = cannon_config.reload_doom_bell_time;
 
 		if (variable_global_exists("shell_factory_doom_bell_enchantment")
 			&& global.shell_factory_doom_bell_enchantment == DOOM_BELL_ENCHANTMENT.FUNERAL_PAUSE)
@@ -168,7 +208,7 @@ cannon_reload_time_get = function(_projectile_type)
 	else if (_projectile_type == PROJECTILE_TYPE.CULTIST
 		|| _projectile_type == PROJECTILE_TYPE.SKELETONS)
 	{
-		_reload_time = BALANCE_CANNON_RELOAD_SQUAD_TIME;
+		_reload_time = cannon_config.reload_squad_time;
 	}
 
 	_reload_time = (_reload_time * cannon_satisfaction_reload_time_multiplier_get()) + _reload_penalty;
@@ -190,6 +230,12 @@ cannon_reload_time_get = function(_projectile_type)
 			* BALANCE_CANNON_RELOAD_NIGHT_SHOT_PENALTY;
 	}
 
+	// Only the following cooldown benefits from corpses consumed by this use.
+	if (_projectile_type == PROJECTILE_TYPE.ABSORPTION && absorption_upgrade == ABSORPTION_UPGRADE.COOLDOWN)
+	{
+		var _reduction = absorption_last_corpse_count * BALANCE_ABSORPTION_COOLDOWN_REDUCTION_SHARE;
+		_reload_time *= max(0, 1 - _reduction);
+	}
 	return _reload_time;
 };
 
@@ -293,6 +339,11 @@ cannon_agony_sound_play = function()
 
 cannon_agony_projectile_create = function(_target_x, _target_y, _projectile_type, _launch_delay_seconds)
 {
+	if (!cannon_shot_is_available(_projectile_type))
+	{
+		return noone;
+	}
+
 	var _projectile_x = x;
 	var _projectile_y = y + projectile_spawn_offset_y;
 	var _projectile = instance_create_layer(_projectile_x, _projectile_y, projectile_layer_name, o_projectile);
@@ -389,7 +440,8 @@ cannon_satisfaction_auto_fire = function(_target)
 
 cannon_satisfaction_auto_fire_update = function()
 {
-	if (cannon_satisfaction_level_get() != CANNON_SATISFACTION_LEVEL.IT_MUST_FIRE)
+	if (!cannon_shot_is_available(PROJECTILE_TYPE.DAMAGE)
+		|| cannon_satisfaction_level_get() != CANNON_SATISFACTION_LEVEL.IT_MUST_FIRE)
 	{
 		satisfaction_auto_fire_timer = satisfaction_auto_fire_time;
 		return false;

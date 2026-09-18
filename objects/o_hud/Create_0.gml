@@ -1510,8 +1510,19 @@ projectile_names[PROJECTILE_TYPE.SKELETONS] = "SKELETONS";
 projectile_names[PROJECTILE_TYPE.BUILDING_SHELL] = "STRUCTURE";
 projectile_names[PROJECTILE_TYPE.CLEANSE] = "CLEANSE";
 projectile_names[PROJECTILE_TYPE.DOOM_BELL] = "DOOM BELL";
+projectile_names[PROJECTILE_TYPE.LOOK_OVER_THERE] = "LOOK OVER THERE";
+projectile_names[PROJECTILE_TYPE.ABSORPTION] = "ABSORPTION";
+projectile_names[PROJECTILE_TYPE.CURING_SPIT] = "CURING SPIT";
+projectile_descriptions[PROJECTILE_TYPE.CURING_SPIT] = "Night-only shot. Fires at the Gaze center without aiming. After impact, heals each friendly unit in the Gaze for " + string(BALANCE_CURING_SPIT_HEAL_AMOUNT) + " HP every second for 4 seconds. Uses normal Cannon reload.";
+projectile_names[PROJECTILE_TYPE.DARK_GARDEN] = "DARK GARDEN";
+projectile_descriptions[PROJECTILE_TYPE.DARK_GARDEN] = "Night-only automatic volley: 5 seeds +1 per 20 corpses absorbed this run. Seeds grow after 60 seconds into destructible trees. Every 30 seconds, trees spawn a berry that instantly stuns an enemy for 2 seconds. All disappear at dawn.";
+projectile_names[PROJECTILE_TYPE.QUICKSAND] = "QUICKSAND SHOT";
 
 projectile_descriptions = array_create(PROJECTILE_TYPE.COUNT, "");
+projectile_descriptions[PROJECTILE_TYPE.QUICKSAND] = "Night-only shot. Fires at the Gaze center without aiming. On impact, pulls enemies inward for 5 seconds. Enemies can still attack. Uses normal Cannon reload.";
+projectile_descriptions[PROJECTILE_TYPE.ABSORPTION] = "Night-only instant action. Absorbs all enemy corpses inside the Gaze without aiming. Each corpse permanently adds 1% of the base Gaze radius. Cooldown: "
+	+ string(BALANCE_ABSORPTION_COOLDOWN) + " seconds base, with normal Cannon reload modifiers. No cooldown if no corpses are absorbed.";
+projectile_descriptions[PROJECTILE_TYPE.LOOK_OVER_THERE] = "Day-only instant shot. Moves the Gaze to the aimed position immediately. Consumes one charge, restored the next day.";
 projectile_descriptions[PROJECTILE_TYPE.DAMAGE] = "Damages units and buildings inside the impact area.";
 projectile_descriptions[PROJECTILE_TYPE.CORRUPTION] = "Day-only shell. Fires a wide volley that taints the ground and consumes one daily charge. Its impact radius must touch existing Taint.";
 projectile_descriptions[PROJECTILE_TYPE.SUMMON] = "Summons friendly forces through valid target reactions.";
@@ -1543,6 +1554,56 @@ projectile_descriptions[PROJECTILE_TYPE.DOOM_BELL] = "Stuns all friendly and ene
 
 projectile_enchantment_description_get = function(_projectile_type)
 {
+	if (_projectile_type == PROJECTILE_TYPE.CURING_SPIT && instance_exists(o_cannon))
+	{
+		var _spit_cannon = instance_find(o_cannon, 0);
+		if (_spit_cannon.curing_spit_upgrade == CURING_SPIT_UPGRADE.ROTTEN_BREATH)
+		{
+			return "Rotten Breath: each pulse reduces enemy attack speed by 50% for 5 seconds. Further pulses refresh the debuff.";
+		}
+		if (_spit_cannon.curing_spit_upgrade == CURING_SPIT_UPGRADE.CURE_THE_DEAD)
+		{
+			return "Cure The Dead: each pulse raises one Bonelet at a random point in the Gaze. Summons disappear at dawn.";
+		}
+	}
+	if (_projectile_type == PROJECTILE_TYPE.DARK_GARDEN && instance_exists(o_cannon))
+	{
+		var _garden_cannon = instance_find(o_cannon, 0);
+		if (_garden_cannon.dark_garden_upgrade == DARK_GARDEN_UPGRADE.PROPAGATION)
+		{
+			return "Spreading Roots: every 40-60 seconds, each tree has a 25% chance to plant another seed nearby.";
+		}
+		if (_garden_cannon.dark_garden_upgrade == DARK_GARDEN_UPGRADE.CORRUPTION)
+		{
+			return "Tainted Roots: surviving trees add 25% corruption within 100 px at dawn.";
+		}
+	}
+	if (_projectile_type == PROJECTILE_TYPE.QUICKSAND && instance_exists(o_cannon))
+	{
+		var _cannon = instance_find(o_cannon, 0);
+		if (_cannon.quicksand_upgrade == QUICKSAND_UPGRADE.DEVOUR)
+		{
+			return "Devour: enemies within the inner 10% of the Gaze are swallowed when Quicksand ends. No corpses remain.";
+		}
+		if (_cannon.quicksand_upgrade == QUICKSAND_UPGRADE.CONFUSION)
+		{
+			return "Confusion: when Quicksand ends, enemies walk in a random direction for 1 second at the edge, up to 5 seconds at the center.";
+		}
+	}
+
+	if (_projectile_type == PROJECTILE_TYPE.ABSORPTION && instance_exists(o_cannon))
+	{
+		var _cannon = instance_find(o_cannon, 0);
+		if (_cannon.absorption_upgrade == ABSORPTION_UPGRADE.HEALING)
+		{
+			return "Upgrade: Healing\nEach absorbed corpse restores 1% of Cannon maximum HP.";
+		}
+		if (_cannon.absorption_upgrade == ABSORPTION_UPGRADE.COOLDOWN)
+		{
+			return "Upgrade: Cooldown\nEach absorbed corpse reduces the following cooldown by 10%, up to 100%.";
+		}
+	}
+
 	// Taint Compost enchantments add a persistent object at the impact point.
 	if (_projectile_type == PROJECTILE_TYPE.CORRUPTION
 		&& variable_global_exists("shell_factory_taint_enchantment"))

@@ -1589,7 +1589,8 @@ function day_event_cannon_demand_create(_demand_index, _required_cultist = noone
 	}
 
 	_event.source_building = _cannon;
-	_event.source_sprite = s_cannon_face;
+	var _config = cannon_config_get();
+	_event.source_sprite = _config.sprite_face;
 	_event.is_cannon_demand = true;
 	_event.reroll_is_available = false;
 	_event.can_pin = false;
@@ -1601,7 +1602,8 @@ function day_event_cannon_demand_add()
 {
 	var _current_day = day_event_current_day_get();
 	var _days_since_unlock = _current_day - BALANCE_CANNON_SATISFACTION_UNLOCK_DAY;
-	var _demand_interval = max(1, BALANCE_CANNON_DEMAND_DAY_INTERVAL);
+	var _config = cannon_config_get();
+	var _demand_interval = max(1, _config.demand_day_interval);
 	var _demand_is_scheduled = _days_since_unlock >= 0
 		&& _days_since_unlock mod _demand_interval == 0;
 
@@ -1611,7 +1613,8 @@ function day_event_cannon_demand_add()
 	}
 
 	// Build the random pool from demands whose requirements can currently be met.
-	var _demand_count = 6;
+	var _demand_indices = _config.demand_indices;
+	var _demand_count = array_length(_demand_indices);
 	var _broken_toy_demand_index = 0;
 	var _very_happy_demand_index = 4;
 	var _broken_toy_is_available = day_event_cannon_broken_toy_is_available();
@@ -1634,8 +1637,9 @@ function day_event_cannon_demand_add()
 	var _living_cultist_count = array_length(_living_cultists);
 	var _available_demand_indices = [];
 
-	for (var _demand_index = 0; _demand_index < _demand_count; ++_demand_index)
+	for (var _pool_index = 0; _pool_index < _demand_count; ++_pool_index)
 	{
+		var _demand_index = _demand_indices[_pool_index];
 		if (_demand_index == _broken_toy_demand_index
 			&& !_broken_toy_is_available)
 		{
@@ -1665,7 +1669,7 @@ function day_event_cannon_demand_add()
 		_required_cultist = _living_cultists[irandom(_living_cultist_count - 1)];
 	}
 
-	var _demand = day_event_cannon_demand_create(_selected_demand_index, _required_cultist);
+	var _demand = _config.demand_create(_selected_demand_index, _required_cultist);
 
 	return day_event_add_first(_demand);
 }
@@ -3037,6 +3041,16 @@ function day_event_description_get(_event, _base_description = "")
 
 function day_event_building_overuse_data_get(_building_object)
 {
+	// Maintenance must not reintroduce an event for a Cannon with an empty Factory pool.
+	if (_building_object == o_shell_factory)
+	{
+		var _config = cannon_config_get();
+		if (!_config.shell_factory_overuse_event_enabled)
+		{
+			return noone;
+		}
+	}
+
 	switch (_building_object)
 	{
 		case o_meat_bath:
@@ -5124,6 +5138,36 @@ function day_event_shell_factory_favored_ammunition_create(_shell_factory)
 
 function day_event_building_catalog_get(_building_object)
 {
+	// Cannon 2 has its own Factory catalog instead of the original shell upgrades.
+	if (_building_object == o_shell_factory && cannon_shot_is_available(PROJECTILE_TYPE.ABSORPTION))
+	{
+		return [{ title: "Absorption Upgrade",
+			description: "Choose a permanent upgrade: each absorbed enemy corpse heals 1% of Cannon maximum HP, or reduces the following cooldown by 10% (up to 100%).",
+			cultist_cost: BALANCE_SHELL_FACTORY_ENCHANTMENT_CULTIST_COUNT, is_current: false },
+			{ title: "Look Over There: Night Watch",
+				description: "Allows Look Over There at night using its existing daily charges. Does not restore charges.",
+				cultist_cost: BALANCE_SHELL_FACTORY_UPGRADE_CULTIST_COUNT, is_current: false },
+			{ title: "Curing Spit Upgrade",
+				description: "Choose Rotten Breath to slow enemy attacks with each pulse, or Cure The Dead to raise one Bonelet per pulse.",
+				cultist_cost: BALANCE_SHELL_FACTORY_ENCHANTMENT_CULTIST_COUNT, is_current: false },
+			{ title: "Dark Garden Upgrade",
+				description: "Choose a permanent upgrade: trees can plant more seeds, or surviving trees corrupt the ground beneath them at dawn.",
+				cultist_cost: BALANCE_SHELL_FACTORY_ENCHANTMENT_CULTIST_COUNT, is_current: false },
+			{ title: "Quicksand Shot Upgrade",
+				description: "Choose a permanent upgrade: swallow enemies within the inner 10% of the Gaze when Quicksand ends, or apply Confusion for 1 to 5 seconds based on proximity to the center.",
+				cultist_cost: BALANCE_SHELL_FACTORY_ENCHANTMENT_CULTIST_COUNT, is_current: false }];
+	}
+
+	// An empty Cannon-specific pool also removes legacy entries from the building catalog.
+	if (_building_object == o_shell_factory)
+	{
+		var _config = cannon_config_get();
+		if (array_length(_config.shell_factory_event_creators) == 0)
+		{
+			return [];
+		}
+	}
+
 	var _entry = function(_title, _description, _cultist_cost = 1)
 	{
 		return {
@@ -6362,73 +6406,17 @@ function day_event_generate_for_buildings(_apply_daily_limit = true, _apply_addi
 	{
 		var _shell_factory = _generate_all_buildings ? instance_find(o_shell_factory, 0) : _source_building;
 
-		if (!global.shell_factory_taint_enchantment_event_completed)
+		// The active Cannon chooses the pool for morning generation, rerolls, and debug generation.
+		var _config = cannon_config_get();
+		var _event_creators = _config.shell_factory_event_creators;
+		var _creator_count = array_length(_event_creators);
+		for (var _creator_index = 0; _creator_index < _creator_count; ++_creator_index)
 		{
-			var _taint_enchantment_event = day_event_shell_factory_enchantment_create(_shell_factory);
-
-			if (is_struct(_taint_enchantment_event))
+			var _create_event = _event_creators[_creator_index];
+			var _shell_event = _create_event(_shell_factory);
+			if (is_struct(_shell_event))
 			{
-				day_event_add(_taint_enchantment_event);
-			}
-		}
-
-		if (!global.shell_factory_first_aid_enchantment_event_completed)
-		{
-			var _first_aid_enchantment_event = day_event_shell_factory_first_aid_enchantment_create(_shell_factory);
-
-			if (is_struct(_first_aid_enchantment_event))
-			{
-				day_event_add(_first_aid_enchantment_event);
-			}
-		}
-
-		if (!global.shell_factory_hellcow_enchantment_event_completed)
-		{
-			var _hellcow_enchantment_event = day_event_shell_factory_hellcow_enchantment_create(_shell_factory);
-
-			if (is_struct(_hellcow_enchantment_event))
-			{
-				day_event_add(_hellcow_enchantment_event);
-			}
-		}
-
-		if (!global.shell_factory_doom_bell_enchantment_event_completed)
-		{
-			var _doom_bell_enchantment_event = day_event_shell_factory_doom_bell_enchantment_create(_shell_factory);
-
-			if (is_struct(_doom_bell_enchantment_event))
-			{
-				day_event_add(_doom_bell_enchantment_event);
-			}
-		}
-
-		if (!global.shell_factory_taint_bloom_event_completed)
-		{
-			var _taint_bloom_event = day_event_shell_factory_taint_bloom_create(_shell_factory);
-
-			if (is_struct(_taint_bloom_event))
-			{
-				day_event_add(_taint_bloom_event);
-			}
-		}
-
-		if (!global.shell_factory_opening_barrage_event_completed)
-		{
-			var _opening_barrage_event = day_event_shell_factory_opening_barrage_create(_shell_factory);
-
-			if (is_struct(_opening_barrage_event))
-			{
-				day_event_add(_opening_barrage_event);
-			}
-		}
-
-		if (!global.shell_factory_favored_ammunition_event_completed)
-		{
-			var _favored_ammunition_event = day_event_shell_factory_favored_ammunition_create(_shell_factory);
-
-			if (is_struct(_favored_ammunition_event))
-			{
-				day_event_add(_favored_ammunition_event);
+				day_event_add(_shell_event);
 			}
 		}
 	}

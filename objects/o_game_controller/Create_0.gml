@@ -1,3 +1,7 @@
+// Cannon identity and configuration used for this run.
+cannon_type = DEFAULT_CANNON;
+cannon_config = cannon_config_get();
+
 // Global pause state used by gameplay objects.
 randomise()
 global.pause = false;
@@ -2268,6 +2272,7 @@ corpse_snapshot_add = function(_unit)
 		{
 			corpse_id: _corpse_id,
 			source_object_index: _unit.object_index,
+			unit_faction: _unit.unit_faction, // Preserve allegiance for enemy-only corpse effects.
 			sprite_index: _unit.sprite_index,
 			image_index: floor(_unit.image_index),
 			x: _corpse_x,
@@ -3808,6 +3813,16 @@ building_shell_preview_color_get = function(_building_payload)
 
 projectile_target_selection_radius_get = function(_projectile_type)
 {
+	if (_projectile_type == PROJECTILE_TYPE.LOOK_OVER_THERE)
+	{
+		if (instance_exists(o_cannon))
+		{
+			var _cannon = instance_find(o_cannon, 0);
+			return _cannon.gaze_radius;
+		}
+		return cannon_config.gaze_radius;
+	}
+
 	if (_projectile_type == PROJECTILE_TYPE.CORRUPTION)
 	{
 		if (instance_exists(o_cannon))
@@ -3858,13 +3873,31 @@ projectile_target_selection_radius_get = function(_projectile_type)
 
 cannon_projectile_type_is_reusable = function(_projectile_type)
 {
-	return _projectile_type == PROJECTILE_TYPE.BOMB
+	return _projectile_type == PROJECTILE_TYPE.CURING_SPIT
+		|| _projectile_type == PROJECTILE_TYPE.DARK_GARDEN
+		|| _projectile_type == PROJECTILE_TYPE.QUICKSAND
+		|| _projectile_type == PROJECTILE_TYPE.ABSORPTION
+		|| _projectile_type == PROJECTILE_TYPE.BOMB
 		|| _projectile_type == PROJECTILE_TYPE.HEAL
 		|| _projectile_type == PROJECTILE_TYPE.DOOM_BELL;
 };
 
 cannon_projectile_type_can_fire_in_current_phase = function(_projectile_type)
 {
+	if (!cannon_shot_is_available(_projectile_type))
+	{
+		return false;
+	}
+	if (_projectile_type == PROJECTILE_TYPE.LOOK_OVER_THERE)
+	{
+		if (global.day_phase == DAY_PHASE.DAY)
+		{
+			return true;
+		}
+		return global.day_phase == DAY_PHASE.NIGHT && instance_exists(o_cannon)
+			&& instance_find(o_cannon, 0).look_over_there_night_unlocked;
+	}
+
 	if (_projectile_type == PROJECTILE_TYPE.CORRUPTION)
 	{
 		var _taint_projectile_is_unlocked = true;
@@ -3927,8 +3960,8 @@ cannon_projectile_live_slots_get = function(_max_display_count)
 		var _projectile_type = global.cannon_projectile_queue[_queue_index];
 		var _display_index = -1;
 
-		// Ignore legacy corpse-fed Taint entries from old runtime state.
-		if (_projectile_type == PROJECTILE_TYPE.FEAST)
+		// Hide entries unsupported by the selected Cannon.
+		if (!cannon_shot_is_available(_projectile_type))
 		{
 			continue;
 		}
@@ -3975,6 +4008,28 @@ cannon_projectile_live_slots_get = function(_max_display_count)
 		}
 	}
 
+	// Depleted daily instant shots stay visible until their charges recover in the morning.
+	var _daily_shot_count = array_length(cannon_config.daily_shot_types);
+	for (var _shot_index = 0; _shot_index < _daily_shot_count; ++_shot_index)
+	{
+		var _shot_type = cannon_config.daily_shot_types[_shot_index];
+		if (array_length(_slots) >= _max_display_count)
+		{
+			break;
+		}
+		if (cannon_shot_category_get(_shot_type) == CANNON_SHOT_CATEGORY.INSTANT
+			&& cannon_shot_is_available(_shot_type)
+			&& cannon_projectile_queue_type_count_get(_shot_type) <= 0)
+		{
+			array_push(_slots, {
+				projectile_type: _shot_type,
+				queue_index: -1,
+				consume_queue_index: -1,
+				count: 0,
+				payload: noone
+			});
+		}
+	}
 	return _slots;
 };
 
@@ -7147,8 +7202,8 @@ cannon_satiety_spend_feast = function()
 
 cannon_projectile_queue_add = function(_projectile_type, _payload = noone, _allow_reward_overflow = false)
 {
-	// Taint Compost is the only player-usable Taint projectile.
-	if (_projectile_type == PROJECTILE_TYPE.FEAST)
+	// Every source, including rewards and debug grants, respects this Cannon's shot list.
+	if (!cannon_shot_is_available(_projectile_type))
 	{
 		return false;
 	}
@@ -7191,30 +7246,51 @@ cannon_projectile_queue_type_count_get = function(_projectile_type)
 
 cannon_morning_projectile_target_count_get = function(_projectile_type)
 {
-	// Taint Compost is the only special shell that keeps a daily stockpile.
+	if (_projectile_type == PROJECTILE_TYPE.LOOK_OVER_THERE)
+	{
+		return cannon_config.look_over_there_daily_charges;
+	}
+
+	// Taint Compost retains the original Cannon's daily stockpile.
 	if (_projectile_type != PROJECTILE_TYPE.CORRUPTION)
 	{
 		return 0;
 	}
 
-	return BALANCE_DEFAULT_MORNING_TAINT_COMPOST_LIMIT;
+	return cannon_config.morning_taint_compost_limit;
 };
 
 cannon_reusable_projectiles_ensure = function()
 {
 	var _projectile_types = [];
+	if (cannon_shot_is_available(PROJECTILE_TYPE.CURING_SPIT))
+	{
+		array_push(_projectile_types, PROJECTILE_TYPE.CURING_SPIT);
+	}
+	if (cannon_shot_is_available(PROJECTILE_TYPE.DARK_GARDEN))
+	{
+		array_push(_projectile_types, PROJECTILE_TYPE.DARK_GARDEN);
+	}
+	if (cannon_shot_is_available(PROJECTILE_TYPE.QUICKSAND))
+	{
+		array_push(_projectile_types, PROJECTILE_TYPE.QUICKSAND);
+	}
+	if (cannon_shot_is_available(PROJECTILE_TYPE.ABSORPTION))
+	{
+		array_push(_projectile_types, PROJECTILE_TYPE.ABSORPTION);
+	}
 
-	if (BALANCE_CANNON_STARTING_HELLCOW_AVAILABLE)
+	if (cannon_config.starting_hellcow_available)
 	{
 		array_push(_projectile_types, PROJECTILE_TYPE.BOMB);
 	}
 
-	if (BALANCE_CANNON_STARTING_FIRST_AID_AVAILABLE)
+	if (cannon_config.starting_first_aid_available)
 	{
 		array_push(_projectile_types, PROJECTILE_TYPE.HEAL);
 	}
 
-	if (BALANCE_CANNON_STARTING_DOOM_BELL_AVAILABLE)
+	if (cannon_config.starting_doom_bell_available)
 	{
 		array_push(_projectile_types, PROJECTILE_TYPE.DOOM_BELL);
 	}
@@ -7237,21 +7313,23 @@ cannon_reusable_projectiles_ensure = function()
 
 cannon_morning_projectiles_refill = function()
 {
-	// Reusable shells are permanent choices; only Taint Compost is replenished by count.
+	// Refill each configured daily shot to its capacity; unused charges never accumulate.
 	var _added_count = cannon_reusable_projectiles_ensure();
-	var _projectile_type = PROJECTILE_TYPE.CORRUPTION;
-	var _target_count = cannon_morning_projectile_target_count_get(_projectile_type);
-	var _current_count = cannon_projectile_queue_type_count_get(_projectile_type);
-	var _missing_count = max(0, _target_count - _current_count);
-
-	for (var _missing_index = 0; _missing_index < _missing_count; ++_missing_index)
+	var _daily_shot_count = array_length(cannon_config.daily_shot_types);
+	for (var _shot_index = 0; _shot_index < _daily_shot_count; ++_shot_index)
 	{
-		if (!cannon_projectile_queue_add(_projectile_type))
+		var _projectile_type = cannon_config.daily_shot_types[_shot_index];
+		var _target_count = cannon_morning_projectile_target_count_get(_projectile_type);
+		var _current_count = cannon_projectile_queue_type_count_get(_projectile_type);
+		var _missing_count = max(0, _target_count - _current_count);
+		for (var _missing_index = 0; _missing_index < _missing_count; ++_missing_index)
 		{
-			break;
+			if (!cannon_projectile_queue_add(_projectile_type))
+			{
+				break;
+			}
+			_added_count++;
 		}
-
-		_added_count++;
 	}
 
 	if (_added_count > 0)
@@ -8244,6 +8322,11 @@ cultist_projectile_deploy_unit_hide = function(_unit)
 
 summoned_combat_units_prepare_for_cultist_projectiles = function()
 {
+	if (!cannon_shot_is_available(PROJECTILE_TYPE.CULTIST))
+	{
+		return;
+	}
+
 	var _friendly_count = instance_number(o_friendly_units);
 
 	for (var _friendly_index = 0; _friendly_index < _friendly_count; ++_friendly_index)
@@ -8387,7 +8470,7 @@ squad_projectile_deploy_units_take = function(_primary_unit)
 
 queue_cultist_projectile = function(_cultist)
 {
-	if (!instance_exists(_cultist))
+	if (!cannon_shot_is_available(PROJECTILE_TYPE.CULTIST) || !instance_exists(_cultist))
 	{
 		return false;
 	}
@@ -8446,6 +8529,12 @@ queue_cultist_projectile = function(_cultist)
 
 start_cultists_loading_into_cannon = function()
 {
+	// Cannons without deployment shots leave their army active on the battlefield.
+	if (!cannon_shot_is_available(PROJECTILE_TYPE.CULTIST))
+	{
+		return;
+	}
+
 	clear_cannon_projectile_queues(false);
 
 	for (var _squad_index = 0; _squad_index < array_length(global.squads); ++_squad_index)
@@ -12117,6 +12206,14 @@ start_day_phase = function()
 	debug_previous_day_report_visible = false;
 	clear_dragged_unit();
 	holy_cannon_night_end();
+	dark_garden_night_end();
+	curing_spit_night_end();
+
+	// Apply Gaze before the final-night victory return as well as normal mornings.
+	if (global.day_phase == DAY_PHASE.NIGHT && instance_exists(o_cannon))
+	{
+		cannon_gaze_night_end(instance_find(o_cannon, 0), night_attack_night_index);
+	}
 
 	// Heavy overnight Cannon damage reduces Satisfaction once at daybreak.
 	if (instance_exists(o_cannon))

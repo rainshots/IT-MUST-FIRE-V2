@@ -10,7 +10,9 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 
 	// Fire once at the freshly selected target, including player-paused target selection.
 	var _can_fire_selected_target = (!global.pause || global.focus_window == FOCUS_WINDOW.NOONE)
-		&& cannon_reload_is_ready();
+		&& cannon_reload_is_ready()
+		&& cannon_shot_is_available(target_projectile_type)
+		&& cannon_shot_category_get(target_projectile_type) == CANNON_SHOT_CATEGORY.PROJECTILE;
 
 	if (_can_fire_selected_target)
 	{

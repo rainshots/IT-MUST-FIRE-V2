@@ -15,6 +15,15 @@
 #macro COLOR_SQUAD_ORDER_MOVE $ffffff
 #macro COLOR_SQUAD_ORDER_ATTACK $0000ff
 
+// Cannon variant used when starting a run.
+#macro DEFAULT_CANNON CANNON.CANNON_2
+
+enum CANNON
+{
+	CANNON_1,
+	CANNON_2
+}
+
 enum SQUAD_ORDER
 {
 	NONE,
@@ -37,12 +46,6 @@ enum SQUAD_ORDER
 // Finish every auto-progressed day with the same Cannon Satisfaction for balance testing.
 #macro BALANCE_DEBUG_DAY_PROGRESS_CANNON_SATISFACTION 55
 
-// Each nightly use adds a flat reload penalty to that projectile type, in seconds.
-#macro BALANCE_CANNON_RELOAD_NIGHT_SHOT_PENALTY 0.5
-
-// HellCow drag aiming can shorten the charge to 15% of its existing maximum.
-#macro BALANCE_PROJECTILE_HELLCOW_MIN_CHARGE_DISTANCE (BALANCE_PROJECTILE_HELLCOW_CHARGE_DISTANCE * 0.15)
-
 // Marching reinforcements match the main formation with gentle distance correction.
 #macro BALANCE_SQUAD_MARCH_PACE_UPDATE_TIME 0.1
 #macro BALANCE_SQUAD_MARCH_PACE_DISTANCE_TOLERANCE 64
@@ -56,6 +59,29 @@ enum BUILDING_EVENT_COST_TYPE
 	A,
 	B,
 	C
+}
+
+// Instant shots resolve at target confirmation without launching a projectile.
+enum CANNON_SHOT_CATEGORY
+{
+	PROJECTILE,
+	INSTANT,
+	INSTANT_UNTARGETED,
+	PROJECTILE_UNTARGETED
+}
+
+enum ABSORPTION_UPGRADE
+{
+	NONE,
+	HEALING,
+	COOLDOWN
+}
+
+enum QUICKSAND_UPGRADE
+{
+	NONE,
+	DEVOUR,
+	CONFUSION
 }
 
 enum PROJECTILE_TYPE
@@ -73,6 +99,11 @@ enum PROJECTILE_TYPE
 	CLEANSE,
 	ARTILLERY,
 	DOOM_BELL,
+	LOOK_OVER_THERE,
+	ABSORPTION,
+	QUICKSAND,
+	DARK_GARDEN,
+	CURING_SPIT,
 	COUNT
 }
 
@@ -312,6 +343,8 @@ enum STATUS_EFFECT
 	CURSE,
 	STUN,
 	SLOW,
+	CONFUSION,
+	ATTACK_SLOW,
 	COUNT
 }
 
@@ -481,3 +514,19 @@ enum STATUS_EFFECT
 #macro COLOR_BALANCE_TEST_PLAYER_WIN #78e696
 #macro COLOR_BALANCE_TEST_ENEMY_WIN #f08278
 #macro COLOR_BALANCE_TEST_NEUTRAL #d2d2dc
+
+// Permanent Dark Garden upgrade choices.
+enum DARK_GARDEN_UPGRADE
+{
+	NONE,
+	PROPAGATION,
+	CORRUPTION
+}
+
+// Permanent Curing Spit upgrade choices.
+enum CURING_SPIT_UPGRADE
+{
+	NONE,
+	ROTTEN_BREATH,
+	CURE_THE_DEAD
+}

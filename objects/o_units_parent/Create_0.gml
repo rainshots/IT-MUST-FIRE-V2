@@ -396,6 +396,8 @@ doom_bell_silence_is_active = function()
 };
 
 // Status effects store one active slot per status type.
+quicksand_source = noone; // Active field owns movement but does not suppress attacks.
+confusion_direction = 0; // Chosen once when Confusion is applied.
 status_effect_timers = array_create(STATUS_EFFECT.COUNT, 0);
 status_effect_durations = array_create(STATUS_EFFECT.COUNT, 0);
 status_effect_strengths = array_create(STATUS_EFFECT.COUNT, 0);
@@ -638,7 +640,9 @@ status_effect_is_negative = function(_status_type)
 		|| _status_type == STATUS_EFFECT.SOUL_MARK
 		|| _status_type == STATUS_EFFECT.CURSE
 		|| _status_type == STATUS_EFFECT.STUN
-		|| _status_type == STATUS_EFFECT.SLOW;
+		|| _status_type == STATUS_EFFECT.SLOW
+		|| _status_type == STATUS_EFFECT.CONFUSION
+		|| _status_type == STATUS_EFFECT.ATTACK_SLOW;
 };
 
 status_effect_has = function(_status_type)
@@ -854,6 +858,10 @@ unholy_taint_treatment_update = function()
 
 status_effect_apply = function(_status_type, _duration_seconds, _strength = 0, _secondary_value = 0, _tick_interval_seconds = 0, _source_faction = UNIT_FACTION.NOONE)
 {
+	if (_status_type == STATUS_EFFECT.CONFUSION)
+	{
+		confusion_direction = random(360);
+	}
 	var _duration_frames = max(1, _duration_seconds * room_speed);
 	var _effect_strength = _strength;
 	var _effect_secondary_value = _secondary_value;
@@ -984,13 +992,17 @@ status_effect_movement_multiplier = function()
 
 status_effect_attack_reload_multiplier = function()
 {
-	if (!status_effect_has(STATUS_EFFECT.FEAR))
+	// Attack-only slows do not affect movement; overlapping slows use the strongest value.
+	var _slow_amount = 0;
+	if (status_effect_has(STATUS_EFFECT.FEAR))
 	{
-		return 1;
+		_slow_amount = status_effect_secondary_values[STATUS_EFFECT.FEAR];
 	}
-
-	var _slow_amount = clamp(status_effect_secondary_values[STATUS_EFFECT.FEAR], 0, 0.95);
-	return 1 / max(0.05, 1 - _slow_amount);
+	if (status_effect_has(STATUS_EFFECT.ATTACK_SLOW))
+	{
+		_slow_amount = max(_slow_amount, status_effect_strengths[STATUS_EFFECT.ATTACK_SLOW]);
+	}
+	return 1 / max(0.05, 1 - clamp(_slow_amount, 0, 0.95));
 };
 
 demonic_infusion_reload_multiplier_get = function()
@@ -1314,7 +1326,9 @@ status_effect_particle_type_get = function(_status_type)
 	{
 		return global.particle_type_status_web_red;
 	}
-	else if (_status_type == STATUS_EFFECT.SLOW && variable_global_exists("particle_type_status_slow"))
+	else if ((_status_type == STATUS_EFFECT.SLOW || _status_type == STATUS_EFFECT.CONFUSION
+		|| _status_type == STATUS_EFFECT.ATTACK_SLOW)
+		&& variable_global_exists("particle_type_status_slow"))
 	{
 		return global.particle_type_status_slow;
 	}
@@ -3222,6 +3236,13 @@ move_with_wall_collision = function(
 	_navigation_grid = noone,
 	_ignore_hellcow_movement_lock = false)
 {
+	// Quicksand owns displacement while attacks continue through the normal unit Step.
+	if (!_ignore_hellcow_movement_lock && instance_exists(quicksand_source)
+		&& global.day_phase == DAY_PHASE.NIGHT && quicksand_source.life_remaining > 0
+		&& point_distance(x, y, quicksand_source.x, quicksand_source.y) <= quicksand_source.effect_radius)
+	{
+		return false;
+	}
 	// Hellcow displacement bypasses the lock; every unit-owned movement respects it.
 	if (!_ignore_hellcow_movement_lock && unit_hellcow_movement_is_locked())
 	{
@@ -4371,8 +4392,11 @@ update_separation_push = function()
 			if (_distance_to_unit <= 0)
 			{
 				_distance_to_unit = 1;
-				var _pair_direction = (id + _nearby_unit.id) mod 360;
-				_push_direction = id < _nearby_unit.id
+				// Instance handles must be converted before arithmetic and numeric ordering.
+				var _unit_number = real(id);
+				var _nearby_unit_number = real(_nearby_unit.id);
+				var _pair_direction = (_unit_number + _nearby_unit_number) mod 360;
+				_push_direction = _unit_number < _nearby_unit_number
 					? _pair_direction
 					: _pair_direction + 180;
 			}

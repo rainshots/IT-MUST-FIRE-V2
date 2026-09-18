@@ -1,7 +1,19 @@
 // Select projectile color by type.
 var _projectile_color = COLOR_PROJECTILE_DAMAGE;
 
-if (projectile_type == PROJECTILE_TYPE.CORRUPTION)
+if (projectile_type == PROJECTILE_TYPE.CURING_SPIT)
+{
+	_projectile_color = COLOR_CURING_SPIT;
+}
+else if (projectile_type == PROJECTILE_TYPE.DARK_GARDEN)
+{
+	_projectile_color = COLOR_DARK_GARDEN;
+}
+else if (projectile_type == PROJECTILE_TYPE.QUICKSAND)
+{
+	_projectile_color = COLOR_QUICKSAND;
+}
+else if (projectile_type == PROJECTILE_TYPE.CORRUPTION)
 {
 	_projectile_color = COLOR_PROJECTILE_CORRUPTION;
 }

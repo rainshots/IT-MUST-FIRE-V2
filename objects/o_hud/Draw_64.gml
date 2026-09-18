@@ -694,7 +694,8 @@ if (instance_exists(o_cannon))
 	var _base_size = minimap_base_size * _minimap_scale;
 	var _base_left = _minimap_center_x - (_base_size * 0.5);
 	var _base_top = _minimap_center_y - (_base_size * 0.5);
-	var _base_sprite = s_cannon_icon;
+	var _cannon_config = cannon_config_get();
+	var _base_sprite = _cannon_config.sprite_icon;
 
 	if (sprite_exists(_base_sprite))
 	{
@@ -1816,7 +1817,24 @@ if (_projectile_ui_is_visible
 		var _projectile_squad_unit_sprite = noone;
 		var _circle_radius = projectile_circle_radius;
 
-		if (_projectile_type == PROJECTILE_TYPE.CORRUPTION)
+		if (_projectile_type == PROJECTILE_TYPE.CURING_SPIT)
+		{
+			_projectile_color = COLOR_CURING_SPIT;
+		}
+		else if (_projectile_type == PROJECTILE_TYPE.DARK_GARDEN)
+		{
+			_projectile_color = COLOR_DARK_GARDEN;
+		}
+		else if (_projectile_type == PROJECTILE_TYPE.QUICKSAND)
+		{
+			_projectile_color = COLOR_QUICKSAND;
+		}
+		else if (_projectile_type == PROJECTILE_TYPE.LOOK_OVER_THERE
+			|| _projectile_type == PROJECTILE_TYPE.ABSORPTION)
+		{
+			_projectile_color = COLOR_CANNON_GAZE;
+		}
+		else if (_projectile_type == PROJECTILE_TYPE.CORRUPTION)
 		{
 			_projectile_color = COLOR_PROJECTILE_CORRUPTION;
 			_projectile_sprite = s_taint_shell;
@@ -1979,7 +1997,8 @@ if (_projectile_ui_is_visible
 		else
 		{
 			draw_set_color(_projectile_color);
-			draw_circle(_slot_x + (_slot_width * 0.5), _slot_y + 22, _circle_radius, false);
+			draw_circle(_slot_x + (_slot_width * 0.5), _slot_y + 22, _circle_radius,
+				_projectile_type == PROJECTILE_TYPE.LOOK_OVER_THERE);
 		}
 
 		// Squad shells place their main combat unit inside the colored projectile circle.
@@ -2009,7 +2028,8 @@ if (_projectile_ui_is_visible
 
 		// Only stockpiled shells show a quantity; reusable shells are governed by Cannon reload.
 		var _projectile_count_is_visible = _projectile_stack_count > 1
-			|| _projectile_type == PROJECTILE_TYPE.CORRUPTION;
+			|| _projectile_type == PROJECTILE_TYPE.CORRUPTION
+			|| _projectile_type == PROJECTILE_TYPE.LOOK_OVER_THERE;
 
 		if (_projectile_count_is_visible)
 		{
@@ -2353,6 +2373,11 @@ if (_projectile_ui_is_visible
 			var _description_text_width = _description_width - (projectile_description_padding * 2);
 			var _description_name = projectile_names[_description_type];
 			var _description_text = projectile_descriptions[_description_type];
+			if (_description_type == PROJECTILE_TYPE.LOOK_OVER_THERE && instance_exists(o_cannon)
+				&& instance_find(o_cannon, 0).look_over_there_night_unlocked)
+			{
+				_description_text = "Day or night instant shot. Moves the Gaze to the aimed position immediately. Consumes one shared daily charge, restored the next day. Night Watch does not restore charges.";
+			}
 			var _enchantment_description = projectile_enchantment_description_get(_description_type);
 			var _upgrade_description = projectile_shell_factory_upgrade_description_get(_description_type);
 

@@ -296,6 +296,22 @@ if (is_stunned)
 	exit;
 }
 
+// Confusion temporarily replaces targeting with a fixed random walking direction.
+if (status_effect_has(STATUS_EFFECT.CONFUSION))
+{
+	target_instance = noone;
+	alert_target = noone;
+	forced_attack_target = noone;
+	forced_attack_target_timer = 0;
+	is_attacking_target = false;
+	navigation_path_state_clear();
+	var _confusion_speed = move_speed * unit_move_speed_multiplier_get() * gameplay_time_scale;
+	is_walking = move_with_wall_collision(lengthdir_x(_confusion_speed, confusion_direction),
+		lengthdir_y(_confusion_speed, confusion_direction));
+	update_walk_sway();
+	exit;
+}
+
 // Update short attack feedback lifetime.
 if (attack_feedback_timer > 0)
 {

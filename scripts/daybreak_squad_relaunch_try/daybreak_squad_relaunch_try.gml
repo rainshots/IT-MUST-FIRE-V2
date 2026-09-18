@@ -2,7 +2,8 @@
 /// @param {Struct} squad Squad whose dying member has resolved replacement effects and cleared its slot.
 function daybreak_squad_relaunch_try(_squad)
 {
-	if (global.day_phase != DAY_PHASE.NIGHT || !is_struct(_squad)
+	if (!cannon_shot_is_available(PROJECTILE_TYPE.CULTIST)
+		|| global.day_phase != DAY_PHASE.NIGHT || !is_struct(_squad)
 		|| _squad.squad_type == SQUAD_TYPE.ARCHDEMON
 		|| !instance_exists(o_game_controller) || !instance_exists(o_cannon))
 	{
