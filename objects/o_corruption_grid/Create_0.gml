@@ -17,6 +17,9 @@ if (_roads_layer != -1)
 corruption_grid = ds_grid_create(grid_width, grid_height);
 ds_grid_clear(corruption_grid, 0);
 
+// Shared cardinal offsets for event-driven enclosed-cell checks; no per-call array allocation.
+enclosure_neighbor_offsets = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+
 // Wall occupancy prevents corruption from existing or spreading beneath walls.
 wall_block_grid = ds_grid_create(grid_width, grid_height);
 ds_grid_clear(wall_block_grid, false);
@@ -383,6 +386,10 @@ corrupt_circle = function(_center_x, _center_y, _radius, _corruption, _mountains
 				var _new_corruption = clamp(_current_corruption + _corruption, 0, 1);
 
 				ds_grid_set(corruption_grid, _cell_x, _cell_y, _new_corruption);
+				if (_current_corruption <= 0 && _new_corruption > 0)
+				{
+					corruption_enclosed_neighbors_fill(id, _cell_x, _cell_y);
+				}
 			}
 		}
 	}

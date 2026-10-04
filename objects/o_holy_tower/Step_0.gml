@@ -22,8 +22,11 @@ if (variable_global_exists("unholy_night_active") && global.unholy_night_active)
 }
 
 holy_tower_saint_source_register();
-holy_tower_reinforcement_thresholds_update();
-holy_tower_night_volley_update();
+if (NIGHT_ENEMY_ATTACKS_ENABLED || global.day_phase != DAY_PHASE.NIGHT)
+{
+	holy_tower_reinforcement_thresholds_update();
+	holy_tower_night_volley_update();
+}
 
 // Destroy the tower safely if any damage source reduced HP to zero.
 if (hp <= 0)
@@ -39,7 +42,7 @@ if (attack_feedback_timer > 0)
 }
 
 // Holy towers only attack during the night.
-if (global.day_phase != DAY_PHASE.NIGHT)
+if (!NIGHT_ENEMY_ATTACKS_ENABLED || global.day_phase != DAY_PHASE.NIGHT)
 {
 	target_instance = noone;
 	exit;

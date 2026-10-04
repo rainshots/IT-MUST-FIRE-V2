@@ -1,5 +1,8 @@
 /// @description Project-wide enums and macros.
 
+// Temporarily replace defensive nights and special encounters with army marches.
+#macro NIGHT_ENEMY_ATTACKS_ENABLED false
+
 // Keep legacy flag dragging as the default; preserve the experimental system and its hidden switch.
 #macro SQUAD_FLAG_SYSTEM_2_ENABLED false
 #macro SQUAD_FLAG_SYSTEM_SETTING_VISIBLE false
@@ -339,6 +342,7 @@ enum STATUS_EFFECT
 
 #macro COLOR_PROJECTILE_DAMAGE $ff4a42
 #macro COLOR_PROJECTILE_CORRUPTION #3E3631
+#macro COLOR_CANNON_DAY_TARGET #ff1f2d
 #macro COLOR_PROJECTILE_SUMMON $48d982
 #macro COLOR_PROJECTILE_RALLY #58a6ff
 #macro COLOR_PROJECTILE_CULTIST #b45cff
@@ -352,6 +356,7 @@ enum STATUS_EFFECT
 #macro COLOR_HOLY_CANNON_DAMAGE #ff1f2d
 #macro COLOR_HOLY_CANNON_HEAL #48ff82
 #macro COLOR_PARTICLE_SMOKE $5f5c58
+#macro COLOR_PLAYER_CORRUPTION_SMOKE #B66AFF
 #macro COLOR_PARTICLE_EXPLOSION_INNER $ffe47c
 #macro COLOR_PARTICLE_EXPLOSION_OUTER $ff5c2e
 #macro COLOR_HELLCOW_STICKY_TRAIL #75b84f
@@ -430,7 +435,7 @@ enum STATUS_EFFECT
 #macro COLOR_HUD_MINIMAP_VIEW_FILL #d9d9d9
 #macro COLOR_HUD_MINIMAP_VIEW_BORDER $ffffff
 #macro COLOR_HUD_MINIMAP_HEALTH_BACKGROUND #303030
-#macro COLOR_CORRUPTION_MAX #3E3631
+#macro COLOR_CORRUPTION_MAX #422b44
 #macro COLOR_SAINT_MAX #887938
 #macro COLOR_HOLY_TOWER_RADIUS $f2d76b
 #macro COLOR_TOWER_CORRUPTION_RADIUS #3E3631

@@ -983,8 +983,8 @@ control_hints_padding_x = 12;
 control_hints_padding_y = 10;
 control_hints_background_alpha = 0.52;
 control_hints_key_alpha = 0.18;
-control_hint_keys = ["SPACE", "WASD", "MOUSE WHEEL"];
-control_hint_actions = ["pause", "move camera", "zoom camera"];
+control_hint_keys = ["ENTER", "SPACE (HOLD)", "WASD", "MOUSE WHEEL"];
+control_hint_actions = ["pause", "taunt cannon", "move avatar", "zoom camera"];
 // The night-only Q row describes the next action, not the current speed.
 control_hint_night_speed_key = "Q";
 control_hint_speed_up_action = "speed up time";

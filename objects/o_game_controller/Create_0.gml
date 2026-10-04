@@ -3649,7 +3649,7 @@ squad_control_selection_update = function()
 	{
 		squad_control_selection_clear();
 	}
-	else if (keyboard_check_pressed(ord("A")))
+	else if (!instance_exists(o_player) && keyboard_check_pressed(ord("A")))
 	{
 		squad_attack_move_armed = true;
 	}
@@ -4712,7 +4712,8 @@ holy_cannon_strike_create = function()
 
 holy_cannon_night_start = function()
 {
-	var _can_attack_this_night = night_attack_night_index >= BALANCE_HOLY_CANNON_START_NIGHT
+	var _can_attack_this_night = NIGHT_ENEMY_ATTACKS_ENABLED
+		&& night_attack_night_index >= BALANCE_HOLY_CANNON_START_NIGHT
 		&& !global.unholy_night_active;
 
 	holy_cannon_fire_timer = _can_attack_this_night
@@ -4732,7 +4733,7 @@ holy_cannon_night_end = function()
 
 holy_cannon_update = function()
 {
-	if (global.pause
+	if (!NIGHT_ENEMY_ATTACKS_ENABLED || global.pause
 		|| global.day_phase != DAY_PHASE.NIGHT
 		|| global.unholy_night_active
 		|| night_attack_night_index < BALANCE_HOLY_CANNON_START_NIGHT)
@@ -11094,6 +11095,16 @@ night_attack_marker_spawn_data_get = function()
 
 night_attack_plan_create = function()
 {
+	// No attack previews or pending boss encounters in the army march prototype.
+	if (!NIGHT_ENEMY_ATTACKS_ENABLED)
+	{
+		night_attack_directions = [];
+		night_attack_plan_exists = false;
+		boss_griffith_pending_next_night = false;
+		boss_griffith_force_next_night = false;
+		return;
+	}
+
 	// The day after a Blood Moon deliberately previews no incoming attack.
 	if (unholy_night_pending || global.unholy_night_active)
 	{
@@ -11385,6 +11396,11 @@ night_attack_enemy_spawn = function(_direction_index, _direction_data, _enemy_ob
 
 boss_griffith_night_is_scheduled = function(_night_index)
 {
+	if (!NIGHT_ENEMY_ATTACKS_ENABLED)
+	{
+		return false;
+	}
+
 	if (boss_griffith_force_next_night)
 	{
 		return true;
@@ -11411,6 +11427,11 @@ boss_griffith_night_is_scheduled = function(_night_index)
 
 boss_crusader_horde_is_scheduled = function(_night_index)
 {
+	if (!NIGHT_ENEMY_ATTACKS_ENABLED)
+	{
+		return false;
+	}
+
 	var _crusader_horde_night = boss_griffith_night_interval
 		* BALANCE_BOSS_CRUSADER_HORDE_ENCOUNTER_NUMBER
 		+ BALANCE_BOSS_CRUSADER_HORDE_NIGHT_OFFSET;
@@ -11420,6 +11441,11 @@ boss_crusader_horde_is_scheduled = function(_night_index)
 
 full_moon_night_is_scheduled = function(_night_index)
 {
+	if (!NIGHT_ENEMY_ATTACKS_ENABLED)
+	{
+		return false;
+	}
+
 	if (boss_griffith_night_is_scheduled(_night_index))
 	{
 		return false;
@@ -11441,6 +11467,12 @@ full_moon_night_is_scheduled = function(_night_index)
 
 boss_griffith_prepare_next_night = function()
 {
+	if (!NIGHT_ENEMY_ATTACKS_ENABLED)
+	{
+		boss_griffith_pending_next_night = false;
+		return;
+	}
+
 	if (boss_griffith_pending_next_night)
 	{
 		return;
@@ -11599,7 +11631,7 @@ boss_crusader_horde_spawn_for_night = function()
 
 night_attack_spawning_update = function()
 {
-	if (global.pause
+	if (!NIGHT_ENEMY_ATTACKS_ENABLED || global.pause
 		|| global.day_phase != DAY_PHASE.NIGHT
 		|| global.unholy_night_active
 		|| !night_attack_plan_exists)
@@ -11916,7 +11948,8 @@ start_night_phase = function()
 	clear_dragged_unit();
 	cannon_corpse_workers_drop_all();
 	var _is_full_moon_night = full_moon_night_is_scheduled(night_attack_night_index);
-	var _is_unholy_night = BALANCE_UNHOLY_NIGHT_ENABLED && unholy_night_pending;
+	var _is_unholy_night = NIGHT_ENEMY_ATTACKS_ENABLED
+		&& BALANCE_UNHOLY_NIGHT_ENABLED && unholy_night_pending;
 
 	global.day_phase = DAY_PHASE.NIGHT;
 	no_rest_for_the_dead_used = false;
@@ -12040,7 +12073,8 @@ start_night_phase = function()
 	}
 
 	// Boss nights have no forced time limit and end only after the army is defeated.
-	boss_griffith_night_active = !_is_unholy_night && boss_griffith_pending_next_night;
+	boss_griffith_night_active = NIGHT_ENEMY_ATTACKS_ENABLED
+		&& !_is_unholy_night && boss_griffith_pending_next_night;
 
 	start_cultists_loading_into_cannon();
 	cannon_projectile_night_slots_capture();
@@ -12048,7 +12082,7 @@ start_night_phase = function()
 
 	with (o_garnizon)
 	{
-		if (!global.unholy_night_active && is_activated)
+		if (NIGHT_ENEMY_ATTACKS_ENABLED && !global.unholy_night_active && is_activated)
 		{
 			release_owned_units();
 		}
@@ -12060,7 +12094,7 @@ start_night_phase = function()
 	{
 		var _enemy = instance_find(o_enemy_units, _enemy_index);
 
-		if (!global.unholy_night_active
+		if (NIGHT_ENEMY_ATTACKS_ENABLED && !global.unholy_night_active
 			&& instance_exists(_enemy)
 			&& variable_instance_exists(_enemy, "owner_garnizon")
 			&& instance_exists(_enemy.owner_garnizon)
@@ -12074,7 +12108,7 @@ start_night_phase = function()
 		}
 	}
 
-	var _existing_enemy_count = global.unholy_night_active
+	var _existing_enemy_count = !NIGHT_ENEMY_ATTACKS_ENABLED || global.unholy_night_active
 		? 0
 		: instance_number(o_enemy_units);
 
@@ -12085,7 +12119,7 @@ start_night_phase = function()
 		enemy_night_balance_scale_apply(_existing_enemy);
 	}
 
-	if (!global.unholy_night_active && boss_griffith_pending_next_night)
+	if (NIGHT_ENEMY_ATTACKS_ENABLED && !global.unholy_night_active && boss_griffith_pending_next_night)
 	{
 		if (boss_crusader_horde_is_scheduled(night_attack_night_index))
 		{

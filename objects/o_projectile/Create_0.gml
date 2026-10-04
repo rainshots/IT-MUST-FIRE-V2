@@ -1,5 +1,7 @@
 // Projectile route settings assigned by the firing cannon after creation.
 start_x = x;
+// Daytime avatar shots keep their landing marker visible until this projectile is destroyed.
+day_target_visible = false;
 start_y = y;
 target_x = x;
 target_y = y;

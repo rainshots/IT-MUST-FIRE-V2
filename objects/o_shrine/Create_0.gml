@@ -482,7 +482,7 @@ shrine_saint_front_distance_get = function(_shot_direction)
 
 shrine_night_saint_projectiles_fire = function()
 {
-	if (is_corrupted || !instance_exists(o_cannon))
+	if (!NIGHT_ENEMY_ATTACKS_ENABLED || is_corrupted || !instance_exists(o_cannon))
 	{
 		return;
 	}

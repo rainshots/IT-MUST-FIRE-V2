@@ -31,6 +31,12 @@ tooltip_lines = [
 
 release_owned_units = function()
 {
+	// Keep prepared guards at home while hostile night attacks are disabled.
+	if (!NIGHT_ENEMY_ATTACKS_ENABLED)
+	{
+		return;
+	}
+
 	has_released_current_night = true;
 
 	var _enemy_count = instance_number(o_enemy_units);

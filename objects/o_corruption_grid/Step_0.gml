@@ -110,6 +110,10 @@ for (var _cell_x = 0; _cell_x < grid_width; ++_cell_x)
 							{
 								var _new_corruption = min(_target_corruption + _spread_corruption, passive_spread_limit);
 								ds_grid_set(corruption_grid, _target_cell_x, _target_cell_y, _new_corruption);
+								if (_target_corruption <= 0 && _new_corruption > 0)
+								{
+									corruption_enclosed_neighbors_fill(id, _target_cell_x, _target_cell_y);
+								}
 							}
 						}
 					}

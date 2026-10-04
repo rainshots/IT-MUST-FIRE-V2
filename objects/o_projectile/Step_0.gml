@@ -58,6 +58,21 @@ if (smoke_trail_enabled && _flight_progress < 1)
 // Apply the projectile effect when it lands.
 if (_flight_progress >= 1)
 {
+	// Cannon impacts damage destructible walls before shell-specific landing effects.
+	destructable_wall_projectile_hit();
+	// Daytime cannon blasts hit the avatar only at impact, using the frozen warning radius.
+	if (day_target_visible && instance_exists(o_player))
+	{
+		var _avatar = instance_find(o_player, 0);
+		if (!_avatar.is_disassembled && point_distance(target_x, target_y, _avatar.x, _avatar.y) <= effect_radius)
+		{
+			with (_avatar)
+			{
+				player_damage_apply(BALANCE_PLAYER_CANNON_BLAST_DAMAGE);
+			}
+		}
+	}
+
 	// Play a random impact sound for any landed projectile.
 	if (variable_global_exists("explosion_sounds") && variable_global_exists("sound_play_random"))
 	{
@@ -139,6 +154,8 @@ if (_flight_progress >= 1)
 	// Corruption projectiles infect ground cells in the explosion radius.
 	if (projectile_type == PROJECTILE_TYPE.CORRUPTION)
 	{
+		// Tombs react only to projectile impacts, never to passive ground corruption.
+		tomb_corruption_impact_apply(target_x, target_y, effect_radius);
 		corrupt_circle(
 			target_x,
 			target_y,
@@ -538,6 +555,7 @@ if (_flight_progress >= 1)
 				&& id != other.cultist_payload
 				&& (!other.damage_units_only || variable_instance_exists(id, "unit_faction"))
 				&& object_index != o_projectile
+				&& object_index != o_destructable_wall
 				&& object_index != o_particle_smoke
 				&& object_index != o_particle_explosion
 				&& object_index != o_camera_controller

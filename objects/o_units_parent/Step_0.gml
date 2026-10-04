@@ -381,6 +381,29 @@ else
 	forced_attack_target = noone;
 }
 
+// Existing enemies remain passive at night while the player's army marches.
+if (!NIGHT_ENEMY_ATTACKS_ENABLED
+	&& unit_faction == UNIT_FACTION.ENEMY
+	&& global.day_phase == DAY_PHASE.NIGHT)
+{
+	target_instance = noone;
+	alert_target = noone;
+	forced_attack_target = noone;
+	is_attacking_target = false;
+	is_walking = false;
+	visual_attack_offset_x = 0;
+	visual_attack_offset_y = 0;
+	update_walk_sway();
+	exit;
+}
+
+// Army units gather and march instead of running automatic combat targeting.
+if (army_ai_enabled)
+{
+	army_unit_ai_update();
+	exit;
+}
+
 // System 2 may own movement, or prepare one nearby target for the normal combat code below.
 if (squad_order_unit_update(id))
 {

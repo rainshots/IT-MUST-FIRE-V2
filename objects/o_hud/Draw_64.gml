@@ -2938,3 +2938,9 @@ draw_set_halign(fa_left);
 draw_set_valign(fa_top);
 draw_set_color(c_white);
 draw_set_alpha(1);
+
+// The avatar cannon countdown shares the regular HUD visibility rules.
+if (_regular_hud_is_visible)
+{
+	cannon_day_shot_hud_draw();
+}

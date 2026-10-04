@@ -1,3 +1,13 @@
+// Before launch, the warning follows the avatar; the projectile owns it after launch.
+if (day_shot_warning_active && instance_exists(o_player) && global.day_phase == DAY_PHASE.DAY)
+{
+	var _player = instance_find(o_player, 0);
+	if (!_player.is_disassembled)
+	{
+		cannon_day_target_draw(_player.x, _player.y, day_shot_radius);
+	}
+}
+
 // Draw cannon sprite.
 var _cannon_alpha = image_alpha;
 

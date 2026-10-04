@@ -340,8 +340,8 @@ if (global.cheats_enabled
 	}
 }
 
-// Space toggles gameplay pause without opening a blocking focus window.
-if (keyboard_check_pressed(vk_space)
+// Enter toggles gameplay pause; Space is reserved for holding the avatar taunt.
+if (keyboard_check_pressed(vk_enter)
 	&& (global.focus_window == FOCUS_WINDOW.NOONE
 		|| global.focus_window == FOCUS_WINDOW.TARGET_SELECTION)
 	&& !pause_menu_open
@@ -1447,7 +1447,8 @@ if (!global.pause && global.day_cycle_enabled)
 			: 1;
 		global.day_timer = max(global.day_timer - _gameplay_time_scale, 0);
 
-		if (_unholy_night_is_active)
+		// Army marches use the normal night duration without requiring enemy kills.
+		if (!NIGHT_ENEMY_ATTACKS_ENABLED || _unholy_night_is_active)
 		{
 			if (global.day_timer <= 0)
 			{
@@ -1913,7 +1914,7 @@ update_cultists_loading_into_cannon();
 night_attack_spawning_update();
 
 // Morning starts once every planned enemy has spawned and no enemies remain alive.
-if (!global.pause
+if (NIGHT_ENEMY_ATTACKS_ENABLED && !global.pause
 	&& global.day_cycle_enabled
 	&& global.day_phase == DAY_PHASE.NIGHT
 	&& !global.unholy_night_active

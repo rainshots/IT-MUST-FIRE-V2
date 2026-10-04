@@ -1,3 +1,9 @@
+// The landing position stays fixed throughout flight, even if the avatar moves away.
+if (day_target_visible)
+{
+	cannon_day_target_draw(target_x, target_y, effect_radius);
+}
+
 // Select projectile color by type.
 var _projectile_color = COLOR_PROJECTILE_DAMAGE;
 

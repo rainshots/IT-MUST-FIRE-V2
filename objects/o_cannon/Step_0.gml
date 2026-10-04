@@ -1,3 +1,19 @@
+// Automatic daytime shots use their own timer without consuming queued ammunition.
+cannon_day_shot_update();
+
+// All cannon reload and firing paths wait while the avatar collects its body.
+var _avatar_rebuilding = false;
+var _avatar_reload_multiplier = 1;
+if (instance_exists(o_player))
+{
+	var _avatar = instance_find(o_player, 0);
+	_avatar_rebuilding = _avatar.is_disassembled;
+	if (_avatar.player_taunt_is_active())
+	{
+		_avatar_reload_multiplier = BALANCE_PLAYER_TAUNT_RELOAD_MULTIPLIER;
+	}
+}
+
 // Receive a freshly selected target from the game controller.
 if (global.cannon_target_exists && target_version != global.cannon_target_version)
 {
@@ -10,6 +26,7 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 
 	// Fire once at the freshly selected target, including player-paused target selection.
 	var _can_fire_selected_target = (!global.pause || global.focus_window == FOCUS_WINDOW.NOONE)
+		&& !_avatar_rebuilding
 		&& cannon_reload_is_ready();
 
 	if (_can_fire_selected_target)
@@ -266,10 +283,13 @@ if (global.cannon_target_exists && target_version != global.cannon_target_versio
 }
 
 // Reload progress follows gameplay time and pauses with the simulation.
-if (!global.pause && cannon_reload_timer > 0)
+if (!global.pause && !_avatar_rebuilding && cannon_reload_timer > 0)
 {
-	cannon_reload_timer = max(cannon_reload_timer - global.gameplay_time_scale, 0);
+	cannon_reload_timer = max(cannon_reload_timer - global.gameplay_time_scale * _avatar_reload_multiplier, 0);
 }
 
 // Maximum Satisfaction periodically produces a free shot during combat.
-cannon_satisfaction_auto_fire_update();
+if (!_avatar_rebuilding)
+{
+	cannon_satisfaction_auto_fire_update();
+}

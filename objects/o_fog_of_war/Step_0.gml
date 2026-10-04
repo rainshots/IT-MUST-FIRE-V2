@@ -37,6 +37,14 @@ if (cannon_starting_reveal_radius > 0 && instance_exists(o_cannon))
 	fog_world_circle_explore(_cannon.x, _cannon.y, cannon_starting_reveal_radius);
 }
 
+// The avatar carries its own vision beyond the settlement's explored area.
+if (instance_exists(o_player))
+{
+	var _player = instance_find(o_player, 0);
+	fog_world_circle_explore(_player.x, _player.y, _player.vision_radius);
+	fog_world_circle_reveal(_player.x, _player.y, _player.vision_radius);
+}
+
 // Cached fully corrupted cells reveal nearby fog in a circular cell radius.
 var _taint_reveal_cell_count = array_length(taint_reveal_cell_xs);
 

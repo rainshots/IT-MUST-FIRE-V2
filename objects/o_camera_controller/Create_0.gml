@@ -1,7 +1,7 @@
-// Use the room center until the cannon becomes available after instance creation.
+// Use the room center until the player is available after room creation.
 x = room_width * 0.5;
 y = room_height * 0.5;
-start_center_on_cannon_pending = true;
+follow_target = noone;
 
 // Controller reference used for resolution changes.
 game_controller = noone;
@@ -11,22 +11,7 @@ if (instance_exists(o_game_controller))
 	game_controller = instance_find(o_game_controller, 0);
 }
 
-if (!variable_global_exists("edge_scroll_enabled"))
-{
-	global.edge_scroll_enabled = true;
-}
-
-if (!variable_global_exists("edge_scroll_speed"))
-{
-	global.edge_scroll_speed = 0.5;
-}
-
-if (!variable_global_exists("camera_speed"))
-{
-	global.camera_speed = 0.5;
-}
-
-// View size used by the strategy camera.
+// Base view size used by the avatar camera.
 if (instance_exists(game_controller))
 {
 	base_view_width = game_controller.camera_view_width;
@@ -41,8 +26,8 @@ else
 // Zoom settings controlled by the mouse wheel.
 minimum_zoom_level = 1;
 maximum_zoom_level = 3;
-zoom_level = maximum_zoom_level;
-target_zoom_level = maximum_zoom_level;
+zoom_level = minimum_zoom_level;
+target_zoom_level = minimum_zoom_level;
 zoom_step = 0.2;
 zoom_smoothing = 0.18;
 
@@ -60,19 +45,7 @@ jobs_view_previous_target_zoom_level = target_zoom_level;
 view_width = base_view_width * zoom_level;
 view_height = base_view_height * zoom_level;
 
-// Movement settings for smooth WASD camera control.
-move_speed = 18;
-move_acceleration = 1.2;
-move_deceleration = 1.0;
-minimum_zoom_speed_multiplier = 1;
-maximum_zoom_speed_multiplier = 2;
-camera_speed_min_multiplier = 0.5;
-camera_speed_max_multiplier = 1.75;
-edge_scroll_border_size = 28;
-edge_scroll_speed_min_multiplier = 0.35;
-edge_scroll_speed_max_multiplier = 1.5;
-
-// Current camera velocity.
+// Legacy centering helpers reset these velocities.
 velocity_x = 0;
 velocity_y = 0;
 

@@ -9,6 +9,8 @@ reload_timer = reload_time;
 initial_attack_reload_pending = true; // First Step applies the unit type's final full reload duration.
 attack_radius = 32;
 y_sort_enabled = true;
+// Army archers opt into gathering and night marching instead of combat AI.
+army_ai_enabled = false;
 
 // Base unit movement and target search settings.
 move_speed = 1.2 * BALANCE_GLOBAL_MOVE_SPEED_MULTIPLIER;
@@ -4103,6 +4105,13 @@ find_nearest_reachable_enemy_wall = function(_max_distance)
 
 move_towards_target = function(_target, _navigation_arrive_radius = attack_radius)
 {
+	// Break a destructible obstruction before resuming pursuit of the original target.
+	if (instance_exists(_target) && _target.object_index != o_destructable_wall
+		&& unit_path_wall_attack(_target.x, _target.y))
+	{
+		return;
+	}
+
 	if (!instance_exists(_target) || !navigation_target_prepare(_target, _navigation_arrive_radius))
 	{
 		return;
@@ -4134,6 +4143,12 @@ move_towards_target = function(_target, _navigation_arrive_radius = attack_radiu
 // Optional base speed lets march orders preserve the unit's normal combat stats.
 move_towards_world_point = function(_target_x, _target_y, _base_move_speed = move_speed)
 {
+	// Gathering and marching units can clear walls along their movement orders.
+	if (unit_path_wall_attack(_target_x, _target_y))
+	{
+		return;
+	}
+
 	if (!navigation_world_point_prepare(_target_x, _target_y))
 	{
 		is_walking = false;

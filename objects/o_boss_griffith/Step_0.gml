@@ -1,3 +1,10 @@
+// Disable child-owned summons and leaps together with regular hostile night AI.
+if (!NIGHT_ENEMY_ATTACKS_ENABLED && global.day_phase == DAY_PHASE.NIGHT)
+{
+	event_inherited();
+	exit;
+}
+
 // Passive summoning continues while regular movement may be paused by leap movement.
 gameplay_time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
 var _time_scale = gameplay_time_scale;

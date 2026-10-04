@@ -1,3 +1,8 @@
+// Daytime avatar shot countdown in seconds; the warning radius is copied to the projectile.
+day_shot_remaining = BALANCE_CANNON_DAY_SHOT_INTERVAL_SECONDS;
+day_shot_warning_active = false;
+day_shot_radius = BALANCE_PROJECTILE_TAINT_COMPOST_RADIUS;
+
 // Cannon target selected by the player.
 sprite_index = cannon_satisfaction_sprite_get();
 image_index = 0;
