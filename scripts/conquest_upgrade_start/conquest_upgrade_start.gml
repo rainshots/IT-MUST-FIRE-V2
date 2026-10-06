@@ -4,6 +4,7 @@ function conquest_upgrade_start(_controller, _index, _owner)
 	if (!instance_exists(_controller)) return false;
 	if (_index < 0 || _index >= array_length(_controller.nodes)) return false;
 	var _node = _controller.nodes[_index];
+	if (_controller.tactical_mode && _node.under_siege) return false;
 	if (_node.owner != _owner || _node.level >= BALANCE_CONQUEST_MAX_LEVEL
 		|| _node.upgrade_remaining > 0 || _controller.phase != BATTLE_PHASE.BATTLE) return false;
 	var _costs = BALANCE_CONQUEST_UPGRADE_COST;

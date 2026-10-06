@@ -27,6 +27,39 @@ try
 	if (test_phase == 1)
 	{
 		var _controller = instance_find(o_conquest, 0);
+		_assert(instance_exists(_controller) && _controller.tactical_mode && array_length(_controller.nodes) == 7, "Road mission did not initialize");
+		screen_save("conquest_roads_start.png");
+		// INSERT_ROAD_RUNTIME_CHECKS
+		test_phase = 8;
+		test_wait_frames = 3;
+		exit;
+	}
+	if (test_phase == 8)
+	{
+		screen_save("conquest_roads_battle.png");
+		var _controller = instance_find(o_conquest, 0);
+		_controller.paused = true;
+		test_phase = 9;
+		test_wait_frames = 3;
+		exit;
+	}
+	if (test_phase == 9)
+	{
+		screen_save("conquest_roads_pause.png");
+		// Run the original mechanics suite on a classic layout while retaining the real campaign point.
+		var _controller = instance_find(o_conquest, 0);
+		_controller.campaign_map.active_battle_room = r_battle_03;
+		_controller.nodes = [];
+		_controller.scenery = [];
+		_controller.armies = [];
+		_controller.shots = [];
+		_controller.paused = false;
+		conquest_level_prepare(_controller);
+		test_phase = 10;
+	}
+	if (test_phase == 10)
+	{
+		var _controller = instance_find(o_conquest, 0);
 		_assert(instance_exists(_controller), "Conquest controller missing");
 		_assert(!instance_exists(o_game_controller) && !instance_exists(o_hud) && !instance_exists(o_units_parent), "Legacy battle objects leaked");
 		_assert(_controller.level_title == "Ashen Crossing" && array_length(_controller.nodes) == 10, "Selected level did not initialize");

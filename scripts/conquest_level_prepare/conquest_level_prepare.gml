@@ -15,6 +15,16 @@ function conquest_level_prepare(_controller)
 		}
 	}
 
+	// Start the campaign with the experimental road mission; retain later battles for comparison.
+	_controller.tactical_mode = _controller.level_index == 0;
+	_controller.roads = [];
+	_controller.march_speed = BALANCE_CONQUEST_MARCH_SPEED;
+	if (_controller.tactical_mode)
+	{
+		conquest_road_level_prepare(_controller);
+		return;
+	}
+
 	// Hollow Fields has a gentler opening; later missions retain their existing pressure.
 	var _is_second_mission = _controller.level_index == 1;
 	_controller.ai_timer = _is_second_mission

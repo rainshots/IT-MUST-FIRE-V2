@@ -72,6 +72,10 @@ function world_map_info_draw(_map)
 		_y += _line_height + 12;
 		draw_set_color(COLOR_HUD_TEXT);
 		var _rules = "Take the enemy's buildings and defeat its remaining troops.\n\nSettlements recruit troops. Towers fire on passing enemies. Forges strengthen your whole army.\n\nDrag from your building to a target. Upgrade with U. Choose how many troops to send with 1-4.";
+		if (_level.battle_room == Battle_room)
+		{
+			_rules = "ROAD WARFARE\n\nDrag to set automatic reinforcements. Your reserve stays home. Troops follow roads through friendly buildings and fight opposing columns.\n\nCapture the crossing for a shortcut or take the long flank.\n\nT: auto / one wave\nZ / C: reserve\nX: stop route\nU: upgrade";
+		}
 		draw_text_ext(0, _y, _rules, _line_height, _content_width);
 		_y += string_height_ext(_rules, _line_height, _content_width) + _section_gap;
 		if (_level.reward != "")

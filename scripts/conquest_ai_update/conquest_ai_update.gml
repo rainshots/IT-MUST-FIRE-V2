@@ -14,19 +14,23 @@ function conquest_ai_update(_controller)
 	{
 		var _source = _nodes[_source_index];
 		if (_source.owner != CONQUEST_OWNER.ENEMY || _source.upgrade_remaining > 0) continue;
+		if (_controller.tactical_mode && (_source.dispatch_remaining > 0 || _source.under_siege)) continue;
 		var _available = floor(_source.garrison * 0.75);
 		if (_available < 8) continue;
 		for (var _target_index = 0; _target_index < _count; ++_target_index)
 		{
 			var _target = _nodes[_target_index];
 			if (_target.owner == CONQUEST_OWNER.ENEMY) continue;
-			var _distance = point_distance(_source.x, _source.y, _target.x, _target.y);
+			var _path = conquest_path_get(_controller, _source_index, _target_index, CONQUEST_OWNER.ENEMY);
+			if (array_length(_path) < 2) continue;
+			var _distance = conquest_path_length_get(_controller, _path);
 			var _defense = conquest_strength_get(_controller, _target.owner);
 			if (_target.kind == CONQUEST_BUILDING.TOWER) _defense *= 1 + _target.level * 0.15;
 			var _expected = _target.garrison;
 			if (_target.owner == CONQUEST_OWNER.PLAYER && _target.kind == CONQUEST_BUILDING.SETTLEMENT)
 			{
-				_expected += _distance / BALANCE_CONQUEST_MARCH_SPEED * _growth_rates[_target.level - 1];
+				var _growth_multiplier = _controller.tactical_mode ? BALANCE_CONQUEST_ROAD_GROWTH_MULTIPLIER : 1;
+				_expected += _distance / _controller.march_speed * _growth_rates[_target.level - 1] * _growth_multiplier;
 			}
 			var _incoming = 0;
 			var _army_count = array_length(_controller.armies);
@@ -80,6 +84,11 @@ function conquest_ai_update(_controller)
 	{
 		if (_index != _front && _nodes[_index].owner == CONQUEST_OWNER.ENEMY && _nodes[_index].garrison >= 25)
 		{
+			if (_controller.tactical_mode)
+			{
+				if (conquest_route_set(_controller, _index, _front, CONQUEST_OWNER.ENEMY)) return;
+				continue;
+			}
 			if (conquest_order_send(_controller, _index, _front, 0.75, CONQUEST_OWNER.ENEMY) > 0) return;
 		}
 	}

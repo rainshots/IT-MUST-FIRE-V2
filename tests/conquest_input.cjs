@@ -8,7 +8,9 @@ const input = {x:0, y:0, pressed:false, released:false, right:false, shift:false
 const c = {
   BATTLE_PHASE:{BATTLE:1,VICTORY:2,DEFEAT:3}, CONQUEST_OWNER:{NEUTRAL:0,PLAYER:1,ENEMY:2},
   BALANCE_CONQUEST_HIT_RADIUS:75, mb_left:1, mb_right:2, vk_space:32, vk_escape:27, vk_shift:16, r_world_map:'map',
+  BALANCE_CONQUEST_ROUTE_RESERVE_STEP:5, BALANCE_CONQUEST_ROUTE_RESERVE_MAX:60,
   min:Math.min,max:Math.max,string:String,ord:s=>s.charCodeAt(0),
+  clamp:(v,lo,hi)=>Math.min(hi,Math.max(lo,v)),
   array_length:a=>a.length,array_contains:(a,v)=>a.includes(v),array_push:(a,v)=>a.push(v),array_delete:(a,i,n)=>a.splice(i,n),
   instance_exists:instance=>instance === controller,
   point_distance:(a,b,x,y)=>Math.hypot(x-a,y-b),
@@ -22,10 +24,16 @@ const c = {
     c.orders.push({source,target,fraction,owner}); return source===target?0:10;
   },
   conquest_upgrade_start:(controller,index,owner)=>{c.upgrades.push({index,owner});return true;},
+  conquest_route_set:(controller,source,target,owner)=>{
+    if (source===target) return false;
+    controller.nodes[source].route_target=target;
+    c.routes.push({source,target,owner}); return true;
+  },
+  routes:[],
   orders:[],upgrades:[],
 };
 vm.createContext(c);
-for (const name of ['conquest_node_at_position','conquest_selection_send','conquest_input_update']) {
+for (const name of ['conquest_node_at_position','conquest_route_input_update','conquest_selection_send','conquest_input_update']) {
   vm.runInContext(fs.readFileSync(path.join(root,`scripts/${name}/${name}.gml`),'utf8'),c,{filename:name});
 }
 const controller = {
@@ -85,3 +93,32 @@ assert.equal(c.nextRoom,'map');
 frame({keys:new Set([82])});
 assert.equal(c.restarted,true);
 console.log('PASS: selection, drag, group orders, fractions, HUD cancellation, box selection, upgrades, pause, captured sources, results and navigation');
+
+// Tactical default orders establish standing routes; one-wave mode deliberately cancels them.
+controller.phase=1; controller.paused=false; controller.tactical_mode=true; controller.auto_orders=true;
+controller.nodes[0].owner=1;
+for (const node of controller.nodes) Object.assign(node,{reserve:15,route_target:-1,route_path:[],route_blocked:false});
+controller.selected_nodes=[0];
+click(770,450);
+assert.equal(c.routes.length,1,'Default tactical click must establish one route');
+assert.equal(controller.nodes[0].route_target,2);
+frame({keys:new Set([67])});
+assert.equal(controller.nodes[0].reserve,20,'C raises the home reserve');
+click(740,980);
+assert.equal(controller.nodes[0].reserve,15,'Reserve button matches hotkey');
+const savedFraction=controller.send_fraction;
+frame({keys:new Set([52])});
+assert.equal(controller.send_fraction,savedFraction,'Auto mode must not expose hidden fraction input');
+click(1200,980);
+assert.equal(controller.auto_orders,false,'Mode button switches to a single wave');
+frame({keys:new Set([52])});
+assert.equal(controller.send_fraction,1);
+frame({x:770,y:450,right:true});
+assert.equal(controller.nodes[0].route_target,-1,'Single-wave order cancels source route');
+frame({keys:new Set([84])});
+assert.equal(controller.auto_orders,true);
+click(770,450);
+frame({keys:new Set([88])});
+assert.equal(controller.nodes[0].route_target,-1,'X stops future automatic waves');
+assert.equal(controller.nodes[0].route_path.length,0);
+console.log('PASS: tactical route orders, reserve buttons/hotkeys, mode switch, hidden-control isolation and cancellation');

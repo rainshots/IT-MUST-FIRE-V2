@@ -20,6 +20,12 @@ function conquest_arrival_resolve(_controller, _army)
 		_target.level = max(1, _target.level - 1);
 		_target.upgrade_remaining = 0;
 		_target.capture_flash = 0.7;
+		// Capturing an outpost cancels its previous owner's standing supply orders.
+		_target.route_target = -1;
+		_target.route_path = [];
+		_target.route_blocked = false;
+		_target.dispatch_remaining = BALANCE_CONQUEST_ROUTE_INTERVAL;
+		_target.under_siege = false;
 		if (_army.owner == CONQUEST_OWNER.PLAYER)
 		{
 			_controller.feedback = "Building captured. Its garrison now fights for you.";

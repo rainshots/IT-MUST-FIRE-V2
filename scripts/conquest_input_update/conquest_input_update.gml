@@ -47,7 +47,8 @@ function conquest_input_update(_controller)
 		}
 	}
 	var _fractions = [0.25, 0.5, 0.75, 1];
-	var _fraction_count = array_length(_fractions);
+	if (conquest_route_input_update(_controller)) return;
+	var _fraction_count = _controller.tactical_mode && _controller.auto_orders ? 0 : array_length(_fractions);
 	for (var _index = 0; _index < _fraction_count; ++_index)
 	{
 		var _button_x = 700 + _index * 105;

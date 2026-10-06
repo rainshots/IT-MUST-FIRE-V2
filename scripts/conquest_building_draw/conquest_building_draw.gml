@@ -40,6 +40,26 @@ function conquest_building_draw(_controller, _index)
 	draw_set_font(_controller.ui_font);
 	draw_set_color(_color);
 	draw_text(_node.x, _node.y + 66, _level_marks[_node.level - 1]);
+	if (_controller.tactical_mode)
+	{
+		draw_set_color(COLOR_CULTIST_COUNTER_TEXT);
+		var _label_offset = _node.kind == CONQUEST_BUILDING.TOWER ? 200 : 158;
+		draw_text(_node.x, _node.y - _label_offset, _node.label);
+		if (_node.under_siege)
+		{
+			draw_set_color(COLOR_WORLD_MAP_PANEL);
+			draw_rectangle(_node.x - 60, _node.y + 82, _node.x + 60, _node.y + 108, false);
+			draw_set_color(COLOR_CULTIST_COUNTER_TEXT);
+			var _status = _node.garrison > 0 ? "UNDER SIEGE" : "CAPTURE " + string(ceil(_node.capture_remaining)) + "s";
+			draw_text(_node.x, _node.y + 95, _status);
+		}
+		else if (_node.owner == CONQUEST_OWNER.PLAYER && _node.route_target >= 0)
+		{
+			var _status = _node.route_blocked ? "ROUTE CUT" : "KEEP " + string(_node.reserve);
+			draw_set_color(_node.route_blocked ? COLOR_CULTIST_COUNTER_TEXT : COLOR_SQUAD_CARD_TYPE);
+			draw_text(_node.x, _node.y + 95, _status);
+		}
+	}
 	if (_node.upgrade_remaining > 0)
 	{
 		var _progress = 1 - _node.upgrade_remaining / BALANCE_CONQUEST_UPGRADE_SECONDS;
