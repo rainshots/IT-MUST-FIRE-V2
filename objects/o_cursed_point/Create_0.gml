@@ -71,6 +71,20 @@ restore_structure_choice = noone;
 structure_selection_title = "Summon Structure";
 structure_selection_subtitle = "Choose one tower to summon";
 
+// Activated points remain usable during a battle; settlement rooms keep their daytime rule.
+cursed_point_construction_is_available = function()
+{
+	if (battle_room_is_battle(room))
+	{
+		var _controller = instance_find(o_game_controller, 0);
+		return instance_exists(_controller)
+			&& (_controller.battle_phase == BATTLE_PHASE.PREPARATION
+				|| _controller.battle_phase == BATTLE_PHASE.BATTLE);
+	}
+
+	return global.day_phase == DAY_PHASE.DAY;
+};
+
 cursed_point_interaction_is_blocked = function()
 {
 	return variable_instance_exists(id, "construction_event_pending")
@@ -185,7 +199,8 @@ cursed_point_structure_choice_built_count_get = function(_choice)
 cursed_point_structure_choice_can_construct = function(_choice)
 {
 	return is_struct(_choice)
-		&& variable_struct_exists(_choice, "building_object");
+		&& variable_struct_exists(_choice, "building_object")
+		&& object_exists(_choice.building_object);
 };
 
 cursed_point_structure_choice_costs_pay = function(_choice)
@@ -292,7 +307,6 @@ cursed_point_summon_button_rect_get = function()
 			summon_button_width,
 			string_width("RESTORE " + restore_structure_choice.building_name) + 28
 		);
-		_button_height = summon_button_height + 16;
 	}
 
 	return [
@@ -318,7 +332,7 @@ cursed_point_summon_button_is_hovered = function()
 	if (!is_captured
 		|| structure_selection_open
 		|| cursed_point_interaction_is_blocked()
-		|| global.day_phase != DAY_PHASE.DAY
+		|| !cursed_point_construction_is_available()
 		|| global.focus_window != FOCUS_WINDOW.NOONE)
 	{
 		return false;
@@ -352,7 +366,7 @@ cursed_point_structure_selection_open = function()
 	if (!is_captured
 		|| structure_selection_open
 		|| cursed_point_interaction_is_blocked()
-		|| global.day_phase != DAY_PHASE.DAY)
+		|| !cursed_point_construction_is_available())
 	{
 		return;
 	}
@@ -488,7 +502,10 @@ cursed_point_structure_choice_hover_key_get = function(_mouse_x, _mouse_y)
 
 cursed_point_structure_build = function(_choice, _close_selection = true)
 {
-	if (global.day_phase != DAY_PHASE.DAY)
+	if (!cursed_point_construction_is_available()
+		|| !is_captured
+		|| !ground_area_is_tainted(x, y, capture_ground_radius)
+		|| cursed_point_interaction_is_blocked())
 	{
 		if (_close_selection)
 		{
@@ -504,27 +521,59 @@ cursed_point_structure_build = function(_choice, _close_selection = true)
 		return false;
 	}
 
+	// Create the chosen structure immediately, without a construction event or assigned workers.
+	var _building = instance_create_layer(x, y, "Instances", _choice.building_object);
+	if (!instance_exists(_building))
+	{
+		return false;
+	}
+
+	// Match the captured state and full health of a completed special-point structure.
+	_building.depth = -floor(_building.y);
+	if (variable_instance_exists(_building, "building_constructed_by_cursed_point"))
+	{
+		_building.building_constructed_by_cursed_point = true;
+	}
+	_building.cursed_point_restore_choice = _choice;
+	if (variable_instance_exists(_building, "tower_capture_enabled"))
+	{
+		_building.tower_capture_enabled = true;
+	}
+	if (variable_instance_exists(_building, "is_captured"))
+	{
+		_building.is_captured = true;
+	}
+	if (variable_instance_exists(_building, "max_corruption")
+		&& variable_instance_exists(_building, "corruption"))
+	{
+		_building.corruption = _building.max_corruption;
+	}
+	if (variable_instance_exists(_building, "captured_sprite_index")
+		&& _building.captured_sprite_index != noone)
+	{
+		_building.sprite_index = _building.captured_sprite_index;
+		_building.image_index = 0;
+		_building.image_speed = 0;
+	}
+	if (variable_instance_exists(_building, "player_building_health_restore_full"))
+	{
+		_building.player_building_health_restore_full();
+	}
+	cursed_point_construction_effect_create();
+
 	if (_close_selection)
 	{
 		cursed_point_structure_selection_close();
 	}
 
-	var _construction_event = day_event_building_construction_create(id, _choice, true);
-
-	if (!is_struct(_construction_event))
+	// Trap points bind the whole formation and retain their hidden ownership state.
+	if (variable_instance_exists(id, "construction_site_complete"))
 	{
-		return false;
+		construction_site_complete(_building, _choice);
 	}
-
-	if (instance_exists(o_jobs_ui))
+	else
 	{
-		var _jobs_ui = instance_find(o_jobs_ui, 0);
-
-		if (_jobs_ui.jobs_window_open()
-			&& variable_instance_exists(_jobs_ui, "jobs_input_block_until_mouse_release"))
-		{
-			_jobs_ui.jobs_input_block_until_mouse_release();
-		}
+		instance_destroy();
 	}
 
 	return true;
@@ -532,7 +581,7 @@ cursed_point_structure_build = function(_choice, _close_selection = true)
 
 cursed_point_structure_restore = function()
 {
-	if (global.day_phase != DAY_PHASE.DAY
+	if (!cursed_point_construction_is_available()
 		|| !is_struct(restore_structure_choice))
 	{
 		return false;

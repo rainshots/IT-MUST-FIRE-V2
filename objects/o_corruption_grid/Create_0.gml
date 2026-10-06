@@ -1,16 +1,24 @@
 // Ground corruption grid settings.
-depth = BALANCE_CAPTURED_BUILDING_RIFT_DEPTH;
-cell_size = BALANCE_GRID_CELL_SIZE;
+world_map_mode = room == r_world_map; // Campaign progress controls this grid instead of passive spread.
+cell_size = world_map_mode ? BALANCE_WORLD_MAP_TAINT_CELL_SIZE : BALANCE_GRID_CELL_SIZE;
 grid_width = ceil(room_width / cell_size);
 grid_height = ceil(room_height / cell_size);
 
-// Draw Taint and Saint immediately above roads, using the current room layer depth.
-var _roads_layer = layer_get_id("Roads");
-
-if (_roads_layer != -1)
+// The world map uses its editor-assigned layer; battle rooms retain their existing ground ordering.
+if (!world_map_mode)
 {
-	var _roads_depth = layer_get_depth(_roads_layer);
-	depth = _roads_depth - 1;
+	depth = BALANCE_CAPTURED_BUILDING_RIFT_DEPTH;
+	var _roads_layer = layer_get_id("Roads");
+	if (_roads_layer != -1)
+	{
+		var _roads_depth = layer_get_depth(_roads_layer);
+		depth = _roads_depth - 1;
+	}
+	else if (battle_room_is_battle(room))
+	{
+		var _background_layer = layer_get_id("Background");
+		if (_background_layer != -1) depth = layer_get_depth(_background_layer) - 1;
+	}
 }
 
 // Corruption values are stored from 0 to 1.

@@ -1,18 +1,21 @@
-// Skip drawing if the camera is not ready yet.
-if (!instance_exists(o_camera_controller))
+// The world map shows its entire room without a combat camera.
+var _left_cell = 0;
+var _right_cell = grid_width - 1;
+var _top_cell = 0;
+var _bottom_cell = grid_height - 1;
+if (!world_map_mode)
 {
-	exit;
+	if (!instance_exists(o_camera_controller)) exit;
+	var _camera_controller = instance_find(o_camera_controller, 0);
+	var _camera_x = camera_get_view_x(_camera_controller.camera_id);
+	var _camera_y = camera_get_view_y(_camera_controller.camera_id);
+	var _camera_width = camera_get_view_width(_camera_controller.camera_id);
+	var _camera_height = camera_get_view_height(_camera_controller.camera_id);
+	_left_cell = clamp(floor(_camera_x / cell_size), 0, grid_width - 1);
+	_right_cell = clamp(floor((_camera_x + _camera_width) / cell_size), 0, grid_width - 1);
+	_top_cell = clamp(floor(_camera_y / cell_size), 0, grid_height - 1);
+	_bottom_cell = clamp(floor((_camera_y + _camera_height) / cell_size), 0, grid_height - 1);
 }
-
-var _camera_controller = instance_find(o_camera_controller, 0);
-var _camera_x = camera_get_view_x(_camera_controller.camera_id);
-var _camera_y = camera_get_view_y(_camera_controller.camera_id);
-var _camera_width = camera_get_view_width(_camera_controller.camera_id);
-var _camera_height = camera_get_view_height(_camera_controller.camera_id);
-var _left_cell = clamp(floor(_camera_x / cell_size), 0, grid_width - 1);
-var _right_cell = clamp(floor((_camera_x + _camera_width) / cell_size), 0, grid_width - 1);
-var _top_cell = clamp(floor(_camera_y / cell_size), 0, grid_height - 1);
-var _bottom_cell = clamp(floor((_camera_y + _camera_height) / cell_size), 0, grid_height - 1);
 
 // Draw only cells visible inside the current camera view.
 for (var _cell_x = _left_cell; _cell_x <= _right_cell; ++_cell_x)

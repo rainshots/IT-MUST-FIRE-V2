@@ -59,6 +59,7 @@ ripcage_projectile_create = function(_target, _damage_amount, _is_critical_hit, 
 	_projectile.damage_units_only = true;
 	_projectile.damage_faction = UNIT_FACTION.FRIENDLY;
 	_projectile.source_instance = id;
+	_projectile.damage_credit_squad = squad_damage_source_get(id);
 	_projectile.flight_time = _flight_time_seconds * room_speed;
 	_projectile.depth = ripcage_projectile_draw_depth;
 

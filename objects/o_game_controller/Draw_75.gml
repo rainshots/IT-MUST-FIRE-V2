@@ -1,4 +1,6 @@
 // Draw cultist stats above the regular GUI.
+if (battle_mode_active) exit;
+
 if (variable_global_exists("ui_font") && font_exists(global.ui_font))
 {
 	draw_set_font(global.ui_font);

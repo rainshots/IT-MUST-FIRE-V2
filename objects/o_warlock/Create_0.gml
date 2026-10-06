@@ -546,6 +546,7 @@ warlock_skeleton_configure = function(_skeleton, _level)
 
 	// Keep regular Graveyard skeleton stats; only add Warlock ability behavior.
 	_skeleton.warlock_skeleton_explosion_enabled = _level >= 3;
+	_skeleton.damage_credit_squad = squad_damage_source_get(id);
 	_skeleton.warlock_skeleton_explosion_damage = BALANCE_WARLOCK_SUMMON_SKELETONS_EXPLOSION_DAMAGE;
 	_skeleton.warlock_skeleton_respawn_chance = 0;
 	_skeleton.warlock_skeleton_dies_at_morning = true;
@@ -876,6 +877,7 @@ warlock_hex_totem_use = function()
 
 	if (instance_exists(_totem))
 	{
+		_totem.damage_credit_squad = squad_damage_source_get(id);
 		_totem.owner_warlock = id;
 		_totem.owner_magic_damage = magic_damage;
 		_totem.ability_level = max(1, warlock_ability_level_get(DEMON_ABILITY.WARLOCK_HEX_TOTEM));

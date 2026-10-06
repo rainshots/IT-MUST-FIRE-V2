@@ -1,0 +1,13 @@
+{
+  "$GMScript": "v1",
+  "%Name": "battle_room_prepare",
+  "isCompatibility": false,
+  "isDnD": false,
+  "name": "battle_room_prepare",
+  "parent": {
+    "name": "battler",
+    "path": "folders/battler.yy"
+  },
+  "resourceType": "GMScript",
+  "resourceVersion": "2.0"
+}

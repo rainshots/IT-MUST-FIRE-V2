@@ -53,7 +53,8 @@ night_music_track_names = [
 	"Berserk OST Sign 1 - Guts",
 	"BERSERK Forces - Susumu Hirasawa",
 	"Disposal Unit - Milky Way Sweep",
-	"UltraChurch - ULTRAKILL Original Game Soundtrack - Keygen Church"
+	"UltraChurch - ULTRAKILL Original Game Soundtrack - Keygen Church",
+	"Berserk Aria Ash Crow - Guts"
 ];
 
 // Shared music settings.
@@ -287,6 +288,21 @@ music_night_next_roll = function()
 
 	music_night_stop();
 	music_night_track_start(_chosen_track_index);
+};
+
+// Begin each battle with a fresh random night track, using the existing volume crossfade.
+music_night_random_start = function()
+{
+	var _track_count = array_length(night_music_tracks);
+	if (!global.play_music || _track_count == 0)
+	{
+		return;
+	}
+
+	music_night_stop();
+	music_night_track_start(irandom(_track_count - 1));
+	music_phase_update();
+	music_gain_update();
 };
 
 music_target_gain_update = function()

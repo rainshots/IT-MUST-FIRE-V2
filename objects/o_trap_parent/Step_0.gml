@@ -4,6 +4,12 @@ if (global.pause)
 	exit;
 }
 
+// Installed traps activate only while the battler is in combat.
+if (instance_exists(battle_controller) && battle_controller.battle_phase != BATTLE_PHASE.BATTLE)
+{
+	exit;
+}
+
 var _time_scale = variable_global_exists("gameplay_time_scale")
 	? global.gameplay_time_scale
 	: 1;

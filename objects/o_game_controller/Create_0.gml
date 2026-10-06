@@ -1,4 +1,18 @@
 // Global pause state used by gameplay objects.
+// Battle state is owned here; Room Start initializes squads after editor instances exist.
+battle_mode_active = battle_room_is_battle(room);
+battle_phase = BATTLE_PHASE.PREPARATION;
+battle_elapsed_seconds = 0;
+battle_holy_cannon_next_seconds = BALANCE_BATTLE_HOLY_CANNON_FIRST_SHOT_SECONDS; // Uses the combat clock, including pause and speed changes.
+battle_result_check_seconds = 0;
+battle_enemy_count = 0;
+battle_deployed_count = 0;
+battle_dragged_squad = noone;
+battle_preview_positions = [];
+battle_preview_valid = false;
+battle_feedback = ""; // Latest placement result displayed below the roster.
+// Battle action uses the same bold font as the original END DAY button.
+battle_button_font = battle_mode_active ? font_add("Arial", 30, true, false, 32, 1279) : -1;
 randomise()
 global.pause = false;
 global.focus_window = FOCUS_WINDOW.NOONE;
@@ -7,7 +21,7 @@ global.cheats_enabled = BALANCE_CHEATS_ENABLED;
 // F2 toggles the Cannon's automatic reaction to night damage.
 global.cannon_damage_reaction_enabled = true;
 global.play_music = BALANCE_PLAY_MUSIC;
-global.tutorial_hints_enabled = BALANCE_TUTORIAL_HINTS_ENABLED;
+global.tutorial_hints_enabled = !battle_mode_active && BALANCE_TUTORIAL_HINTS_ENABLED;
 global.music_volume = 0.8;
 global.ambient_volume = 0.8;
 global.sound_volume = 0.8;
@@ -282,7 +296,7 @@ global.world_event_squad_selector_preserve_hover = false;
 cannon_satisfaction_window_previous_pause_state = false;
 cannon_satisfaction_cursor_is_hidden = false;
 
-if (!instance_exists(o_jobs_ui))
+if (!battle_mode_active && !instance_exists(o_jobs_ui))
 {
 	instance_create_layer(0, 0, "Instances", o_jobs_ui);
 }
@@ -3858,6 +3872,9 @@ projectile_target_selection_radius_get = function(_projectile_type)
 
 cannon_projectile_type_is_reusable = function(_projectile_type)
 {
+	// Battler ammunition is consumed from its per-battle stock, including special shells.
+	if (battle_mode_active) return false;
+
 	return _projectile_type == PROJECTILE_TYPE.BOMB
 		|| _projectile_type == PROJECTILE_TYPE.HEAL
 		|| _projectile_type == PROJECTILE_TYPE.DOOM_BELL;
@@ -7184,6 +7201,9 @@ cannon_morning_projectile_target_count_get = function(_projectile_type)
 
 cannon_reusable_projectiles_ensure = function()
 {
+	// Battle Start owns the finite loadout; legacy refill paths must not restore spent shells.
+	if (battle_mode_active) return 0;
+
 	var _projectile_types = [];
 
 	if (BALANCE_CANNON_STARTING_HELLCOW_AVAILABLE)
@@ -12731,7 +12751,10 @@ wall_navigation_debug_draw = function()
 };
 
 // The first daytime preview is available immediately when the room starts.
-night_attack_plan_create();
+if (!battle_mode_active)
+{
+	night_attack_plan_create();
+}
 
 // Window setup for a non-stretched 16:9 camera.
 window_set_size(base_view_width, base_view_height);

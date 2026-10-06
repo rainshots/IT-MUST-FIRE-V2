@@ -147,16 +147,6 @@ for (var _choice_index = 0; _choice_index < array_length(structure_choice_option
 	);
 
 	draw_set_halign(fa_center);
-	draw_set_valign(fa_middle);
-	draw_set_color(COLOR_HUD_TEXT);
-	var _cultist_label = BALANCE_BUILDING_CONSTRUCTION_CULTIST_COST == 1
-		? " Cultist"
-		: " Cultists";
-	draw_text(
-		_tile_x + (structure_choice_tile_width * 0.5),
-		_tile_y + structure_choice_tile_height - 22,
-		string(BALANCE_BUILDING_CONSTRUCTION_CULTIST_COST) + _cultist_label
-	);
 
 	// Cursed Point cards also show the number of completed towers of this type.
 	draw_set_valign(fa_top);

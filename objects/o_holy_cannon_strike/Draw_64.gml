@@ -45,6 +45,10 @@ draw_set_color(COLOR_HUD_TEXT);
 draw_set_alpha(1);
 draw_text(_center_x, _center_y, _timer_text);
 
+// Identify the incoming shell directly beneath its countdown, using the same text style.
+var _label_y = _center_y + string_height(_timer_text) + warning_label_gap;
+draw_text(_center_x, _label_y, shell_label);
+
 // The shell enters from 1000 world pixels above during the final part of the countdown.
 if (impact_timer <= flight_duration)
 {

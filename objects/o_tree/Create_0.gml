@@ -1,4 +1,5 @@
 // Tree visuals are randomized once, then only switch when corrupted ground reaches the trunk.
+world_map_decoration = room == r_world_map; // Map trees ignore combat pause, time scale, and unit occlusion.
 normal_sprite_index = choose(s_tree_yellow_01, s_tree_yellow_02);
 corrupted_sprite_index = s_tree03;
 is_corrupted = false;
@@ -17,7 +18,7 @@ sprite_index = normal_sprite_index;
 image_index = 0;
 image_speed = 0;
 
-var _tree_scale = random_range(BALANCE_TREE_SCALE_MIN, BALANCE_TREE_SCALE_MAX);
+var _tree_scale = image_xscale//random_range(BALANCE_TREE_SCALE_MIN, BALANCE_TREE_SCALE_MAX);
 
 if (random(1) < 0.1)
 {
@@ -145,7 +146,7 @@ tree_corruption_update = function()
 		sprite_index = corrupted_sprite_index;
 
 		// Keep the spread code behind a temporary feature switch for easy restoration.
-		if (TREE_CORRUPTION_SPREAD_ENABLED)
+		if (!world_map_decoration && TREE_CORRUPTION_SPREAD_ENABLED)
 		{
 			corrupt_circle(x, y, corruption_spread_radius, _corruption_grid_object.full_corruption_value);
 		}

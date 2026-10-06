@@ -1,5 +1,9 @@
-// Pause freezes passive ground corruption spread.
-if (global.pause)
+// Campaign land advances only after captures and does not require battle globals.
+if (world_map_mode) exit;
+
+// Preparation keeps its Taint boundary fixed until a shell expands it; combat uses normal spread.
+if ((variable_global_exists("pause") && global.pause)
+	|| (battle_room_is_battle(room) && global.day_phase == DAY_PHASE.DAY))
 {
 	exit;
 }

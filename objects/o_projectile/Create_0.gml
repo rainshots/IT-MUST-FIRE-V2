@@ -7,7 +7,11 @@ projectile_type = PROJECTILE_TYPE.DAMAGE;
 cultist_payload = noone;
 cultist_deploy_units = [];
 building_payload = noone;
+// Battle deployment reserves a whole formation and creates its members only on impact.
+battle_deployment_squad = noone;
+battle_deployment_positions = [];
 source_instance = noone;
+damage_credit_squad = noone; // Snapshot at launch so a killing shot still counts after its shooter dies.
 artillery_direct_target = noone;
 artillery_can_damage_units = true;
 // Only the primary projectile in a Taint Compost volley creates its chosen enchantment effect.
@@ -66,7 +70,8 @@ projectile_smoke_trail_create = function(_trail_x, _trail_y)
 	var _smoke_x = _trail_x + lengthdir_x(_smoke_distance, _smoke_direction);
 	var _smoke_y = _trail_y + lengthdir_y(_smoke_distance, _smoke_direction);
 
-	instance_create_layer(_smoke_x, _smoke_y, particle_layer_name, o_particle_smoke);
+	var _smoke = instance_create_layer(_smoke_x, _smoke_y, particle_layer_name, o_particle_smoke);
+	if (is_struct(battle_deployment_squad)) _smoke.depth = depth;
 };
 
 taint_compost_enchantment_apply = function()

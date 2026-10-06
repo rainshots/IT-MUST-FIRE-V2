@@ -276,7 +276,9 @@ holy_tower_damage_receive = function(_damage_amount, _is_critical = false, _show
 
 unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true, _source_instance = noone)
 {
-	return holy_tower_damage_receive(_damage_amount, _is_critical, true);
+	var _applied_damage = holy_tower_damage_receive(_damage_amount, _is_critical, true);
+	squad_damage_record(squad_damage_source_get(_source_instance), UNIT_FACTION.ENEMY, _applied_damage);
+	return _applied_damage;
 };
 
 // Damage projectiles can destroy the holy tower.

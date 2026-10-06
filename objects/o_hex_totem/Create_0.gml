@@ -1,5 +1,6 @@
 // Hex Totem attacks nearby enemies for a short lifetime.
 owner_warlock = noone;
+damage_credit_squad = noone; // Keep damage attribution even after the summoner dies.
 owner_magic_damage = BALANCE_WARLOCK_MAGIC_DAMAGE;
 ability_level = 1;
 image_speed = 0;

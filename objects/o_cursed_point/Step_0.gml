@@ -4,7 +4,7 @@ cursed_point_ground_state_update();
 // Handle an already opened structure choice even while gameplay is paused.
 if (structure_selection_open)
 {
-	if (global.day_phase != DAY_PHASE.DAY)
+	if (!cursed_point_construction_is_available())
 	{
 		cursed_point_structure_selection_close();
 		exit;

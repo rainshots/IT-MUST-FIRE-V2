@@ -1,5 +1,6 @@
 // Strike settings are configured by o_game_controller immediately after creation.
 shell_type = HOLY_CANNON_SHELL_TYPE.STUN;
+shell_label = "STUN"; // Drawn beneath the warning countdown in Draw GUI.
 effect_radius = BALANCE_HOLY_CANNON_STUN_RADIUS;
 effect_color = COLOR_HOLY_CANNON_STUN;
 damage_amount = 0;
@@ -18,6 +19,7 @@ projectile_trail_length = BALANCE_HOLY_CANNON_PROJECTILE_TRAIL_LENGTH;
 warning_fill_alpha = BALANCE_HOLY_CANNON_WARNING_ALPHA;
 warning_outline_alpha = BALANCE_HOLY_CANNON_WARNING_OUTLINE_ALPHA;
 warning_outline_width = BALANCE_HOLY_CANNON_WARNING_OUTLINE_WIDTH;
+warning_label_gap = 4; // GUI pixels between the countdown and shell label.
 smoke_particle_count = BALANCE_HOLY_CANNON_SMOKE_COUNT;
 particle_layer_name = "Instances";
 
@@ -30,12 +32,14 @@ holy_cannon_strike_configure = function(_shell_type)
 
 	if (shell_type == HOLY_CANNON_SHELL_TYPE.DAMAGE)
 	{
+		shell_label = "DAMAGE";
 		effect_radius = BALANCE_HOLY_CANNON_DAMAGE_RADIUS;
 		effect_color = COLOR_HOLY_CANNON_DAMAGE;
 		damage_amount = BALANCE_HOLY_CANNON_DAMAGE_AMOUNT;
 	}
 	else if (shell_type == HOLY_CANNON_SHELL_TYPE.HEAL)
 	{
+		shell_label = "HEAL";
 		effect_radius = BALANCE_HOLY_CANNON_HEAL_RADIUS;
 		effect_color = COLOR_HOLY_CANNON_HEAL;
 		heal_amount = BALANCE_HOLY_CANNON_HEAL_AMOUNT;
@@ -43,6 +47,7 @@ holy_cannon_strike_configure = function(_shell_type)
 	else
 	{
 		shell_type = HOLY_CANNON_SHELL_TYPE.STUN;
+		shell_label = "STUN";
 		effect_radius = BALANCE_HOLY_CANNON_STUN_RADIUS;
 		effect_color = COLOR_HOLY_CANNON_STUN;
 		stun_time = BALANCE_HOLY_CANNON_STUN_TIME;

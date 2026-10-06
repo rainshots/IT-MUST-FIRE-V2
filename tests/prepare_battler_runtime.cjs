@@ -1,0 +1,33 @@
+// Creates a disposable project that executes the GML integration checks in the actual GameMaker runner.
+// Production room contents and enemy placements are never edited by this fixture.
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.resolve(__dirname, '..');
+const read = p => fs.readFileSync(path.join(root, p), 'utf8').replace(/^\uFEFF/, '');
+const parse = p => JSON.parse(read(p).replace(/,\s*([}\]])/g, '$1'));
+const write = (p, s) => { const f = path.join(root, p); fs.mkdirSync(path.dirname(f), {recursive:true}); fs.writeFileSync(f, s); };
+const yy = (p, x) => write(p, JSON.stringify(x, null, 2) + '\n');
+const project = parse('IT MUST FIRE PROROTYPE V2.yyp');
+const objPath = 'objects/o_battler_runtime_test/o_battler_runtime_test.yy';
+const roomPath = 'Build/battler_runtime_room/Battle_room.yy';
+const obj = parse('objects/o_world_map/o_world_map.yy');
+obj.name = obj['%Name'] = 'o_battler_runtime_test';
+obj.persistent = false;
+obj.eventList = obj.eventList.filter(e => e.eventType === 3);
+yy(objPath, obj);
+write('objects/o_battler_runtime_test/Step_0.gml', read('tests/battler_runtime.gml'));
+project.resources.push({id:{name:obj.name,path:objPath}});
+const room = parse('rooms/Battle_room/Battle_room.yy');
+const layer = room.layers.find(l => l.resourceType === 'GMRInstanceLayer');
+const test = structuredClone(layer.instances[0]);
+test.name = test['%Name'] = 'inst_battler_runtime_test';
+test.objectId = {name:obj.name,path:objPath};
+test.x = test.y = 0;
+layer.instances.push(test);
+room.instanceCreationOrder.push({name:test.name,path:roomPath});
+for (const entry of room.instanceCreationOrder) entry.path = roomPath;
+yy(roomPath, room);
+project.resources.find(r => r.id.name === 'Battle_room').id.path = roomPath;
+project.RoomOrderNodes = [{roomId:{name:'Battle_room',path:roomPath}}, ...project.RoomOrderNodes.filter(r => r.roomId.name !== 'Battle_room')];
+yy('battler_runtime_verification.yyp', project);
+console.log(path.join(root, 'battler_runtime_verification.yyp'));

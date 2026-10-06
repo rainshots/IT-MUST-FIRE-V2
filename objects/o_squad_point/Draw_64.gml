@@ -69,9 +69,7 @@ for (var _choice_index = 0; _choice_index < array_length(squad_point_choices); +
 	var _card_y = _rect[1];
 	var _is_hovered = _choice_index == _hovered_choice_index;
 	var _unit_sprite = object_get_sprite(_choice.unit_object);
-	var _unit_name = instance_exists(o_hud)
-		? o_hud.hud_unit_display_name_get(_choice.unit_object)
-		: object_get_name(_choice.unit_object);
+	var _unit_name = hud_unit_display_name_get(_choice.unit_object);
 
 	draw_set_alpha(0.86);
 	draw_set_color(c_black);

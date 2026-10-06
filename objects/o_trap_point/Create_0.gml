@@ -1,4 +1,4 @@
-// Reuse Cursed Point capture, construction-menu, and Cultist-job behavior.
+// Reuse Cursed Point capture, construction menu, and immediate summoning.
 event_inherited();
 
 // The point switches appearance according to the Taint under it.
@@ -93,7 +93,7 @@ cursed_point_summon_button_is_hovered = function()
 	if (!is_captured
 		|| structure_selection_open
 		|| cursed_point_interaction_is_blocked()
-		|| global.day_phase != DAY_PHASE.DAY
+		|| !cursed_point_construction_is_available()
 		|| global.focus_window != FOCUS_WINDOW.NOONE)
 	{
 		return false;

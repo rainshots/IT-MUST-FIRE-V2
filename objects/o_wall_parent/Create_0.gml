@@ -66,6 +66,7 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 
 	var _applied_damage = min(_damage_amount, hp);
 	hp = max(hp - _damage_amount, 0);
+	squad_damage_record(squad_damage_source_get(_source_instance), unit_faction, _applied_damage);
 	damage_popup_create(x, y, _applied_damage, unit_faction, _is_critical);
 
 	if (hp <= 0)

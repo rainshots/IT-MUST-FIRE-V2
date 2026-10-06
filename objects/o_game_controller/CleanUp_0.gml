@@ -1,3 +1,9 @@
+// Release the font owned by the battle action button.
+if (battle_button_font != -1 && font_exists(battle_button_font))
+{
+	font_delete(battle_button_font);
+}
+
 // Do not leave an empty balance file when a cheat session ends before its first completed day.
 if (variable_instance_exists(id, "cannon_satisfaction_cursor_is_hidden")
 	&& cannon_satisfaction_cursor_is_hidden)

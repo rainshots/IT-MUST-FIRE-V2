@@ -1243,6 +1243,7 @@ imp_clone_stats_copy = function(_clone)
 	_clone.explosion_damage = damage * BALANCE_IMP_BLOODY_CLONE_EXPLOSION_DAMAGE_SHARE;
 	_clone.cultist_name = "Clone";
 	_clone.clone_owner = id;
+	_clone.damage_credit_squad = squad_damage_source_get(id);
 };
 
 imp_bloody_clone_use = function()

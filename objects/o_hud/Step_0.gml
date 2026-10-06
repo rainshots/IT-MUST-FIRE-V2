@@ -1,4 +1,6 @@
 // Preview squad information on roster hover and keep it open when pinned with RMB.
+if (battle_room_is_battle(room)) exit;
+
 if (global.focus_window != FOCUS_WINDOW.NOONE)
 {
 	squad_info_squad = noone;

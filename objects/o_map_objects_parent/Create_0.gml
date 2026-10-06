@@ -1,3 +1,6 @@
+// Built combat structures wait for the battle phase before attacking.
+battle_controller = battle_room_is_battle(room) ? instance_find(o_game_controller, 0) : noone;
+
 // Base durability values for map objects.
 max_hp = 1000 * BALANCE_GLOBAL_HP_MULTIPLIER;
 hp = max_hp;

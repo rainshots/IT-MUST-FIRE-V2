@@ -11,6 +11,7 @@ function squad_constructor(_squad_type, _primary_unit_object, _unit_count) const
 	unit_objects = array_create(max(1, floor(_unit_count)), _primary_unit_object);
 	units = [];
 	properties = {
+		battle_deployment_projectile: noone, // Reserves a battle placement until the shell lands.
 		is_selected: false,
 		order_mode: SQUAD_ORDER.NONE,
 		order_serial: 0,
@@ -33,6 +34,8 @@ function squad_constructor(_squad_type, _primary_unit_object, _unit_count) const
 	};
 	name = "";
 	total_max_hp = 0;
+	// Campaign total counts actual enemy HP removed and survives the recreation of squad members.
+	damage_dealt_total = 0;
 };
 
 function squad_icon_sprite_current_get(_squad)
@@ -40,6 +43,14 @@ function squad_icon_sprite_current_get(_squad)
 	if (!is_struct(_squad))
 	{
 		return noone;
+	}
+
+	// Ready reserves have no world instances yet, but keep their normal roster portrait.
+	if (variable_struct_exists(_squad.properties, "battle_deployed")
+		&& (!_squad.properties.battle_deployed || instance_exists(_squad.properties.battle_deployment_projectile))
+		&& object_exists(_squad.primary_unit_object))
+	{
+		return object_get_sprite(_squad.primary_unit_object);
 	}
 
 	// The first surviving member represents the squad while its composition may change.
@@ -116,6 +127,9 @@ function squad_type_count_get(_squad_type)
 
 function squad_limit_for_day_get(_day_number)
 {
+	// Battler reserves always expose all six slots, independently of campaign days.
+	if (battle_room_is_battle(room)) return BALANCE_BATTLE_ROSTER_LIMIT;
+
 	var _day = max(1, floor(_day_number));
 	var _limit = BALANCE_SQUAD_STARTING_LIMIT;
 
@@ -1758,6 +1772,12 @@ function squad_marker_find_at_position(_world_x, _world_y)
 	for (var _squad_index = array_length(global.squads) - 1; _squad_index >= 0; --_squad_index)
 	{
 		var _squad = global.squads[_squad_index];
+
+		// Reserve squads retain their campaign data but have no selectable flag on this battlefield.
+		if (battle_room_is_battle(room) && (!_squad.properties.battle_deployed || squad_living_unit_count_get(_squad) <= 0))
+		{
+			continue;
+		}
 
 		if (!variable_struct_exists(_squad.properties, "marker_x")
 			|| !variable_struct_exists(_squad.properties, "marker_y"))

@@ -22,6 +22,12 @@ if (global.pause)
 	exit;
 }
 
+// Immediate construction during preparation must not start combat early.
+if (instance_exists(battle_controller) && battle_controller.battle_phase != BATTLE_PHASE.BATTLE)
+{
+	exit;
+}
+
 // A destroyed tower stays inert until its morning repair.
 if (player_map_building_destroy_if_needed())
 {

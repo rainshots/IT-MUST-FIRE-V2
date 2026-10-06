@@ -90,7 +90,8 @@ if (_flight_progress >= 1)
 	}
 
 	// Spawn the main explosion flash at the impact point.
-	instance_create_layer(target_x, target_y, particle_layer_name, o_particle_explosion);
+	var _explosion = instance_create_layer(target_x, target_y, particle_layer_name, o_particle_explosion);
+	if (is_struct(battle_deployment_squad)) _explosion.depth = depth;
 
 	// Stunning Arrival adds its trait shockwave before the shell deploys the squad.
 	unholy_stunning_arrival_apply();
@@ -126,7 +127,21 @@ if (_flight_progress >= 1)
 		var _smoke_x = target_x + lengthdir_x(_smoke_distance, _smoke_direction);
 		var _smoke_y = target_y + lengthdir_y(_smoke_distance, _smoke_direction);
 
-		instance_create_layer(_smoke_x, _smoke_y, particle_layer_name, o_particle_smoke);
+		var _smoke = instance_create_layer(_smoke_x, _smoke_y, particle_layer_name, o_particle_smoke);
+		if (is_struct(battle_deployment_squad)) _smoke.depth = depth;
+	}
+
+	// A preparation shell releases its reserved formation even if the player already started battle.
+	if (is_struct(battle_deployment_squad))
+	{
+		var _squad = battle_deployment_squad;
+		if (_squad.properties.battle_deployed && _squad.properties.battle_deployment_projectile == id)
+		{
+			battle_squad_place(_squad, battle_deployment_positions);
+			_squad.properties.battle_deployment_projectile = noone;
+		}
+		instance_destroy();
+		exit;
 	}
 
 	// The impact cracks the shell; the cow then braces before beginning its directed charge.
@@ -601,13 +616,17 @@ if (_flight_progress >= 1)
 						{
 							if (variable_instance_exists(id, "unit_damage_receive"))
 							{
-								unit_damage_receive(
-									_damage_amount,
-									other.damage_faction,
-									other.damage_is_critical_hit,
-									true,
-									other.source_instance
-								);
+								// Squad artillery keeps its credit through impact even if its shooter is gone.
+								if (is_struct(other.damage_credit_squad) && variable_instance_exists(id, "damage_credit_squad"))
+								{
+									unit_damage_receive(_damage_amount, other.damage_faction,
+										other.damage_is_critical_hit, true, other.source_instance, other.damage_credit_squad);
+								}
+								else
+								{
+									unit_damage_receive(_damage_amount, other.damage_faction,
+										other.damage_is_critical_hit, true, other.source_instance);
+								}
 							}
 							else
 							{

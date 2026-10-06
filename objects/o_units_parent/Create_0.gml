@@ -1,4 +1,12 @@
 // Base unit combat stats.
+// Battler enemies remember their editor position and release time; legacy rooms leave this disabled.
+battle_controller = battle_room_is_battle(room) ? instance_find(o_game_controller, 0) : noone;
+battle_zone = -1;
+battle_home_x = x;
+battle_home_y = y;
+battle_attack_seconds = infinity;
+battle_help_next_seconds = 0;
+
 unit_faction = UNIT_FACTION.NOONE;
 max_hp = 200 * BALANCE_GLOBAL_HP_MULTIPLIER;
 hp = max_hp;
@@ -85,6 +93,7 @@ cannon_loaded = false;
 
 // Squad membership persists through the squad system and can be replaced after transformations.
 squad = noone;
+damage_credit_squad = noone; // Summoned helpers credit their creator without joining its formation.
 squad_unit_index = -1;
 
 // Unholy Trait state is shared by every squad unit type through this parent object.
@@ -401,6 +410,7 @@ status_effect_secondary_values = array_create(STATUS_EFFECT.COUNT, 0);
 status_effect_tick_timers = array_create(STATUS_EFFECT.COUNT, 0);
 status_effect_tick_intervals = array_create(STATUS_EFFECT.COUNT, room_speed);
 status_effect_source_factions = array_create(STATUS_EFFECT.COUNT, UNIT_FACTION.NOONE);
+status_effect_source_squads = array_create(STATUS_EFFECT.COUNT, noone); // Delayed damage retains its source squad.
 status_effect_curse_extended = array_create(STATUS_EFFECT.COUNT, false);
 status_effect_particle_timers = array_create(STATUS_EFFECT.COUNT, 0);
 
@@ -563,6 +573,12 @@ face_world_x = function(_target_x)
 target_can_be_attacked = function(_target)
 {
 	if (!instance_exists(_target))
+	{
+		return false;
+	}
+
+	// Waiting waves and defenders never select the cannon, including damage alerts and taunts.
+	if (battle_zone >= 0 && !unit_can_attack_cannon && _target.object_index == o_cannon)
 	{
 		return false;
 	}
@@ -850,7 +866,7 @@ unholy_taint_treatment_update = function()
 	}
 };
 
-status_effect_apply = function(_status_type, _duration_seconds, _strength = 0, _secondary_value = 0, _tick_interval_seconds = 0, _source_faction = UNIT_FACTION.NOONE)
+status_effect_apply = function(_status_type, _duration_seconds, _strength = 0, _secondary_value = 0, _tick_interval_seconds = 0, _source_faction = UNIT_FACTION.NOONE, _source_squad = noone)
 {
 	var _duration_frames = max(1, _duration_seconds * room_speed);
 	var _effect_strength = _strength;
@@ -901,6 +917,7 @@ status_effect_apply = function(_status_type, _duration_seconds, _strength = 0, _
 	status_effect_strengths[_status_type] = max(status_effect_strengths[_status_type], _effect_strength);
 	status_effect_secondary_values[_status_type] = max(status_effect_secondary_values[_status_type], _effect_secondary_value);
 	status_effect_source_factions[_status_type] = _source_faction;
+	status_effect_source_squads[_status_type] = _source_squad;
 
 	if (_effect_tick_interval_seconds > 0)
 	{
@@ -959,6 +976,7 @@ status_effect_clear = function(_status_type)
 	status_effect_tick_timers[_status_type] = 0;
 	status_effect_tick_intervals[_status_type] = room_speed;
 	status_effect_source_factions[_status_type] = UNIT_FACTION.NOONE;
+	status_effect_source_squads[_status_type] = noone;
 	status_effect_curse_extended[_status_type] = false;
 };
 
@@ -1395,7 +1413,8 @@ status_effect_bleed_tick = function()
 	if (_raw_bleed_damage > 0)
 	{
 		var _bleed_damage = physical_damage_after_armor(_raw_bleed_damage, id);
-		unit_damage_receive(_bleed_damage, status_effect_source_factions[STATUS_EFFECT.BLEED]);
+		unit_damage_receive(_bleed_damage, status_effect_source_factions[STATUS_EFFECT.BLEED],
+			false, true, noone, status_effect_source_squads[STATUS_EFFECT.BLEED]);
 	}
 
 	status_effect_tick_timers[STATUS_EFFECT.BLEED] = status_effect_tick_intervals[STATUS_EFFECT.BLEED];
@@ -1516,7 +1535,7 @@ soul_chain_death_effect_apply = function()
 	}
 };
 
-unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true, _source_instance = noone)
+unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true, _source_instance = noone, _source_squad = noone)
 {
 	if (hp <= 0 || _damage_amount <= 0)
 	{
@@ -1606,6 +1625,12 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 
 	var _applied_damage = min(_damage_amount, max(0, hp - _minimum_hp));
 	hp = max(hp - _damage_amount, _minimum_hp);
+	// Credit only HP actually removed, after every modifier and the remaining-health cap.
+	if (!is_struct(_source_squad))
+	{
+		_source_squad = squad_damage_source_get(_source_instance);
+	}
+	squad_damage_record(_source_squad, unit_faction, _applied_damage);
 	damage_flash_timer = damage_flash_duration;
 
 	// The Roar reacts as soon as the squad's combined HP falls below half.
@@ -1733,7 +1758,7 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 		{
 			if (variable_instance_exists(_member, "unit_damage_receive"))
 			{
-				_member.unit_damage_receive(_chain_damage, _source_faction, false, false, _source_instance);
+				_member.unit_damage_receive(_chain_damage, _source_faction, false, false, _source_instance, _source_squad);
 			}
 			else if (variable_instance_exists(_member, "hp"))
 			{
@@ -1845,7 +1870,7 @@ warlock_skeleton_death_effect_apply = function()
 
 			if (target_can_be_attacked(_enemy) && variable_instance_exists(_enemy, "unit_damage_receive"))
 			{
-				_enemy.unit_damage_receive(warlock_skeleton_explosion_damage, unit_faction);
+				_enemy.unit_damage_receive(warlock_skeleton_explosion_damage, unit_faction, false, true, noone, squad_damage_source_get(id));
 			}
 		}
 
@@ -1866,6 +1891,7 @@ warlock_skeleton_death_effect_apply = function()
 		if (instance_exists(_skeleton))
 		{
 			_skeleton.warlock_skeleton_explosion_enabled = warlock_skeleton_explosion_enabled;
+			_skeleton.damage_credit_squad = squad_damage_source_get(id);
 			_skeleton.warlock_skeleton_explosion_damage = warlock_skeleton_explosion_damage;
 			_skeleton.warlock_skeleton_respawn_chance = warlock_skeleton_respawn_chance;
 			_skeleton.warlock_skeleton_dies_at_morning = warlock_skeleton_dies_at_morning;
@@ -4657,7 +4683,7 @@ attack_target = function(_target)
 			&& _target.corpse_armor_retaliation_damage > 0
 			&& point_distance(x, y, _target.x, _target.y) <= attack_radius + 12)
 		{
-			unit_damage_receive(_target.corpse_armor_retaliation_damage, _target.unit_faction);
+			unit_damage_receive(_target.corpse_armor_retaliation_damage, _target.unit_faction, false, true, noone, squad_damage_source_get(_target));
 		}
 	}
 

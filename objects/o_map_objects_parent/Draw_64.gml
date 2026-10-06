@@ -4,8 +4,8 @@ if (variable_global_exists("blood_moon_reward_popup_active")
 	exit;
 }
 
-// Draw projectile reaction tooltip while hovering this map object.
-if (!map_object_is_hovered())
+// Empty tooltip text disables the hover panel, including its background.
+if (array_length(tooltip_lines) == 0 || !map_object_is_hovered())
 {
 	exit;
 }

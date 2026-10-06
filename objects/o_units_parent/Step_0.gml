@@ -1,4 +1,25 @@
 // Directly spawned friendly units receive persistent Foundry bonuses after child Create events.
+// Preparation freezes combat independently from pause so cannon shells can still fly.
+if (instance_exists(battle_controller))
+{
+	if (battle_controller.battle_phase != BATTLE_PHASE.BATTLE)
+	{
+		is_walking = false;
+		is_attacking_target = false;
+		image_speed = 0;
+		exit;
+	}
+	if (unit_faction == UNIT_FACTION.ENEMY)
+	{
+		if (battle_zone < 0) battle_enemy_prepare(id, battle_controller);
+		if (!unit_can_attack_cannon && battle_controller.battle_elapsed_seconds >= battle_attack_seconds)
+		{
+			unit_can_attack_cannon = true;
+			target_search_update_timer = target_search_update_interval;
+		}
+	}
+}
+
 if (foundry_permanent_bonuses_pending)
 {
 	foundry_unit_permanent_bonuses_apply(id);
@@ -504,7 +525,7 @@ target_search_update_timer += gameplay_time_scale;
 if (target_search_update_timer >= target_search_update_interval
 	|| (_had_target && !_current_target_is_valid)
 	|| _has_forced_target
-	|| instance_exists(alert_target))
+	|| (battle_zone < 0 && instance_exists(alert_target)))
 {
 	_should_search_target = true;
 	target_search_update_timer = 0;
@@ -520,7 +541,13 @@ if (instance_exists(manual_structure_target) && !target_can_be_attacked(manual_s
 	manual_structure_target = noone;
 }
 
-if (!_special_behavior_handled && _has_forced_target)
+var _battle_defender = _is_enemy_unit && battle_zone >= 0 && !unit_can_attack_cannon;
+
+if (!_special_behavior_handled && _battle_defender)
+{
+	if (_should_search_target) battle_enemy_target_update(id);
+}
+else if (!_special_behavior_handled && _has_forced_target)
 {
 	target_instance = forced_attack_target;
 }
@@ -860,6 +887,14 @@ if (!_special_behavior_handled && instance_exists(target_instance))
 		{
 			move_towards_target(target_instance, _current_attack_radius);
 		}
+	}
+}
+else if (!_special_behavior_handled && _battle_defender)
+{
+	// Return to the editor position after a local threat leaves the defensive area.
+	if (point_distance(x, y, battle_home_x, battle_home_y) > BALANCE_BATTLE_UNIT_MARGIN)
+	{
+		move_towards_world_point(battle_home_x, battle_home_y);
 	}
 }
 else if (!_special_behavior_handled && _is_friendly_unit && instance_exists(_friendly_follow_target))

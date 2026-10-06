@@ -1,3 +1,6 @@
+// Trap detection stays idle during preparation and after the battle ends.
+battle_controller = battle_room_is_battle(room) ? instance_find(o_game_controller, 0) : noone;
+
 // Shared trigger settings are configured by each child trap after this event.
 trap_radius = 0;
 minimum_enemy_count = BALANCE_TRAP_MINIMUM_ENEMY_COUNT;

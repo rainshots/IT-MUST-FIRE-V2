@@ -533,7 +533,9 @@ house_damage_receive = function(_damage_amount, _is_critical = false)
 
 unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true, _source_instance = noone)
 {
-	return house_damage_receive(_damage_amount, _is_critical);
+	var _applied_damage = house_damage_receive(_damage_amount, _is_critical);
+	squad_damage_record(squad_damage_source_get(_source_instance), UNIT_FACTION.ENEMY, _applied_damage);
+	return _applied_damage;
 };
 
 house_destroy = function()
