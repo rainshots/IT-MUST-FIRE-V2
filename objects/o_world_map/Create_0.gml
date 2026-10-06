@@ -11,6 +11,7 @@ captured_levels = []; // Object assets remain valid after leaving a room.
 last_captured_level = noone; // Only successors of this point can be attacked.
 active_level = noone; // The point whose battle is running.
 active_battle_room = -1;
+active_level_title = "Ashen Crossing"; // Copied before the selected point leaves the room.
 levels = []; // Rebuilt from o_level_parent children when entering the map.
 roster_cards = []; // Sorted references shared by input and drawing.
 

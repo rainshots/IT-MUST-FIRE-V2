@@ -32,17 +32,6 @@ if (!_inside_panel)
 			break;
 		}
 	}
-	var _card_count = min(array_length(roster_cards), BALANCE_BATTLE_ROSTER_LIMIT);
-	for (var _card_index = 0; _card_index < _card_count; ++_card_index)
-	{
-		var _card_left = card_x + _card_index * (card_width + card_gap);
-		if (point_in_rectangle(_mouse_x, _mouse_y, _card_left, card_y,
-			_card_left + card_width, card_y + card_height))
-		{
-			hovered_squad = roster_cards[_card_index];
-			break;
-		}
-	}
 }
 
 // F8 captures the hovered point regardless of its normal availability.
@@ -87,5 +76,6 @@ if (_pressed && attack_is_hovered && instance_exists(info_level)
 {
 	active_level = info_level.object_index;
 	active_battle_room = info_level.battle_room;
-	room_goto(active_battle_room);
+	active_level_title = info_level.level_title;
+	room_goto(r_conquest);
 }

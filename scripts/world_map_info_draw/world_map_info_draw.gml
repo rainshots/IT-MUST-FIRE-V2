@@ -49,7 +49,7 @@ function world_map_info_draw(_map)
 
 	if (instance_exists(_level))
 	{
-		// Enemy composition comes from the assigned room, so editor changes require no manual counters.
+		// Keep the original level panel while describing the conquest rules used by ATTACK.
 		draw_set_color(COLOR_CULTIST_COUNTER_TEXT);
 		draw_text_ext(0, _y, _level.level_title, _line_height, _content_width);
 		_y += string_height_ext(_level.level_title, _line_height, _content_width) + 14;
@@ -68,42 +68,21 @@ function world_map_info_draw(_map)
 		draw_text_ext(0, _y, _level.level_description, _line_height, _content_width);
 		_y += string_height_ext(_level.level_description, _line_height, _content_width) + _section_gap;
 		draw_set_color(COLOR_CULTIST_COUNTER_TEXT);
-		draw_text(0, _y, "Defenders");
-		_y += _line_height + 12;
-		var _forces = _level.enemy_forces;
-		var _force_count = array_length(_forces);
-		var _row_height = _icon_step + _line_height;
-		for (var _index = 0; _index < _force_count; ++_index)
-		{
-			var _force = _forces[_index];
-			var _icon_x = (_index mod _map.icon_columns) * _icon_step;
-			var _icon_y = _y + floor(_index / _map.icon_columns) * _row_height;
-			world_map_sprite_fit_draw(object_get_sprite(_force.unit_object),
-				_icon_x + _map.icon_size * 0.5, _icon_y + _map.icon_size * 0.5, _map.icon_size, _map.icon_size);
-			draw_set_halign(fa_center);
-			draw_set_color(COLOR_HUD_TEXT);
-			draw_text(_icon_x + _map.icon_size * 0.5, _icon_y + _map.icon_size + 5, string(_force.count));
-			if (_inside_content && point_in_rectangle(_mouse_x, _mouse_y,
-				_icon_x, _icon_y, _icon_x + _map.icon_size, _icon_y + _map.icon_size + _line_height))
-			{
-				_tooltip_title = world_map_object_name_get(_force.unit_object);
-				_tooltip_description = "Count: " + string(_force.count);
-			}
-		}
-		draw_set_halign(fa_left);
-		if (_force_count == 0)
-		{
-			draw_set_color(COLOR_SQUAD_CARD_TYPE);
-			draw_text(0, _y, "No defenders placed.");
-			_y += _line_height;
-		}
-		_y += ceil(_force_count / _map.icon_columns) * _row_height + _section_gap;
-		draw_set_color(COLOR_CULTIST_COUNTER_TEXT);
-		draw_text(0, _y, "Reward");
+		draw_text(0, _y, "Conquest");
 		_y += _line_height + 12;
 		draw_set_color(COLOR_HUD_TEXT);
-		draw_text_ext(0, _y, _level.reward, _line_height, _content_width);
-		_y += string_height_ext(_level.reward, _line_height, _content_width);
+		var _rules = "Take the enemy's buildings and defeat its remaining troops.\n\nSettlements recruit troops. Towers fire on passing enemies. Forges strengthen your whole army.\n\nDrag from your building to a target. Upgrade with U. Choose how many troops to send with 1-4.";
+		draw_text_ext(0, _y, _rules, _line_height, _content_width);
+		_y += string_height_ext(_rules, _line_height, _content_width) + _section_gap;
+		if (_level.reward != "")
+		{
+			draw_set_color(COLOR_CULTIST_COUNTER_TEXT);
+			draw_text(0, _y, "Reward");
+			_y += _line_height + 12;
+			draw_set_color(COLOR_HUD_TEXT);
+			draw_text_ext(0, _y, _level.reward, _line_height, _content_width);
+			_y += string_height_ext(_level.reward, _line_height, _content_width);
+		}
 	}
 	else
 	{

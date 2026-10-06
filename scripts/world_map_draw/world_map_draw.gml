@@ -1,4 +1,4 @@
-/// @description Draws the editor-placed route, original squad cards, and the right-hand information panel.
+/// @description Draws the editor-placed campaign route and its right-hand information panel.
 function world_map_draw(_map)
 {
 	if (!instance_exists(_map)) return;
@@ -48,7 +48,7 @@ function world_map_draw(_map)
 		draw_sprite_ext(_point.sprite_index, 0, _point.x, _point.y,
 			_point.image_xscale, _point.image_yscale, 0, c_white, 1);
 	}
-	world_map_roster_draw(_map);
+	// Conquest recruits troops inside settlements; legacy deployable squad cards are not used.
 	world_map_info_draw(_map);
 	draw_set_font(_map.map_font);
 	draw_set_halign(fa_left);
