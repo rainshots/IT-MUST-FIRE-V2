@@ -100,7 +100,7 @@ taint_spreader_corruption_update = function()
 
 	is_activated = true;
 	activation_effect_timer = activation_effect_duration;
-	corrupt_circle(x, y, corruption_spread_radius, _corruption_grid_object.full_corruption_value);
+	corrupt_circle(x, y, corruption_spread_radius, _corruption_grid_object.full_corruption_value, _corruption_grid_object.ground_faction_get(x, y));
 	taint_spreader_activation_effect_create();
 	return true;
 };

@@ -1,7 +1,7 @@
 /// @description Draws the pending direct-order points and member links below the squad flag HUD.
 function squad_orders_draw_gui()
 {
-	if (global.day_phase != DAY_PHASE.NIGHT || !instance_exists(o_camera_controller))
+	if (global.player_faction == FACTION.NONE || !instance_exists(o_camera_controller))
 	{
 		return;
 	}
@@ -15,7 +15,7 @@ function squad_orders_draw_gui()
 	for (var _index = 0; _index < _squad_count; ++_index)
 	{
 		var _squad = global.squads[_index];
-		if (!squad_order_is_active(_squad))
+		if (!squad_is_player_owned(_squad) || !squad_order_is_active(_squad))
 		{
 			continue;
 		}

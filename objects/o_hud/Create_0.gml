@@ -189,7 +189,7 @@ hud_squad_at_gui_position = function(_mouse_x, _mouse_y)
 		{
 			var _squad = global.squads[_squad_index];
 
-			if (_squad.squad_type != _squad_type)
+			if (!squad_is_player_owned(_squad) || _squad.squad_type != _squad_type)
 			{
 				continue;
 			}
@@ -849,6 +849,7 @@ minimap_ground_cell_xs = [];
 minimap_ground_cell_ys = [];
 minimap_ground_amounts = [];
 minimap_ground_is_saint = [];
+minimap_ground_factions = [];
 
 minimap_geometry_get = function()
 {
@@ -907,6 +908,7 @@ minimap_ground_cache_update = function()
 	minimap_ground_cell_ys = [];
 	minimap_ground_amounts = [];
 	minimap_ground_is_saint = [];
+minimap_ground_factions = [];
 
 	if (!instance_exists(o_cannon) || !instance_exists(o_corruption_grid))
 	{
@@ -965,6 +967,7 @@ minimap_ground_cache_update = function()
 			array_push(minimap_ground_cell_ys, _cell_y);
 			array_push(minimap_ground_amounts, max(_corruption, _saint));
 			array_push(minimap_ground_is_saint, _saint > 0);
+			array_push(minimap_ground_factions, ds_grid_get(_corruption_grid_object.corruption_faction_grid, _cell_x, _cell_y));
 		}
 	}
 };

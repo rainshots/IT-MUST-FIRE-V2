@@ -318,7 +318,7 @@ cursed_point_summon_button_is_hovered = function()
 	if (!is_captured
 		|| structure_selection_open
 		|| cursed_point_interaction_is_blocked()
-		|| global.day_phase != DAY_PHASE.DAY
+		|| global.player_faction == FACTION.NONE
 		|| global.focus_window != FOCUS_WINDOW.NOONE)
 	{
 		return false;
@@ -352,7 +352,7 @@ cursed_point_structure_selection_open = function()
 	if (!is_captured
 		|| structure_selection_open
 		|| cursed_point_interaction_is_blocked()
-		|| global.day_phase != DAY_PHASE.DAY)
+		|| global.player_faction == FACTION.NONE)
 	{
 		return;
 	}
@@ -488,51 +488,31 @@ cursed_point_structure_choice_hover_key_get = function(_mouse_x, _mouse_y)
 
 cursed_point_structure_build = function(_choice, _close_selection = true)
 {
-	if (global.day_phase != DAY_PHASE.DAY)
-	{
-		if (_close_selection)
-		{
-			cursed_point_structure_selection_close();
-		}
-
-		return false;
-	}
-
-	// Keep the window open if the selected Cursed Point option is invalid.
-	if (!cursed_point_structure_choice_can_construct(_choice))
-	{
-		return false;
-	}
-
-	if (_close_selection)
-	{
-		cursed_point_structure_selection_close();
-	}
-
-	var _construction_event = day_event_building_construction_create(id, _choice, true);
-
-	if (!is_struct(_construction_event))
-	{
-		return false;
-	}
-
-	if (instance_exists(o_jobs_ui))
-	{
-		var _jobs_ui = instance_find(o_jobs_ui, 0);
-
-		if (_jobs_ui.jobs_window_open()
-			&& variable_instance_exists(_jobs_ui, "jobs_input_block_until_mouse_release"))
-		{
-			_jobs_ui.jobs_input_block_until_mouse_release();
-		}
-	}
-
+	if (!cursed_point_structure_choice_can_construct(_choice)) return false;
+	if (_close_selection) cursed_point_structure_selection_close();
+	var _building = instance_create_layer(x, y, "Instances", _choice.building_object);
+	_building.faction = global.player_faction;
+	_building.cursed_point_restore_choice = _choice;
+	if (variable_instance_exists(_building, "building_constructed_by_cursed_point"))
+		_building.building_constructed_by_cursed_point = true;
+	if (variable_instance_exists(_building, "is_captured")) _building.is_captured = true;
+	if (variable_instance_exists(_building, "tower_capture_enabled")) _building.tower_capture_enabled = true;
+	if (variable_instance_exists(_building, "max_corruption")) _building.corruption = _building.max_corruption;
+	if (variable_instance_exists(_building, "captured_sprite_index") && _building.captured_sprite_index != noone)
+		_building.sprite_index = _building.captured_sprite_index;
+	if (variable_instance_exists(_building, "player_building_health_restore_full"))
+		_building.player_building_health_restore_full();
+	cursed_point_construction_effect_create();
+	if (variable_instance_exists(id, "construction_site_complete"))
+		construction_site_complete(_building, _choice);
+	else
+		instance_destroy();
 	return true;
 };
 
 cursed_point_structure_restore = function()
 {
-	if (global.day_phase != DAY_PHASE.DAY
+	if (global.player_faction == FACTION.NONE
 		|| !is_struct(restore_structure_choice))
 	{
 		return false;

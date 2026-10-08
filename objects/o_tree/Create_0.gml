@@ -147,7 +147,7 @@ tree_corruption_update = function()
 		// Keep the spread code behind a temporary feature switch for easy restoration.
 		if (TREE_CORRUPTION_SPREAD_ENABLED)
 		{
-			corrupt_circle(x, y, corruption_spread_radius, _corruption_grid_object.full_corruption_value);
+			corrupt_circle(x, y, corruption_spread_radius, _corruption_grid_object.full_corruption_value, _corruption_grid_object.ground_faction_get(x, y));
 		}
 
 		if (instance_exists(o_game_controller))

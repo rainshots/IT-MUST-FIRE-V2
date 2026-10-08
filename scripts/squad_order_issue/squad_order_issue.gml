@@ -1,7 +1,7 @@
 /// @description Gives the squad a move or attack-move destination, preserving the world flag on its members.
 function squad_order_issue(_squad, _x, _y, _mode)
 {
-	if (!is_struct(_squad) || global.day_phase != DAY_PHASE.NIGHT
+	if (!squad_is_player_owned(_squad) || global.player_faction == FACTION.NONE
 		|| (_mode != SQUAD_ORDER.MOVE && _mode != SQUAD_ORDER.MOVE_AND_ATTACK))
 	{
 		return false;

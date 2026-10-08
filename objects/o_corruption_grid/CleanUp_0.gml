@@ -13,3 +13,7 @@ if (ds_exists(saint_source_grid, ds_type_grid))
 {
 	ds_grid_destroy(saint_source_grid);
 }
+
+if (ds_exists(corruption_faction_grid, ds_type_grid)) ds_grid_destroy(corruption_faction_grid);
+
+ds_grid_destroy(corruption_protection_grid);

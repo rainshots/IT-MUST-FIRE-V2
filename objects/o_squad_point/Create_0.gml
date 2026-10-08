@@ -62,28 +62,6 @@ squad_point_card_sprite_size = 104;
 
 squad_point_pending_event_is_active = function()
 {
-	if (!is_struct(pending_squad_event)
-		|| !variable_global_exists("day_events")
-		|| !is_array(global.day_events))
-	{
-		pending_squad_event = noone;
-		return false;
-	}
-
-	// The reference is valid only while its reserving card remains in today's event list.
-	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
-	{
-		var _event = global.day_events[_event_index];
-
-		if (_event == pending_squad_event
-			&& variable_struct_exists(_event, "reserves_squad_slot")
-			&& _event.reserves_squad_slot)
-		{
-			return true;
-		}
-	}
-
-	pending_squad_event = noone;
 	return false;
 };
 
@@ -95,7 +73,7 @@ squad_point_state_update = function()
 	{
 		_new_state = SQUAD_POINT_STATE.OCCUPIED;
 	}
-	else if (global.day_phase == DAY_PHASE.DAY
+	else if (global.player_faction != FACTION.NONE
 		&& !squad_point_pending_event_is_active()
 		&& squad_slot_is_available())
 	{
@@ -160,7 +138,7 @@ squad_point_is_hovered = function()
 {
 	if (squad_point_state != SQUAD_POINT_STATE.AVAILABLE
 		|| squad_point_selection_open
-		|| global.day_phase != DAY_PHASE.DAY
+		|| global.player_faction == FACTION.NONE
 		|| global.pause
 		|| global.focus_window != FOCUS_WINDOW.NOONE)
 	{
@@ -252,7 +230,7 @@ squad_point_selection_open_window = function()
 {
 	if (squad_point_state != SQUAD_POINT_STATE.AVAILABLE
 		|| squad_point_selection_open
-		|| global.day_phase != DAY_PHASE.DAY
+		|| global.player_faction == FACTION.NONE
 		|| global.focus_window != FOCUS_WINDOW.NOONE
 		|| array_length(squad_point_choices) <= 0)
 	{
@@ -281,20 +259,11 @@ squad_point_selection_close = function()
 	global.focus_window = FOCUS_WINDOW.NOONE;
 };
 
-squad_point_recruitment_event_create = function(_choice)
+squad_point_recruit = function(_choice)
 {
-	if (squad_point_state != SQUAD_POINT_STATE.AVAILABLE)
-	{
-		return false;
-	}
-
-	var _event = day_event_squad_recruitment_create(id, _choice);
-
-	if (!is_struct(_event))
-	{
-		return false;
-	}
-
+	if (squad_point_state != SQUAD_POINT_STATE.AVAILABLE) return false;
+	var _squad = squad_create(_choice.squad_type, _choice.unit_object, _choice.unit_count, id);
+	if (!is_struct(_squad)) return false;
 	squad_point_selection_close();
 	squad_point_state_update();
 	return true;

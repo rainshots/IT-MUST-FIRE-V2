@@ -1,3 +1,6 @@
+// Non-player units are drawn only within current faction sight.
+if (unit_is_hidden_by_fog()) exit;
+
 // Do not draw boss-owned effects before the shared enemy fog check.
 if (cached_is_hidden_by_fog)
 {

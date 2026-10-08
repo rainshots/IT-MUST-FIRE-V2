@@ -1,3 +1,6 @@
+// Non-player units are drawn only within current faction sight.
+if (unit_is_hidden_by_fog()) exit;
+
 // The banner's active radius remains visible for as long as its bearer is alive.
 if (hp > 0)
 {

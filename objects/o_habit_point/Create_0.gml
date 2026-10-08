@@ -54,7 +54,7 @@ cursed_point_summon_button_is_hovered = function()
 	if (!is_captured
 		|| structure_selection_open
 		|| cursed_point_interaction_is_blocked()
-		|| global.day_phase != DAY_PHASE.DAY
+		|| global.player_faction == FACTION.NONE
 		|| global.focus_window != FOCUS_WINDOW.NOONE)
 	{
 		return false;

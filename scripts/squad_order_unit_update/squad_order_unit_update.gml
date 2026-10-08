@@ -4,7 +4,7 @@
 function squad_order_unit_update(_unit)
 {
 	_unit.squad_order_in_combat = false;
-	if (_unit.unit_faction != UNIT_FACTION.FRIENDLY || global.day_phase != DAY_PHASE.NIGHT
+	if (!squad_is_player_owned(_unit.squad) || global.player_faction == FACTION.NONE
 		|| !squad_order_is_active(_unit.squad))
 	{
 		return false;
@@ -43,7 +43,6 @@ function squad_order_unit_update(_unit)
 		var _target = _unit.target_instance;
 		var _had_target = _target != noone;
 		var _target_is_nearby_enemy = instance_exists(_target)
-			&& (_target.object_index == o_enemy_units || object_is_ancestor(_target.object_index, o_enemy_units))
 			&& point_distance(_unit.x, _unit.y, _target.x, _target.y) <= BALANCE_SQUAD_ORDER_ATTACK_RADIUS
 			&& _unit.target_can_be_attacked(_target);
 		_unit.squad_order_search_timer -= _unit.gameplay_time_scale;
@@ -53,7 +52,7 @@ function squad_order_unit_update(_unit)
 		{
 			_unit.squad_order_search_timer = _unit.target_search_update_interval;
 			_unit.target_instance = _target_is_nearby_enemy ? _target : noone;
-			_target = _unit.find_nearest_enemy_unit_target(BALANCE_SQUAD_ORDER_ATTACK_RADIUS);
+			_target = _unit.find_nearest_faction_target(BALANCE_SQUAD_ORDER_ATTACK_RADIUS);
 			_target_is_nearby_enemy = instance_exists(_target)
 				&& _unit.navigation_target_prepare(_target, _unit.attack_radius);
 		}

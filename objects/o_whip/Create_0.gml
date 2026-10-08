@@ -30,7 +30,7 @@ whip_cultist_hit = function(_cultist)
 		return false;
 	}
 
-	var _damage_dealt = day_event_cultist_damage_apply(_cultist, cultist_damage);
+	var _damage_dealt = _cultist.unit_damage_receive(cultist_damage);
 
 	if (_damage_dealt <= 0)
 	{

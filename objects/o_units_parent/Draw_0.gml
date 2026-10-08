@@ -1,8 +1,5 @@
-// Enemies are visible only on fully revealed ground.
-if (unit_faction == UNIT_FACTION.ENEMY && cached_is_hidden_by_fog)
-{
-	exit;
-}
+// Non-player units are drawn only within current faction sight.
+if (unit_is_hidden_by_fog()) exit;
 
 // Selection is a ground aura, drawn before the member's sprite rather than over it.
 if (unit_faction == UNIT_FACTION.FRIENDLY && hp > 0 && global.day_phase == DAY_PHASE.NIGHT

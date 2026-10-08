@@ -204,7 +204,7 @@ shrine_saint_source_register = function()
 
 	if (variable_instance_exists(_corruption_grid, "saint_source_circle_add"))
 	{
-		_corruption_grid.saint_source_circle_add(x, y, saint_radius);
+		_corruption_grid.saint_source_circle_add(x, y, saint_radius, corruption_faction_get(id, FACTION.ORDER));
 		saint_source_registered = true;
 	}
 };
@@ -266,7 +266,7 @@ shrine_saint_projectile_source_add = function(_center_x, _center_y, _radius, _sa
 
 	if (variable_instance_exists(_corruption_grid, "saint_source_circle_add"))
 	{
-		_corruption_grid.saint_source_circle_add(_center_x, _center_y, _radius);
+		_corruption_grid.saint_source_circle_add(_center_x, _center_y, _radius, corruption_faction_get(id, FACTION.ORDER));
 		array_push(
 			saint_projectile_sources,
 			{
@@ -279,7 +279,7 @@ shrine_saint_projectile_source_add = function(_center_x, _center_y, _radius, _sa
 
 	if (variable_instance_exists(_corruption_grid, "saint_circle_set"))
 	{
-		_corruption_grid.saint_circle_set(_center_x, _center_y, _radius, _saint_amount);
+		_corruption_grid.saint_circle_set(_center_x, _center_y, _radius, _saint_amount, corruption_faction_get(id, FACTION.ORDER));
 	}
 };
 
@@ -305,6 +305,7 @@ shrine_saint_projectile_create = function(_target_x, _target_y, _launch_delay_se
 	_projectile.saint_amount = 1;
 	_projectile.damage_faction = UNIT_FACTION.ENEMY;
 	_projectile.source_instance = id;
+	_projectile.faction = corruption_faction_get(id, FACTION.ORDER);
 	_projectile.flight_time = _flight_time_seconds * room_speed;
 	_projectile.launch_delay_timer = _launch_delay_seconds * room_speed;
 	_projectile.depth = night_saint_projectile_draw_depth;
@@ -334,6 +335,7 @@ shrine_cleanse_projectile_create = function(_target_x, _target_y, _launch_delay_
 	_projectile.saint_amount = 0;
 	_projectile.damage_faction = UNIT_FACTION.ENEMY;
 	_projectile.source_instance = id;
+	_projectile.faction = corruption_faction_get(id, FACTION.ORDER);
 	_projectile.flight_time = _flight_time_seconds * room_speed;
 	_projectile.launch_delay_timer = _launch_delay_seconds * room_speed;
 	_projectile.depth = night_saint_projectile_draw_depth;

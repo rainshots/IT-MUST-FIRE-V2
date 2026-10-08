@@ -11,8 +11,8 @@ function squad_march_unit_speed_get(_unit)
 	var _squad = _unit.squad;
 	var _has_order = squad_order_is_active(_squad);
 
-	if (global.day_phase != DAY_PHASE.NIGHT
-		|| _unit.unit_faction != UNIT_FACTION.FRIENDLY
+	if (global.player_faction == FACTION.NONE
+		|| !squad_is_player_owned(_squad)
 		|| (!squad_is_marching(_squad) && !_has_order))
 	{
 		return _base_move_speed;

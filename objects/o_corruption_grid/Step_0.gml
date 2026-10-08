@@ -1,112 +1,48 @@
-// Pause freezes passive ground corruption spread.
-if (global.pause)
+corruption_protection_timer += 1;
+if (corruption_protection_timer >= max(1, room_speed * 0.25))
 {
-	exit;
+	corruption_protection_timer = 0;
+	corruption_protection_dirty = true;
 }
-
-var _time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
-passive_spread_update_timer += _time_scale;
-saint_update_timer += _time_scale;
-
-var _should_update_passive_spread = passive_spread_update_timer >= passive_spread_update_interval;
-var _should_update_saint = saint_update_timer >= saint_update_interval;
-
-if (_should_update_passive_spread)
+// Seed after room creation, including while the faction chooser pauses simulation.
+if (!base_corruption_initialized)
 {
-	passive_spread_update_timer -= passive_spread_update_interval;
-}
-
-if (_should_update_saint)
-{
-	saint_update_timer -= saint_update_interval;
-}
-
-if (!_should_update_passive_spread && !_should_update_saint)
-{
-	exit;
-}
-
-var _spread_corruption = passive_spread_per_second * (passive_spread_update_interval / room_speed);
-var _saint_change = saint_change_per_second * (saint_update_interval / room_speed);
-
-// Saint cells grow from linked sources and fade after their last source disappears.
-if (_should_update_saint)
-{
-	for (var _saint_cell_x = 0; _saint_cell_x < grid_width; ++_saint_cell_x)
+	base_corruption_initialized = true;
+	with (o_faction_base_parent)
 	{
-		for (var _saint_cell_y = 0; _saint_cell_y < grid_height; ++_saint_cell_y)
-		{
-			var _saint = ds_grid_get(saint_grid, _saint_cell_x, _saint_cell_y);
-			var _saint_source_count = ds_grid_get(saint_source_grid, _saint_cell_x, _saint_cell_y);
-
-			if (_saint_source_count > 0)
-			{
-				var _new_saint = min(_saint + _saint_change, full_saint_value);
-				var _corruption = ds_grid_get(corruption_grid, _saint_cell_x, _saint_cell_y);
-
-				ds_grid_set(saint_grid, _saint_cell_x, _saint_cell_y, _new_saint);
-				ds_grid_set(corruption_grid, _saint_cell_x, _saint_cell_y, max(0, _corruption - _saint_change));
-			}
-			else if (_saint > 0)
-			{
-				ds_grid_set(saint_grid, _saint_cell_x, _saint_cell_y, max(0, _saint - _saint_change));
-			}
-		}
+		if (hp > 0) other.corrupt_circle(x, y, BALANCE_FACTION_BASE_CORRUPTION_RADIUS, 1, faction);
 	}
 }
+if (global.pause) exit;
+var _time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
+passive_spread_update_timer += _time_scale;
+if (passive_spread_update_timer < passive_spread_update_interval) exit;
+passive_spread_update_timer -= passive_spread_update_interval;
+var _amount = passive_spread_per_second * passive_spread_update_interval / room_speed;
 
-if (!_should_update_passive_spread)
+// Snapshot sources so replacing a neighbor cannot change this tick's source order.
+var _sources = [];
+for (var _cx = 0; _cx < grid_width; ++_cx)
 {
-	exit;
-}
-
-// Fully corrupted cells slowly infect all 8 neighbor cells up to passive_spread_limit.
-for (var _cell_x = 0; _cell_x < grid_width; ++_cell_x)
-{
-	for (var _cell_y = 0; _cell_y < grid_height; ++_cell_y)
+	for (var _cy = 0; _cy < grid_height; ++_cy)
 	{
-		var _corruption = ds_grid_get(corruption_grid, _cell_x, _cell_y);
-		var _saint = ds_grid_get(saint_grid, _cell_x, _cell_y);
-
-		if (_saint <= 0 && _corruption >= full_corruption_value)
+		if (ds_grid_get(corruption_grid, _cx, _cy) >= full_corruption_value)
+			array_push(_sources, {cell_x: _cx, cell_y: _cy, faction: ds_grid_get(corruption_faction_grid, _cx, _cy)});
+	}
+}
+var _count = array_length(_sources);
+for (var _index = 0; _index < _count; ++_index)
+{
+	var _source = _sources[_index];
+	for (var _dx = -1; _dx <= 1; ++_dx)
+	{
+		for (var _dy = -1; _dy <= 1; ++_dy)
 		{
-			for (var _offset_x = neighbor_offset_min; _offset_x <= neighbor_offset_max; ++_offset_x)
-			{
-				for (var _offset_y = neighbor_offset_min; _offset_y <= neighbor_offset_max; ++_offset_y)
-				{
-					var _is_current_cell = (_offset_x == 0 && _offset_y == 0);
-
-					if (!_is_current_cell)
-					{
-						var _target_cell_x = _cell_x + _offset_x;
-						var _target_cell_y = _cell_y + _offset_y;
-						var _is_inside_grid = (
-							_target_cell_x >= 0
-							&& _target_cell_x < grid_width
-							&& _target_cell_y >= 0
-							&& _target_cell_y < grid_height
-						);
-
-						if (_is_inside_grid)
-						{
-							var _target_saint = ds_grid_get(saint_grid, _target_cell_x, _target_cell_y);
-
-							if (_target_saint > 0)
-							{
-								continue;
-							}
-
-							var _target_corruption = ds_grid_get(corruption_grid, _target_cell_x, _target_cell_y);
-
-							if (_target_corruption < passive_spread_limit)
-							{
-								var _new_corruption = min(_target_corruption + _spread_corruption, passive_spread_limit);
-								ds_grid_set(corruption_grid, _target_cell_x, _target_cell_y, _new_corruption);
-							}
-						}
-					}
-				}
-			}
+			if (_dx == 0 && _dy == 0) continue;
+			var _tx = _source.cell_x + _dx;
+			var _ty = _source.cell_y + _dy;
+			if (_tx < 0 || _ty < 0 || _tx >= grid_width || _ty >= grid_height) continue;
+			corruption_cell_apply(_tx, _ty, _amount, _source.faction, passive_spread_limit);
 		}
 	}
 }

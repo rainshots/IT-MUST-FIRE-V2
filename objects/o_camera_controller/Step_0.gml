@@ -8,14 +8,6 @@ if (instance_exists(game_controller))
 	}
 }
 
-// Center the fully zoomed-out starting view once all room instances exist.
-if (start_center_on_cannon_pending && instance_exists(o_cannon))
-{
-	var _cannon = instance_find(o_cannon, 0);
-	camera_center_on_instance(_cannon);
-	start_center_on_cannon_pending = false;
-}
-
 // Assign Rites keeps its composed city view fixed while gameplay continues underneath it.
 if (jobs_view_active)
 {
@@ -30,7 +22,8 @@ if (jobs_view_active)
 // Cannon target selection keeps camera controls available while other focus windows block them.
 var _tutorial_popup_active = variable_global_exists("tutorial_popup_active") && global.tutorial_popup_active;
 var _camera_input_allowed = global.focus_window == FOCUS_WINDOW.NOONE
-	|| global.focus_window == FOCUS_WINDOW.TARGET_SELECTION;
+	|| global.focus_window == FOCUS_WINDOW.TARGET_SELECTION
+	|| global.focus_window == FOCUS_WINDOW.SUMMON;
 
 if (global.pause && (!_camera_input_allowed || _tutorial_popup_active))
 {
@@ -85,7 +78,7 @@ if (zoom_level != target_zoom_level)
 var _squad_uses_attack_key = instance_exists(game_controller)
 	&& game_controller.squad_flag_system_2_enabled
 	&& is_struct(game_controller.selected_squad)
-	&& global.day_phase == DAY_PHASE.NIGHT
+	&& global.player_faction != FACTION.NONE
 	&& global.focus_window == FOCUS_WINDOW.NOONE;
 var _input_x = keyboard_check(ord("D")) - (!_squad_uses_attack_key && keyboard_check(ord("A")));
 var _input_y = keyboard_check(ord("S")) - keyboard_check(ord("W"));

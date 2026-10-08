@@ -1,3 +1,9 @@
+favor_defeat_awarded = false;
+defeat_value = 5;
+// Neutral map structures grant no vision until they receive a faction owner.
+faction = FACTION.NONE;
+vision_radius = BALANCE_BUILDING_VISION_RADIUS;
+
 // Base durability values for map objects.
 max_hp = 1000 * BALANCE_GLOBAL_HP_MULTIPLIER;
 hp = max_hp;
@@ -688,7 +694,7 @@ player_building_ground_state_update = function()
 };
 
 // Shared damage receiver keeps player structure damage feedback consistent.
-unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true, _source_instance = noone)
+unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true, _source_instance = noone, _favor_faction = FACTION.NONE)
 {
 	if (hp <= 0 || _damage_amount <= 0)
 	{
@@ -697,6 +703,7 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 
 	var _applied_damage = min(_damage_amount, hp);
 	hp = max(hp - _damage_amount, 0);
+	if (hp <= 0) faction_favor_award(id, _source_instance, _favor_faction);
 	var _is_player_structure = building_constructed_by_shell
 		|| building_constructed_by_cursed_point
 		|| (variable_instance_exists(id, "is_captured") && is_captured && object_index != o_cursed_point);
@@ -926,3 +933,6 @@ tower_range_draw = function(_radius, _color)
 
 	map_object_range_draw(_radius, _color);
 };
+
+corruption_protection_radius = BALANCE_FACTION_BASE_CORRUPTION_RADIUS;
+if (instance_exists(o_corruption_grid)) o_corruption_grid.corruption_protection_dirty = true;

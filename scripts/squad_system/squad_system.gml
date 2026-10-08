@@ -1,7 +1,13 @@
 /// @description Creates and manages persistent player squads.
 
-function squad_constructor(_squad_type, _primary_unit_object, _unit_count) constructor
+function squad_constructor(_squad_type, _primary_unit_object, _unit_count, _faction = global.player_faction) constructor
 {
+	faction = _faction;
+	is_hero = false;
+	hero_respawn_enabled = false;
+	hero_respawn_remaining = 0;
+	ai_target = noone;
+	ai_target_retry_timer = 0;
 	squad_type = _squad_type;
 	// A scalar value guarantees that a squad can carry no more than one Unholy Trait.
 	unholy_trait = UNHOLY_TRAIT.NONE;
@@ -53,27 +59,12 @@ function squad_icon_sprite_current_get(_squad)
 		}
 	}
 
+	if (_squad.is_hero) return object_get_sprite(_squad.primary_unit_object);
 	return noone;
 }
 
 function squad_icon_sprite_get(_squad)
 {
-	if (!is_struct(_squad))
-	{
-		return noone;
-	}
-
-	// Night combat uses one frozen icon in both the roster and world marker.
-	if (global.day_phase == DAY_PHASE.NIGHT)
-	{
-		if (!variable_struct_exists(_squad.properties, "night_icon_sprite"))
-		{
-			_squad.properties.night_icon_sprite = squad_icon_sprite_current_get(_squad);
-		}
-
-		return _squad.properties.night_icon_sprite;
-	}
-
 	return squad_icon_sprite_current_get(_squad);
 }
 
@@ -105,7 +96,7 @@ function squad_type_count_get(_squad_type)
 	{
 		var _squad = global.squads[_squad_index];
 
-		if (is_struct(_squad) && _squad.squad_type == _squad_type)
+		if (squad_is_player_owned(_squad) && _squad.squad_type == _squad_type)
 		{
 			_squad_count++;
 		}
@@ -116,69 +107,22 @@ function squad_type_count_get(_squad_type)
 
 function squad_limit_for_day_get(_day_number)
 {
-	var _day = max(1, floor(_day_number));
-	var _limit = BALANCE_SQUAD_STARTING_LIMIT;
-
-	// New shared squad slots open on the configured campaign days.
-	if (_day >= BALANCE_SQUAD_LIMIT_UNLOCK_DAY_1)
-	{
-		_limit++;
-	}
-
-	if (_day >= BALANCE_SQUAD_LIMIT_UNLOCK_DAY_2)
-	{
-		_limit++;
-	}
-
-	return min(_limit, BALANCE_SQUAD_LIMIT);
+	return BALANCE_SQUAD_LIMIT;
 }
 
 function squad_limit_current_day_update()
 {
-	var _current_day = 1;
-
-	if (is_callable(day_event_current_day_get))
-	{
-		_current_day = day_event_current_day_get();
-	}
-
-	global.squad_limit = squad_limit_for_day_get(_current_day);
 	return global.squad_limit;
 }
 
 function squad_pending_event_count_get(_excluded_event = noone)
 {
-	if (!variable_global_exists("day_events") || !is_array(global.day_events))
-	{
-		return 0;
-	}
-
-	var _pending_count = 0;
-
-	// A point-created recruitment event reserves its shared slot before execution.
-	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
-	{
-		var _event = global.day_events[_event_index];
-
-		if (is_struct(_event)
-			&& _event != _excluded_event
-			&& variable_struct_exists(_event, "reserves_squad_slot")
-			&& _event.reserves_squad_slot)
-		{
-			_pending_count++;
-		}
-	}
-
-	return _pending_count;
+	return 0;
 }
 
 function squad_slot_occupied_count_get(_excluded_event = noone)
 {
-	var _squad_count = variable_global_exists("squads") && is_array(global.squads)
-		? array_length(global.squads)
-		: 0;
-
-	return _squad_count + squad_pending_event_count_get(_excluded_event);
+	return faction_squad_count_get(global.player_faction);
 }
 
 function squad_slot_is_available(_squad_type = -1, _excluded_event = noone)
@@ -741,30 +685,12 @@ function squad_living_center_get(_squad)
 
 function squad_unholy_power_twilight_is_active(_squad)
 {
-	if (global.day_phase != DAY_PHASE.NIGHT
-		|| squad_unholy_trait_get(_squad) != UNHOLY_TRAIT.POWER_OF_TWILIGHT)
-	{
-		return false;
-	}
-
-	var _night_duration = variable_global_exists("unholy_night_active")
-		&& global.unholy_night_active
-		? BALANCE_UNHOLY_NIGHT_DURATION
-		: global.night_duration;
-
-	var _frames_per_second = variable_global_exists("game_speed_normal")
-		? global.game_speed_normal
-		: room_speed;
-	var _night_duration_frames = _night_duration * _frames_per_second;
-	var _night_elapsed_frames = max(0, _night_duration_frames - global.day_timer);
-	var _twilight_duration_frames = BALANCE_UNHOLY_SHRINE_TWILIGHT_DURATION * _frames_per_second;
-
-	return _night_elapsed_frames < _twilight_duration_frames;
+	return false;
 }
 
 function squad_unholy_roar_try(_squad)
 {
-	if (global.day_phase != DAY_PHASE.NIGHT
+	if (global.player_faction == FACTION.NONE
 		|| squad_unholy_trait_get(_squad) != UNHOLY_TRAIT.ROAR_OF_THE_ABYSS
 		|| (variable_struct_exists(_squad.properties, "unholy_roar_triggered")
 			&& _squad.properties.unholy_roar_triggered))
@@ -1061,7 +987,8 @@ function squad_unit_spawn(_squad, _unit_object, _unit_index)
 {
 	if (!instance_exists(o_cannon)) return noone;
 
-	var _cannon = instance_find(o_cannon, 0);
+	var _cannon = faction_base_find(_squad.faction);
+	if (!instance_exists(_cannon)) _cannon = instance_find(o_cannon, 0);
 	var _angle = (_unit_index * 137.5) mod 360;
 	var _distance = 90 + (24 * sqrt(_unit_index));
 	var _spawn_x = _cannon.x + lengthdir_x(_distance, _angle);
@@ -1083,7 +1010,18 @@ function squad_unit_spawn(_squad, _unit_object, _unit_index)
 		_spawn_y = _day_point.y + lengthdir_y(_radius_y, _angle);
 	}
 
+	if (_squad.squad_type == SQUAD_TYPE.ARMY)
+	{
+		var _base = faction_base_find(_squad.faction);
+		var _cannon_target = instance_find(o_cannon, 0);
+		if (!instance_exists(_base)) return noone;
+		var _direction = point_direction(_base.x, _base.y, _cannon_target.x, _cannon_target.y);
+		var _offset = (_unit_index - (array_length(_squad.unit_objects) - 1) * 0.5) * BALANCE_SUMMON_FORMATION_SPACING;
+		_spawn_x = _base.x + lengthdir_x(BALANCE_SUMMON_SPAWN_DISTANCE, _direction) + lengthdir_x(_offset, _direction + 90);
+		_spawn_y = _base.y + lengthdir_y(BALANCE_SUMMON_SPAWN_DISTANCE, _direction) + lengthdir_y(_offset, _direction + 90);
+	}
 	var _unit = instance_create_layer(_spawn_x, _spawn_y, "Instances", _unit_object);
+	_unit.faction = _squad.faction;
 	_unit.squad = _squad;
 	_unit.squad_unit_index = _unit_index;
 	squad_unit_permanent_bonuses_apply(_squad, _unit);
@@ -1099,15 +1037,17 @@ function squad_create(
 	_primary_unit_object,
 	_unit_count,
 	_preferred_day_point = noone,
-	_reserved_event = noone
+	_reserved_event = noone,
+	_faction = global.player_faction
 )
 {
-	if (!squad_slot_is_available(_squad_type, _reserved_event)) return noone;
+	if (faction_squad_count_get(_faction) >= BALANCE_SQUAD_LIMIT) return noone;
+	if (_faction == global.player_faction && !squad_slot_is_available(_squad_type, _reserved_event)) return noone;
 
-	var _squad = new squad_constructor(_squad_type, _primary_unit_object, _unit_count);
+	var _squad = new squad_constructor(_squad_type, _primary_unit_object, _unit_count, _faction);
 	_squad.name = squad_name_create(_primary_unit_object);
 	array_push(global.squads, _squad);
-	squad_day_point_assign(_squad, _preferred_day_point);
+	if (squad_is_player_owned(_squad) && _squad_type != SQUAD_TYPE.ARMY) squad_day_point_assign(_squad, _preferred_day_point);
 
 	for (var _unit_index = 0; _unit_index < array_length(_squad.unit_objects); ++_unit_index)
 	{
@@ -1229,51 +1169,27 @@ function squad_unit_resurrect_as_bonelet(_dead_unit)
 
 function squad_register_existing_unit(_squad_type, _unit)
 {
-	if (!instance_exists(_unit) || !squad_slot_is_available(_squad_type)) return noone;
+	if (!instance_exists(_unit)) return noone;
+	if (faction_squad_count_get(_unit.faction) >= BALANCE_SQUAD_LIMIT) return noone;
+	if (_unit.faction == global.player_faction && !squad_slot_is_available(_squad_type)) return noone;
 
-	var _squad = new squad_constructor(_squad_type, _unit.object_index, 1);
+	var _squad = new squad_constructor(_squad_type, _unit.object_index, 1, _unit.faction);
 	_squad.name = variable_instance_exists(_unit, "cultist_name") ? _unit.cultist_name : squad_name_create(_unit.object_index);
 	_squad.units = [_unit];
+	_unit.faction = _squad.faction;
 	_unit.squad = _squad;
 	_unit.squad_unit_index = 0;
 	foundry_unit_permanent_bonuses_apply(_unit);
 	_unit.foundry_permanent_bonuses_pending = false;
 	_squad.total_max_hp = _unit.max_hp;
 	array_push(global.squads, _squad);
-	squad_day_point_assign(_squad);
+	if (squad_is_player_owned(_squad)) squad_day_point_assign(_squad);
 	return _squad;
 }
 
 function squad_units_restore_morning()
 {
-	for (var _squad_index = 0; _squad_index < array_length(global.squads); ++_squad_index)
-	{
-		var _squad = global.squads[_squad_index];
-		_squad.properties.marker_is_dragged = false;
-		_squad.properties.march_is_active = false;
-		_squad.properties.march_enemy_check_timer = 0;
-		_squad.properties.march_speed_bonus_active = false;
-		_squad.properties.march_pace_update_timer = 0;
-		_squad.properties.march_pace_move_speed = 0;
-		_squad.properties.march_pace_destination_distance = 0;
-		_squad.properties.combat_guide_unit = noone;
-		_squad.properties.unholy_roar_triggered = false;
-		squad_order_clear(_squad);
-
-		if (_squad.squad_type == SQUAD_TYPE.ARCHDEMON) continue;
-
-		for (var _unit_index = 0; _unit_index < array_length(_squad.units); ++_unit_index)
-		{
-			if (instance_exists(_squad.units[_unit_index])) instance_destroy(_squad.units[_unit_index]);
-		}
-
-		_squad.units = [];
-
-		for (var _unit_index = 0; _unit_index < array_length(_squad.unit_objects); ++_unit_index)
-		{
-			array_push(_squad.units, squad_unit_spawn(_squad, _squad.unit_objects[_unit_index], _unit_index));
-		}
-	}
+	// Permanent casualties are never restored.
 }
 
 function squad_total_hp_get(_squad)
@@ -1691,7 +1607,7 @@ function squad_combat_guide_update(_squad)
 function squad_combat_guides_update()
 {
 	if (global.pause
-		|| global.day_phase != DAY_PHASE.NIGHT
+		|| global.player_faction == FACTION.NONE
 		|| !variable_global_exists("squads"))
 	{
 		return;
@@ -1706,7 +1622,7 @@ function squad_combat_guides_update()
 
 function squad_combat_guide_get(_squad, _requesting_unit)
 {
-	if (global.day_phase != DAY_PHASE.NIGHT
+	if (global.player_faction == FACTION.NONE
 		|| !is_struct(_squad)
 		|| !variable_struct_exists(_squad.properties, "combat_guide_unit"))
 	{
@@ -1725,7 +1641,7 @@ function squad_combat_guide_get(_squad, _requesting_unit)
 
 function squad_night_markers_update()
 {
-	if (global.day_phase != DAY_PHASE.NIGHT)
+	if (global.player_faction == FACTION.NONE)
 	{
 		return;
 	}
@@ -1758,6 +1674,7 @@ function squad_marker_find_at_position(_world_x, _world_y)
 	for (var _squad_index = array_length(global.squads) - 1; _squad_index >= 0; --_squad_index)
 	{
 		var _squad = global.squads[_squad_index];
+		if (!squad_is_player_owned(_squad)) continue;
 
 		if (!variable_struct_exists(_squad.properties, "marker_x")
 			|| !variable_struct_exists(_squad.properties, "marker_y"))
@@ -1783,7 +1700,7 @@ function squad_marker_find_at_position(_world_x, _world_y)
 
 function squad_drag_begin(_squad, _mouse_button = mb_left, _order_mode = SQUAD_ORDER.MOVE)
 {
-	if (!is_struct(_squad)
+	if (!squad_is_player_owned(_squad)
 		|| (_mouse_button != mb_left && _mouse_button != mb_right)
 		|| (_order_mode != SQUAD_ORDER.MOVE && _order_mode != SQUAD_ORDER.MOVE_AND_ATTACK))
 	{
@@ -1807,11 +1724,8 @@ function squad_drag_update(_squad, _target_x, _target_y)
 		return false;
 	}
 
-	if (!world_position_is_revealed_by_fog(_target_x, _target_y))
-	{
-		_target_x = _squad.properties.marker_x;
-		_target_y = _squad.properties.marker_y;
-	}
+	// The whole terrain is known, so squads can be ordered into unseen ground.
+
 
 	_squad.properties.marker_x = _target_x;
 	_squad.properties.marker_y = _target_y;
@@ -1859,7 +1773,7 @@ function squad_drag_end(_squad, _issue_order = true)
 
 function squad_night_markers_draw_gui()
 {
-	if (global.day_phase != DAY_PHASE.NIGHT || !instance_exists(o_camera_controller))
+	if (global.player_faction == FACTION.NONE || !instance_exists(o_camera_controller))
 	{
 		return;
 	}
@@ -1887,6 +1801,7 @@ function squad_night_markers_draw_gui()
 	for (var _squad_index = 0; _squad_index < array_length(global.squads); ++_squad_index)
 	{
 		var _squad = global.squads[_squad_index];
+		if (!squad_is_player_owned(_squad)) continue;
 
 		if (!squad_marker_position_update(_squad))
 		{

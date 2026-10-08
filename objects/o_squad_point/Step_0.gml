@@ -4,7 +4,7 @@ squad_point_state_update();
 // An open selection window remains responsive while gameplay is paused.
 if (squad_point_selection_open)
 {
-	if (global.day_phase != DAY_PHASE.DAY
+	if (global.player_faction == FACTION.NONE
 		|| squad_point_state != SQUAD_POINT_STATE.AVAILABLE)
 	{
 		squad_point_selection_close();
@@ -30,7 +30,7 @@ if (squad_point_selection_open)
 
 		if (_choice_index >= 0
 			&& _choice_index < array_length(squad_point_choices)
-			&& squad_point_recruitment_event_create(squad_point_choices[_choice_index])
+			&& squad_point_recruit(squad_point_choices[_choice_index])
 			&& variable_global_exists("ui_confirm_sound_play"))
 		{
 			global.ui_confirm_sound_play();

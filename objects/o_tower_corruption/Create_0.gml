@@ -77,6 +77,7 @@ tower_corruption_projectile_create = function(_target_x, _target_y, _corruption_
 	_projectile.effect_radius = projectile_effect_radius;
 	_projectile.ground_corruption_amount = _corruption_amount;
 	_projectile.source_instance = id;
+	_projectile.faction = corruption_faction_get(id);
 	_projectile.launch_delay_timer = _launch_delay_seconds * room_speed;
 	_projectile.flight_time = _flight_time_seconds * room_speed;
 	_projectile.depth = projectile_draw_depth;

@@ -78,72 +78,6 @@ function cannon_satisfaction_sprite_get(_level = cannon_satisfaction_level_get()
 	return s_cannon_awake;
 }
 
-function cannon_satisfaction_level_name_get(_level = cannon_satisfaction_level_get())
-{
-	switch (_level)
-	{
-		case CANNON_SATISFACTION_LEVEL.SULKING:
-			return "Sulking";
-
-		case CANNON_SATISFACTION_LEVEL.AWAKE:
-			return "Awake";
-
-		case CANNON_SATISFACTION_LEVEL.PLAYFUL:
-			return "Playful";
-
-		case CANNON_SATISFACTION_LEVEL.ECSTATIC:
-			return "Ecstatic";
-
-		case CANNON_SATISFACTION_LEVEL.IT_MUST_FIRE:
-			return "It Must Fire";
-	}
-
-	return "Awake";
-}
-
-function cannon_satisfaction_effect_text_get(_level = cannon_satisfaction_level_get())
-{
-	switch (_level)
-	{
-		case CANNON_SATISFACTION_LEVEL.SULKING:
-			return "- All events cost an additional 5 Cultist HP.\n- Cannon reload time is 30% slower.";
-
-		case CANNON_SATISFACTION_LEVEL.AWAKE:
-			return "- No effects.";
-
-		case CANNON_SATISFACTION_LEVEL.PLAYFUL:
-			return "- Cannon reload time is 15% faster.\n- You can reroll 1 building Rite per day.";
-
-		case CANNON_SATISFACTION_LEVEL.ECSTATIC:
-			return "- Cannon reload time is 20% faster.\n- You can reroll 1 building Rite per day.";
-
-		case CANNON_SATISFACTION_LEVEL.IT_MUST_FIRE:
-			return "- The Cannon fires at enemies every 20 seconds without consuming player shells.\n- Cannon reload time is 25% faster.\n- You can reroll 2 building Rites per day.";
-	}
-
-	return "- No effects.";
-}
-
-function cannon_satisfaction_reload_time_multiplier_get()
-{
-	switch (cannon_satisfaction_level_get())
-	{
-		case CANNON_SATISFACTION_LEVEL.SULKING:
-			return BALANCE_CANNON_SATISFACTION_SULKING_RELOAD_TIME_MULTIPLIER;
-
-		case CANNON_SATISFACTION_LEVEL.PLAYFUL:
-			return 1 / BALANCE_CANNON_SATISFACTION_PLAYFUL_RELOAD_SPEED_MULTIPLIER;
-
-		case CANNON_SATISFACTION_LEVEL.ECSTATIC:
-			return 1 / BALANCE_CANNON_SATISFACTION_ECSTATIC_RELOAD_SPEED_MULTIPLIER;
-
-		case CANNON_SATISFACTION_LEVEL.IT_MUST_FIRE:
-			return 1 / BALANCE_CANNON_SATISFACTION_IT_MUST_FIRE_RELOAD_SPEED_MULTIPLIER;
-	}
-
-	return 1;
-}
-
 function cannon_satisfaction_daily_reroll_count_for_level_get(_level)
 {
 	if (_level >= CANNON_SATISFACTION_LEVEL.IT_MUST_FIRE)
@@ -157,11 +91,6 @@ function cannon_satisfaction_daily_reroll_count_for_level_get(_level)
 	}
 
 	return 0;
-}
-
-function cannon_satisfaction_daily_reroll_count_get()
-{
-	return cannon_satisfaction_daily_reroll_count_for_level_get(cannon_satisfaction_level_get());
 }
 
 function cannon_satisfaction_level_effects_refresh(_previous_level, _current_level)

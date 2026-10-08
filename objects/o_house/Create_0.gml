@@ -52,7 +52,7 @@ house_saint_source_register = function()
 
 	if (variable_instance_exists(_corruption_grid, "saint_source_circle_add"))
 	{
-		_corruption_grid.saint_source_circle_add(x, y, saint_radius);
+		_corruption_grid.saint_source_circle_add(x, y, saint_radius, corruption_faction_get(id, FACTION.ORDER));
 		saint_source_registered = true;
 	}
 };
@@ -92,7 +92,7 @@ house_destroyed_ground_corrupt = function()
 
 	if (variable_instance_exists(_corruption_grid, "corrupt_circle"))
 	{
-		_corruption_grid.corrupt_circle(x, y, saint_radius, 1);
+		_corruption_grid.corrupt_circle(x, y, saint_radius, 1, corruption_faction_get(id));
 	}
 };
 

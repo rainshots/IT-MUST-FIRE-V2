@@ -1,3 +1,6 @@
+// Non-player units are drawn only within current faction sight.
+if (unit_is_hidden_by_fog()) exit;
+
 // Knocked out cultists only draw the shared recovery state.
 if (is_knocked_out)
 {

@@ -28,7 +28,7 @@ for (var _cell_x = _left_cell; _cell_x <= _right_cell; ++_cell_x)
 	for (var _cell_y = _top_cell; _cell_y <= _bottom_cell; ++_cell_y)
 	{
 		var _fog_state = ds_grid_get(fog_grid, _cell_x, _cell_y);
-		var _fog_alpha = hidden_alpha;
+		var _fog_alpha = explored_alpha;
 
 		if (_fog_state == explored_state)
 		{

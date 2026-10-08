@@ -1,7 +1,7 @@
 // Initialize shared enemy unit state.
 event_inherited();
 
-// Catapult exclusively attacks player structures with physical artillery projectiles.
+// Catapults bombard hostile faction buildings with physical artillery projectiles.
 max_hp = BALANCE_ENEMY_CATAPULT_HP;
 hp = max_hp;
 armor = BALANCE_ENEMY_CATAPULT_ARMOR;
@@ -21,96 +21,46 @@ catapult_projectile_layer_name = "Instances";
 catapult_projectile_draw_depth = BALANCE_PARTICLE_SYSTEM_TOP_DEPTH - 50;
 catapult_target_search_timer = target_search_update_interval;
 
+// Keep the siege-only restriction in the shared validator so attack-move ignores units.
+catapult_base_target_can_be_attacked = target_can_be_attacked;
+target_can_be_attacked = function(_target)
+{
+	return faction_building_is_targetable(faction, _target)
+		&& catapult_base_target_can_be_attacked(_target);
+};
+
 catapult_target_is_in_attack_band = function(_target)
 {
-	if (!target_can_be_attacked(_target))
-	{
-		return false;
-	}
-
-	if (_target.object_index == o_cannon)
-	{
-		return unit_can_attack_cannon
-			&& navigation_target_distance_get(_target) <= attack_radius;
-	}
-
-	if (taint_shell_tumor_is_valid(_target))
-	{
-		return navigation_target_distance_get(_target) <= attack_radius;
-	}
-
-	return player_structure_can_be_targeted(_target)
+	return target_can_be_attacked(_target)
 		&& navigation_target_distance_get(_target) <= attack_radius;
 };
 
 catapult_target_find = function()
 {
 	var _nearest_target = noone;
-	var _nearest_target_distance = attack_radius;
-	var _map_structure_count = instance_number(o_map_objects_parent);
-
-	// Captured towers and shell-built field structures are valid artillery targets.
-	for (var _structure_index = 0; _structure_index < _map_structure_count; ++_structure_index)
+	var _nearest_distance = attack_radius;
+	var _building_groups = [o_map_objects_parent, o_v13buildings_parent];
+	for (var _group = 0; _group < array_length(_building_groups); ++_group)
 	{
-		var _structure = instance_find(o_map_objects_parent, _structure_index);
-
-		if (!player_map_structure_can_be_targeted(_structure))
+		var _count = instance_number(_building_groups[_group]);
+		for (var _index = 0; _index < _count; ++_index)
 		{
-			continue;
-		}
-
-		var _structure_distance = navigation_target_distance_get(_structure);
-
-		if (_structure_distance <= _nearest_target_distance)
-		{
-			_nearest_target = _structure;
-			_nearest_target_distance = _structure_distance;
-		}
-	}
-
-	var _settlement_building_count = instance_number(o_v13buildings_parent);
-
-	// Settlement production buildings use their combat footprint for range checks.
-	for (var _building_index = 0; _building_index < _settlement_building_count; ++_building_index)
-	{
-		var _building = instance_find(o_v13buildings_parent, _building_index);
-
-		if (!player_settlement_building_can_be_targeted(_building))
-		{
-			continue;
-		}
-
-		var _building_distance = navigation_target_distance_get(_building);
-
-		if (_building_distance <= _nearest_target_distance)
-		{
-			_nearest_target = _building;
-			_nearest_target_distance = _building_distance;
-		}
-	}
-
-	// The cannon participates in the same nearest-structure selection.
-	if (unit_can_attack_cannon && instance_exists(o_cannon))
-	{
-		var _cannon = instance_find(o_cannon, 0);
-
-		if (target_can_be_attacked(_cannon))
-		{
-			var _cannon_distance = navigation_target_distance_get(_cannon);
-
-			if (_cannon_distance <= _nearest_target_distance)
+			var _building = instance_find(_building_groups[_group], _index);
+			if (!target_can_be_attacked(_building)) continue;
+			var _distance = navigation_target_distance_get(_building);
+			if (_distance <= _nearest_distance)
 			{
-				_nearest_target = _cannon;
+				_nearest_target = _building;
+				_nearest_distance = _distance;
 			}
 		}
 	}
-
 	return _nearest_target;
 };
 
 catapult_projectile_create = function(_target)
 {
-	if (!instance_exists(_target))
+	if (!catapult_target_is_in_attack_band(_target))
 	{
 		return noone;
 	}
@@ -134,7 +84,11 @@ catapult_projectile_create = function(_target)
 	_projectile.projectile_type = PROJECTILE_TYPE.ARTILLERY;
 	_projectile.effect_radius = catapult_projectile_aoe_radius;
 	_projectile.damage_amount = damage;
-	_projectile.damage_faction = UNIT_FACTION.ENEMY;
+	// Damage receivers still accept the legacy enum; allegiance uses the launch snapshot below.
+	_projectile.damage_faction = UNIT_FACTION.NOONE;
+	_projectile.faction = faction;
+	_projectile.favor_source_faction = faction;
+	_projectile.corruption_owner_initialized = true;
 	_projectile.damage_target_count = catapult_projectile_target_count;
 	_projectile.source_instance = id;
 	_projectile.artillery_direct_target = _target;
@@ -150,65 +104,49 @@ catapult_projectile_create = function(_target)
 catapult_behavior_update = function()
 {
 	catapult_target_search_timer += gameplay_time_scale;
-	var _current_target_is_tumor = taint_shell_tumor_is_valid(target_instance);
-	var _target_is_in_attack_band = catapult_target_is_in_attack_band(target_instance);
-
-	// An idle Catapult inside an attraction radius commits to the tumor until it is destroyed.
-	if (!_current_target_is_tumor && !_target_is_in_attack_band)
-	{
-		var _tumor_target = taint_shell_tumor_target_find();
-
-		if (instance_exists(_tumor_target))
-		{
-			target_instance = _tumor_target;
-			_current_target_is_tumor = true;
-			_target_is_in_attack_band = catapult_target_is_in_attack_band(target_instance);
-			catapult_target_search_timer = 0;
-		}
-	}
-
-	if (!_current_target_is_tumor
-		&& (!_target_is_in_attack_band
-			|| catapult_target_search_timer >= target_search_update_interval))
+	if (!target_can_be_attacked(target_instance)
+		|| catapult_target_search_timer >= target_search_update_interval)
 	{
 		catapult_target_search_timer = 0;
-		target_instance = catapult_target_find();
+		var _nearby_building = catapult_target_find();
+		if (instance_exists(_nearby_building)) target_instance = _nearby_building;
+		else if (!target_can_be_attacked(target_instance)) target_instance = noone;
 	}
 
-	if (instance_exists(target_instance))
+	// Between encounters, AI siege squads advance toward their shared hostile building objective.
+	if (!instance_exists(target_instance) && is_struct(squad) && !squad_is_player_owned(squad)
+		&& target_can_be_attacked(squad.ai_target))
 	{
-		is_walking = false;
-		is_attacking_target = true;
-		face_world_x(target_instance.x);
+		target_instance = squad.ai_target;
+	}
+	if (faction == global.player_faction && target_can_be_attacked(manual_structure_target))
+	{
+		target_instance = manual_structure_target;
+	}
 
-		if (reload_timer > 0)
-		{
-			reload_timer -= gameplay_time_scale;
-			return true;
-		}
-
-		// Dead Silence blocks the Catapult's custom projectile path.
-		if (doom_bell_silence_is_active())
-		{
-			is_attacking_target = false;
-			return true;
-		}
-
-		catapult_projectile_create(target_instance);
-		reload_timer = reload_time * unit_attack_reload_multiplier_get();
+	is_attacking_target = false;
+	is_walking = false;
+	if (!target_can_be_attacked(target_instance)) return true;
+	if (!catapult_target_is_in_attack_band(target_instance))
+	{
+		move_towards_target(target_instance, attack_radius);
 		return true;
 	}
 
-	// With no valid target, continue advancing toward the player's cannon.
-	if (instance_exists(o_cannon))
+	is_attacking_target = true;
+	face_world_x(target_instance.x);
+	if (reload_timer > 0)
 	{
-		move_towards_target(instance_find(o_cannon, 0));
+		reload_timer -= gameplay_time_scale;
+		return true;
 	}
-	else
+	if (doom_bell_silence_is_active())
 	{
-		is_walking = false;
+		is_attacking_target = false;
+		return true;
 	}
-
+	catapult_projectile_create(target_instance);
+	reload_timer = reload_time * unit_attack_reload_multiplier_get();
 	return true;
 };
 

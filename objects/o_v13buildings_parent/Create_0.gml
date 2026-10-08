@@ -1,8 +1,12 @@
+favor_defeat_awarded = false;
 // Base production building state.
 image_xscale = 1.7;
 image_yscale = image_xscale;
 max_hp = BALANCE_PLAYER_BUILDING_MAX_HP; // Shared durability for settlement buildings.
 hp = max_hp;
+faction = FACTION.NONE;
+vision_radius = BALANCE_BUILDING_VISION_RADIUS; // Child buildings can override their sight range.
+defeat_value = 5;
 // Destroyed visuals keep the original sprite and collision mask ready for morning recovery.
 player_building_active_sprite = sprite_index;
 player_building_active_image_speed = image_speed;
@@ -223,7 +227,7 @@ player_building_damage_sound_play = function()
 };
 
 // Buildings remain in place at zero HP and recover by 50% Max HP next morning.
-unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true, _source_instance = noone)
+unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true, _source_instance = noone, _favor_faction = FACTION.NONE)
 {
 	if (hp <= 0 || _damage_amount <= 0)
 	{
@@ -232,6 +236,7 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 
 	var _applied_damage = min(_damage_amount, hp);
 	hp = max(0, hp - _damage_amount);
+	if (hp <= 0) faction_favor_award(id, _source_instance, _favor_faction);
 
 	damage_popup_create(x, y, _applied_damage, UNIT_FACTION.FRIENDLY, _is_critical);
 	player_building_damage_sound_play();
@@ -253,27 +258,6 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 
 world_event_current_get = function()
 {
-	if (!variable_global_exists("day_events"))
-	{
-		return noone;
-	}
-
-	for (var _event_index = 0; _event_index < array_length(global.day_events); ++_event_index)
-	{
-		var _event = global.day_events[_event_index];
-		var _resolved_event_is_visible = is_struct(_event)
-			&& global.day_phase == DAY_PHASE.NIGHT
-			&& _event.is_resolved;
-
-		if (is_struct(_event)
-			&& (!_event.is_resolved || _resolved_event_is_visible)
-			&& variable_struct_exists(_event, "source_building")
-			&& _event.source_building == id)
-		{
-			return _event;
-		}
-	}
-
 	return noone;
 };
 
@@ -292,125 +276,7 @@ world_event_selector_hover_contains = function(_world_x, _world_y)
 
 world_event_layout_get = function(_event)
 {
-	if (!is_struct(_event) || !instance_exists(o_camera_controller))
-	{
-		return noone;
-	}
-
-	var _camera_controller = instance_find(o_camera_controller, 0);
-	var _camera_x = camera_get_view_x(_camera_controller.camera_id);
-	var _camera_y = camera_get_view_y(_camera_controller.camera_id);
-	var _camera_width = camera_get_view_width(_camera_controller.camera_id);
-	var _camera_height = camera_get_view_height(_camera_controller.camera_id);
-	var _gui_width = _camera_controller.base_view_width;
-	var _gui_height = _camera_controller.base_view_height;
-	var _world_to_gui_x = _gui_width / _camera_width;
-	var _world_to_gui_y = _gui_height / _camera_height;
-	var _building_left = (bbox_left - _camera_x) * _world_to_gui_x;
-	var _building_right = (bbox_right - _camera_x) * _world_to_gui_x;
-	var _building_top = (bbox_top - _camera_y) * _world_to_gui_y;
-	var _building_bottom = (bbox_bottom - _camera_y) * _world_to_gui_y;
-	var _building_center_x = (x - _camera_x) * _world_to_gui_x;
-	var _has_selector = variable_struct_exists(_event, "requires_squad_selection")
-		&& _event.requires_squad_selection
-		&& variable_struct_exists(_event, "eligible_squads")
-		&& array_length(_event.eligible_squads) > 0;
-	var _has_unit_choice = variable_struct_exists(_event, "unit_choice_options")
-		&& is_array(_event.unit_choice_options)
-		&& array_length(_event.unit_choice_options) > 0;
-	var _event_is_ready = _event.activation_ready_count_get() > 0;
-	var _description_width = BALANCE_WORLD_EVENT_CARD_WIDTH
-		- (BALANCE_WORLD_EVENT_CARD_PADDING_X * 2)
-		- (_event_is_ready ? BALANCE_WORLD_EVENT_READY_ICON_WIDTH : 0);
-	var _previous_font = draw_get_font();
-
-	if (instance_exists(o_jobs_ui))
-	{
-		var _jobs_ui = instance_find(o_jobs_ui, 0);
-
-		if (font_exists(_jobs_ui.jobs_description_font))
-		{
-			draw_set_font(_jobs_ui.jobs_description_font);
-		}
-	}
-
-	var _event_description = day_event_description_get(_event);
-	var _description_height = string_height_ext(
-		_event_description,
-		BALANCE_WORLD_EVENT_DESCRIPTION_LINE_SEPARATION,
-		_description_width
-	);
-	draw_set_font(_previous_font);
-
-	var _card_content_height = BALANCE_WORLD_EVENT_CARD_PADDING_Y
-		+ BALANCE_WORLD_EVENT_DESCRIPTION_OFFSET_Y
-		+ _description_height
-		+ BALANCE_WORLD_EVENT_CARD_PADDING_Y;
-	var _card_body_height = max(BALANCE_WORLD_EVENT_CARD_HEIGHT, _card_content_height);
-	var _card_height = _card_body_height
-		+ (_has_unit_choice ? BALANCE_WORLD_EVENT_UNIT_CHOICE_SECTION_HEIGHT : 0)
-		+ (_has_selector ? BALANCE_WORLD_EVENT_SELECTOR_SECTION_HEIGHT : 0);
-	var _card_x = clamp(
-		_building_center_x - (BALANCE_WORLD_EVENT_CARD_WIDTH * 0.5),
-		BALANCE_WORLD_EVENT_CARD_GAP,
-		_gui_width - BALANCE_WORLD_EVENT_CARD_WIDTH - BALANCE_WORLD_EVENT_CARD_GAP
-	);
-	var _card_y = max(
-		BALANCE_WORLD_EVENT_CARD_GAP,
-		_building_top - _card_height - BALANCE_WORLD_EVENT_CARD_GAP
-	);
-	var _selector_x = _card_x + BALANCE_WORLD_EVENT_CARD_PADDING_X;
-	var _selector_y = _card_y
-		+ _card_height
-		- BALANCE_WORLD_EVENT_CARD_PADDING_Y
-		- BALANCE_WORLD_EVENT_SELECTOR_HEIGHT;
-	var _option_count = _has_selector ? array_length(_event.eligible_squads) : 0;
-	var _options_height = _option_count * BALANCE_WORLD_EVENT_SELECTOR_OPTION_HEIGHT;
-	var _options_y = _selector_y + BALANCE_WORLD_EVENT_SELECTOR_HEIGHT;
-
-	if (_options_y + _options_height > _gui_height - BALANCE_WORLD_EVENT_CARD_GAP)
-	{
-		_options_y = _selector_y - _options_height;
-	}
-
-	_options_y = clamp(
-		_options_y,
-		BALANCE_WORLD_EVENT_CARD_GAP,
-		max(
-			BALANCE_WORLD_EVENT_CARD_GAP,
-			_gui_height - BALANCE_WORLD_EVENT_CARD_GAP - _options_height
-		)
-	);
-
-	return {
-		camera_x: _camera_x,
-		camera_y: _camera_y,
-		camera_width: _camera_width,
-		camera_height: _camera_height,
-		gui_width: _gui_width,
-		gui_height: _gui_height,
-		world_to_gui_x: _world_to_gui_x,
-		world_to_gui_y: _world_to_gui_y,
-		building_left: _building_left,
-		building_right: _building_right,
-		building_top: _building_top,
-		building_bottom: _building_bottom,
-		building_center_x: _building_center_x,
-		has_selector: _has_selector,
-		has_unit_choice: _has_unit_choice,
-		card_x: _card_x,
-		card_y: _card_y,
-		card_width: BALANCE_WORLD_EVENT_CARD_WIDTH,
-		card_body_height: _card_body_height,
-		card_height: _card_height,
-		selector_x: _selector_x,
-		selector_y: _selector_y,
-		selector_width: BALANCE_WORLD_EVENT_SELECTOR_WIDTH,
-		selector_height: BALANCE_WORLD_EVENT_SELECTOR_HEIGHT,
-		options_y: _options_y,
-		option_height: BALANCE_WORLD_EVENT_SELECTOR_OPTION_HEIGHT,
-		option_count: _option_count
-	};
+	return noone;
 };
 
 world_event_unit_choice_rect_get = function(_event, _layout, _choice_index)
@@ -1443,7 +1309,7 @@ ritual_circle_daily_exp_limit_get = function()
 
 building_worker_stamina_update = function()
 {
-	if (global.day_phase != DAY_PHASE.DAY
+	if (global.player_faction == FACTION.NONE
 		|| !building_spends_worker_stamina())
 	{
 		return;
@@ -2254,7 +2120,7 @@ building_info_hover_is_active = function()
 {
 	var _focus_allows_hover = global.focus_window == FOCUS_WINDOW.NOONE
 		|| (global.focus_window == FOCUS_WINDOW.JOBS
-			&& day_event_building_overuse_is_enabled(id));
+			&& false);
 
 	if (!_focus_allows_hover
 		|| (variable_global_exists("tutorial_popup_active") && global.tutorial_popup_active)
@@ -2326,3 +2192,6 @@ building_demolish = function()
 
 	instance_destroy();
 };
+
+corruption_protection_radius = BALANCE_FACTION_BASE_CORRUPTION_RADIUS;
+if (instance_exists(o_corruption_grid)) o_corruption_grid.corruption_protection_dirty = true;

@@ -1,3 +1,11 @@
+if (favor_source_faction == FACTION.NONE && instance_exists(source_instance)
+	&& variable_instance_exists(source_instance, "unit_faction")) favor_source_faction = source_instance.faction;
+if (!corruption_owner_initialized)
+{
+	corruption_owner_initialized = true;
+	var _fallback = projectile_type == PROJECTILE_TYPE.CLEANSE ? FACTION.ORDER : corruption_faction_get(id);
+	faction = corruption_faction_get(source_instance, _fallback);
+}
 // The balance controller owns every simulation tick so x1 and accelerated runs stay identical.
 if (variable_global_exists("balance_test_active")
 	&& global.balance_test_active
@@ -139,7 +147,7 @@ if (_flight_progress >= 1)
 	// Corruption projectiles infect ground cells in the explosion radius.
 	if (projectile_type == PROJECTILE_TYPE.CORRUPTION)
 	{
-		corrupt_circle(target_x, target_y, effect_radius, ground_corruption_amount);
+		corrupt_circle(target_x, target_y, effect_radius, ground_corruption_amount, faction);
 		taint_compost_enchantment_apply();
 	}
 	else if (projectile_type == PROJECTILE_TYPE.CLEANSE)
@@ -147,23 +155,17 @@ if (_flight_progress >= 1)
 		if (instance_exists(o_corruption_grid))
 		{
 			var _corruption_grid = instance_find(o_corruption_grid, 0);
-			_corruption_grid.cleanse_circle(target_x, target_y, effect_radius, cleanse_amount);
+			_corruption_grid.cleanse_circle(target_x, target_y, effect_radius, cleanse_amount, faction);
 
-			if (saint_amount > 0
-				&& instance_exists(source_instance)
-				&& variable_instance_exists(source_instance, "shrine_saint_projectile_source_add"))
+			if (saint_amount > 0)
 			{
-				source_instance.shrine_saint_projectile_source_add(target_x, target_y, effect_radius, saint_amount);
-			}
-			else if (saint_amount > 0 && variable_instance_exists(_corruption_grid, "saint_circle_set"))
-			{
-				_corruption_grid.saint_circle_set(target_x, target_y, effect_radius, saint_amount);
+				_corruption_grid.corrupt_circle(target_x, target_y, effect_radius, saint_amount, faction);
 			}
 		}
 	}
 	else if (projectile_type == PROJECTILE_TYPE.FEAST)
 	{
-		corrupt_circle(target_x, target_y, ground_corruption_radius, ground_corruption_amount);
+		corrupt_circle(target_x, target_y, ground_corruption_radius, ground_corruption_amount, faction);
 
 		var _ihor_vein_list = ds_list_create();
 		var _ihor_vein_count = collision_circle_list(
@@ -213,7 +215,7 @@ if (_flight_progress >= 1)
 
 			if (variable_instance_exists(_enemy, "unit_damage_receive"))
 			{
-				_enemy.unit_damage_receive(damage_amount, UNIT_FACTION.NOONE, false, true, source_instance);
+				_enemy.unit_damage_receive(damage_amount, UNIT_FACTION.NOONE, false, true, source_instance, favor_source_faction);
 			}
 			else if (variable_instance_exists(_enemy, "hp"))
 			{
@@ -321,59 +323,24 @@ if (_flight_progress >= 1)
 		// Optional unit splash is kept for artillery variants that explicitly enable it.
 		var _artillery_targets = ds_priority_create();
 
+		// Revalidate ownership on impact; a destroyed or newly allied target is never hit.
+		if (artillery_target_can_be_damaged(artillery_direct_target))
+		{
+			ds_priority_add(_artillery_targets, artillery_direct_target, -1);
+		}
 		if (artillery_can_damage_units)
 		{
-			var _friendly_unit_count = instance_number(o_friendly_units);
-
-			for (var _friendly_unit_index = 0; _friendly_unit_index < _friendly_unit_count; ++_friendly_unit_index)
+			var _unit_groups = [o_units_parent, o_archdemon];
+			for (var _group = 0; _group < array_length(_unit_groups); ++_group)
 			{
-				var _friendly_unit = instance_find(o_friendly_units, _friendly_unit_index);
-
-				if (!instance_exists(_friendly_unit)
-					|| _friendly_unit == source_instance
-					|| _friendly_unit.hp <= 0
-					|| point_distance(_friendly_unit.x, _friendly_unit.y, target_x, target_y) > effect_radius)
+				var _count = instance_number(_unit_groups[_group]);
+				for (var _index = 0; _index < _count; ++_index)
 				{
-					continue;
-				}
-
-				var _friendly_distance_squared = sqr(_friendly_unit.x - target_x)
-					+ sqr(_friendly_unit.y - target_y);
-				ds_priority_add(_artillery_targets, _friendly_unit, _friendly_distance_squared);
-			}
-
-			if (variable_global_exists("archdemons"))
-			{
-				var _archdemon_count = array_length(global.archdemons);
-
-				for (var _archdemon_index = 0; _archdemon_index < _archdemon_count; ++_archdemon_index)
-				{
-					var _archdemon = global.archdemons[_archdemon_index];
-
-					if (!instance_exists(_archdemon)
-						|| !_archdemon.visible
-						|| !variable_instance_exists(_archdemon, "hp")
-						|| _archdemon.hp <= 0
-						|| point_distance(_archdemon.x, _archdemon.y, target_x, target_y) > effect_radius)
-					{
-						continue;
-					}
-
-					var _archdemon_distance_squared = sqr(_archdemon.x - target_x)
-						+ sqr(_archdemon.y - target_y);
-					ds_priority_add(_artillery_targets, _archdemon, _archdemon_distance_squared);
+					var _unit = instance_find(_unit_groups[_group], _index);
+					if (_unit == artillery_direct_target || !artillery_target_can_be_damaged(_unit)) continue;
+					ds_priority_add(_artillery_targets, _unit, sqr(_unit.x - target_x) + sqr(_unit.y - target_y));
 				}
 			}
-		}
-
-		// The explicitly selected structure is always the primary artillery target.
-		if (instance_exists(artillery_direct_target)
-			&& variable_instance_exists(artillery_direct_target, "hp")
-			&& artillery_direct_target.hp > 0)
-		{
-			var _direct_target_distance_squared = sqr(artillery_direct_target.x - target_x)
-				+ sqr(artillery_direct_target.y - target_y);
-			ds_priority_add(_artillery_targets, artillery_direct_target, _direct_target_distance_squared);
 		}
 
 		// Apply physical damage to no more than the configured number of targets.
@@ -399,14 +366,19 @@ if (_flight_progress >= 1)
 			var _armor_damage_multiplier = max(2 - (min(_target_armor, 190) * 0.01), 0.1);
 			var _physical_damage = damage_amount * _armor_damage_multiplier;
 
-			if (variable_instance_exists(_artillery_target, "unit_damage_receive"))
+			if (variable_instance_exists(_artillery_target, "is_neutral_building"))
+			{
+				_artillery_target.neutral_building_damage_receive(_physical_damage, faction, source_instance, favor_source_faction);
+			}
+			else if (variable_instance_exists(_artillery_target, "unit_damage_receive"))
 			{
 				_artillery_target.unit_damage_receive(
 					_physical_damage,
 					damage_faction,
 					false,
 					true,
-					source_instance
+					source_instance,
+					favor_source_faction
 				);
 			}
 			else
@@ -542,7 +514,16 @@ if (_flight_progress >= 1)
 				&& !other.projectile_target_is_allied(id)
 				&& point_distance(x, y, other.target_x, other.target_y) <= other.effect_radius)
 			{
-				if (other.projectile_type == PROJECTILE_TYPE.CULTIST)
+				if (variable_instance_exists(id, "is_neutral_building"))
+				{
+					if ((other.projectile_type == PROJECTILE_TYPE.DAMAGE || other.projectile_type == PROJECTILE_TYPE.CULTIST)
+						&& !is_recovering && (other.damage_target_count <= 0 || other.damage_targets_hit < other.damage_target_count))
+					{
+						neutral_building_damage_receive(other.damage_amount, other.faction, other.source_instance, other.favor_source_faction);
+						other.damage_targets_hit++;
+					}
+				}
+				else if (other.projectile_type == PROJECTILE_TYPE.CULTIST)
 				{
 					// Normal squad deployment is harmless; future properties can opt in by assigning damage.
 					if (other.damage_amount > 0 && variable_instance_exists(id, "health"))
@@ -553,7 +534,7 @@ if (_flight_progress >= 1)
 					{
 						if (variable_instance_exists(id, "unit_damage_receive"))
 						{
-							unit_damage_receive(other.damage_amount, other.damage_faction, false, true, other.source_instance);
+							unit_damage_receive(other.damage_amount, other.damage_faction, false, true, other.source_instance, other.favor_source_faction);
 						}
 						else
 						{
@@ -606,7 +587,8 @@ if (_flight_progress >= 1)
 									other.damage_faction,
 									other.damage_is_critical_hit,
 									true,
-									other.source_instance
+									other.source_instance,
+									other.favor_source_faction
 								);
 							}
 							else

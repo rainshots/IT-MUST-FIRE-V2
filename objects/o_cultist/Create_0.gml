@@ -68,10 +68,12 @@ is_available = function()
 
 damage = function(_amount)
 {
-	return day_event_cultist_damage_apply(id, _amount);
+	hp = max(0, hp - _amount);
+	return _amount;
 };
 
 heal = function(_amount, _affects_unconscious_cultists = false)
 {
-	return day_event_cultist_heal_apply(id, _amount, _affects_unconscious_cultists);
+	hp = min(max_hp, hp + _amount);
+	return _amount;
 };

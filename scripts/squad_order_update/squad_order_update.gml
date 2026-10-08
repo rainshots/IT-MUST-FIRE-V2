@@ -5,7 +5,7 @@ function squad_order_update(_squad)
 	{
 		return;
 	}
-	if (global.day_phase != DAY_PHASE.NIGHT)
+	if (global.player_faction == FACTION.NONE)
 	{
 		squad_order_clear(_squad);
 		return;

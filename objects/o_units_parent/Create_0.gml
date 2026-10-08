@@ -1,5 +1,8 @@
+favor_defeat_awarded = false;
 // Base unit combat stats.
 unit_faction = UNIT_FACTION.NOONE;
+// Faction ownership controls player sight independently of legacy combat teams.
+faction = FACTION.NONE;
 max_hp = 200 * BALANCE_GLOBAL_HP_MULTIPLIER;
 hp = max_hp;
 damage = 10 * BALANCE_GLOBAL_DAMAGE_MULTIPLIER;
@@ -9,6 +12,7 @@ reload_timer = reload_time;
 initial_attack_reload_pending = true; // First Step applies the unit type's final full reload duration.
 attack_radius = 32;
 y_sort_enabled = true;
+defeat_value = 1;
 
 // Base unit movement and target search settings.
 move_speed = 1.2 * BALANCE_GLOBAL_MOVE_SPEED_MULTIPLIER;
@@ -121,9 +125,10 @@ squad_point_wander_target_valid = false;
 
 // Optional guard behavior is used by spawned defenders.
 owner_garnizon = noone;
+owner_house = noone;
 guard_target = noone;
 guard_radius = 220;
-unit_can_attack_cannon = true;
+unit_can_attack_cannon = false;
 // Debug-spawned units use combat deployment rules without joining persistent squads.
 debug_combat_spawned = false;
 balance_test_match_id = -1;
@@ -562,6 +567,10 @@ face_world_x = function(_target_x)
 
 target_can_be_attacked = function(_target)
 {
+	if (!instance_exists(_target) || _target == id || _target.object_index == o_cannon) return false;
+	if (balance_test_match_id < 0 && !faction_target_is_hostile(faction, _target)) return false;
+	if (!variable_instance_exists(_target, "hp")) return false;
+
 	if (!instance_exists(_target))
 	{
 		return false;
@@ -592,7 +601,7 @@ target_can_be_attacked = function(_target)
 		return false;
 	}
 
-	if (unit_faction == UNIT_FACTION.ENEMY
+	if (faction == FACTION.NONE && unit_faction == UNIT_FACTION.ENEMY
 		&& variable_instance_exists(_target, "ignored_by_enemies")
 		&& _target.ignored_by_enemies)
 	{
@@ -644,77 +653,34 @@ status_effect_has = function(_status_type)
 	return status_effect_timers[_status_type] > 0;
 };
 
-ground_cell_saint_amount_get = function(_world_x, _world_y)
+ground_corruption_faction_get = function()
 {
-	if (!instance_exists(o_corruption_grid))
-	{
-		return 0;
-	}
-
-	var _corruption_grid = instance_find(o_corruption_grid, 0);
-	var _cell_x = floor(_world_x / _corruption_grid.cell_size);
-	var _cell_y = floor(_world_y / _corruption_grid.cell_size);
-	var _is_inside_grid = _cell_x >= 0
-		&& _cell_x < _corruption_grid.grid_width
-		&& _cell_y >= 0
-		&& _cell_y < _corruption_grid.grid_height;
-
-	if (!_is_inside_grid
-		|| !variable_instance_exists(_corruption_grid, "saint_grid"))
-	{
-		return 0;
-	}
-
-	return ds_grid_get(_corruption_grid.saint_grid, _cell_x, _cell_y);
+	if (!instance_exists(o_corruption_grid)) return FACTION.NONE;
+	var _grid = instance_find(o_corruption_grid, 0);
+	return _grid.ground_faction_get(x, y);
 };
 
 unit_is_on_tainted_ground = function()
 {
-	tainted_ground_check_timer += gameplay_time_scale;
+	return faction >= FACTION.ORDER && faction <= FACTION.WILDLINGS && ground_corruption_faction_get() == faction;
+};
 
-	if (tainted_ground_check_timer < tainted_ground_check_interval)
-	{
-		return cached_is_on_tainted_ground;
-	}
+unit_is_on_hostile_corruption = function()
+{
+	var _owner = ground_corruption_faction_get();
+	return faction >= FACTION.ORDER && faction <= FACTION.WILDLINGS && _owner != FACTION.NONE && _owner != faction;
+};
 
-	tainted_ground_check_timer = 0;
-
-	if (!instance_exists(o_corruption_grid))
-	{
-		cached_is_on_tainted_ground = false;
-		return false;
-	}
-
-	var _corruption_grid = instance_find(o_corruption_grid, 0);
-	var _cell_x = floor(x / _corruption_grid.cell_size);
-	var _cell_y = floor(y / _corruption_grid.cell_size);
-	var _is_inside_grid = _cell_x >= 0
-		&& _cell_x < _corruption_grid.grid_width
-		&& _cell_y >= 0
-		&& _cell_y < _corruption_grid.grid_height;
-
-	if (!_is_inside_grid)
-	{
-		cached_is_on_tainted_ground = false;
-		return false;
-	}
-
-	var _saint_amount = 0;
-
-	if (variable_instance_exists(_corruption_grid, "saint_grid"))
-	{
-		_saint_amount = ds_grid_get(_corruption_grid.saint_grid, _cell_x, _cell_y);
-	}
-
-	cached_is_on_tainted_ground = _saint_amount <= 0
-		&& ds_grid_get(_corruption_grid.corruption_grid, _cell_x, _cell_y) > 0;
-
-	return cached_is_on_tainted_ground;
+ground_cell_saint_amount_get = function(_world_x, _world_y)
+{
+	if (!unit_is_on_tainted_ground()) return 0;
+	var _grid = instance_find(o_corruption_grid, 0);
+	return ds_grid_get(_grid.corruption_grid, floor(x / _grid.cell_size), floor(y / _grid.cell_size));
 };
 
 enemy_saint_ground_heal_update = function()
 {
-	if (unit_faction != UNIT_FACTION.ENEMY
+	if (!unit_is_on_tainted_ground()
 		|| hp <= 0
 		|| hp >= max_hp)
 	{
@@ -746,7 +712,7 @@ enemy_saint_ground_heal_update = function()
 
 friendly_tainted_ground_heal_update = function()
 {
-	if (unit_faction != UNIT_FACTION.FRIENDLY
+	if (faction != global.player_faction
 		|| !variable_global_exists("player_tainted_ground_healing_active")
 		|| !global.player_tainted_ground_healing_active
 		|| hp <= 0
@@ -782,13 +748,13 @@ friendly_tainted_ground_heal_update = function()
 
 unholy_taint_treatment_enemy_is_nearby = function()
 {
-	var _enemy_count = instance_number(o_enemy_units);
+	var _enemy_count = instance_number(o_units_parent);
 	var _enemy_radius = BALANCE_UNHOLY_SHRINE_TAINT_TREATMENT_ENEMY_RADIUS;
 	var _enemy_radius_squared = _enemy_radius * _enemy_radius;
 
 	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
 	{
-		var _enemy = instance_find(o_enemy_units, _enemy_index);
+		var _enemy = instance_find(o_units_parent, _enemy_index);
 
 		if (!target_can_be_attacked(_enemy))
 		{
@@ -809,8 +775,8 @@ unholy_taint_treatment_enemy_is_nearby = function()
 
 unholy_taint_treatment_update = function()
 {
-	if (unit_faction != UNIT_FACTION.FRIENDLY
-		|| global.day_phase != DAY_PHASE.NIGHT
+	if (faction != global.player_faction
+		|| global.player_faction == FACTION.NONE
 		|| !is_struct(squad)
 		|| squad_unholy_trait_get(squad) != UNHOLY_TRAIT.TAINT_TREATMENT
 		|| hp <= 0
@@ -1012,7 +978,7 @@ unit_attack_reload_multiplier_get = function()
 		_reload_multiplier /= BALANCE_BONE_BANNERMAN_ATTACK_SPEED_MULTIPLIER;
 	}
 
-	if (unit_faction == UNIT_FACTION.FRIENDLY && !unit_is_on_tainted_ground())
+	if (unit_is_on_hostile_corruption())
 	{
 		_reload_multiplier /= BALANCE_TAINT_FRIENDLY_ATTACK_SPEED_MULTIPLIER;
 	}
@@ -1027,7 +993,7 @@ unit_attack_reload_multiplier_get = function()
 		_reload_multiplier *= imp_active_reload_multiplier_get();
 	}
 
-	if (global.day_phase == DAY_PHASE.NIGHT
+	if (global.player_faction != FACTION.NONE
 		&& global.ritual_hell_weakest_active
 		&& variable_instance_exists(id, "squad")
 		&& is_struct(squad)
@@ -1053,7 +1019,7 @@ unit_move_speed_multiplier_get = function()
 		_move_multiplier *= BALANCE_BONE_BANNERMAN_MOVE_SPEED_MULTIPLIER;
 	}
 
-	if (unit_faction == UNIT_FACTION.FRIENDLY && !unit_is_on_tainted_ground())
+	if (unit_is_on_hostile_corruption())
 	{
 		_move_multiplier *= BALANCE_TAINT_FRIENDLY_MOVE_SPEED_MULTIPLIER;
 	}
@@ -1079,13 +1045,13 @@ unit_move_speed_multiplier_get = function()
 		_move_multiplier *= BALANCE_ENEMY_UNREVEALED_MOVE_SPEED_MULTIPLIER;
 	}
 
-	if (global.day_phase == DAY_PHASE.NIGHT && unit_is_on_tainted_ground())
+	if (global.player_faction != FACTION.NONE && ground_corruption_faction_get() == global.player_faction)
 	{
-		if (unit_faction == UNIT_FACTION.FRIENDLY && global.ritual_black_pilgrimage_active)
+		if (faction == global.player_faction && global.ritual_black_pilgrimage_active)
 		{
 			_move_multiplier *= 1 + BALANCE_RITUAL_BLACK_PILGRIMAGE_MOVE_SPEED_BONUS;
 		}
-		else if (unit_faction == UNIT_FACTION.ENEMY && global.ritual_grasping_soil_active)
+		else if (unit_is_on_hostile_corruption() && global.ritual_grasping_soil_active)
 		{
 			_move_multiplier *= BALANCE_RITUAL_GRASPING_SOIL_ENEMY_SPEED_MULTIPLIER;
 		}
@@ -1166,7 +1132,7 @@ enemy_march_update = function()
 	var _can_march = unit_faction == UNIT_FACTION.ENEMY
 		&& is_night_attack_unit
 		&& unit_can_attack_cannon
-		&& global.day_phase == DAY_PHASE.NIGHT
+		&& global.player_faction != FACTION.NONE
 		&& !forced_retreat_active
 		&& !enemy_march_combat_reached;
 
@@ -1216,44 +1182,18 @@ enemy_march_update = function()
 
 unit_is_hidden_by_fog = function()
 {
-	fog_hidden_check_timer++;
-
-	if (fog_hidden_check_timer < fog_hidden_check_interval)
+	if (faction != FACTION.NONE && faction == global.player_faction)
 	{
-		return cached_is_hidden_by_fog;
+		cached_is_hidden_by_fog = false;
+		return false;
 	}
-
-	fog_hidden_check_timer = 0;
-
 	if (!global.fog_of_war_visible || !instance_exists(o_fog_of_war))
 	{
 		cached_is_hidden_by_fog = false;
 		return false;
 	}
-
-	var _fog_of_war = instance_find(o_fog_of_war, 0);
-
-	if (!variable_instance_exists(_fog_of_war, "fog_grid"))
-	{
-		cached_is_hidden_by_fog = false;
-		return false;
-	}
-
-	var _cell_x = floor(x / _fog_of_war.cell_size);
-	var _cell_y = floor(y / _fog_of_war.cell_size);
-	var _is_inside_fog_grid = _cell_x >= 0
-		&& _cell_x < _fog_of_war.grid_width
-		&& _cell_y >= 0
-		&& _cell_y < _fog_of_war.grid_height;
-
-	if (!_is_inside_fog_grid)
-	{
-		cached_is_hidden_by_fog = false;
-		return false;
-	}
-
-	var _fog_state = ds_grid_get(_fog_of_war.fog_grid, _cell_x, _cell_y);
-	cached_is_hidden_by_fog = _fog_state != _fog_of_war.revealed_state;
+	var _fog = instance_find(o_fog_of_war, 0);
+	cached_is_hidden_by_fog = !_fog.fog_cell_is_seen(x, y);
 	return cached_is_hidden_by_fog;
 };
 
@@ -1516,7 +1456,7 @@ soul_chain_death_effect_apply = function()
 	}
 };
 
-unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true, _source_instance = noone)
+unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true, _source_instance = noone, _favor_faction = FACTION.NONE)
 {
 	if (hp <= 0 || _damage_amount <= 0)
 	{
@@ -1532,7 +1472,7 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 	// The Roar still allows damage but prevents a surviving squad member from dying.
 	var _minimum_hp = 0;
 
-	if (global.day_phase == DAY_PHASE.NIGHT
+	if (global.player_faction != FACTION.NONE
 		&& unit_faction == UNIT_FACTION.FRIENDLY
 		&& unholy_abyss_immortality_timer > 0)
 	{
@@ -1560,14 +1500,14 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 	var _source_is_unit = instance_exists(_source_instance)
 		&& variable_instance_exists(_source_instance, "unit_faction");
 
-	if (global.day_phase == DAY_PHASE.NIGHT
+	if (global.player_faction != FACTION.NONE
 		&& _source_is_unit
 		&& global.ritual_blood_night_active)
 	{
 		_damage_amount *= BALANCE_RITUAL_BLOOD_NIGHT_DAMAGE_MULTIPLIER;
 	}
 
-	if (global.day_phase == DAY_PHASE.NIGHT
+	if (global.player_faction != FACTION.NONE
 		&& _source_is_unit
 		&& global.ritual_hell_weakest_active
 		&& variable_instance_exists(_source_instance, "squad")
@@ -1586,7 +1526,7 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 	}
 
 	// An Abyss mark accepts bonus damage only from the squad that created that mark.
-	if (global.day_phase == DAY_PHASE.NIGHT
+	if (global.player_faction != FACTION.NONE
 		&& _source_is_unit
 		&& unit_faction == UNIT_FACTION.ENEMY
 		&& variable_instance_exists(_source_instance, "squad")
@@ -1596,16 +1536,17 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 		_damage_amount *= BALANCE_UNHOLY_SHRINE_ROAR_DAMAGE_MULTIPLIER;
 	}
 
-	if (global.day_phase == DAY_PHASE.NIGHT
+	if (global.player_faction != FACTION.NONE
 		&& global.ritual_awaken_taint_active
-		&& unit_faction == UNIT_FACTION.ENEMY
-		&& unit_is_on_tainted_ground())
+		&& unit_is_on_hostile_corruption()
+		&& ground_corruption_faction_get() == global.player_faction)
 	{
 		_damage_amount *= BALANCE_RITUAL_AWAKEN_TAINT_DAMAGE_TAKEN_MULTIPLIER;
 	}
 
 	var _applied_damage = min(_damage_amount, max(0, hp - _minimum_hp));
 	hp = max(hp - _damage_amount, _minimum_hp);
+	if (hp <= 0) faction_favor_award(id, _source_instance, _favor_faction);
 	damage_flash_timer = damage_flash_duration;
 
 	// The Roar reacts as soon as the squad's combined HP falls below half.
@@ -1621,7 +1562,7 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 	}
 
 	if (variable_global_exists("day_phase")
-		&& global.day_phase == DAY_PHASE.NIGHT
+		&& global.player_faction != FACTION.NONE
 		&& _source_faction == UNIT_FACTION.ENEMY
 		&& variable_instance_exists(id, "adaptive_night_hp_start"))
 	{
@@ -1644,7 +1585,7 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 		var _source_faction_is_hostile = _source_faction != UNIT_FACTION.NOONE
 			&& _source_faction != unit_faction;
 		var _source_instance_is_hostile = _source_has_faction
-			&& _source_instance.unit_faction != unit_faction;
+			&& faction_target_is_hostile(faction, _source_instance);
 		var _source_is_player_structure = unit_faction == UNIT_FACTION.ENEMY
 			&& player_structure_can_be_targeted(_source_instance);
 		var _source_is_hostile = instance_exists(_source_instance)
@@ -1675,7 +1616,7 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 				if (!instance_exists(_ally)
 					|| _ally == id
 					|| !variable_instance_exists(_ally, "unit_faction")
-					|| _ally.unit_faction != unit_faction
+					|| _ally.faction != faction
 					|| !variable_instance_exists(_ally, "hp")
 					|| _ally.hp <= 0)
 				{
@@ -1733,7 +1674,7 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 		{
 			if (variable_instance_exists(_member, "unit_damage_receive"))
 			{
-				_member.unit_damage_receive(_chain_damage, _source_faction, false, false, _source_instance);
+				_member.unit_damage_receive(_chain_damage, _source_faction, false, false, _source_instance, _favor_faction);
 			}
 			else if (variable_instance_exists(_member, "hp"))
 			{
@@ -1964,7 +1905,7 @@ unholy_abyss_mark_has_squad = function(_source_squad)
 unholy_abyss_effects_update = function()
 {
 	// Roar effects cannot persist outside the night in which they triggered.
-	if (global.day_phase != DAY_PHASE.NIGHT)
+	if (global.player_faction == FACTION.NONE)
 	{
 		unholy_abyss_immortality_timer = 0;
 		unholy_abyss_marks = [];
@@ -2060,11 +2001,11 @@ unholy_savage_leap_target_find = function()
 {
 	var _nearest_target = noone;
 	var _nearest_distance = BALANCE_UNHOLY_SHRINE_SAVAGE_LEAP_MAX_RADIUS;
-	var _enemy_count = instance_number(o_enemy_units);
+	var _enemy_count = instance_number(o_units_parent);
 
 	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
 	{
-		var _enemy = instance_find(o_enemy_units, _enemy_index);
+		var _enemy = instance_find(o_units_parent, _enemy_index);
 
 		if (!target_can_be_attacked(_enemy))
 		{
@@ -2179,7 +2120,7 @@ unholy_savage_leap_update = function()
 
 	var _can_start = unholy_savage_leap_cooldown_timer <= 0
 		&& unit_faction == UNIT_FACTION.FRIENDLY
-		&& global.day_phase == DAY_PHASE.NIGHT
+		&& global.player_faction != FACTION.NONE
 		&& is_struct(squad)
 		&& !squad_is_marching(squad)
 		&& (!squad_order_is_active(squad) || squad_order_arrived || squad_order_in_combat)
@@ -2300,39 +2241,7 @@ unit_death_process = function()
 		squad_unholy_roar_try(squad);
 	}
 
-	if (is_demon_form_unit() || object_index == o_archdemon)
-	{
-		if (!is_knocked_out)
-		{
-			unit_death_sound_play();
-			unholy_boiling_blood_death_explosion_apply();
-			soul_chain_death_effect_apply();
 
-			if (global.day_phase == DAY_PHASE.NIGHT && instance_exists(o_game_controller))
-			{
-				var _game_controller = instance_find(o_game_controller, 0);
-				_game_controller.adaptive_night_cultist_knocked_out = true;
-			}
-
-			is_knocked_out = true;
-			knockout_duration = max(1, BALANCE_CULTIST_KNOCKOUT_TIME * room_speed);
-			knockout_timer = knockout_duration;
-			hp = 0;
-			visible = true;
-			image_angle = 90;
-			is_being_dragged = false;
-			target_instance = noone;
-			alert_target = noone;
-			forced_attack_target = noone;
-			is_attacking_target = false;
-			is_walking = false;
-			attack_feedback_timer = 0;
-			visual_attack_offset_x = 0;
-			visual_attack_offset_y = 0;
-		}
-
-		return;
-	}
 
 	unit_death_sound_play();
 	unholy_boiling_blood_death_explosion_apply();
@@ -2347,6 +2256,7 @@ unit_death_process = function()
 	if (unit_faction == UNIT_FACTION.FRIENDLY
 		&& object_index != o_skeleton_bonelet
 		&& is_struct(squad)
+		&& !squad.is_hero
 		&& squad_unholy_trait_get(squad) == UNHOLY_TRAIT.ENDLESS_PROCESSION
 		&& random(1) < BALANCE_UNHOLY_SHRINE_ENDLESS_PROCESSION_CHANCE)
 	{
@@ -2356,7 +2266,7 @@ unit_death_process = function()
 	// Rise Again raises enemy casualties as independent allied Bonelets.
 	if (unit_faction == UNIT_FACTION.ENEMY)
 	{
-		daybreak_enemy_bonelet_raise_try(id);
+
 	}
 
 	// Finalize this slot after replacement effects before checking for a full squad wipe.
@@ -2368,7 +2278,7 @@ unit_death_process = function()
 		{
 			squad.units[squad_unit_index] = noone;
 		}
-		daybreak_squad_relaunch_try(squad);
+
 	}
 
 	instance_destroy();
@@ -2476,7 +2386,7 @@ ranged_unit_melee_flee_on_damage = function(_source_instance)
 	if (hp <= 0
 		|| !instance_exists(_source_instance)
 		|| !variable_instance_exists(_source_instance, "unit_faction")
-		|| _source_instance.unit_faction == unit_faction
+		|| !faction_target_is_hostile(faction, _source_instance)
 		|| !variable_instance_exists(_source_instance, "attack_radius")
 		|| _source_instance.attack_radius > BALANCE_UNIT_MELEE_DAMAGE_RADIUS_MAX)
 	{
@@ -2657,7 +2567,7 @@ find_nearest_enemy_unit_target = function(_max_distance)
 {
 	var _nearest_target = noone;
 	var _nearest_distance_squared = _max_distance * _max_distance;
-	var _enemy_count = instance_number(o_enemy_units);
+	var _enemy_count = instance_number(o_units_parent);
 	var _use_switch_margin = false;
 
 	// Validate the current reference directly instead of scanning every enemy to find it again.
@@ -2681,7 +2591,7 @@ find_nearest_enemy_unit_target = function(_max_distance)
 	// Switch only when another enemy is clearly closer than the current one.
 	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
 	{
-		var _enemy = instance_find(o_enemy_units, _enemy_index);
+		var _enemy = instance_find(o_units_parent, _enemy_index);
 
 		if (_enemy == _nearest_target || !instance_exists(_enemy))
 		{
@@ -3015,12 +2925,12 @@ find_nearest_cannon_attacker = function()
 	var _cannon = instance_find(o_cannon, 0);
 	var _nearest_attacker = noone;
 	var _nearest_distance_squared = infinity;
-	var _enemy_count = instance_number(o_enemy_units);
+	var _enemy_count = instance_number(o_units_parent);
 
 	// Pick the closest enemy that is actively attacking the cannon.
 	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
 	{
-		var _enemy = instance_find(o_enemy_units, _enemy_index);
+		var _enemy = instance_find(o_units_parent, _enemy_index);
 
 		if (!instance_exists(_enemy)
 			|| !variable_instance_exists(_enemy, "target_instance")
@@ -3994,11 +3904,11 @@ find_nearest_reachable_enemy_target = function(_max_distance)
 {
 	var _candidate_queue = ds_priority_create();
 	var _maximum_distance_squared = _max_distance * _max_distance;
-	var _enemy_count = instance_number(o_enemy_units);
+	var _enemy_count = instance_number(o_units_parent);
 
 	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
 	{
-		var _enemy = instance_find(o_enemy_units, _enemy_index);
+		var _enemy = instance_find(o_units_parent, _enemy_index);
 
 		if (!instance_exists(_enemy))
 		{
@@ -4164,8 +4074,7 @@ move_towards_world_point = function(_target_x, _target_y, _base_move_speed = mov
 
 attack_ring_should_use = function(_target, _attack_radius)
 {
-	if (unit_faction != UNIT_FACTION.ENEMY
-		|| !instance_exists(_target)
+	if (!instance_exists(_target)
 		|| _target.object_index == o_cannon
 		|| _target == guard_target
 		|| (variable_instance_exists(_target, "is_wall") && _target.is_wall)
@@ -4177,7 +4086,7 @@ attack_ring_should_use = function(_target, _attack_radius)
 
 	if (variable_instance_exists(_target, "unit_faction"))
 	{
-		return _target.unit_faction == UNIT_FACTION.FRIENDLY;
+		return faction_target_is_hostile(faction, _target);
 	}
 
 	return false;
@@ -4663,7 +4572,7 @@ attack_target = function(_target)
 
 	if (aoe_radius > 0)
 	{
-		var _aoe_object = o_enemy_units;
+		var _aoe_object = o_units_parent;
 		var _aoe_feedback_enabled = variable_instance_exists(id, "unit_aoe_attack_feedback_show");
 		var _aoe_hit_positions = [];
 
@@ -4672,10 +4581,6 @@ attack_target = function(_target)
 			array_push(_aoe_hit_positions, { x: _target_hit_x, y: _target_hit_y });
 		}
 
-		if (unit_faction == UNIT_FACTION.ENEMY)
-		{
-			_aoe_object = o_friendly_units;
-		}
 
 		var _aoe_list = ds_list_create();
 		var _aoe_range = aoe_radius * next_attack_radius_multiplier;
@@ -4745,4 +4650,29 @@ attack_target = function(_target)
 
 	unit_attack_landed(_target, _is_critical_hit, _target_was_killed);
 	reload_timer = reload_time * unit_attack_reload_multiplier_get();
+};
+
+find_nearest_faction_target = function(_radius)
+{
+	var _nearest = noone;
+	var _distance = _radius;
+	var _groups = [o_units_parent, o_v13buildings_parent, o_map_objects_parent];
+	for (var _group = 0; _group < array_length(_groups); ++_group)
+	{
+		var _count = instance_number(_groups[_group]);
+		for (var _index = 0; _index < _count; ++_index)
+		{
+			var _candidate = instance_find(_groups[_group], _index);
+			if (!instance_exists(_candidate) || _candidate == id) continue;
+			var _candidate_distance = point_distance(x, y, _candidate.x, _candidate.y);
+			if (variable_instance_exists(_candidate, "player_building_distance_to_point"))
+				_candidate_distance = _candidate.player_building_distance_to_point(x, y);
+			if (_candidate_distance <= _distance && target_can_be_attacked(_candidate))
+			{
+				_nearest = _candidate;
+				_distance = _candidate_distance;
+			}
+		}
+	}
+	return _nearest;
 };

@@ -22,7 +22,7 @@ if (balance_test_simulation_finished)
 }
 
 // The squad selected by Hell Takes the Weakest remains undeployed for this night.
-if (global.day_phase == DAY_PHASE.NIGHT
+if (global.player_faction != FACTION.NONE
 	&& global.ritual_hell_weakest_active
 	&& variable_instance_exists(id, "squad")
 	&& is_struct(squad)
@@ -41,10 +41,7 @@ gameplay_time_scale = variable_global_exists("gameplay_time_scale")
 image_speed = gameplay_time_scale;
 
 // Fog visibility keeps updating while paused because the fog layer is a visual system.
-if (unit_faction == UNIT_FACTION.ENEMY)
-{
-	unit_is_hidden_by_fog();
-}
+unit_is_hidden_by_fog();
 
 // Pause freezes unit AI and combat.
 if (global.pause)
@@ -141,6 +138,17 @@ if (global.day_phase == DAY_PHASE.DAY
 	exit;
 }
 
+// Capturable-house peasants defend locally and return if combat pulls them too far away.
+if (instance_exists(owner_house) && variable_instance_exists(owner_house, "is_neutral_building")
+	&& point_distance(x, y, owner_house.x, owner_house.y) > guard_radius * 2)
+{
+	target_instance = noone;
+	alert_target = noone;
+	forced_attack_target = noone;
+	is_attacking_target = false;
+	move_towards_world_point(owner_house.x, owner_house.y);
+	exit;
+}
 // House guards return to their home during the day instead of chasing player structures.
 if (global.day_phase == DAY_PHASE.DAY
 	&& variable_instance_exists(id, "owner_house")
@@ -389,8 +397,8 @@ if (squad_order_unit_update(id))
 }
 
 // System 1 marching squad members run to their flag and ignore every combat target.
-var _squad_march_is_active = unit_faction == UNIT_FACTION.FRIENDLY
-	&& global.day_phase == DAY_PHASE.NIGHT
+var _squad_march_is_active = squad_is_player_owned(squad)
+	&& global.player_faction != FACTION.NONE
 	&& is_struct(squad)
 	&& squad_is_marching(squad)
 	&& variable_struct_exists(squad.properties, "marker_x")
@@ -416,373 +424,35 @@ if (_squad_march_is_active)
 	exit;
 }
 
-// Enemy units remain passive throughout Unholy Night, even when fired upon.
-if (unit_faction == UNIT_FACTION.ENEMY
-	&& variable_global_exists("unholy_night_active")
-	&& global.unholy_night_active)
-{
-	target_instance = noone;
-	alert_target = noone;
-	forced_attack_target = noone;
-	is_attacking_target = false;
-	is_walking = false;
-	visual_attack_offset_x = 0;
-	visual_attack_offset_y = 0;
-	update_walk_sway();
-	exit;
-}
-
-// Choose target by faction.
+// Every unit encounters opponents by faction, regardless of its original object family.
 is_attacking_target = false;
 is_walking = false;
-
-var _is_enemy_unit = (unit_faction == UNIT_FACTION.ENEMY);
-var _is_friendly_unit = (unit_faction == UNIT_FACTION.FRIENDLY);
-var _friendly_follow_target = noone;
-var _is_cultist_demon_unit = variable_instance_exists(id, "demon_type")
-	&& demon_type != DEMON_TYPE.NONE;
-var _is_player_squad_unit = _is_friendly_unit && is_struct(squad);
-var _is_independent_bonelet = _is_friendly_unit
-	&& object_index == o_skeleton_bonelet
-	&& !is_struct(squad);
-var _uses_squad_day_point = _is_friendly_unit
-	&& global.day_phase == DAY_PHASE.DAY
-	&& is_struct(squad);
-
-// Persistent squads hold their last ordered position instead of idling back to the Cannon.
-if (_is_player_squad_unit)
-{
-	cached_follow_target = noone;
-
-	if (instance_exists(target_instance) && target_instance.object_index == o_cannon)
-	{
-		target_instance = noone;
-		navigation_path_state_clear();
-	}
-}
-
-// Independent Bonelets stop returning once they reach the wider Cannon guard area.
-if (_is_independent_bonelet
-	&& instance_exists(target_instance)
-	&& target_instance.object_index == o_cannon
-	&& point_distance(x, y, target_instance.x, target_instance.y)
-		<= BALANCE_SKELETON_BONELET_INDEPENDENT_CANNON_RADIUS)
-{
-	target_instance = noone;
-	cached_follow_target = noone;
-	navigation_path_state_clear();
-}
-
-// Daytime squad members stay inside their reserved area instead of guarding the cannon.
-if (_uses_squad_day_point)
-{
-	target_instance = noone;
-	alert_target = noone;
-	alert_target_timer = 0;
-	forced_attack_target = noone;
-	forced_attack_target_timer = 0;
-	cached_follow_target = noone;
-}
-
-var _had_target = instance_exists(target_instance);
-var _current_target_is_valid = target_can_be_attacked(target_instance);
-
-// Update lightweight separation vector before movement.
+var _is_enemy_unit = faction != global.player_faction;
+var _special_behavior_handled = unit_special_behavior_update();
 update_separation_push();
-
-// March state is updated before any normal, panic, or retreat movement uses its multiplier.
 enemy_march_update();
-
-var _special_behavior_handled = _uses_squad_day_point
-	? false
-	: unit_special_behavior_update();
-var _has_forced_target = target_can_be_attacked(forced_attack_target);
-var _should_search_target = false;
-
+var _had_target = target_instance != noone;
+var _valid_target = target_can_be_attacked(target_instance);
+if (!_valid_target) target_instance = noone;
 target_search_update_timer += gameplay_time_scale;
-
-if (target_search_update_timer >= target_search_update_interval
-	|| (_had_target && !_current_target_is_valid)
-	|| _has_forced_target
-	|| instance_exists(alert_target))
+var _should_search = target_search_update_timer >= target_search_update_interval
+	|| (_had_target && !_valid_target);
+if (!_special_behavior_handled && !squad_order_in_combat)
 {
-	_should_search_target = true;
-	target_search_update_timer = 0;
-}
-
-if (!_current_target_is_valid)
-{
-	target_instance = noone;
-}
-
-if (instance_exists(manual_structure_target) && !target_can_be_attacked(manual_structure_target))
-{
-	manual_structure_target = noone;
-}
-
-if (!_special_behavior_handled && _has_forced_target)
-{
-	target_instance = forced_attack_target;
-}
-else if (!_special_behavior_handled && _should_search_target && _is_enemy_unit)
-{
-	// Nearby player units take priority over distant units, structures, and the cannon.
-	var _nearest_player_unit = find_nearest_player_unit_target(target_detection_radius);
-
-	if (instance_exists(_nearest_player_unit))
+	if (target_can_be_attacked(forced_attack_target)) target_instance = forced_attack_target;
+	else if (faction == global.player_faction && target_can_be_attacked(manual_structure_target)) target_instance = manual_structure_target;
+	else if (_should_search)
 	{
-		target_instance = _nearest_player_unit;
-	}
-	else
-	{
-		// Stop chasing a player unit that has left the detection radius.
-		if (target_is_player_unit(target_instance))
+		target_search_update_timer = 0;
+		target_instance = find_nearest_faction_target(vision_radius);
+		if (!instance_exists(target_instance) && target_can_be_attacked(alert_target)) target_instance = alert_target;
+		if (!instance_exists(target_instance) && is_struct(squad) && !squad_is_player_owned(squad)
+			&& faction_building_is_targetable(faction, squad.ai_target))
 		{
-			target_instance = noone;
-		}
-
-		var _has_alert_target = false;
-
-		if (instance_exists(alert_target))
-		{
-			if (target_can_be_attacked(alert_target))
-			{
-				target_instance = alert_target;
-				_has_alert_target = true;
-			}
-			else
-			{
-				alert_target = noone;
-				alert_target_timer = 0;
-			}
-		}
-
-		var _current_target_is_tumor = taint_shell_tumor_is_valid(target_instance);
-		var _current_target_is_in_combat = target_can_be_attacked(target_instance)
-			&& !_current_target_is_tumor
-			&& navigation_target_distance_get(target_instance) <= attack_radius;
-		var _tumor_target = noone;
-
-		// Sweet Rot lures only enemies that are not already fighting another valid target.
-		if (!_has_alert_target && !_current_target_is_in_combat)
-		{
-			_tumor_target = taint_shell_tumor_target_find();
-		}
-
-		if (instance_exists(_tumor_target))
-		{
-			target_instance = _tumor_target;
-		}
-		else if (!_has_alert_target)
-		{
-			// Keep pursuing a chosen structure after its short damage alert expires.
-			var _nearby_player_structure = player_structure_can_be_targeted(target_instance)
-				? target_instance
-				: find_nearest_attackable_player_structure(target_detection_radius);
-
-			if (instance_exists(_nearby_player_structure))
-			{
-				target_instance = _nearby_player_structure;
-			}
-			else if (unit_can_attack_cannon)
-			{
-				// Farther structures still intercept enemies when they physically block the cannon route.
-				var _blocking_building = find_player_building_on_cannon_path();
-
-				if (instance_exists(_blocking_building))
-				{
-					target_instance = _blocking_building;
-				}
-				else if (player_structure_can_be_targeted(target_instance))
-				{
-					target_instance = noone;
-				}
-			}
-			else if (player_structure_can_be_targeted(target_instance))
-			{
-				target_instance = noone;
-			}
-		}
-
-		if (!instance_exists(target_instance) && !unit_can_attack_cannon && instance_exists(guard_target))
-		{
-			var _distance_to_guard = point_distance(x, y, guard_target.x, guard_target.y);
-
-			if (_distance_to_guard > guard_radius)
-			{
-				target_instance = guard_target;
-			}
-		}
-
-		if (!instance_exists(target_instance) && unit_can_attack_cannon && instance_exists(o_cannon))
-		{
-			target_instance = instance_find(o_cannon, 0);
+			target_instance = squad.ai_target;
 		}
 	}
 }
-else if (!_special_behavior_handled
-	&& !_uses_squad_day_point
-	&& _should_search_target
-	&& _is_friendly_unit
-	&& !squad_order_in_combat)
-{
-	if (instance_exists(alert_target))
-	{
-		if (target_can_be_attacked(alert_target))
-		{
-			target_instance = alert_target;
-		}
-		else
-		{
-			alert_target = noone;
-			alert_target_timer = 0;
-		}
-	}
-
-	if (_is_cultist_demon_unit && target_can_be_attacked(manual_structure_target))
-	{
-		target_instance = manual_structure_target;
-	}
-	else if (_is_cultist_demon_unit)
-	{
-		var _nearest_enemy_unit = find_nearest_target(o_enemy_units, vision_radius);
-
-		if (instance_exists(_nearest_enemy_unit))
-		{
-			target_instance = _nearest_enemy_unit;
-		}
-		else
-		{
-			target_instance = find_nearest_enemy_object(vision_radius);
-		}
-	}
-	else if (!_is_cultist_demon_unit)
-	{
-		var _priority_target = noone;
-
-		if (!instance_exists(alert_target))
-		{
-			_priority_target = friendly_priority_target_find(vision_radius);
-		}
-
-		if (instance_exists(_priority_target))
-		{
-			target_instance = _priority_target;
-		}
-		else
-		{
-			var _nearest_enemy_unit = find_nearest_enemy_unit_target(vision_radius);
-
-			if (instance_exists(_nearest_enemy_unit))
-			{
-				target_instance = _nearest_enemy_unit;
-			}
-		}
-	}
-
-	if (!_is_cultist_demon_unit && !instance_exists(target_instance))
-	{
-		target_instance = find_nearest_enemy_object(vision_radius);
-	}
-
-	if (!instance_exists(target_instance)
-		&& global.day_phase == DAY_PHASE.NIGHT
-		&& !_is_player_squad_unit
-		&& !regroup_is_active
-		&& !rally_is_active
-		&& (object_index == o_skeleton
-			|| object_index == o_pitling))
-	{
-		_friendly_follow_target = find_nearest_visible_cultist();
-	}
-
-	cached_follow_target = _friendly_follow_target;
-
-	if (!instance_exists(target_instance))
-	{
-		if (!instance_exists(_friendly_follow_target))
-		{
-			target_instance = find_nearest_cannon_attacker();
-		}
-	}
-
-	// Inaccessible enemies are skipped; enemy walls are attacked only when no reachable enemy remains.
-	var _target_is_manual_structure = _is_cultist_demon_unit
-		&& target_instance == manual_structure_target;
-
-	if (!_has_forced_target && !_target_is_manual_structure)
-	{
-		if (instance_exists(target_instance)
-			&& target_instance.object_index != o_cannon
-			&& !navigation_target_prepare(target_instance, attack_radius))
-		{
-			target_instance = noone;
-		}
-
-		if (!instance_exists(target_instance))
-		{
-			target_instance = find_nearest_reachable_enemy_target(vision_radius);
-		}
-
-		if (!instance_exists(target_instance))
-		{
-			target_instance = find_nearest_reachable_enemy_wall(vision_radius);
-		}
-	}
-
-	if (!instance_exists(target_instance) && instance_exists(o_cannon))
-	{
-		var _cannon = instance_find(o_cannon, 0);
-		var _distance_to_cannon = point_distance(x, y, _cannon.x, _cannon.y);
-		var _cannon_return_radius = _is_independent_bonelet
-			? BALANCE_SKELETON_BONELET_INDEPENDENT_CANNON_RADIUS
-			: cannon_guard_radius;
-
-		if (friendly_guard_cannon_enabled
-			&& !_is_player_squad_unit
-			&& !instance_exists(_friendly_follow_target)
-			&& !regroup_is_active
-			&& !rally_is_active
-			&& _distance_to_cannon > _cannon_return_radius)
-		{
-			target_instance = _cannon;
-		}
-	}
-}
-
-if (!_uses_squad_day_point
-	&& !_should_search_target
-	&& _is_friendly_unit
-	&& target_can_be_attacked(cached_follow_target))
-{
-	_friendly_follow_target = cached_follow_target;
-}
-
-if (!_special_behavior_handled && instance_exists(target_instance) && !target_can_be_attacked(target_instance))
-{
-	target_instance = noone;
-}
-
-// Idle squad members follow a teammate who is already engaging an enemy.
-var _squad_combat_guide = noone;
-
-if (!_special_behavior_handled
-	&& !_uses_squad_day_point
-	&& _is_friendly_unit
-	&& !squad_unit_is_in_combat(id)
-	&& is_struct(squad))
-{
-	_squad_combat_guide = squad_combat_guide_get(squad, id);
-
-	if (instance_exists(_squad_combat_guide))
-	{
-		target_instance = noone;
-		_friendly_follow_target = _squad_combat_guide;
-	}
-}
-
-// The timed enemy search above already gives nearby player units priority over the Cannon.
-// Do not repeat the full search every frame while a wave is approaching the settlement.
 
 // Move to target or attack it when close enough.
 if (!_special_behavior_handled && instance_exists(target_instance))
@@ -862,86 +532,6 @@ if (!_special_behavior_handled && instance_exists(target_instance))
 		}
 	}
 }
-else if (!_special_behavior_handled && _is_friendly_unit && instance_exists(_friendly_follow_target))
-{
-	var _follow_distance = point_distance(x, y, _friendly_follow_target.x, _friendly_follow_target.y);
-	var _follow_arrive_radius = _friendly_follow_target == _squad_combat_guide
-		? BALANCE_SQUAD_COMBAT_ASSIST_ARRIVE_RADIUS
-		: regroup_arrive_radius;
-
-	if (_follow_distance > _follow_arrive_radius)
-	{
-		move_towards_world_point(_friendly_follow_target.x, _friendly_follow_target.y);
-	}
-	else
-	{
-		face_world_x(_friendly_follow_target.x);
-	}
-}
-else if (!_special_behavior_handled && _is_friendly_unit && regroup_is_active)
-{
-	var _regroup_distance = point_distance(x, y, regroup_target_x, regroup_target_y);
-
-	if (_regroup_distance <= regroup_arrive_radius)
-	{
-		regroup_is_active = false;
-		drag_drop_x = x;
-		drag_drop_y = y;
-	}
-	else
-	{
-		move_towards_world_point(regroup_target_x, regroup_target_y);
-	}
-}
-else if (!_special_behavior_handled && _is_friendly_unit && rally_is_active)
-{
-	if (rally_is_returning)
-	{
-		var _return_distance = point_distance(x, y, rally_home_x, rally_home_y);
-
-		if (_return_distance <= cannon_guard_radius)
-		{
-			rally_is_active = false;
-			rally_is_returning = false;
-			rally_has_arrived = false;
-			rally_group_id = 0;
-		}
-		else
-		{
-			move_towards_world_point(rally_home_x, rally_home_y);
-		}
-	}
-	else
-	{
-		var _rally_distance = point_distance(x, y, rally_target_x, rally_target_y);
-
-		if (_rally_distance <= rally_arrive_radius)
-		{
-			rally_has_arrived = true;
-		}
-		else
-		{
-			rally_has_arrived = false;
-			move_towards_world_point(rally_target_x, rally_target_y);
-		}
-
-		if (rally_has_arrived && rally_group_ready_to_return())
-		{
-			rally_group_start_returning();
-		}
-	}
-}
-
-// Idle daytime squad members hold position; stale separation otherwise makes them vibrate.
-if (!_uses_squad_day_point || is_walking)
-{
-	apply_separation_push();
-}
-else
-{
-	separation_push_x = 0;
-	separation_push_y = 0;
-}
-
-// Add a simple sprite sway while the unit is walking.
+// Separation and visual sway run for both player and AI squads.
+apply_separation_push();
 update_walk_sway();

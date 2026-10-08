@@ -14,7 +14,7 @@ if (!is_captured
 
 // Draw the pulsing world button above the captured point.
 var _button_rect = cursed_point_summon_button_rect_get();
-var _is_available_at_daytime = global.day_phase == DAY_PHASE.DAY;
+var _is_available_at_daytime = global.player_faction != FACTION.NONE;
 var _pulse = _is_available_at_daytime
 	? 1 + (sin(current_time * summon_button_pulse_speed) * summon_button_pulse_scale)
 	: 1;

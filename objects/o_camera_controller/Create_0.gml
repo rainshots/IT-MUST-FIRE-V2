@@ -1,7 +1,6 @@
-// Use the room center until the cannon becomes available after instance creation.
+// Use the room center while the player chooses a faction.
 x = room_width * 0.5;
 y = room_height * 0.5;
-start_center_on_cannon_pending = true;
 
 // Controller reference used for resolution changes.
 game_controller = noone;

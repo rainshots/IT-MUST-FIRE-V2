@@ -17,7 +17,7 @@ if (_roads_layer != -1)
 corruption_grid = ds_grid_create(grid_width, grid_height);
 ds_grid_clear(corruption_grid, 0);
 
-// Saint values are stored from 0 to 1 and block Taint while above zero.
+// Empty compatibility grids for legacy map-object checks; ownership lives in corruption_faction_grid.
 saint_grid = ds_grid_create(grid_width, grid_height);
 ds_grid_clear(saint_grid, 0);
 saint_source_grid = ds_grid_create(grid_width, grid_height);
@@ -71,7 +71,9 @@ captured_building_rift_line_draw = function(_start_x, _start_y, _end_x, _end_y, 
 	var _previous_y = _start_y;
 
 	draw_set_alpha(_line_alpha);
-	draw_set_color(COLOR_CAPTURED_BUILDING_RIFT);
+	var _rift_faction = ground_faction_get(_start_x, _start_y);
+	draw_set_color(_rift_faction == FACTION.UNDEAD || _rift_faction == FACTION.NONE
+		? COLOR_CAPTURED_BUILDING_RIFT : corruption_color_get(_rift_faction));
 
 	for (var _segment_index = 1; _segment_index <= _segment_count; ++_segment_index)
 	{
@@ -116,6 +118,8 @@ captured_building_rifts_draw = function()
 			continue;
 		}
 
+		var _rift_owner = corruption_faction_get(_map_object);
+		if (defeated_factions[_rift_owner]) continue;
 		var _draws_base_rift = false;
 
 		if (variable_instance_exists(_map_object, "tower_capture_enabled")
@@ -244,194 +248,115 @@ captured_building_rifts_draw = function()
 	}
 };
 
-// Adds corruption to cells inside a world-space circle.
-corrupt_circle = function(_center_x, _center_y, _radius, _corruption)
+// Each cell has exactly one owner. Legacy saint grids remain empty for old readers.
+corruption_faction_grid = ds_grid_create(grid_width, grid_height);
+ds_grid_clear(corruption_faction_grid, FACTION.NONE);
+base_corruption_initialized = false;
+defeated_factions = array_create(FACTION.WILDLINGS + 1, false);
+
+ground_faction_get = function(_world_x, _world_y)
 {
-	var _safe_radius = max(_radius, 1);
-	var _center_cell_x = clamp(floor(_center_x / cell_size), 0, grid_width - 1);
-	var _center_cell_y = clamp(floor(_center_y / cell_size), 0, grid_height - 1);
-	var _left_cell = clamp(floor((_center_x - _safe_radius) / cell_size), 0, grid_width - 1);
-	var _right_cell = clamp(floor((_center_x + _safe_radius) / cell_size), 0, grid_width - 1);
-	var _top_cell = clamp(floor((_center_y - _safe_radius) / cell_size), 0, grid_height - 1);
-	var _bottom_cell = clamp(floor((_center_y + _safe_radius) / cell_size), 0, grid_height - 1);
-
-	for (var _cell_x = _left_cell; _cell_x <= _right_cell; ++_cell_x)
-	{
-		for (var _cell_y = _top_cell; _cell_y <= _bottom_cell; ++_cell_y)
-		{
-			var _cell_center_x = (_cell_x * cell_size) + (cell_size * 0.5);
-			var _cell_center_y = (_cell_y * cell_size) + (cell_size * 0.5);
-			var _cell_distance = point_distance(_center_x, _center_y, _cell_center_x, _cell_center_y);
-			var _is_center_cell = (_cell_x == _center_cell_x && _cell_y == _center_cell_y);
-
-			if (_cell_distance <= _safe_radius || _is_center_cell)
-			{
-				var _current_saint = ds_grid_get(saint_grid, _cell_x, _cell_y);
-
-				if (_current_saint > 0)
-				{
-					var _source_count = ds_grid_get(saint_source_grid, _cell_x, _cell_y);
-					var _new_saint = max(_current_saint - _corruption, 0);
-
-					if (_source_count > 0)
-					{
-						_new_saint = max(_new_saint, minimum_saint_protected_amount);
-					}
-
-					ds_grid_set(saint_grid, _cell_x, _cell_y, _new_saint);
-					continue;
-				}
-
-				var _current_corruption = ds_grid_get(corruption_grid, _cell_x, _cell_y);
-				var _new_corruption = clamp(_current_corruption + _corruption, 0, 1);
-
-				ds_grid_set(corruption_grid, _cell_x, _cell_y, _new_corruption);
-			}
-		}
-	}
+	var _cell_x = floor(_world_x / cell_size);
+	var _cell_y = floor(_world_y / cell_size);
+	if (_cell_x < 0 || _cell_y < 0 || _cell_x >= grid_width || _cell_y >= grid_height) return FACTION.NONE;
+	if (ds_grid_get(corruption_grid, _cell_x, _cell_y) <= 0) return FACTION.NONE;
+	return ds_grid_get(corruption_faction_grid, _cell_x, _cell_y);
 };
 
-// Links or unlinks a saint source to every cell inside a world-space circle.
-saint_source_circle_change = function(_center_x, _center_y, _radius, _source_change)
+corruption_protection_grid = ds_grid_create(grid_width, grid_height);
+ds_grid_clear(corruption_protection_grid, 0);
+corruption_protection_dirty = true;
+corruption_protection_timer = 0;
+corruption_protection_rebuild = function()
 {
-	if (!ds_exists(saint_source_grid, ds_type_grid)
-		|| !ds_exists(saint_grid, ds_type_grid))
+	ds_grid_clear(corruption_protection_grid, 0);
+	var _groups = [o_map_objects_parent, o_v13buildings_parent];
+	for (var _g = 0; _g < array_length(_groups); ++_g)
 	{
-		return;
-	}
-
-	var _safe_radius = max(_radius, 1);
-	var _center_cell_x = clamp(floor(_center_x / cell_size), 0, grid_width - 1);
-	var _center_cell_y = clamp(floor(_center_y / cell_size), 0, grid_height - 1);
-	var _left_cell = clamp(floor((_center_x - _safe_radius) / cell_size), 0, grid_width - 1);
-	var _right_cell = clamp(floor((_center_x + _safe_radius) / cell_size), 0, grid_width - 1);
-	var _top_cell = clamp(floor((_center_y - _safe_radius) / cell_size), 0, grid_height - 1);
-	var _bottom_cell = clamp(floor((_center_y + _safe_radius) / cell_size), 0, grid_height - 1);
-
-	for (var _cell_x = _left_cell; _cell_x <= _right_cell; ++_cell_x)
-	{
-		for (var _cell_y = _top_cell; _cell_y <= _bottom_cell; ++_cell_y)
+		var _count = instance_number(_groups[_g]);
+		for (var _i = 0; _i < _count; ++_i)
 		{
-			var _cell_center_x = (_cell_x * cell_size) + (cell_size * 0.5);
-			var _cell_center_y = (_cell_y * cell_size) + (cell_size * 0.5);
-			var _cell_distance = point_distance(_center_x, _center_y, _cell_center_x, _cell_center_y);
-			var _is_center_cell = (_cell_x == _center_cell_x && _cell_y == _center_cell_y);
-
-			if (_cell_distance <= _safe_radius || _is_center_cell)
+			var _building = instance_find(_groups[_g], _i);
+			if (!variable_instance_exists(_building, "corruption_protection_radius")) continue;
+			var _owner = _building.faction;
+			if (_owner < FACTION.ORDER || _owner > FACTION.NEUTRAL || faction_is_defeated(_owner)) continue;
+			if (_building.hp <= 0 && !(variable_instance_exists(_building, "is_recovering") && _building.is_recovering)) continue;
+			var _radius = _building.corruption_protection_radius;
+			var _left = max(0, floor((_building.x - _radius) / cell_size));
+			var _right = min(grid_width - 1, floor((_building.x + _radius) / cell_size));
+			var _top = max(0, floor((_building.y - _radius) / cell_size));
+			var _bottom = min(grid_height - 1, floor((_building.y + _radius) / cell_size));
+			for (var _cx = _left; _cx <= _right; ++_cx)
 			{
-				var _source_count = ds_grid_get(saint_source_grid, _cell_x, _cell_y);
-				ds_grid_set(saint_source_grid, _cell_x, _cell_y, max(0, _source_count + _source_change));
-
-				if (_source_change > 0)
+				for (var _cy = _top; _cy <= _bottom; ++_cy)
 				{
-					var _current_saint = ds_grid_get(saint_grid, _cell_x, _cell_y);
-					ds_grid_set(saint_grid, _cell_x, _cell_y, max(_current_saint, minimum_saint_protected_amount));
+					if (point_distance(_building.x, _building.y, (_cx + 0.5) * cell_size, (_cy + 0.5) * cell_size) > _radius) continue;
+					ds_grid_set(corruption_protection_grid, _cx, _cy, ds_grid_get(corruption_protection_grid, _cx, _cy) | (1 << _owner));
 				}
 			}
 		}
 	}
+	corruption_protection_dirty = false;
+};
+corruption_cell_is_protected = function(_cx, _cy, _faction)
+{
+	if (corruption_protection_dirty) corruption_protection_rebuild();
+	return (ds_grid_get(corruption_protection_grid, _cx, _cy) & ~(1 << _faction)) != 0;
+};
+corruption_cell_apply = function(_cell_x, _cell_y, _amount, _faction, _limit = 1)
+{
+	if (_amount <= 0 || _faction < FACTION.ORDER || _faction > FACTION.WILDLINGS) return;
+	if (defeated_factions[_faction] || corruption_cell_is_protected(_cell_x, _cell_y, _faction)) return;
+	var _owner = ds_grid_get(corruption_faction_grid, _cell_x, _cell_y);
+	var _current = _owner == _faction ? ds_grid_get(corruption_grid, _cell_x, _cell_y) : 0;
+	ds_grid_set(corruption_faction_grid, _cell_x, _cell_y, _faction);
+	ds_grid_set(corruption_grid, _cell_x, _cell_y, max(_current, min(_current + _amount, _limit)));
 };
 
-saint_source_circle_add = function(_center_x, _center_y, _radius)
+// Negative amounts cleanse; a positive application always replaces a different owner.
+corrupt_circle = function(_center_x, _center_y, _radius, _amount, _faction = FACTION.UNDEAD)
 {
-	saint_source_circle_change(_center_x, _center_y, _radius, 1);
-};
-
-saint_source_circle_remove = function(_center_x, _center_y, _radius)
-{
-	saint_source_circle_change(_center_x, _center_y, _radius, -1);
-};
-
-// Sets Saint directly inside a circle without linking it to a source.
-saint_circle_set = function(_center_x, _center_y, _radius, _saint_amount)
-{
-	var _safe_radius = max(_radius, 1);
-	var _center_cell_x = clamp(floor(_center_x / cell_size), 0, grid_width - 1);
-	var _center_cell_y = clamp(floor(_center_y / cell_size), 0, grid_height - 1);
-	var _left_cell = clamp(floor((_center_x - _safe_radius) / cell_size), 0, grid_width - 1);
-	var _right_cell = clamp(floor((_center_x + _safe_radius) / cell_size), 0, grid_width - 1);
-	var _top_cell = clamp(floor((_center_y - _safe_radius) / cell_size), 0, grid_height - 1);
-	var _bottom_cell = clamp(floor((_center_y + _safe_radius) / cell_size), 0, grid_height - 1);
-	var _target_saint = clamp(_saint_amount, 0, full_saint_value);
-
-	for (var _cell_x = _left_cell; _cell_x <= _right_cell; ++_cell_x)
+	var _safe_radius = max(1, _radius);
+	var _left = max(0, floor((_center_x - _safe_radius) / cell_size));
+	var _right = min(grid_width - 1, floor((_center_x + _safe_radius) / cell_size));
+	var _top = max(0, floor((_center_y - _safe_radius) / cell_size));
+	var _bottom = min(grid_height - 1, floor((_center_y + _safe_radius) / cell_size));
+	for (var _cx = _left; _cx <= _right; ++_cx)
 	{
-		for (var _cell_y = _top_cell; _cell_y <= _bottom_cell; ++_cell_y)
+		for (var _cy = _top; _cy <= _bottom; ++_cy)
 		{
-			var _cell_center_x = (_cell_x * cell_size) + (cell_size * 0.5);
-			var _cell_center_y = (_cell_y * cell_size) + (cell_size * 0.5);
-			var _cell_distance = point_distance(_center_x, _center_y, _cell_center_x, _cell_center_y);
-			var _is_center_cell = (_cell_x == _center_cell_x && _cell_y == _center_cell_y);
-
-			if (_cell_distance <= _safe_radius || _is_center_cell)
+			if (point_distance(_center_x, _center_y, (_cx + 0.5) * cell_size, (_cy + 0.5) * cell_size) > _safe_radius
+				&& (_cx != floor(_center_x / cell_size) || _cy != floor(_center_y / cell_size))) continue;
+			if (_amount >= 0)
 			{
-				var _current_saint = ds_grid_get(saint_grid, _cell_x, _cell_y);
-				ds_grid_set(saint_grid, _cell_x, _cell_y, max(_current_saint, _target_saint));
-				ds_grid_set(corruption_grid, _cell_x, _cell_y, 0);
+				corruption_cell_apply(_cx, _cy, _amount, _faction);
+			}
+			else
+			{
+				if (_faction != FACTION.NONE && corruption_cell_is_protected(_cx, _cy, _faction)) continue;
+				var _remaining = max(0, ds_grid_get(corruption_grid, _cx, _cy) + _amount);
+				ds_grid_set(corruption_grid, _cx, _cy, _remaining);
+				if (_remaining <= 0) ds_grid_set(corruption_faction_grid, _cx, _cy, FACTION.NONE);
 			}
 		}
 	}
 };
 
-// Clears Saint directly inside a circle without changing linked source counters.
-saint_circle_clear = function(_center_x, _center_y, _radius)
+// Legacy holy-source calls use the same faction ownership and building protection rules.
+saint_source_circle_add = function(_x, _y, _radius, _faction = FACTION.ORDER)
 {
-	var _safe_radius = max(_radius, 1);
-	var _center_cell_x = clamp(floor(_center_x / cell_size), 0, grid_width - 1);
-	var _center_cell_y = clamp(floor(_center_y / cell_size), 0, grid_height - 1);
-	var _left_cell = clamp(floor((_center_x - _safe_radius) / cell_size), 0, grid_width - 1);
-	var _right_cell = clamp(floor((_center_x + _safe_radius) / cell_size), 0, grid_width - 1);
-	var _top_cell = clamp(floor((_center_y - _safe_radius) / cell_size), 0, grid_height - 1);
-	var _bottom_cell = clamp(floor((_center_y + _safe_radius) / cell_size), 0, grid_height - 1);
-
-	for (var _cell_x = _left_cell; _cell_x <= _right_cell; ++_cell_x)
-	{
-		for (var _cell_y = _top_cell; _cell_y <= _bottom_cell; ++_cell_y)
-		{
-			var _cell_center_x = (_cell_x * cell_size) + (cell_size * 0.5);
-			var _cell_center_y = (_cell_y * cell_size) + (cell_size * 0.5);
-			var _cell_distance = point_distance(_center_x, _center_y, _cell_center_x, _cell_center_y);
-			var _is_center_cell = (_cell_x == _center_cell_x && _cell_y == _center_cell_y);
-
-			if (_cell_distance <= _safe_radius || _is_center_cell)
-			{
-				ds_grid_set(saint_grid, _cell_x, _cell_y, 0);
-			}
-		}
-	}
+	corrupt_circle(_x, _y, _radius, 1, _faction);
 };
-
-// Removes corruption from cells inside a world-space circle.
-cleanse_circle = function(_center_x, _center_y, _radius, _cleanse_amount)
+saint_source_circle_remove = function(_x, _y, _radius) {};
+saint_circle_set = function(_x, _y, _radius, _amount, _faction = FACTION.ORDER)
 {
-	var _safe_radius = max(_radius, 1);
-	var _center_cell_x = clamp(floor(_center_x / cell_size), 0, grid_width - 1);
-	var _center_cell_y = clamp(floor(_center_y / cell_size), 0, grid_height - 1);
-	var _left_cell = clamp(floor((_center_x - _safe_radius) / cell_size), 0, grid_width - 1);
-	var _right_cell = clamp(floor((_center_x + _safe_radius) / cell_size), 0, grid_width - 1);
-	var _top_cell = clamp(floor((_center_y - _safe_radius) / cell_size), 0, grid_height - 1);
-	var _bottom_cell = clamp(floor((_center_y + _safe_radius) / cell_size), 0, grid_height - 1);
-
-	for (var _cell_x = _left_cell; _cell_x <= _right_cell; ++_cell_x)
-	{
-		for (var _cell_y = _top_cell; _cell_y <= _bottom_cell; ++_cell_y)
-		{
-			var _cell_center_x = (_cell_x * cell_size) + (cell_size * 0.5);
-			var _cell_center_y = (_cell_y * cell_size) + (cell_size * 0.5);
-			var _cell_distance = point_distance(_center_x, _center_y, _cell_center_x, _cell_center_y);
-			var _is_center_cell = (_cell_x == _center_cell_x && _cell_y == _center_cell_y);
-
-			if (_cell_distance <= _safe_radius || _is_center_cell)
-			{
-				var _current_corruption = ds_grid_get(corruption_grid, _cell_x, _cell_y);
-				var _new_corruption = max(_current_corruption - _cleanse_amount, 0);
-
-				ds_grid_set(corruption_grid, _cell_x, _cell_y, _new_corruption);
-			}
-		}
-	}
+	corrupt_circle(_x, _y, _radius, _amount, _faction);
 };
-
+saint_circle_clear = function(_x, _y, _radius) {};
+cleanse_circle = function(_x, _y, _radius, _amount, _faction = FACTION.NONE)
+{
+	corrupt_circle(_x, _y, _radius, -max(0, _amount), _faction);
+};
 // Checks whether a world-space circle overlaps at least one visibly tainted cell.
 circle_touches_corruption = function(_center_x, _center_y, _radius)
 {

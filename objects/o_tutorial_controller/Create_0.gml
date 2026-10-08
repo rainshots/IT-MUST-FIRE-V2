@@ -1,3 +1,10 @@
+// Tutorials are retained for later redesign, but disabled in RTS matches.
+if (!global.tutorial_hints_enabled)
+{
+	instance_destroy();
+	exit;
+}
+
 // Tutorial popups pause gameplay and sit above every other UI layer.
 depth = DEPTH_TUTORIAL_UI;
 global.tutorial_popup_active = false;

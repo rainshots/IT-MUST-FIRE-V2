@@ -193,7 +193,7 @@ holy_tower_saint_source_register = function()
 
 	if (variable_instance_exists(_corruption_grid, "saint_source_circle_add"))
 	{
-		_corruption_grid.saint_source_circle_add(x, y, saint_radius);
+		_corruption_grid.saint_source_circle_add(x, y, saint_radius, corruption_faction_get(id, FACTION.ORDER));
 		saint_source_registered = true;
 	}
 };
@@ -348,6 +348,7 @@ holy_tower_projectile_create = function(_target_x, _target_y)
 	_projectile.damage_amount = damage;
 	_projectile.damage_faction = UNIT_FACTION.ENEMY;
 	_projectile.source_instance = id;
+	_projectile.faction = corruption_faction_get(id, FACTION.ORDER);
 	_projectile.flight_time = _flight_time_seconds * room_speed;
 	_projectile.depth = projectile_draw_depth;
 
@@ -374,6 +375,7 @@ holy_tower_cleanse_projectile_create = function(_target_x, _target_y, _launch_de
 	_projectile.effect_radius = night_volley_cleanse_radius;
 	_projectile.cleanse_amount = night_volley_cleanse_amount;
 	_projectile.source_instance = id;
+	_projectile.faction = corruption_faction_get(id, FACTION.ORDER);
 	_projectile.flight_time = _flight_time_seconds * room_speed;
 	_projectile.launch_delay_timer = _launch_delay_seconds * room_speed;
 	_projectile.depth = projectile_draw_depth;

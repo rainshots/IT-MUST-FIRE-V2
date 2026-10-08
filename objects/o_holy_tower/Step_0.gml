@@ -39,7 +39,7 @@ if (attack_feedback_timer > 0)
 }
 
 // Holy towers only attack during the night.
-if (global.day_phase != DAY_PHASE.NIGHT)
+if (global.player_faction == FACTION.NONE)
 {
 	target_instance = noone;
 	exit;

@@ -1,3 +1,15 @@
+if (faction_selection_active || faction_selection_release_pending)
+{
+	faction_selection_draw();
+	exit;
+}
+
+if (faction_match_finished)
+{
+	faction_match_result_draw();
+	exit;
+}
+
 // Draw cultist stats above the regular GUI.
 if (variable_global_exists("ui_font") && font_exists(global.ui_font))
 {
@@ -314,6 +326,7 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 		var _friendly_unit = instance_find(o_friendly_units, _friendly_index);
 
 		if (instance_exists(_friendly_unit)
+			&& !_friendly_unit.unit_is_hidden_by_fog()
 			&& !variable_instance_exists(_friendly_unit, "cultist_points")
 			&& _mouse_world_x >= _friendly_unit.bbox_left
 			&& _mouse_world_x <= _friendly_unit.bbox_right
@@ -669,9 +682,6 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 		draw_set_alpha(1);
 	}
 }
-
-// Keep the current night balance visible while cheats are enabled.
-night_attack_balance_debug_draw();
 
 // Draw the debug menu after every regular GUI layer.
 debug_menu_draw();

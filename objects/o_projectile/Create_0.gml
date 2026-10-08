@@ -405,3 +405,23 @@ unholy_stunning_arrival_apply = function()
 
 	return true;
 };
+
+faction = global.player_faction;
+corruption_owner_initialized = false;
+
+artillery_target_can_be_damaged = function(_target)
+{
+	if (!faction_target_is_hostile(faction, _target) || _target == source_instance
+		|| _target.object_index == o_cannon) return false;
+	if (!variable_instance_exists(_target, "hp") || _target.hp <= 0 || !_target.visible) return false;
+	if (variable_instance_exists(_target, "is_attackable") && !_target.is_attackable) return false;
+	if (variable_instance_exists(_target, "is_being_dragged") && _target.is_being_dragged) return false;
+	if (balance_test_match_id >= 0 && (!variable_instance_exists(_target, "balance_test_match_id")
+		|| _target.balance_test_match_id != balance_test_match_id)) return false;
+	var _distance = point_distance(target_x, target_y, _target.x, _target.y);
+	if (variable_instance_exists(_target, "player_building_distance_to_point"))
+		_distance = _target.player_building_distance_to_point(target_x, target_y);
+	return _distance <= effect_radius;
+};
+
+favor_source_faction = FACTION.NONE;
