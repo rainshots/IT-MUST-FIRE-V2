@@ -1,0 +1,13 @@
+{
+  "$GMScript":"v1",
+  "%Name":"worker_starting_spawn",
+  "isCompatibility":false,
+  "isDnD":false,
+  "name":"worker_starting_spawn",
+  "parent":{
+    "name":"worker_system",
+    "path":"folders/worker_system.yy",
+  },
+  "resourceType":"GMScript",
+  "resourceVersion":"2.0",
+}

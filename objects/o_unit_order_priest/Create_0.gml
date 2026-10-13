@@ -1,6 +1,6 @@
 // Inherit the parent event
 event_inherited();
-faction = FACTION.ORDER;
+faction = FACTION.ENEMY;
 // Mage is a ranged magic enemy that checks magic resistance instead of armor.
 max_hp = BALANCE_ENEMY_MAGE_HP;
 hp = max_hp;

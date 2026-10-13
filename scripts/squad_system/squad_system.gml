@@ -107,7 +107,7 @@ function squad_type_count_get(_squad_type)
 
 function squad_limit_for_day_get(_day_number)
 {
-	return BALANCE_SQUAD_LIMIT;
+	return global.squad_limit;
 }
 
 function squad_limit_current_day_update()
@@ -987,8 +987,7 @@ function squad_unit_spawn(_squad, _unit_object, _unit_index)
 {
 	if (!instance_exists(o_cannon)) return noone;
 
-	var _cannon = faction_base_find(_squad.faction);
-	if (!instance_exists(_cannon)) _cannon = instance_find(o_cannon, 0);
+	var _cannon = instance_find(o_cannon, 0);
 	var _angle = (_unit_index * 137.5) mod 360;
 	var _distance = 90 + (24 * sqrt(_unit_index));
 	var _spawn_x = _cannon.x + lengthdir_x(_distance, _angle);
@@ -1012,13 +1011,9 @@ function squad_unit_spawn(_squad, _unit_object, _unit_index)
 
 	if (_squad.squad_type == SQUAD_TYPE.ARMY)
 	{
-		var _base = faction_base_find(_squad.faction);
-		var _cannon_target = instance_find(o_cannon, 0);
-		if (!instance_exists(_base)) return noone;
-		var _direction = point_direction(_base.x, _base.y, _cannon_target.x, _cannon_target.y);
 		var _offset = (_unit_index - (array_length(_squad.unit_objects) - 1) * 0.5) * BALANCE_SUMMON_FORMATION_SPACING;
-		_spawn_x = _base.x + lengthdir_x(BALANCE_SUMMON_SPAWN_DISTANCE, _direction) + lengthdir_x(_offset, _direction + 90);
-		_spawn_y = _base.y + lengthdir_y(BALANCE_SUMMON_SPAWN_DISTANCE, _direction) + lengthdir_y(_offset, _direction + 90);
+		_spawn_x = _cannon.x + BALANCE_FIGHT_SUMMON_OFFSET_X;
+		_spawn_y = _cannon.y + _offset;
 	}
 	var _unit = instance_create_layer(_spawn_x, _spawn_y, "Instances", _unit_object);
 	_unit.faction = _squad.faction;
@@ -1029,6 +1024,10 @@ function squad_unit_spawn(_squad, _unit_object, _unit_index)
 	_unit.foundry_permanent_bonuses_pending = false;
 
 	_unit.hp = _unit.max_hp;
+	if (_squad.squad_type == SQUAD_TYPE.ARMY && instance_exists(o_base_tower))
+	{
+		_unit.target_instance = instance_find(o_base_tower, 0);
+	}
 	return _unit;
 }
 
@@ -1041,7 +1040,7 @@ function squad_create(
 	_faction = global.player_faction
 )
 {
-	if (faction_squad_count_get(_faction) >= BALANCE_SQUAD_LIMIT) return noone;
+	if (faction_squad_count_get(_faction) >= (_faction == global.player_faction ? global.squad_limit : BALANCE_SQUAD_LIMIT)) return noone;
 	if (_faction == global.player_faction && !squad_slot_is_available(_squad_type, _reserved_event)) return noone;
 
 	var _squad = new squad_constructor(_squad_type, _primary_unit_object, _unit_count, _faction);
@@ -1170,7 +1169,7 @@ function squad_unit_resurrect_as_bonelet(_dead_unit)
 function squad_register_existing_unit(_squad_type, _unit)
 {
 	if (!instance_exists(_unit)) return noone;
-	if (faction_squad_count_get(_unit.faction) >= BALANCE_SQUAD_LIMIT) return noone;
+	if (faction_squad_count_get(_unit.faction) >= (_unit.faction == global.player_faction ? global.squad_limit : BALANCE_SQUAD_LIMIT)) return noone;
 	if (_unit.faction == global.player_faction && !squad_slot_is_available(_squad_type)) return noone;
 
 	var _squad = new squad_constructor(_squad_type, _unit.object_index, 1, _unit.faction);

@@ -15,7 +15,7 @@ revealed_alpha = 0;
 fog_color = c_black;
 update_interval = max(1, room_speed * BALANCE_FACTION_VISION_UPDATE_SECONDS);
 update_timer = update_interval;
-vision_source_objects = [o_units_parent, o_v13buildings_parent, o_map_objects_parent];
+vision_source_objects = [o_cannon, o_units_parent, o_v13buildings_parent, o_map_objects_parent];
 
 // Reveal world-space circles directly, including areas far from the starting base.
 fog_world_circle_reveal = function(_world_x, _world_y, _radius)
@@ -58,7 +58,12 @@ fog_visibility_update = function()
 		for (var _source_index = 0; _source_index < _source_count; ++_source_index)
 		{
 			var _source = instance_find(_object, _source_index);
-			if (!instance_exists(_source) || _source.faction != _player_faction) continue;
+			if (!instance_exists(_source)) continue;
+			if (_object == o_units_parent)
+			{
+				if (_source.unit_faction != UNIT_FACTION.FRIENDLY) continue;
+			}
+			else if (_source.faction != _player_faction) continue;
 			// Captured buildings grant sight immediately, including their zero-HP recovery frame.
 			var _recovering_building = _object != o_units_parent
 				&& variable_instance_exists(_source, "is_recovering") && _source.is_recovering;

@@ -1,2 +1,2 @@
-// Draw the passive landmark.
+// Draw the defense objective.
 draw_self();

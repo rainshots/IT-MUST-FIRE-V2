@@ -1,6 +1,6 @@
 // Inherit the parent event
 event_inherited();
-faction = FACTION.ORDER;
+faction = FACTION.ENEMY;
 // Knight is a slow melee enemy with heavy armor.
 max_hp = BALANCE_ENEMY_KNIGHT_HP;
 hp = max_hp;

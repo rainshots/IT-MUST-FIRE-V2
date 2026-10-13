@@ -411,8 +411,8 @@ corruption_owner_initialized = false;
 
 artillery_target_can_be_damaged = function(_target)
 {
-	if (!faction_target_is_hostile(faction, _target) || _target == source_instance
-		|| _target.object_index == o_cannon) return false;
+	if (!instance_exists(_target) || _target == source_instance || projectile_target_is_allied(_target)) return false;
+	if (_target.object_index == o_cannon && damage_faction != UNIT_FACTION.ENEMY) return false;
 	if (!variable_instance_exists(_target, "hp") || _target.hp <= 0 || !_target.visible) return false;
 	if (variable_instance_exists(_target, "is_attackable") && !_target.is_attackable) return false;
 	if (variable_instance_exists(_target, "is_being_dragged") && _target.is_being_dragged) return false;

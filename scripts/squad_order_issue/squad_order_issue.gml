@@ -1,6 +1,9 @@
 /// @description Gives the squad a move or attack-move destination, preserving the world flag on its members.
 function squad_order_issue(_squad, _x, _y, _mode)
 {
+	// Orders are disabled for the cannon-defense prototype.
+	if (instance_exists(o_game_controller) && !o_game_controller.unit_controls_enabled) return false;
+
 	if (!squad_is_player_owned(_squad) || global.player_faction == FACTION.NONE
 		|| (_mode != SQUAD_ORDER.MOVE && _mode != SQUAD_ORDER.MOVE_AND_ATTACK))
 	{

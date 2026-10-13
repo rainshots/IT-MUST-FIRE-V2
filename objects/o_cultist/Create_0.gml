@@ -1,79 +1,26 @@
-// Regular cultists are day-event workers and never enter the cannon.
-cultist_name = "Cultist";
+// Workers are civilians; their state is separate from event participants and combat squads.
+var _names = ["Abel", "Mara", "Silas", "Vera", "Oren", "Nera", "Ezra", "Iris", "Rook", "Seth"];
+cultist_name = _names[irandom(array_length(_names) - 1)];
+worker_speed_multiplier = random_range(BALANCE_WORKER_SPEED_MIN, BALANCE_WORKER_SPEED_MAX);
 max_hp = BALANCE_EVENT_CULTIST_MAX_HP;
-hp = min(BALANCE_EVENT_CULTIST_STARTING_HP, max_hp);
-// Spirit limits daily Rite participation and refills to this Cultist's maximum each morning.
-max_spirit = BALANCE_EVENT_CULTIST_MAX_SPIRIT;
-spirit = max_spirit;
-assigned_event = noone;
-// Completed Rite building sprites are stored oldest-first for the Assign Rites history.
-work_history = [];
-// Building-type and construction counts unlock a queued Mastery offer; accepting it grants the bonus.
-building_work_counts = [];
-mastery_building_object = noone; // o_building_slot identifies the shared Construction specialization.
-mastery_building_name = "";
-mastery_building_sprite = noone;
-// Event execution consumes this temporary discount across all HP costs in one Rite.
-event_mastery_hp_discount_remaining = 0;
-// Prepared knife reduction is shared by this participant's HP costs during one Rite.
-event_knife_hp_discount_remaining = 0;
-// Shift + F8 protects this worker from HP costs only while an automatic Rite executes.
-debug_day_progress_hp_cost_ignored = false;
+hp = max_hp;
+assigned_building = noone;
+is_assigned_to_building = false;
 is_being_dragged = false;
+is_walking = false;
 drag_drop_x = x;
 drag_drop_y = y;
-// Unconscious Cultists remain in the settlement but cannot work until their HP becomes positive.
-is_unconscious = false;
-unconscious_mornings = 0;
-// Blood Bath effects queued during the day resolve after the following night.
-blood_bath_morning_heal_pending = 0;
-blood_bath_morning_unconscious_heal_pending = 0;
-blood_bath_morning_full_heal_pending = false;
-blood_bath_morning_full_heal_affects_unconscious = false;
-// Lingering Wounds restores this exact start-of-day HP value next morning.
-blood_bath_morning_hp_snapshot = hp;
-
-// Give every regular cultist a small random day-form appearance.
-var _cultist_sprites = [s_cultist_01, s_cultist_02, s_cultist_03, s_cultist_04];
-var _cultist_sprite_count = array_length(_cultist_sprites);
-sprite_index = _cultist_sprites[irandom(_cultist_sprite_count - 1)];
-image_xscale = BALANCE_EVENT_CULTIST_SPRITE_SCALE;
-image_yscale = image_xscale;
-
-wander_target_x = x;
-wander_target_y = y;
-wander_timer = irandom(BALANCE_EVENT_CULTIST_WANDER_DELAY);
 move_speed = BALANCE_EVENT_CULTIST_MOVE_SPEED;
 y_sort_enabled = true;
+is_attackable = false;
 
-// Completed Rites send the Cultist back to their original cannon-side position.
-return_to_cannon_after_event = false;
-
-// Cursed Point construction workers return to their original cannon-side home at night.
-return_to_cannon_at_night = false;
-home_offset_x = 0;
-home_offset_y = BALANCE_EVENT_CULTIST_WANDER_VERTICAL_DISTANCE_MIN;
-
-if (instance_exists(o_cannon))
-{
-	var _cannon = instance_find(o_cannon, 0);
-	home_offset_x = x - _cannon.x;
-	home_offset_y = y - _cannon.y;
-}
-
-is_available = function()
-{
-	return !is_unconscious && hp > 0 && spirit > 0 && !is_struct(assigned_event);
-};
-
-damage = function(_amount)
-{
-	hp = max(0, hp - _amount);
-	return _amount;
-};
-
-heal = function(_amount, _affects_unconscious_cultists = false)
-{
-	hp = min(max_hp, hp + _amount);
-	return _amount;
-};
+// Use the historical cultist appearances, randomized for each worker.
+var _sprites = [s_cultist_01, s_cultist_02, s_cultist_03, s_cultist_04];
+sprite_index = _sprites[irandom(array_length(_sprites) - 1)];
+image_xscale = BALANCE_EVENT_CULTIST_SPRITE_SCALE;
+image_yscale = image_xscale;
+image_speed = 0;
+idle_wander_target_x = x;
+idle_wander_target_y = y;
+idle_wander_wait_timer = 0;
+if (instance_exists(o_game_controller)) o_game_controller.worker_idle_wander_target_pick(id);

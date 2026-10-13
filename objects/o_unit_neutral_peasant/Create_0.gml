@@ -1,6 +1,6 @@
 // Inherit the parent event
 event_inherited();
-faction = FACTION.NEUTRAL;
+faction = FACTION.ENEMY;
 // Peasant is a weak melee enemy without armor bonuses.
 max_hp = BALANCE_ENEMY_PEASANT_HP;
 hp = max_hp;

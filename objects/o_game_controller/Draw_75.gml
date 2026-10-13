@@ -1,12 +1,13 @@
-if (faction_selection_active || faction_selection_release_pending)
+// Permanent bonuses are modal and draw above all other interfaces.
+if (fight_bonus_open)
 {
-	faction_selection_draw();
+	fight_bonus_draw();
 	exit;
 }
-
-if (faction_match_finished)
+// Match results are drawn after the normal HUD.
+if (fight_state == FIGHT_STATE.WON || fight_state == FIGHT_STATE.LOST)
 {
-	faction_match_result_draw();
+	fight_draw_gui();
 	exit;
 }
 
@@ -685,3 +686,9 @@ if (global.focus_window == FOCUS_WINDOW.NOONE
 
 // Draw the debug menu after every regular GUI layer.
 debug_menu_draw();
+
+// Worker hand stays above all normal HUD elements.
+worker_drag_draw();
+
+// Manual artillery UI appears above ordinary HUD elements.
+cannon_ammo_draw();

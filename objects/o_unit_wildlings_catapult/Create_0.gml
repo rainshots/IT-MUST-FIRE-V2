@@ -1,6 +1,6 @@
 // Inherit the parent event
 event_inherited();
-faction = FACTION.WILDLINGS;
+faction = FACTION.ENEMY;
 // Catapults bombard hostile faction buildings with physical artillery projectiles.
 max_hp = BALANCE_ENEMY_CATAPULT_HP;
 hp = max_hp;

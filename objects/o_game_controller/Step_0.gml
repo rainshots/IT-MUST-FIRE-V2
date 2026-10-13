@@ -38,42 +38,19 @@ if (!application_surface_ready && surface_exists(application_surface))
 	application_surface_ready = true;
 }
 
-// Faction selection owns input until the selecting mouse button is released.
-if (faction_selection_active)
+// Fight progression replaces faction selection, elimination, heroes and AI recruitment.
+fight_update();
+if (fight_bonus_open)
 {
-	faction_selection_update();
+	fight_bonus_input_update();
 	exit;
 }
-if (faction_selection_release_pending)
-{
-	if (!mouse_check_button(mb_left))
-	{
-		faction_selection_release_pending = false;
-		global.focus_window = FOCUS_WINDOW.NOONE;
-		global.pause = false;
-	}
-	exit;
-}
-
-// Base defeats are permanent; gameplay stops only after the match has a result.
-faction_match_update();
-faction_favor_update();
-if (faction_match_finished)
+if (cannon_fire_input_update()) exit;
+worker_drag_update();
+if (fight_state == FIGHT_STATE.LOST || fight_state == FIGHT_STATE.WON)
 {
 	if (keyboard_check_pressed(vk_enter)) room_restart();
 	exit;
-}
-
-faction_mana_update();
-faction_heroes_update();
-faction_summon_ai_update();
-if (!global.pause)
-{
-	var _ai_squad_count = array_length(global.squads);
-	for (var _ai_index = 0; _ai_index < _ai_squad_count; ++_ai_index)
-	{
-		squad_ai_update(global.squads[_ai_index]);
-	}
 }
 
 // F3 toggles fog visibility for fast map testing.
@@ -172,7 +149,7 @@ if (global.cheats_enabled
 }
 
 // Space toggles gameplay pause without opening a blocking focus window.
-if (keyboard_check_pressed(vk_space)
+if (fight_state == FIGHT_STATE.ACTIVE && keyboard_check_pressed(vk_space)
 	&& (global.focus_window == FOCUS_WINDOW.NOONE
 		|| global.focus_window == FOCUS_WINDOW.TARGET_SELECTION
 		|| global.focus_window == FOCUS_WINDOW.SUMMON)
@@ -192,15 +169,19 @@ if (!global.pause)
 }
 if (faction_summon_input_update())
 {
-	squad_night_markers_update();
+	if (unit_controls_enabled) squad_night_markers_update();
 	exit;
 }
-var _squad_selection_escape_consumed = squad_control_selection_update();
+var _squad_selection_escape_consumed = false;
+if (unit_controls_enabled)
+{
+	_squad_selection_escape_consumed = squad_control_selection_update();
+}
 squad_combat_guides_update();
-squad_night_markers_update();
+if (unit_controls_enabled) squad_night_markers_update();
 
 // Allow the player to pick up and reposition cultists during gameplay.
-if (global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("archdemons") && instance_exists(o_camera_controller))
+if (unit_controls_enabled && global.focus_window == FOCUS_WINDOW.NOONE && variable_global_exists("archdemons") && instance_exists(o_camera_controller))
 {
 	var _camera_controller = instance_find(o_camera_controller, 0);
 	var _mouse_gui_x = device_mouse_x_to_gui(0);
@@ -886,3 +867,6 @@ if (pause_menu_open && (mouse_check_button_pressed(mb_left) || settings_open))
 		}
 	}
 }
+
+// Only MOVE ON can resume simulation after charging the Cannon.
+if (fight_state != FIGHT_STATE.ACTIVE) global.pause = true;

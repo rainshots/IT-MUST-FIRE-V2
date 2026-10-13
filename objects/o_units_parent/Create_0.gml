@@ -567,10 +567,6 @@ face_world_x = function(_target_x)
 
 target_can_be_attacked = function(_target)
 {
-	if (!instance_exists(_target) || _target == id || _target.object_index == o_cannon) return false;
-	if (balance_test_match_id < 0 && !faction_target_is_hostile(faction, _target)) return false;
-	if (!variable_instance_exists(_target, "hp")) return false;
-
 	if (!instance_exists(_target))
 	{
 		return false;
@@ -601,7 +597,7 @@ target_can_be_attacked = function(_target)
 		return false;
 	}
 
-	if (faction == FACTION.NONE && unit_faction == UNIT_FACTION.ENEMY
+	if (unit_faction == UNIT_FACTION.ENEMY
 		&& variable_instance_exists(_target, "ignored_by_enemies")
 		&& _target.ignored_by_enemies)
 	{
@@ -1182,7 +1178,7 @@ enemy_march_update = function()
 
 unit_is_hidden_by_fog = function()
 {
-	if (faction != FACTION.NONE && faction == global.player_faction)
+	if (unit_faction == UNIT_FACTION.FRIENDLY)
 	{
 		cached_is_hidden_by_fog = false;
 		return false;
@@ -1585,7 +1581,7 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 		var _source_faction_is_hostile = _source_faction != UNIT_FACTION.NOONE
 			&& _source_faction != unit_faction;
 		var _source_instance_is_hostile = _source_has_faction
-			&& faction_target_is_hostile(faction, _source_instance);
+			&& _source_instance.unit_faction != unit_faction;
 		var _source_is_player_structure = unit_faction == UNIT_FACTION.ENEMY
 			&& player_structure_can_be_targeted(_source_instance);
 		var _source_is_hostile = instance_exists(_source_instance)
@@ -1616,7 +1612,7 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 				if (!instance_exists(_ally)
 					|| _ally == id
 					|| !variable_instance_exists(_ally, "unit_faction")
-					|| _ally.faction != faction
+					|| _ally.unit_faction != unit_faction
 					|| !variable_instance_exists(_ally, "hp")
 					|| _ally.hp <= 0)
 				{
@@ -2386,7 +2382,7 @@ ranged_unit_melee_flee_on_damage = function(_source_instance)
 	if (hp <= 0
 		|| !instance_exists(_source_instance)
 		|| !variable_instance_exists(_source_instance, "unit_faction")
-		|| !faction_target_is_hostile(faction, _source_instance)
+		|| _source_instance.unit_faction == unit_faction
 		|| !variable_instance_exists(_source_instance, "attack_radius")
 		|| _source_instance.attack_radius > BALANCE_UNIT_MELEE_DAMAGE_RADIUS_MAX)
 	{
@@ -2567,7 +2563,7 @@ find_nearest_enemy_unit_target = function(_max_distance)
 {
 	var _nearest_target = noone;
 	var _nearest_distance_squared = _max_distance * _max_distance;
-	var _enemy_count = instance_number(o_units_parent);
+	var _enemy_count = instance_number(o_enemy_units);
 	var _use_switch_margin = false;
 
 	// Validate the current reference directly instead of scanning every enemy to find it again.
@@ -2591,7 +2587,7 @@ find_nearest_enemy_unit_target = function(_max_distance)
 	// Switch only when another enemy is clearly closer than the current one.
 	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
 	{
-		var _enemy = instance_find(o_units_parent, _enemy_index);
+		var _enemy = instance_find(o_enemy_units, _enemy_index);
 
 		if (_enemy == _nearest_target || !instance_exists(_enemy))
 		{
@@ -2925,12 +2921,12 @@ find_nearest_cannon_attacker = function()
 	var _cannon = instance_find(o_cannon, 0);
 	var _nearest_attacker = noone;
 	var _nearest_distance_squared = infinity;
-	var _enemy_count = instance_number(o_units_parent);
+	var _enemy_count = instance_number(o_enemy_units);
 
 	// Pick the closest enemy that is actively attacking the cannon.
 	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
 	{
-		var _enemy = instance_find(o_units_parent, _enemy_index);
+		var _enemy = instance_find(o_enemy_units, _enemy_index);
 
 		if (!instance_exists(_enemy)
 			|| !variable_instance_exists(_enemy, "target_instance")
@@ -3904,11 +3900,11 @@ find_nearest_reachable_enemy_target = function(_max_distance)
 {
 	var _candidate_queue = ds_priority_create();
 	var _maximum_distance_squared = _max_distance * _max_distance;
-	var _enemy_count = instance_number(o_units_parent);
+	var _enemy_count = instance_number(o_enemy_units);
 
 	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
 	{
-		var _enemy = instance_find(o_units_parent, _enemy_index);
+		var _enemy = instance_find(o_enemy_units, _enemy_index);
 
 		if (!instance_exists(_enemy))
 		{
@@ -4074,7 +4070,8 @@ move_towards_world_point = function(_target_x, _target_y, _base_move_speed = mov
 
 attack_ring_should_use = function(_target, _attack_radius)
 {
-	if (!instance_exists(_target)
+	if (unit_faction != UNIT_FACTION.ENEMY
+		|| !instance_exists(_target)
 		|| _target.object_index == o_cannon
 		|| _target == guard_target
 		|| (variable_instance_exists(_target, "is_wall") && _target.is_wall)
@@ -4086,7 +4083,7 @@ attack_ring_should_use = function(_target, _attack_radius)
 
 	if (variable_instance_exists(_target, "unit_faction"))
 	{
-		return faction_target_is_hostile(faction, _target);
+		return _target.unit_faction == UNIT_FACTION.FRIENDLY;
 	}
 
 	return false;
@@ -4572,7 +4569,7 @@ attack_target = function(_target)
 
 	if (aoe_radius > 0)
 	{
-		var _aoe_object = o_units_parent;
+		var _aoe_object = o_enemy_units;
 		var _aoe_feedback_enabled = variable_instance_exists(id, "unit_aoe_attack_feedback_show");
 		var _aoe_hit_positions = [];
 
@@ -4581,6 +4578,10 @@ attack_target = function(_target)
 			array_push(_aoe_hit_positions, { x: _target_hit_x, y: _target_hit_y });
 		}
 
+		if (unit_faction == UNIT_FACTION.ENEMY)
+		{
+			_aoe_object = o_friendly_units;
+		}
 
 		var _aoe_list = ds_list_create();
 		var _aoe_range = aoe_radius * next_attack_radius_multiplier;

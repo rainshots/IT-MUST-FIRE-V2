@@ -1,0 +1,13 @@
+{
+  "$GMScript":"v1",
+  "%Name":"worker_release",
+  "isCompatibility":false,
+  "isDnD":false,
+  "name":"worker_release",
+  "parent":{
+    "name":"worker_system",
+    "path":"folders/worker_system.yy",
+  },
+  "resourceType":"GMScript",
+  "resourceVersion":"2.0",
+}

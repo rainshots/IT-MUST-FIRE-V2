@@ -3,6 +3,9 @@
 /// @returns {Bool} Whether direct movement owns this frame.
 function squad_order_unit_update(_unit)
 {
+	// Orders are disabled for the cannon-defense prototype.
+	if (instance_exists(o_game_controller) && !o_game_controller.unit_controls_enabled) return false;
+
 	_unit.squad_order_in_combat = false;
 	if (!squad_is_player_owned(_unit.squad) || global.player_faction == FACTION.NONE
 		|| !squad_order_is_active(_unit.squad))

@@ -1,7 +1,7 @@
-/// @description Draws unit portraits, purchase costs, shortcuts and the destination prompt; controller context.
+/// @description Draws unit portraits, purchase costs and shortcuts; controller context.
 function faction_summon_draw()
 {
-	if (!faction_match_started || faction_match_finished || global.player_faction == FACTION.NONE
+	if (fight_state == FIGHT_STATE.WON || fight_state == FIGHT_STATE.LOST || global.player_faction == FACTION.NONE
 		|| (global.focus_window != FOCUS_WINDOW.NOONE && global.focus_window != FOCUS_WINDOW.SUMMON)) return;
 	var _choices = faction_summon_options[global.player_faction];
 	var _count = faction_squad_count_get(global.player_faction);
@@ -37,8 +37,7 @@ function faction_summon_draw()
 		draw_text_transformed(_rect.x + 7 * _rect.scale, _rect.y + 5 * _rect.scale, string(_index + 1), 0.8 * _rect.scale, 0.8 * _rect.scale, 0);
 	}
 	var _rect = faction_summon_rect_get(0);
-	var _text = "Squads: " + string(_count) + " / " + string(BALANCE_SQUAD_LIMIT);
-	if (faction_summon_selected >= 0) _text = "Select destination - LMB confirm, RMB / Esc cancel";
+	var _text = "Squads: " + string(_count) + " / " + string(global.squad_limit);
 	draw_set_alpha(1);
 	draw_set_color(COLOR_HUD_TEXT);
 	draw_set_halign(fa_center);

@@ -1,6 +1,6 @@
 // Inherit the parent event
 event_inherited();
-faction = FACTION.ORDER;
+faction = FACTION.ENEMY;
 // Archer is a ranged physical enemy.
 max_hp = BALANCE_ENEMY_ARCHER_HP;
 hp = max_hp;

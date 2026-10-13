@@ -1,5 +1,6 @@
 // Pause freezes particle animation and lifetime.
-if (global.pause)
+if (global.pause && !(instance_exists(o_game_controller)
+	&& (o_game_controller.fight_state == FIGHT_STATE.CLEARED || o_game_controller.fight_state == FIGHT_STATE.WON)))
 {
 	exit;
 }

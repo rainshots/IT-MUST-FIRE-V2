@@ -6,11 +6,14 @@ if (faction_selection_active || faction_selection_release_pending)
 if (font_exists(global.ui_font)) draw_set_font(global.ui_font);
 // Cheat overlay shows only navigation cells intersecting the current camera.
 wall_navigation_debug_draw();
-faction_favor_draw();
+if (fight_state != FIGHT_STATE.WON && fight_state != FIGHT_STATE.LOST) fight_draw_gui();
 
 // Draw night squad markers above world units but below the rest of the GUI.
-squad_orders_draw_gui();
-squad_night_markers_draw_gui();
+if (unit_controls_enabled)
+{
+	squad_orders_draw_gui();
+	squad_night_markers_draw_gui();
+}
 
 if (squad_flag_system_2_enabled && is_struct(selected_squad) && squad_attack_move_armed
 	&& global.player_faction != FACTION.NONE && global.focus_window == FOCUS_WINDOW.NOONE)
@@ -111,8 +114,8 @@ if (player_pause_active
 	draw_set_alpha(1);
 }
 
-// Draw pickup hand over the cursor when a draggable unit can be grabbed or is being dragged.
-if (global.focus_window == FOCUS_WINDOW.NOONE
+// The legacy hand remains available with army controls.
+if (unit_controls_enabled && global.focus_window == FOCUS_WINDOW.NOONE
 	&& variable_global_exists("archdemons")
 	&& (!variable_global_exists("tutorial_popup_active") || !global.tutorial_popup_active))
 {

@@ -1,4 +1,4 @@
-/// @description Displays the selected faction's Mana balance and income above the squad cards.
+/// @description Displays the player's Mana balance above the squad cards.
 function faction_mana_draw()
 {
 	if (global.player_faction == FACTION.NONE) return;
@@ -8,9 +8,7 @@ function faction_mana_draw()
 	draw_set_color(COLOR_HUD_TEXT);
 	draw_set_alpha(1);
 	draw_text(display_get_gui_width() * 0.5, 12 * _scale,
-		"Mana: " + string(global.faction_mana[global.player_faction])
-		+ "  (+" + string(faction_mana_income_get(global.player_faction))
-		+ " / " + string(BALANCE_MANA_INCOME_SECONDS) + "s)");
+		"Mana: " + string(global.faction_mana[global.player_faction]));
 	draw_set_halign(fa_left);
 	draw_set_valign(fa_top);
 	draw_set_color(c_white);

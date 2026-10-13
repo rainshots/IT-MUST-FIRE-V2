@@ -1,22 +1,22 @@
 // Global pause state used by gameplay objects.
 randomise()
-global.pause = true;
-// Faction identity is selected before any gameplay input or simulation.
-global.player_faction = FACTION.NONE;
+global.pause = false;
+// Legacy ownership values remain for terrain and resource compatibility only.
+global.player_faction = FACTION.UNDEAD;
 global.faction_mana = array_create(FACTION.WILDLINGS + 1, BALANCE_MANA_STARTING_AMOUNT);
 global.faction_mana_income = array_create(FACTION.WILDLINGS + 1, BALANCE_MANA_STARTING_INCOME);
 faction_mana_timer = 0;
 global.faction_favor = array_create(FACTION.WILDLINGS + 1, 0);
 faction_favor_seconds_remaining = BALANCE_FAVOR_ROUND_SECONDS;
 
-faction_selection_active = true;
+faction_selection_active = false;
 faction_selection_release_pending = false;
 // Base references and permanent defeat flags belong to the match controller.
 player_base = noone;
 faction_match_states = [];
 faction_heroes = [];
-faction_heroes_initialized = false;
-faction_match_started = false;
+faction_heroes_initialized = true;
+faction_match_started = true;
 faction_match_finished = false;
 faction_match_winner = FACTION.NONE;
 faction_match_winner_name = "";
@@ -27,7 +27,7 @@ faction_choices = [
 	{ faction: FACTION.DEMONS, name: "Demons", description: "We come from Hell (to take you back with us)." },
 	{ faction: FACTION.WILDLINGS, name: "Wildlings", description: "We just wanna destroy." }
 ];
-global.focus_window = FOCUS_WINDOW.FACTION_SELECTION;
+global.focus_window = FOCUS_WINDOW.NOONE;
 global.fog_of_war_visible = true;
 global.cheats_enabled = BALANCE_CHEATS_ENABLED;
 // F2 toggles the Cannon's automatic reaction to night damage.
@@ -3333,44 +3333,9 @@ world_event_squad_selector_close = function()
 
 worker_idle_wander_can_update = function(_worker, _allow_cannon_assignment = false)
 {
-	if (!instance_exists(_worker)
-		|| global.day_phase != DAY_PHASE.DAY
-		|| (_worker.object_index != o_archdemon && _worker.object_index != o_goblin)
-		|| !variable_instance_exists(_worker, "hp")
-		|| _worker.hp <= 0)
-	{
-		return false;
-	}
-
-	// An Archdemon belonging to a squad uses that squad's reserved daytime area.
-	var _uses_squad_day_point = _worker.object_index == o_archdemon
-		&& variable_instance_exists(_worker, "squad")
-		&& is_struct(_worker.squad)
-		&& instance_exists(squad_day_point_get(_worker.squad));
-
-	if (_uses_squad_day_point)
-	{
-		return false;
-	}
-
-	var _is_assigned_to_building = variable_instance_exists(_worker, "is_assigned_to_building")
-		&& _worker.is_assigned_to_building;
-	var _can_wander_while_assigned_to_cannon = _allow_cannon_assignment
-		&& _is_assigned_to_building
-		&& variable_instance_exists(_worker, "assigned_building")
-		&& instance_exists(_worker.assigned_building)
-		&& _worker.assigned_building.object_index == o_cannon;
-
-	if ((variable_instance_exists(_worker, "is_being_dragged") && _worker.is_being_dragged)
-		|| (variable_instance_exists(_worker, "assigned_event") && is_struct(_worker.assigned_event))
-		|| (_is_assigned_to_building && !_can_wander_while_assigned_to_cannon)
-		|| (variable_instance_exists(_worker, "cannon_loading") && _worker.cannon_loading)
-		|| (variable_instance_exists(_worker, "cannon_loaded") && _worker.cannon_loaded))
-	{
-		return false;
-	}
-
-	return instance_exists(o_cannon);
+	return instance_exists(_worker) && _worker.object_index == o_cultist
+		&& _worker.hp > 0 && !_worker.is_being_dragged
+		&& !_worker.is_assigned_to_building && instance_exists(o_cannon);
 };
 
 worker_idle_wander_update = function(_worker, _allow_cannon_assignment = false)
@@ -4335,30 +4300,52 @@ if (surface_exists(application_surface))
 	application_surface_ready = true;
 }
 
-// Faction summon rosters: cost and member count are per purchase.
-faction_summon_options = [
-	[
-		{name: "Knights", unit_object: o_unit_order_knight, cost: 100, count: 4},
-		{name: "Archers", unit_object: o_unit_order_archer, cost: 75, count: 5},
-		{name: "Priests", unit_object: o_unit_order_priest, cost: 150, count: 4}
-	],
-	[
-		{name: "Warriors", unit_object: o_unit_undead_warrior, cost: 75, count: 6},
-		{name: "Archers", unit_object: o_unit_undead_archer, cost: 75, count: 6},
-		{name: "Mages", unit_object: o_unit_undead_mage, cost: 100, count: 4}
-	],
-	[
-		{name: "Balgors", unit_object: o_unit_demons_balgor, cost: 100, count: 3},
-		{name: "Succubi", unit_object: o_unit_demons_succubus, cost: 150, count: 4},
-		{name: "Wizards", unit_object: o_unit_demons_wizard, cost: 125, count: 3}
-	],
-	[
-		{name: "Orcs", unit_object: o_unit_wildlings_orc, cost: 100, count: 5},
-		{name: "Shamans", unit_object: o_unit_wildlings_shaman, cost: 100, count: 3},
-		{name: "Catapult", unit_object: o_unit_wildlings_catapult, cost: 75, count: 1}
-	]
+// The one player roster uses legacy resource storage until the enums are retired.
+faction_summon_options = array_create(FACTION.WILDLINGS + 1, []);
+faction_summon_options[global.player_faction] = [
+	{name: "Warriors", unit_object: o_skeleton_warrior, cost: 100, count: 5},
+	{name: "Archers", unit_object: o_skeleton_archer, cost: 100, count: 4},
+	{name: "Mages", unit_object: o_skeleton_mage, cost: 125, count: 3},
+	{name: "Balgors", unit_object: o_balgor, cost: 150, count: 3},
+	{name: "Succubi", unit_object: o_succubus, cost: 150, count: 4}
 ];
 faction_summon_selected = -1;
 faction_summon_release_pending = false;
 faction_summon_ai_choices = array_create(FACTION.WILDLINGS + 1, -1);
 faction_summon_ai_timer = 0;
+
+// Fight state belongs to this controller; controls remain available for a later redesign.
+unit_controls_enabled = false;
+fight_state = FIGHT_STATE.ACTIVE;
+fight_number = 0;
+fight_elapsed_seconds = 0;
+fight_wave_index = 0;
+fight_wave_count = BALANCE_FIGHT_WAVE_COUNT;
+fight_charge = 0;
+// Loaded ammunition persists between fights; aiming never does.
+cannon_ammo = [];
+cannon_ammo_capacity = BALANCE_CANNON_AMMO_CAPACITY;
+cannon_necro_unlocked = false;
+// Bonus selection pauses each later fight until one permanent reward is applied.
+fight_bonus_open = false;
+fight_bonus_options = [];
+fight_bonus_wait_release = false;
+fight_bonus_notice = "";
+cannon_aiming = false;
+fight_initialized = false;
+// The fight wall is rebuilt by the Foundry and reset at each fight start.
+fight_wall = noone;
+fight_enemy_budget = 0;
+fight_enemy_hp_multiplier = 1;
+fight_enemy_damage_multiplier = 1;
+fight_enemy_types = [];
+fight_enemy_remaining_budgets = [];
+
+// Worker drag state is independent from the disabled army controls.
+worker_dragged = noone;
+worker_hovered = noone;
+worker_drop_building = noone;
+worker_cursor_hidden = false;
+worker_notice = "";
+worker_notice_timer = 0;
+workers_initialized = false;
