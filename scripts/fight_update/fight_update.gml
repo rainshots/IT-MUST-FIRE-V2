@@ -35,9 +35,7 @@ function fight_update()
 		fight_complete();
 		return;
 	}
-	var _fight_seconds = BALANCE_FIGHT_CHARGE_MAX * BALANCE_FIGHT_CHARGE_SECONDS;
-	var _wave_interval = _fight_seconds / fight_wave_count * BALANCE_FIGHT_WAVE_INTERVAL_MULTIPLIER;
-	if (fight_wave_index < fight_wave_count && fight_elapsed_seconds >= fight_wave_index * _wave_interval)
+	if (BALANCE_ENEMY_SPAWNS_ENABLED && fight_elapsed_seconds >= fight_next_wave_seconds)
 	{
 		fight_wave_spawn();
 	}

@@ -658,13 +658,13 @@ ground_corruption_faction_get = function()
 
 unit_is_on_tainted_ground = function()
 {
-	return faction >= FACTION.ORDER && faction <= FACTION.WILDLINGS && ground_corruption_faction_get() == faction;
+	return ground_corruption_faction_get() != FACTION.NONE;
 };
 
 unit_is_on_hostile_corruption = function()
 {
 	var _owner = ground_corruption_faction_get();
-	return faction >= FACTION.ORDER && faction <= FACTION.WILDLINGS && _owner != FACTION.NONE && _owner != faction;
+	return unit_faction == UNIT_FACTION.ENEMY && _owner != FACTION.NONE;
 };
 
 ground_cell_saint_amount_get = function(_world_x, _world_y)
@@ -674,37 +674,8 @@ ground_cell_saint_amount_get = function(_world_x, _world_y)
 	return ds_grid_get(_grid.corruption_grid, floor(x / _grid.cell_size), floor(y / _grid.cell_size));
 };
 
-enemy_saint_ground_heal_update = function()
-{
-	if (!unit_is_on_tainted_ground()
-		|| hp <= 0
-		|| hp >= max_hp)
-	{
-		return;
-	}
-
-	saint_ground_heal_timer += gameplay_time_scale;
-
-	if (saint_ground_heal_timer < saint_ground_heal_interval)
-	{
-		return;
-	}
-
-	saint_ground_heal_timer = 0;
-
-	var _saint_amount = ground_cell_saint_amount_get(x, y);
-
-	if (_saint_amount <= 0)
-	{
-		return;
-	}
-
-	var _heal_share = BALANCE_SAINT_GROUND_ENEMY_HEAL_MAX_HP_PER_SECOND
-		* (saint_ground_heal_interval / max(1, room_speed));
-	var _heal_amount = max_hp * _heal_share * clamp(_saint_amount, 0, 1);
-
-	hp = min(hp + _heal_amount, max_hp);
-};
+// Compatibility hook: corrupted ground never heals enemy units.
+enemy_saint_ground_heal_update = function() {};
 
 friendly_tainted_ground_heal_update = function()
 {
@@ -974,9 +945,9 @@ unit_attack_reload_multiplier_get = function()
 		_reload_multiplier /= BALANCE_BONE_BANNERMAN_ATTACK_SPEED_MULTIPLIER;
 	}
 
-	if (unit_is_on_hostile_corruption())
+	if (unit_faction == UNIT_FACTION.FRIENDLY && unit_is_on_tainted_ground())
 	{
-		_reload_multiplier /= BALANCE_TAINT_FRIENDLY_ATTACK_SPEED_MULTIPLIER;
+		_reload_multiplier /= BALANCE_CORRUPTION_FRIENDLY_ATTACK_MULTIPLIER;
 	}
 
 	if (variable_instance_exists(id, "imp_blood_frenzy_reload_multiplier_get"))
@@ -1015,9 +986,9 @@ unit_move_speed_multiplier_get = function()
 		_move_multiplier *= BALANCE_BONE_BANNERMAN_MOVE_SPEED_MULTIPLIER;
 	}
 
-	if (unit_is_on_hostile_corruption())
+	if (unit_faction == UNIT_FACTION.FRIENDLY && unit_is_on_tainted_ground())
 	{
-		_move_multiplier *= BALANCE_TAINT_FRIENDLY_MOVE_SPEED_MULTIPLIER;
+		_move_multiplier *= BALANCE_CORRUPTION_FRIENDLY_MOVE_MULTIPLIER;
 	}
 
 	if (variable_instance_exists(id, "imp_blood_frenzy_move_multiplier_get"))
@@ -2212,6 +2183,7 @@ unit_death_sound_play = function()
 	}
 };
 
+enemy_death_mana_paid = false;
 unit_death_process = function()
 {
 	// Balance tests only need combat results and skip normal drops and corpse systems.
@@ -2231,6 +2203,13 @@ unit_death_process = function()
 		}
 	}
 
+	// Rewards are paid once for combat deaths, never for end-of-fight cleanup.
+	if (!enemy_death_mana_paid && hp <= 0 && object_is_ancestor(object_index, o_enemy_units)
+		&& instance_exists(o_game_controller) && o_game_controller.fight_state == FIGHT_STATE.ACTIVE)
+	{
+		enemy_death_mana_paid = true;
+		global.faction_mana[global.player_faction] += BALANCE_ENEMY_DEATH_MANA;
+	}
 	// The Roar checks the squad after this fallen unit has reached zero HP.
 	if (unit_faction == UNIT_FACTION.FRIENDLY && is_struct(squad))
 	{

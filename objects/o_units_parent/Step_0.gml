@@ -93,6 +93,13 @@ if (hp <= 0)
 	exit;
 }
 
+// Individual friendly units use Cannon cargo behavior instead of squads.
+if (object_is_ancestor(object_index, o_friendly_units))
+{
+	cargo_unit_update();
+	exit;
+}
+
 // Squad loading is a visual run; its projectile is already available in the cannon queue.
 if (cannon_loading || cannon_loaded)
 {

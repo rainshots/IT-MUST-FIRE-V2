@@ -4,17 +4,18 @@ if (corruption_protection_timer >= max(1, room_speed * 0.25))
 	corruption_protection_timer = 0;
 	corruption_protection_dirty = true;
 }
-// Seed after room creation, including while the faction chooser pauses simulation.
-if (!base_corruption_initialized)
-{
-	base_corruption_initialized = true;
-	with (o_faction_base_parent)
-	{
-		if (hp > 0) other.corrupt_circle(x, y, BALANCE_FACTION_BASE_CORRUPTION_RADIUS, 1, faction);
-	}
-}
+// Corruption is seeded by gameplay effects, not legacy faction bases.
 if (global.pause) exit;
 var _time_scale = variable_global_exists("gameplay_time_scale") ? global.gameplay_time_scale : 1;
+// Apply damage using simulation seconds, excluding dead units and paused fights.
+if (instance_exists(o_game_controller) && o_game_controller.fight_state == FIGHT_STATE.ACTIVE)
+{
+	var _damage = BALANCE_CORRUPTION_ENEMY_DAMAGE_PER_SECOND * _time_scale / max(1, room_speed);
+	with (o_enemy_units)
+	{
+		if (hp > 0 && unit_is_on_tainted_ground()) cannon_damage_apply(id, _damage);
+	}
+}
 passive_spread_update_timer += _time_scale;
 if (passive_spread_update_timer < passive_spread_update_interval) exit;
 passive_spread_update_timer -= passive_spread_update_interval;

@@ -1,3 +1,5 @@
+// Legacy Mana, squad cards, and projectile queue are disabled for cargo gameplay.
+exit;
 // Preview squad information on roster hover and keep it open when pinned with RMB.
 if (global.focus_window != FOCUS_WINDOW.NOONE)
 {

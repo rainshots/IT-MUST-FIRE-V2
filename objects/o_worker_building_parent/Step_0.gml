@@ -1,5 +1,14 @@
 // Prune unavailable workers and accumulate uninterrupted staffed time.
-if (global.pause) exit;
+if (global.pause || is_being_dragged || placement_preview) exit;
+if (instance_exists(held_shell))
+{
+	if (!held_shell.is_being_dragged)
+	{
+		held_shell.x = x;
+		held_shell.y = (sprite_index == -1 ? y : bbox_top) - 28;
+		warehouse_store(held_shell);
+	}
+}
 var _seconds = global.gameplay_time_scale / max(1, room_speed);
 var _work_seconds = 0;
 var _count = array_length(worker_cultists);

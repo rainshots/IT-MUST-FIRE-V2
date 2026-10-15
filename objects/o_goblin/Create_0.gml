@@ -1,33 +1,30 @@
-// Initialize shared friendly state.
+// Goblins use the same guarding, cargo and assault AI as other player units.
 event_inherited();
-
-// Goblins are worker summons and do not fight.
 sprite_index = s_goblin;
 max_hp = BALANCE_GOBLIN_HP;
 hp = max_hp;
-ignored_by_enemies = true;
-damage = 0;
+ignored_by_enemies = false;
+move_speed = BALANCE_GOBLIN_CHARGE_SPEED;
+attack_radius = BALANCE_GOBLIN_CONTACT_RADIUS;
+damage = BALANCE_GOBLIN_BOMB_DAMAGE;
 magic_damage = 0;
-reload_time = room_speed;
-attack_radius = 0;
-move_speed = BALANCE_GOBLIN_MOVE_SPEED;
-unit_can_attack_cannon = false;
-target_detection_radius = 0;
-vision_radius = 0;
-
-// Spawned goblins return to their own pit at night when it still exists.
-owner_goblins_pit = noone;
-home_offset_x = 0;
-home_offset_y = 0;
-
-// Goblin health and lifetime markers sit near the sprite pivot.
 bar_offset_y = -2;
-summon_nights_remaining = irandom_range(BALANCE_GOBLIN_DAY_LIFE_MIN, BALANCE_GOBLIN_DAY_LIFE_MAX);
-summon_life_label = "Days left";
-death_warning_text = "Will die tomorrow";
-death_warning_alpha = 0.55;
-death_warning_offset_y = 18;
-death_warning_text_scale = 0.55;
-
-// Worker buildings read this fixed multiplier.
-worker_speed_multiplier = BALANCE_GOBLIN_WORK_SPEED_MULTIPLIER;
+// Contact replaces an ordinary attack with a one-use enemy-only explosion.
+attack_target = function(_target)
+{
+	if (!target_can_be_attacked(_target) || hp <= 0 || cannon_loaded || is_being_dragged) return;
+	var _targets = [];
+	with (all)
+	{
+		if (!variable_instance_exists(id, "unit_faction") || unit_faction != UNIT_FACTION.ENEMY) continue;
+		if (!variable_instance_exists(id, "hp") || hp <= 0) continue;
+		var _closest_x = clamp(other.x, bbox_left, bbox_right);
+		var _closest_y = clamp(other.y, bbox_top, bbox_bottom);
+		if (point_distance(other.x, other.y, _closest_x, _closest_y) <= BALANCE_GOBLIN_BOMB_RADIUS) array_push(_targets, id);
+	}
+	for (var _i = 0; _i < array_length(_targets); ++_i) cannon_damage_apply(_targets[_i], BALANCE_GOBLIN_BOMB_DAMAGE);
+	var _flash = instance_create_layer(x, y, "Instances", o_particle_explosion);
+	_flash.end_radius = BALANCE_GOBLIN_BOMB_RADIUS;
+	hp = 0;
+	unit_death_process();
+};

@@ -298,15 +298,12 @@ corruption_protection_rebuild = function()
 	}
 	corruption_protection_dirty = false;
 };
-corruption_cell_is_protected = function(_cx, _cy, _faction)
-{
-	if (corruption_protection_dirty) corruption_protection_rebuild();
-	return (ds_grid_get(corruption_protection_grid, _cx, _cy) & ~(1 << _faction)) != 0;
-};
+// Faction bases no longer protect terrain from player corruption.
+corruption_cell_is_protected = function(_cx, _cy, _faction) { return false; };
 corruption_cell_apply = function(_cell_x, _cell_y, _amount, _faction, _limit = 1)
 {
 	if (_amount <= 0 || _faction < FACTION.ORDER || _faction > FACTION.WILDLINGS) return;
-	if (defeated_factions[_faction] || corruption_cell_is_protected(_cell_x, _cell_y, _faction)) return;
+	_faction = FACTION.UNDEAD; // One corruption type; ownership no longer changes its effects.
 	var _owner = ds_grid_get(corruption_faction_grid, _cell_x, _cell_y);
 	var _current = _owner == _faction ? ds_grid_get(corruption_grid, _cell_x, _cell_y) : 0;
 	ds_grid_set(corruption_faction_grid, _cell_x, _cell_y, _faction);

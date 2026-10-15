@@ -45,6 +45,8 @@ if (fight_bonus_open)
 	fight_bonus_input_update();
 	exit;
 }
+if (shop_input_update()) exit;
+if (cargo_drag_update()) exit;
 if (cannon_fire_input_update()) exit;
 worker_drag_update();
 if (fight_state == FIGHT_STATE.LOST || fight_state == FIGHT_STATE.WON)

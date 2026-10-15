@@ -6,7 +6,7 @@ function cannon_fire_input_update()
 		cannon_aiming = false;
 		return false;
 	}
-	var _ready = fight_charge >= BALANCE_FIGHT_CHARGE_MAX && array_length(cannon_ammo) > 0;
+	var _ready = fight_charge >= BALANCE_CARGO_MIN_CHARGE && cargo_capacity_used() > 0;
 	if (!_ready || !instance_exists(o_camera_controller))
 	{
 		cannon_aiming = false;
@@ -22,7 +22,7 @@ function cannon_fire_input_update()
 			var _camera = o_camera_controller.camera_id;
 			var _x = camera_get_view_x(_camera) + _mx * camera_get_view_width(_camera) / display_get_gui_width();
 			var _y = camera_get_view_y(_camera) + _my * camera_get_view_height(_camera) / display_get_gui_height();
-			cannon_volley_fire(_x, _y);
+			if (!cannon_volley_fire(_x, _y)) { cargo_notice = "Target is outside firing range."; cargo_notice_timer = 2; }
 		}
 		return true;
 	}

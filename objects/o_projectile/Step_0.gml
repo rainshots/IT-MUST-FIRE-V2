@@ -501,6 +501,7 @@ if (_flight_progress >= 1)
 			var _is_valid_target = (
 				id != other.id
 				&& id != other.source_instance
+				&& (!variable_instance_exists(id, "cannon_loaded") || !cannon_loaded)
 				&& id != other.cultist_payload
 				&& (!other.damage_units_only || variable_instance_exists(id, "unit_faction"))
 				&& object_index != o_projectile

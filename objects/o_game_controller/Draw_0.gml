@@ -30,3 +30,13 @@ draw_set_halign(fa_left);
 draw_set_valign(fa_top);
 draw_set_color(c_white);
 draw_set_alpha(1);
+
+if (instance_exists(o_cannon))
+{
+	var _zone = building_zone_get();
+	draw_set_color(COLOR_BUILDING_ZONE);
+	draw_rectangle(_zone.left, _zone.top, _zone.right, _zone.bottom, true);
+	_zone = defense_zone_get();
+	draw_rectangle(_zone.left, _zone.top, _zone.right, _zone.bottom, true);
+	draw_set_color(c_white);
+}

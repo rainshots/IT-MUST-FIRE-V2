@@ -692,3 +692,5 @@ worker_drag_draw();
 
 // Manual artillery UI appears above ordinary HUD elements.
 cannon_ammo_draw();
+
+shop_draw();

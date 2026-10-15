@@ -12,6 +12,11 @@ function fight_complete()
 	}
 	// Completion never fires the Cannon. Cancel outstanding shots and effects.
 	cannon_aiming = false;
+	with (o_cargo_flight)
+	{
+		cargo_land(payload, o_cannon.x, o_cannon.y + random_range(BALANCE_CARGO_RETURN_MIN_Y, BALANCE_CARGO_RETURN_MAX_Y), false);
+		instance_destroy();
+	}
 	with (o_cannonball) instance_destroy();
 	with (o_cannon_effect) instance_destroy();
 	global.pause = true;

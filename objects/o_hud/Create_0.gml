@@ -863,7 +863,7 @@ minimap_geometry_get = function()
 	var _minimap_scale = clamp(_gui_height / 1080, 0.6, 1);
 	var _minimap_size = minimap_size * _minimap_scale;
 	var _minimap_x = _gui_width - (minimap_margin_right * _minimap_scale) - _minimap_size;
-	var _minimap_y = minimap_y * _minimap_scale;
+	var _minimap_y = min(minimap_y * _minimap_scale, shop_offer_rect(-1).y - BALANCE_WAVE_TIMER_GAP - _minimap_size);
 	var _minimap_cannon = instance_find(o_cannon, 0);
 
 	return {

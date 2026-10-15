@@ -27,7 +27,7 @@ function worker_drag_update()
 	var _world_x = camera_get_view_x(_camera) + _gui_x * _scale_x;
 	var _world_y = camera_get_view_y(_camera) + _gui_y * _scale_y;
 	// The purchase row owns its screen area even when a worker is underneath it.
-	var _purchase_rect = faction_summon_rect_get(0);
+	var _purchase_rect = shop_offer_rect(-1);
 	var _over_hud = _gui_y >= _purchase_rect.y;
 	if (!instance_exists(worker_dragged) && !_over_hud)
 	{
@@ -63,9 +63,9 @@ function worker_drag_update()
 		{
 			var _building = instance_find(o_worker_building_parent, _index);
 			var _distance = point_distance(_world_x, _world_y, _building.x, _building.y);
-			var _inside = _building.sprite_index == -1
-				? _distance <= _building.worker_drop_radius
-				: point_in_rectangle(_world_x, _world_y, _building.bbox_left, _building.bbox_top, _building.bbox_right, _building.bbox_bottom);
+			var _bounds = building_bounds_get(_building, _building.x, _building.y);
+			var _inside = !_building.placement_preview && !_building.is_being_dragged
+				&& point_in_rectangle(_world_x, _world_y, _bounds.left, _bounds.top, _bounds.right, _bounds.bottom);
 			if (_inside && _distance < _nearest_distance)
 			{
 				worker_drop_building = _building;

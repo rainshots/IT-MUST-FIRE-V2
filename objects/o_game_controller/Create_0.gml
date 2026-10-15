@@ -4320,10 +4320,28 @@ fight_state = FIGHT_STATE.ACTIVE;
 fight_number = 0;
 fight_elapsed_seconds = 0;
 fight_wave_index = 0;
-fight_wave_count = BALANCE_FIGHT_WAVE_COUNT;
+fight_next_wave_seconds = BALANCE_WAVE_FIRST_DELAY;
 fight_charge = 0;
 // Loaded ammunition persists between fights; aiming never does.
 cannon_ammo = [];
+cargo_contents = [];
+shop_open = false;
+// Permanent purchases survive fight transitions.
+player_unit_cap = BALANCE_PLAYER_UNIT_CAP;
+building_zone_expansions = 0;
+shop_options = [];
+shop_preview = noone;
+shop_cost = 0;
+// Purchase slot is retained until placement succeeds; -1 denotes relocation.
+shop_purchase_index = -1;
+shop_wait_release = false;
+shop_previous_pause = false;
+cargo_capacity = BALANCE_CARGO_CAPACITY;
+cargo_dragged = noone;
+cargo_drag_start_x = 0;
+cargo_drag_start_y = 0;
+cargo_notice = "";
+cargo_notice_timer = 0;
 cannon_ammo_capacity = BALANCE_CANNON_AMMO_CAPACITY;
 cannon_necro_unlocked = false;
 // Bonus selection pauses each later fight until one permanent reward is applied.

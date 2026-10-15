@@ -1,3 +1,323 @@
+// The minimap remains available independently of the disabled legacy HUD.
+// Draw minimap in the lower part of the right HUD sidebar.
+if (instance_exists(o_cannon))
+{
+	var _minimap_gui_width = display_get_gui_width();
+	var _minimap_gui_height = display_get_gui_height();
+	var _minimap_scale = clamp(_minimap_gui_height / 1080, 0.6, 1);
+	var _minimap_size = minimap_size * _minimap_scale;
+	var _minimap_x = _minimap_gui_width - (minimap_margin_right * _minimap_scale) - _minimap_size;
+	var _minimap_y = min(minimap_y * _minimap_scale, shop_offer_rect(-1).y - BALANCE_WAVE_TIMER_GAP - _minimap_size);
+	var _minimap_right = _minimap_x + _minimap_size;
+	var _minimap_bottom = _minimap_y + _minimap_size;
+	var _minimap_center_x = _minimap_x + (_minimap_size * 0.5);
+	var _minimap_center_y = _minimap_y + (_minimap_size * 0.5);
+	var _minimap_cannon = instance_find(o_cannon, 0);
+	var _world_center_x = _minimap_cannon.x;
+	var _world_center_y = _minimap_cannon.y;
+	var _world_to_minimap_scale = (_minimap_size * 0.5) / max(1, minimap_world_radius);
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_alpha(1);
+	draw_set_color(COLOR_HUD_MINIMAP_BACKGROUND);
+	draw_rectangle(_minimap_x, _minimap_y, _minimap_right, _minimap_bottom, false);
+
+	// Draw cached tainted and saint ground cells under minimap units.
+	if (instance_exists(o_corruption_grid))
+	{
+		var _corruption_grid_object = instance_find(o_corruption_grid, 0);
+		var _corruption_cell_size = _corruption_grid_object.cell_size;
+		var _ground_cell_count = array_length(minimap_ground_cell_xs);
+
+		for (var _ground_cell_index = 0; _ground_cell_index < _ground_cell_count; ++_ground_cell_index)
+		{
+			var _ground_cell_x = minimap_ground_cell_xs[_ground_cell_index];
+			var _ground_cell_y = minimap_ground_cell_ys[_ground_cell_index];
+			var _ground_amount = minimap_ground_amounts[_ground_cell_index];
+			var _ground_is_saint = minimap_ground_is_saint[_ground_cell_index];
+			var _taint_left = _minimap_center_x + (((_ground_cell_x * _corruption_cell_size) - _world_center_x) * _world_to_minimap_scale);
+			var _taint_top = _minimap_center_y + (((_ground_cell_y * _corruption_cell_size) - _world_center_y) * _world_to_minimap_scale);
+			var _taint_right = _minimap_center_x + (((_ground_cell_x + 1) * _corruption_cell_size - _world_center_x) * _world_to_minimap_scale);
+			var _taint_bottom = _minimap_center_y + (((_ground_cell_y + 1) * _corruption_cell_size - _world_center_y) * _world_to_minimap_scale);
+
+			_taint_left = clamp(_taint_left, _minimap_x, _minimap_right);
+			_taint_top = clamp(_taint_top, _minimap_y, _minimap_bottom);
+			_taint_right = clamp(_taint_right, _minimap_x, _minimap_right);
+			_taint_bottom = clamp(_taint_bottom, _minimap_y, _minimap_bottom);
+
+			draw_set_color(corruption_color_get(minimap_ground_factions[_ground_cell_index]));
+			draw_set_alpha(clamp(_ground_amount, 0.35, 1));
+			draw_rectangle(_taint_left, _taint_top, _taint_right, _taint_bottom, false);
+		}
+
+		draw_set_alpha(1);
+	}
+
+	// Draw enemy units as red tactical markers.
+	var _enemy_count = instance_number(o_enemy_units);
+	var _enemy_size = minimap_enemy_size * _minimap_scale;
+	var _enemy_half_size = _enemy_size * 0.5;
+
+	for (var _enemy_index = 0; _enemy_index < _enemy_count; ++_enemy_index)
+	{
+		var _enemy = instance_find(o_enemy_units, _enemy_index);
+
+		if (!instance_exists(_enemy)
+			|| (variable_instance_exists(_enemy, "hp") && _enemy.hp <= 0)
+			|| (variable_instance_exists(_enemy, "cached_is_hidden_by_fog")
+				&& _enemy.cached_is_hidden_by_fog))
+		{
+			continue;
+		}
+
+		var _enemy_map_x = _minimap_center_x + ((_enemy.x - _world_center_x) * _world_to_minimap_scale);
+		var _enemy_map_y = _minimap_center_y + ((_enemy.y - _world_center_y) * _world_to_minimap_scale);
+
+		_enemy_map_x = clamp(_enemy_map_x, _minimap_x + _enemy_half_size, _minimap_right - _enemy_half_size);
+		_enemy_map_y = clamp(_enemy_map_y, _minimap_y + _enemy_half_size, _minimap_bottom - _enemy_half_size);
+
+		draw_set_alpha(1);
+		draw_set_color(COLOR_HUD_MINIMAP_ENEMY);
+		draw_rectangle(
+			_enemy_map_x - _enemy_half_size,
+			_enemy_map_y - _enemy_half_size,
+			_enemy_map_x + _enemy_half_size,
+			_enemy_map_y + _enemy_half_size,
+			false
+		);
+	}
+
+	// Draw the cannon base at the center of the minimap.
+	var _base_size = minimap_base_size * _minimap_scale;
+	var _base_left = _minimap_center_x - (_base_size * 0.5);
+	var _base_top = _minimap_center_y - (_base_size * 0.5);
+	var _base_sprite = s_cannon_icon;
+
+	if (sprite_exists(_base_sprite))
+	{
+		draw_sprite_stretched_ext(_base_sprite, 0, _base_left, _base_top, _base_size, _base_size, c_white, 1);
+	}
+	else
+	{
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_circle(_minimap_center_x, _minimap_center_y, _base_size * 0.35, false);
+	}
+
+	// Draw cultists with their icons and compact health bars.
+	if (instance_exists(o_cultist))
+	{
+		var _minimap_cultist_count = instance_number(o_cultist);
+		var _cultist_width = minimap_cultist_width * _minimap_scale;
+		var _cultist_height = minimap_cultist_height * _minimap_scale;
+		var _cultist_half_width = _cultist_width * 0.5;
+		var _cultist_half_height = _cultist_height * 0.5;
+		var _cultist_bar_width = minimap_cultist_bar_width * _minimap_scale;
+		var _cultist_bar_height = minimap_cultist_bar_height * _minimap_scale;
+		var _cultist_bar_gap = minimap_cultist_bar_gap * _minimap_scale;
+
+		for (var _minimap_cultist_index = 0; _minimap_cultist_index < _minimap_cultist_count; ++_minimap_cultist_index)
+		{
+			var _minimap_cultist = instance_find(o_cultist, _minimap_cultist_index);
+
+			if (!instance_exists(_minimap_cultist))
+			{
+				continue;
+			}
+
+			var _cultist_map_x = _minimap_center_x + ((_minimap_cultist.x - _world_center_x) * _world_to_minimap_scale);
+			var _cultist_map_y = _minimap_center_y + ((_minimap_cultist.y - _world_center_y) * _world_to_minimap_scale);
+
+			_cultist_map_x = clamp(_cultist_map_x, _minimap_x + _cultist_half_width, _minimap_right - _cultist_half_width);
+			_cultist_map_y = clamp(_cultist_map_y, _minimap_y + _cultist_half_height, _minimap_bottom - _cultist_half_height - _cultist_bar_height);
+
+			var _cultist_sprite = _minimap_cultist.sprite_index;
+
+			if (variable_instance_exists(_minimap_cultist, "cultist_sprite_index")
+				&& sprite_exists(_minimap_cultist.cultist_sprite_index))
+			{
+				_cultist_sprite = _minimap_cultist.cultist_sprite_index;
+			}
+
+			if (sprite_exists(_cultist_sprite))
+			{
+				draw_sprite_stretched_ext(
+					_cultist_sprite,
+					0,
+					_cultist_map_x - _cultist_half_width,
+					_cultist_map_y - _cultist_half_height,
+					_cultist_width,
+					_cultist_height,
+					c_white,
+					1
+				);
+			}
+			else
+			{
+				draw_set_color(COLOR_CULTIST_BODY);
+				draw_circle(_cultist_map_x, _cultist_map_y, _cultist_half_width, false);
+			}
+
+			var _cultist_hp_progress = 0;
+
+			if (variable_instance_exists(_minimap_cultist, "hp") && variable_instance_exists(_minimap_cultist, "max_hp"))
+			{
+				_cultist_hp_progress = clamp(_minimap_cultist.hp / max(1, _minimap_cultist.max_hp), 0, 1);
+			}
+
+			var _cultist_bar_x = _cultist_map_x - (_cultist_bar_width * 0.5);
+			var _cultist_bar_y = _cultist_map_y + _cultist_half_height + _cultist_bar_gap;
+
+			draw_set_color(COLOR_HUD_MINIMAP_HEALTH_BACKGROUND);
+			draw_rectangle(_cultist_bar_x, _cultist_bar_y, _cultist_bar_x + _cultist_bar_width, _cultist_bar_y + _cultist_bar_height, false);
+
+			draw_set_color(cultist_status_card_hp_color);
+			draw_rectangle(
+				_cultist_bar_x,
+				_cultist_bar_y,
+				_cultist_bar_x + (_cultist_bar_width * _cultist_hp_progress),
+				_cultist_bar_y + _cultist_bar_height,
+				false
+			);
+		}
+	}
+
+	// Draw the current camera rectangle over the minimap.
+	if (instance_exists(o_camera_controller))
+	{
+		var _camera_controller = instance_find(o_camera_controller, 0);
+		var _camera = _camera_controller.camera_id;
+		var _camera_left = camera_get_view_x(_camera);
+		var _camera_top = camera_get_view_y(_camera);
+		var _camera_width = camera_get_view_width(_camera);
+		var _camera_height = camera_get_view_height(_camera);
+		var _camera_map_left = _minimap_center_x + ((_camera_left - _world_center_x) * _world_to_minimap_scale);
+		var _camera_map_top = _minimap_center_y + ((_camera_top - _world_center_y) * _world_to_minimap_scale);
+		var _camera_map_right = _camera_map_left + (_camera_width * _world_to_minimap_scale);
+		var _camera_map_bottom = _camera_map_top + (_camera_height * _world_to_minimap_scale);
+
+		_camera_map_left = clamp(_camera_map_left, _minimap_x, _minimap_right);
+		_camera_map_top = clamp(_camera_map_top, _minimap_y, _minimap_bottom);
+		_camera_map_right = clamp(_camera_map_right, _minimap_x, _minimap_right);
+		_camera_map_bottom = clamp(_camera_map_bottom, _minimap_y, _minimap_bottom);
+
+		var _camera_min_size = minimap_view_min_size * _minimap_scale;
+
+		if (_camera_map_right - _camera_map_left < _camera_min_size)
+		{
+			var _camera_map_center_x = clamp(
+				(_camera_map_left + _camera_map_right) * 0.5,
+				_minimap_x + (_camera_min_size * 0.5),
+				_minimap_right - (_camera_min_size * 0.5)
+			);
+
+			_camera_map_left = _camera_map_center_x - (_camera_min_size * 0.5);
+			_camera_map_right = _camera_map_center_x + (_camera_min_size * 0.5);
+		}
+
+		if (_camera_map_bottom - _camera_map_top < _camera_min_size)
+		{
+			var _camera_map_center_y = clamp(
+				(_camera_map_top + _camera_map_bottom) * 0.5,
+				_minimap_y + (_camera_min_size * 0.5),
+				_minimap_bottom - (_camera_min_size * 0.5)
+			);
+
+			_camera_map_top = _camera_map_center_y - (_camera_min_size * 0.5);
+			_camera_map_bottom = _camera_map_center_y + (_camera_min_size * 0.5);
+		}
+
+		draw_set_alpha(minimap_view_alpha);
+		draw_set_color(COLOR_HUD_MINIMAP_VIEW_FILL);
+		draw_rectangle(_camera_map_left, _camera_map_top, _camera_map_right, _camera_map_bottom, false);
+
+		draw_set_alpha(0.85);
+		draw_set_color(c_black);
+
+		for (var _camera_shadow_index = 0; _camera_shadow_index < minimap_view_border_width + 2; ++_camera_shadow_index)
+		{
+			draw_rectangle(
+				clamp(_camera_map_left + _camera_shadow_index, _minimap_x, _minimap_right),
+				clamp(_camera_map_top + _camera_shadow_index, _minimap_y, _minimap_bottom),
+				clamp(_camera_map_right - _camera_shadow_index, _minimap_x, _minimap_right),
+				clamp(_camera_map_bottom - _camera_shadow_index, _minimap_y, _minimap_bottom),
+				true
+			);
+		}
+
+		draw_set_alpha(1);
+		draw_set_color(COLOR_HUD_MINIMAP_VIEW_BORDER);
+
+		for (var _camera_border_index = 0; _camera_border_index < minimap_view_border_width; ++_camera_border_index)
+		{
+			draw_rectangle(
+				clamp(_camera_map_left + _camera_border_index + 1, _minimap_x, _minimap_right),
+				clamp(_camera_map_top + _camera_border_index + 1, _minimap_y, _minimap_bottom),
+				clamp(_camera_map_right - _camera_border_index - 1, _minimap_x, _minimap_right),
+				clamp(_camera_map_bottom - _camera_border_index - 1, _minimap_y, _minimap_bottom),
+				true
+			);
+		}
+	}
+
+	// Draw the total tainted ground counter below the minimap.
+	var _taint_counter_y = _minimap_bottom + (corruption_minimap_offset_y * _minimap_scale);
+	var _taint_counter_text = corruption_display_name
+		+ " "
+		+ string_format(corruption_display_value, 0, corruption_display_decimals)
+		+ " / "
+		+ string_format(corruption_display_percent, 0, 1)
+		+ "%";
+
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_top);
+	draw_set_alpha(1);
+	draw_set_color(c_black);
+	draw_text_transformed(
+		_minimap_center_x + (2 * _minimap_scale),
+		_taint_counter_y + (2 * _minimap_scale),
+		_taint_counter_text,
+		corruption_minimap_label_scale * _minimap_scale,
+		corruption_minimap_label_scale * _minimap_scale,
+		0
+	);
+
+	draw_set_color(corruption_display_color);
+	draw_text_transformed(
+		_minimap_center_x,
+		_taint_counter_y,
+		_taint_counter_text,
+		corruption_minimap_label_scale * _minimap_scale,
+		corruption_minimap_label_scale * _minimap_scale,
+		0
+	);
+}
+if (instance_exists(o_cannon) && instance_exists(o_game_controller))
+{
+	var _geometry = minimap_geometry_get();
+	var _controller = o_game_controller;
+	if (_controller.fight_state == FIGHT_STATE.ACTIVE)
+	{
+		var _remaining = ceil(max(0, _controller.fight_next_wave_seconds - _controller.fight_elapsed_seconds));
+		var _minutes = floor(_remaining / 60);
+		var _seconds = _remaining mod 60;
+		var _label = "Wave " + string(_controller.fight_wave_index + 1) + " in "
+			+ string(_minutes) + ":" + (_seconds < 10 ? "0" : "") + string(_seconds);
+		if (font_exists(global.ui_font)) draw_set_font(global.ui_font);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_bottom);
+		draw_text_transformed(_geometry.center_x, _geometry.y - BALANCE_WAVE_TIMER_GAP * _geometry.scale,
+			_label, 0.65 * _geometry.scale, 0.65 * _geometry.scale, 0);
+	}
+}
+draw_set_halign(fa_left);
+draw_set_valign(fa_top);
+draw_set_color(c_white);
+draw_set_alpha(1);
+
+// Legacy Mana, squad cards, and projectile queue are disabled for cargo gameplay.
+exit;
 if (variable_global_exists("blood_moon_reward_popup_active")
 	&& global.blood_moon_reward_popup_active)
 {
@@ -463,7 +783,7 @@ if (instance_exists(o_cannon))
 	var _minimap_scale = clamp(_minimap_gui_height / 1080, 0.6, 1);
 	var _minimap_size = minimap_size * _minimap_scale;
 	var _minimap_x = _minimap_gui_width - (minimap_margin_right * _minimap_scale) - _minimap_size;
-	var _minimap_y = minimap_y * _minimap_scale;
+	var _minimap_y = min(minimap_y * _minimap_scale, shop_offer_rect(-1).y - BALANCE_WAVE_TIMER_GAP - _minimap_size);
 	var _minimap_right = _minimap_x + _minimap_size;
 	var _minimap_bottom = _minimap_y + _minimap_size;
 	var _minimap_center_x = _minimap_x + (_minimap_size * 0.5);
