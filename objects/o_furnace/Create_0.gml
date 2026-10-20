@@ -17,3 +17,6 @@ worker_work_update = function(_worker_seconds)
 	charge_work_seconds = max(0, charge_work_seconds - _charge_ticks * BALANCE_FURNACE_CHARGE_SECONDS);
 	_controller.fight_charge = min(BALANCE_FIGHT_CHARGE_MAX, _controller.fight_charge + _charge_ticks);
 };
+
+// Retired gameplay object; initialize cleanup fields before removing any legacy instance.
+instance_destroy();

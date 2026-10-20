@@ -1,57 +1,69 @@
-/// @description Updates individual player guarding and post-launch assault; unit context.
+/// @description Updates friendly unit assault or Heart defense; unit context.
 function cargo_unit_update()
 {
-	if (!instance_exists(o_cannon)) return;
 	gameplay_time_scale = global.gameplay_time_scale;
 	is_walking = false;
 	is_attacking_target = false;
 	if (cannon_loaded || is_being_dragged) return;
-	// Once deployed, the objective takes priority over nearby units, houses and damage alerts.
+	cargo_launched = instance_exists(o_game_controller)
+		&& o_game_controller.player_unit_mode == PLAYER_UNIT_MODE.ATTACK;
+	var _home_x = BALANCE_BUILDING_GRID_CENTER_X;
+	var _home_y = BALANCE_BUILDING_GRID_CENTER_Y;
+	if (instance_exists(o_heart)) { _home_x = o_heart.x; _home_y = o_heart.y; }
+	var _idle_x = _home_x + cargo_idle_offset_x;
+	var _idle_y = _home_y + cargo_idle_offset_y;
 	target_instance = noone;
-	if (cargo_launched && instance_exists(o_base_tower))
+
+	// A latched return prevents enemies from repeatedly interrupting the trip home.
+	if (cargo_launched) defense_returning = false;
+	else
 	{
-		var _tower = instance_nearest(x, y, o_base_tower);
-		if (target_can_be_attacked(_tower)) target_instance = _tower;
-	}
-	if (!instance_exists(target_instance))
-	{
-		var _enemy = noone;
-		var _nearest = infinity;
-		var _count = instance_number(o_enemy_units);
-		for (var _i = 0; _i < _count; ++_i)
-		{
-			var _candidate = instance_find(o_enemy_units, _i);
-			if (!target_can_be_attacked(_candidate)) continue;
-			var _distance = point_distance(x, y, _candidate.x, _candidate.y);
-			var _eligible = cargo_launched ? _distance <= vision_radius
-				: point_distance(o_cannon.x, o_cannon.y, _candidate.x, _candidate.y) <= BALANCE_CARGO_DEFENSE_RADIUS;
-			if (_eligible && _distance < _nearest) { _enemy = _candidate; _nearest = _distance; }
-		}
-		// Damage alerts override the Cannon perimeter so ranged attackers can be pursued.
-		if (target_can_be_attacked(alert_target)
-			&& variable_instance_exists(alert_target, "unit_faction")
-			&& alert_target.unit_faction == UNIT_FACTION.ENEMY)
-		{
-			_enemy = alert_target;
-		}
-		else
+		var _home_distance = point_distance(x, y, _home_x, _home_y);
+		if (_home_distance > BALANCE_UNIT_DEFENSE_LEASH) defense_returning = true;
+		if (defense_returning && _home_distance <= BALANCE_UNIT_DEFENSE_RETURN_RADIUS) defense_returning = false;
+		if (defense_returning)
 		{
 			alert_target = noone;
 			alert_target_timer = 0;
+			move_towards_world_point(_idle_x, _idle_y);
+			update_walk_sway();
+			return;
 		}
-		// Launched units attack nearby reward buildings on their way to the objective.
-		if (!instance_exists(_enemy) && cargo_launched)
+	}
+
+	// Attack nearby enemies en route; defenders only engage threats inside the Heart perimeter.
+	var _nearest = infinity;
+	var _count = instance_number(o_enemy_units);
+	for (var _i = 0; _i < _count; ++_i)
+	{
+		var _candidate = instance_find(o_enemy_units, _i);
+		if (!target_can_be_attacked(_candidate)) continue;
+		var _distance = point_distance(x, y, _candidate.x, _candidate.y);
+		var _eligible = cargo_launched ? _distance <= vision_radius
+			: point_distance(_home_x, _home_y, _candidate.x, _candidate.y) <= BALANCE_CARGO_DEFENSE_RADIUS;
+		if (_eligible && _distance < _nearest)
 		{
-			_nearest = vision_radius;
-			with (o_living_house)
+			target_instance = _candidate;
+			_nearest = _distance;
+		}
+	}
+	if (cargo_launched)
+	{
+		with (o_living_house)
+		{
+			if (!other.target_can_be_attacked(id)) continue;
+			var _distance = point_distance(other.x, other.y, x, y);
+			if (_distance <= other.vision_radius && _distance < _nearest)
 			{
-				if (!other.target_can_be_attacked(id)) continue;
-				var _distance = point_distance(other.x, other.y, x, y);
-				if (_distance < _nearest) { _enemy = id; _nearest = _distance; }
+				other.target_instance = id;
+				_nearest = _distance;
 			}
 		}
-		target_instance = _enemy;
-		if (!instance_exists(target_instance) && cargo_launched && instance_exists(o_base_tower)) target_instance = instance_nearest(x, y, o_base_tower);
+		if (!instance_exists(target_instance) && instance_exists(o_base_tower))
+		{
+			var _tower = instance_nearest(x, y, o_base_tower);
+			if (target_can_be_attacked(_tower)) target_instance = _tower;
+		}
 	}
 	if (instance_exists(target_instance))
 	{
@@ -62,11 +74,9 @@ function cargo_unit_update()
 		}
 		else move_towards_target(target_instance);
 	}
-	else if (!cargo_launched)
+	else if (!cargo_launched && point_distance(x, y, _idle_x, _idle_y) > BALANCE_UNIT_IDLE_STOP_DISTANCE)
 	{
-		var _x = o_cannon.x + cargo_idle_offset_x;
-		var _y = o_cannon.y + cargo_idle_offset_y;
-		if (point_distance(x, y, _x, _y) > 15) move_towards_world_point(_x, _y);
+		move_towards_world_point(_idle_x, _idle_y);
 	}
 	update_walk_sway();
 }

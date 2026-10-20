@@ -12,6 +12,7 @@ reload_timer = reload_time;
 initial_attack_reload_pending = true; // First Step applies the unit type's final full reload duration.
 attack_radius = 32;
 y_sort_enabled = true;
+depth = BALANCE_BUILDING_GRID_ACTOR_DEPTH - floor(y);
 defeat_value = 1;
 
 // Base unit movement and target search settings.
@@ -1071,9 +1072,9 @@ enemy_march_defense_is_near = function()
 	}
 
 	// With no outer defense, slow down shortly before reaching the cannon itself.
-	if (instance_exists(o_cannon))
+	if (instance_exists(o_heart))
 	{
-		var _cannon = instance_find(o_cannon, 0);
+		var _cannon = instance_find(o_heart, 0);
 		var _cannon_approach_radius = attack_radius
 			+ BALANCE_ENEMY_MARCH_CANNON_APPROACH_PADDING;
 
@@ -1106,7 +1107,7 @@ enemy_march_update = function()
 	if (_can_march)
 	{
 		var _has_defense_target = instance_exists(target_instance)
-			&& target_instance.object_index != o_cannon;
+			&& target_instance.object_index != o_heart;
 
 		if (_has_defense_target
 			|| instance_exists(alert_target)
@@ -2777,12 +2778,12 @@ player_structure_can_be_targeted = function(_structure)
 
 find_player_building_on_cannon_path = function()
 {
-	if (!instance_exists(o_cannon))
+	if (!instance_exists(o_heart))
 	{
 		return noone;
 	}
 
-	var _cannon = instance_find(o_cannon, 0);
+	var _cannon = instance_find(o_heart, 0);
 	var _nearest_building = noone;
 	var _nearest_distance_squared = infinity;
 	var _settlement_building_count = instance_number(o_v13buildings_parent);
@@ -2892,12 +2893,12 @@ find_nearest_attackable_player_structure = function(_max_distance)
 
 find_nearest_cannon_attacker = function()
 {
-	if (!instance_exists(o_cannon))
+	if (!instance_exists(o_heart))
 	{
 		return noone;
 	}
 
-	var _cannon = instance_find(o_cannon, 0);
+	var _cannon = instance_find(o_heart, 0);
 	var _nearest_attacker = noone;
 	var _nearest_distance_squared = infinity;
 	var _enemy_count = instance_number(o_enemy_units);
@@ -3206,7 +3207,7 @@ navigation_target_distance_get = function(_target)
 	}
 
 	// The Cannon uses a circular combat footprint instead of its large sprite center.
-	if (_target.object_index == o_cannon
+	if (_target.object_index == o_heart
 		&& variable_instance_exists(_target, "combat_radius"))
 	{
 		var _center_distance = point_distance(x, y, _target.x, _target.y);
@@ -4051,7 +4052,7 @@ attack_ring_should_use = function(_target, _attack_radius)
 {
 	if (unit_faction != UNIT_FACTION.ENEMY
 		|| !instance_exists(_target)
-		|| _target.object_index == o_cannon
+		|| _target.object_index == o_heart
 		|| _target == guard_target
 		|| (variable_instance_exists(_target, "is_wall") && _target.is_wall)
 		|| variable_instance_exists(_target, "player_building_distance_to_point")

@@ -34,7 +34,7 @@ function shop_draw()
 	if(instance_exists(shop_preview))
 	{
 		draw_set_color(COLOR_HUD_TEXT);
-		draw_text_transformed(display_get_gui_width()*0.5,_first.y-50*_first.scale,(shop_preview.is_defense_building ? "Place in Defense Zone or merge. Esc / RMB cancels." : "Place in Building Zone or merge. Esc / RMB cancels."),0.65*_first.scale,0.65*_first.scale,0);
+		draw_text_transformed(display_get_gui_width()*0.5,_first.y-50*_first.scale,"Place on the Building Grid or merge. Esc / RMB cancels.",0.65*_first.scale,0.65*_first.scale,0);
 	}
 	draw_set_halign(fa_left);draw_set_valign(fa_top);draw_set_color(c_white);draw_set_alpha(1);
 }

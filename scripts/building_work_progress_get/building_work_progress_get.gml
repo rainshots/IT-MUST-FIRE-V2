@@ -3,7 +3,12 @@ function building_work_progress_get()
 {
 	var _progress = 0;
 	var _status = "Idle";
-	if (object_index == o_furnace && instance_exists(o_game_controller))
+	if (is_grid_trash)
+	{
+		_progress = production_seconds / clear_seconds;
+		_status = "Clearing: " + string(ceil(max(0, clear_seconds - production_seconds))) + "s";
+	}
+	else if (object_index == o_furnace && instance_exists(o_game_controller))
 	{
 		_progress = o_game_controller.fight_charge / BALANCE_FIGHT_CHARGE_MAX;
 		_status = _progress >= 1 ? "Fully charged" : "Charging Cannon";

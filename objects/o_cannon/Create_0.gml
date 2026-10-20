@@ -12,3 +12,6 @@ building_has_upgrades = false;
 // Compatibility ownership also makes the Cannon a starting sight source.
 faction = global.player_faction;
 vision_radius = BALANCE_FACTION_BASE_REVEAL_RADIUS;
+
+// Retired gameplay object; initialize cleanup fields before removing any legacy instance.
+instance_destroy();

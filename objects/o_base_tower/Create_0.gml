@@ -4,6 +4,7 @@ hp = max_hp;
 unit_faction = UNIT_FACTION.ENEMY;
 is_attackable = true;
 y_sort_enabled = true;
+depth = BALANCE_BUILDING_GRID_ACTOR_DEPTH - floor(y);
 image_speed = 0;
 unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NOONE, _is_critical = false, _can_trigger_soul_chain = true, _source_instance = noone, _favor_faction = FACTION.NONE)
 {

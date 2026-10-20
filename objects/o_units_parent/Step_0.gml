@@ -461,7 +461,7 @@ if (_is_player_squad_unit)
 {
 	cached_follow_target = noone;
 
-	if (instance_exists(target_instance) && target_instance.object_index == o_cannon)
+	if (instance_exists(target_instance) && target_instance.object_index == o_heart)
 	{
 		target_instance = noone;
 		navigation_path_state_clear();
@@ -471,7 +471,7 @@ if (_is_player_squad_unit)
 // Independent Bonelets stop returning once they reach the wider Cannon guard area.
 if (_is_independent_bonelet
 	&& instance_exists(target_instance)
-	&& target_instance.object_index == o_cannon
+	&& target_instance.object_index == o_heart
 	&& point_distance(x, y, target_instance.x, target_instance.y)
 		<= BALANCE_SKELETON_BONELET_INDEPENDENT_CANNON_RADIUS)
 {
@@ -621,9 +621,9 @@ else if (!_special_behavior_handled && _should_search_target && _is_enemy_unit)
 			}
 		}
 
-		if (!instance_exists(target_instance) && unit_can_attack_cannon && instance_exists(o_cannon))
+		if (!instance_exists(target_instance) && unit_can_attack_cannon && instance_exists(o_heart))
 		{
-			target_instance = instance_find(o_cannon, 0);
+			target_instance = instance_find(o_heart, 0);
 		}
 	}
 }
@@ -720,7 +720,7 @@ else if (!_special_behavior_handled
 	if (!_has_forced_target && !_target_is_manual_structure)
 	{
 		if (instance_exists(target_instance)
-			&& target_instance.object_index != o_cannon
+			&& target_instance.object_index != o_heart
 			&& !navigation_target_prepare(target_instance, attack_radius))
 		{
 			target_instance = noone;
@@ -737,10 +737,10 @@ else if (!_special_behavior_handled
 		}
 	}
 
-	if (!instance_exists(target_instance) && instance_exists(o_cannon))
+	if (!instance_exists(target_instance) && instance_exists(o_heart))
 	{
-		var _cannon = instance_find(o_cannon, 0);
-		var _distance_to_cannon = point_distance(x, y, _cannon.x, _cannon.y);
+		var _cannon = instance_find(o_heart, 0);
+		var _distance_to_heart = point_distance(x, y, _cannon.x, _cannon.y);
 		var _cannon_return_radius = _is_independent_bonelet
 			? BALANCE_SKELETON_BONELET_INDEPENDENT_CANNON_RADIUS
 			: cannon_guard_radius;
@@ -750,7 +750,7 @@ else if (!_special_behavior_handled
 			&& !instance_exists(_friendly_follow_target)
 			&& !regroup_is_active
 			&& !rally_is_active
-			&& _distance_to_cannon > _cannon_return_radius)
+			&& _distance_to_heart > _cannon_return_radius)
 		{
 			target_instance = _cannon;
 		}
@@ -794,7 +794,7 @@ if (!_special_behavior_handled
 // Player combat units advance on the objective whenever no opponent is being engaged.
 if (_is_friendly_unit && !_special_behavior_handled && instance_exists(o_base_tower))
 {
-	if (!instance_exists(target_instance) || target_instance.object_index == o_cannon)
+	if (!instance_exists(target_instance) || target_instance.object_index == o_heart)
 	{
 		target_instance = instance_find(o_base_tower, 0);
 		_friendly_follow_target = noone;
@@ -828,7 +828,7 @@ if (!_special_behavior_handled && instance_exists(target_instance))
 		target_instance,
 		"player_building_distance_to_point"
 	);
-	var _target_is_cannon = target_instance.object_index == o_cannon
+	var _target_is_cannon = target_instance.object_index == o_heart
 		&& variable_instance_exists(target_instance, "combat_radius");
 
 	if (_target_is_wall)
@@ -871,7 +871,7 @@ if (!_special_behavior_handled && instance_exists(target_instance))
 		{
 			is_attacking_target = true;
 		}
-		else if (target_instance.object_index != o_cannon || _is_enemy_unit)
+		else if (target_instance.object_index != o_heart || _is_enemy_unit)
 		{
 			is_attacking_target = true;
 			attack_target(target_instance);
@@ -959,6 +959,13 @@ else if (!_special_behavior_handled && _is_friendly_unit && rally_is_active)
 			rally_group_start_returning();
 		}
 	}
+}
+
+// With no Cannon objective, enemies advance to the grid while searching for player units.
+if (_is_enemy_unit && !instance_exists(target_instance) && !is_stunned)
+{
+	if (point_distance(x, y, BALANCE_BUILDING_GRID_CENTER_X, BALANCE_BUILDING_GRID_CENTER_Y) > BALANCE_BUILDING_GRID_CELL_SIZE)
+		move_towards_world_point(BALANCE_BUILDING_GRID_CENTER_X, BALANCE_BUILDING_GRID_CENTER_Y);
 }
 
 // Idle daytime squad members hold position; stale separation otherwise makes them vibrate.

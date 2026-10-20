@@ -1,6 +1,6 @@
 // The minimap remains available independently of the disabled legacy HUD.
 // Draw minimap in the lower part of the right HUD sidebar.
-if (instance_exists(o_cannon))
+if (instance_exists(o_building_grid))
 {
 	var _minimap_gui_width = display_get_gui_width();
 	var _minimap_gui_height = display_get_gui_height();
@@ -12,7 +12,7 @@ if (instance_exists(o_cannon))
 	var _minimap_bottom = _minimap_y + _minimap_size;
 	var _minimap_center_x = _minimap_x + (_minimap_size * 0.5);
 	var _minimap_center_y = _minimap_y + (_minimap_size * 0.5);
-	var _minimap_cannon = instance_find(o_cannon, 0);
+	var _minimap_cannon = instance_find(o_building_grid, 0);
 	var _world_center_x = _minimap_cannon.x;
 	var _world_center_y = _minimap_cannon.y;
 	var _world_to_minimap_scale = (_minimap_size * 0.5) / max(1, minimap_world_radius);
@@ -88,21 +88,12 @@ if (instance_exists(o_cannon))
 		);
 	}
 
-	// Draw the cannon base at the center of the minimap.
-	var _base_size = minimap_base_size * _minimap_scale;
-	var _base_left = _minimap_center_x - (_base_size * 0.5);
-	var _base_top = _minimap_center_y - (_base_size * 0.5);
-	var _base_sprite = s_cannon_icon;
-
-	if (sprite_exists(_base_sprite))
-	{
-		draw_sprite_stretched_ext(_base_sprite, 0, _base_left, _base_top, _base_size, _base_size, c_white, 1);
-	}
-	else
-	{
-		draw_set_color(COLOR_HUD_TEXT);
-		draw_circle(_minimap_center_x, _minimap_center_y, _base_size * 0.35, false);
-	}
+	// Show the construction footprint at the minimap center.
+	var _grid_half_width = BALANCE_BUILDING_GRID_COLUMNS * BALANCE_BUILDING_GRID_CELL_SIZE * 0.5 * _world_to_minimap_scale;
+	var _grid_half_height = BALANCE_BUILDING_GRID_ROWS * BALANCE_BUILDING_GRID_CELL_SIZE * 0.5 * _world_to_minimap_scale;
+	draw_set_color(COLOR_HUD_TEXT);
+	draw_rectangle(_minimap_center_x - _grid_half_width, _minimap_center_y - _grid_half_height,
+		_minimap_center_x + _grid_half_width, _minimap_center_y + _grid_half_height, true);
 
 	// Draw cultists with their icons and compact health bars.
 	if (instance_exists(o_cultist))
@@ -292,7 +283,7 @@ if (instance_exists(o_cannon))
 		0
 	);
 }
-if (instance_exists(o_cannon) && instance_exists(o_game_controller))
+if (instance_exists(o_building_grid) && instance_exists(o_game_controller))
 {
 	var _geometry = minimap_geometry_get();
 	var _controller = o_game_controller;
@@ -776,7 +767,7 @@ if (_regular_hud_is_visible)
 }
 
 // Draw minimap in the lower part of the right HUD sidebar.
-if (instance_exists(o_cannon))
+if (instance_exists(o_building_grid))
 {
 	var _minimap_gui_width = display_get_gui_width();
 	var _minimap_gui_height = display_get_gui_height();
@@ -788,7 +779,7 @@ if (instance_exists(o_cannon))
 	var _minimap_bottom = _minimap_y + _minimap_size;
 	var _minimap_center_x = _minimap_x + (_minimap_size * 0.5);
 	var _minimap_center_y = _minimap_y + (_minimap_size * 0.5);
-	var _minimap_cannon = instance_find(o_cannon, 0);
+	var _minimap_cannon = instance_find(o_building_grid, 0);
 	var _world_center_x = _minimap_cannon.x;
 	var _world_center_y = _minimap_cannon.y;
 	var _world_to_minimap_scale = (_minimap_size * 0.5) / max(1, minimap_world_radius);

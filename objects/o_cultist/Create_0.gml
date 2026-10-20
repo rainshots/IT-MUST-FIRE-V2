@@ -12,6 +12,7 @@ drag_drop_x = x;
 drag_drop_y = y;
 move_speed = BALANCE_EVENT_CULTIST_MOVE_SPEED;
 y_sort_enabled = true;
+depth = BALANCE_BUILDING_GRID_ACTOR_DEPTH - floor(y);
 is_attackable = false;
 
 // Use the historical cultist appearances, randomized for each worker.

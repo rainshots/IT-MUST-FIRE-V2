@@ -15,7 +15,7 @@ revealed_alpha = 0;
 fog_color = c_black;
 update_interval = max(1, room_speed * BALANCE_FACTION_VISION_UPDATE_SECONDS);
 update_timer = update_interval;
-vision_source_objects = [o_cannon, o_units_parent, o_v13buildings_parent, o_map_objects_parent];
+vision_source_objects = [o_building_grid, o_units_parent, o_v13buildings_parent, o_map_objects_parent];
 
 // Reveal world-space circles directly, including areas far from the starting base.
 fog_world_circle_reveal = function(_world_x, _world_y, _radius)

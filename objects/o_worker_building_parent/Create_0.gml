@@ -1,8 +1,14 @@
 // Reusable worker container only: no resource production, upgrades, or legacy event behavior.
 building_accepts_workers = true;
+building_can_move = true;
+is_grid_trash = false;
 // Defense children use a separate construction zone and explicit footprint.
 is_defense_building = false;
-placement_size = 0;
+placement_size = BALANCE_BUILDING_GRID_CELL_SIZE * BALANCE_BUILDING_GRID_DEFAULT_SLOTS;
+grid_columns = BALANCE_BUILDING_GRID_DEFAULT_SLOTS;
+grid_rows = BALANCE_BUILDING_GRID_DEFAULT_SLOTS;
+drag_drop_y = y;
+depth = BALANCE_BUILDING_GRID_ACTOR_DEPTH - floor(y);
 upgrade_object = noone;
 held_shell = noone;
 production_seconds = 0;
@@ -35,7 +41,7 @@ worker_positions_update = function()
 		var _worker = worker_cultists[_index];
 		if (!instance_exists(_worker)) continue;
 		_worker.x = x + (_index - (_count - 1) * 0.5) * worker_slot_spacing;
-		_worker.y = (is_defense_building ? y + placement_size * 0.5 : (sprite_index == -1 ? y : bbox_bottom)) + worker_slot_offset_y;
+		_worker.y = building_bounds_get(id, x, y).bottom + worker_slot_offset_y;
 		_worker.drag_drop_x = _worker.x;
 		_worker.drag_drop_y = _worker.y;
 		worker_total_speed += _worker.worker_speed_multiplier;

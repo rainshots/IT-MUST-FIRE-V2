@@ -1,4 +1,4 @@
-/// @description Draws Cannon charge, Cannon health, progression and match results; controller context.
+/// @description Draws fight progression and match results; controller context.
 function fight_draw_gui()
 {
 	if (font_exists(global.ui_font)) draw_set_font(global.ui_font);
@@ -15,18 +15,6 @@ function fight_draw_gui()
 	draw_set_valign(fa_top);
 	draw_set_color(COLOR_HUD_TEXT);
 	draw_text_transformed(_left, _margin, "FIGHT " + string(fight_number) + " / " + string(BALANCE_FIGHT_COUNT), _scale, _scale, 0);
-	draw_set_color(COLOR_HUD_BACKGROUND);
-	draw_rectangle(_left, _top, _left + _width, _top + _height, false);
-	draw_set_color(COLOR_PROJECTILE_SUMMON);
-	draw_rectangle(_left, _top, _left + _width * fight_charge / BALANCE_FIGHT_CHARGE_MAX, _top + _height, false);
-	draw_set_color(COLOR_HUD_TEXT);
-	draw_rectangle(_left, _top, _left + _width, _top + _height, true);
-	draw_text_transformed(_left, _top + _height + 8 * _scale, "Cannon charge: " + string(fight_charge) + "%", _scale * 0.75, _scale * 0.75, 0);
-	if (instance_exists(o_cannon))
-	{
-		draw_text_transformed(_left, _top + _height + 38 * _scale,
-			"Cannon HP: " + string(ceil(o_cannon.hp)) + " / " + string(ceil(o_cannon.max_hp)), _scale * 0.75, _scale * 0.75, 0);
-	}
 	if (fight_state == FIGHT_STATE.CLEARED && global.focus_window == FOCUS_WINDOW.NOONE)
 	{
 		var _rect = fight_move_on_rect_get();
@@ -47,7 +35,7 @@ function fight_draw_gui()
 		draw_set_color(COLOR_HUD_TEXT);
 		draw_set_halign(fa_center);
 		draw_set_valign(fa_middle);
-		var _message = fight_state == FIGHT_STATE.WON ? "VICTORY - ALL 10 FIGHTS CLEARED" : "GAME OVER - CANNON DESTROYED";
+		var _message = fight_state == FIGHT_STATE.WON ? "VICTORY - ALL 10 FIGHTS CLEARED" : "GAME OVER - THE HEART DESTROYED";
 		draw_text(_gui_width * 0.5, _gui_height * 0.5, _message);
 		draw_text(_gui_width * 0.5, _gui_height * 0.5 + 56 * _scale, "Press Enter to restart");
 	}

@@ -2,14 +2,14 @@
 function fight_update()
 {
 	if (fight_state == FIGHT_STATE.LOST || fight_state == FIGHT_STATE.WON) return;
-	// Check defeat before objective completion, including a missing Cannon instance.
-	if (!instance_exists(o_cannon) || o_cannon.hp <= 0)
+	if (!fight_initialized) fight_start();
+	// Losing the Heart takes priority over clearing the enemy objective.
+	if (!instance_exists(o_heart) || o_heart.hp <= 0)
 	{
 		fight_state = FIGHT_STATE.LOST;
 		global.pause = true;
 		return;
 	}
-	if (!fight_initialized) fight_start();
 	if (fight_state == FIGHT_STATE.CLEARED)
 	{
 		global.pause = true;

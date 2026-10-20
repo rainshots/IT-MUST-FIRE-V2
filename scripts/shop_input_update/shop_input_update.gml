@@ -9,7 +9,7 @@ function shop_input_update()
 	if(instance_exists(shop_preview))
 	{
 		if(keyboard_check_pressed(vk_escape) || (!shop_wait_release && mouse_check_button_pressed(mb_right))) { shop_cancel();return true; }
-		if(instance_exists(shop_preview)) { shop_preview.x=_x;shop_preview.y=_y; }
+		if(instance_exists(shop_preview)) { var _snap = building_grid_snap(shop_preview, _x, _y); shop_preview.x=_snap.x;shop_preview.y=_snap.y; }
 		if(shop_wait_release)
 		{
 			if(!mouse_check_button(mb_left) && !mouse_check_button(mb_right)) shop_wait_release=false;
@@ -39,6 +39,7 @@ function shop_input_update()
 		var _building=noone;
 		with(o_worker_building_parent)
 		{
+			if (!building_can_move) continue;
 			var _r=building_bounds_get(id,x,y);
 			if(point_in_rectangle(_x,_y,_r.left,_r.top,_r.right,_r.bottom)) _building=id;
 		}

@@ -853,7 +853,7 @@ minimap_ground_factions = [];
 
 minimap_geometry_get = function()
 {
-	if (!instance_exists(o_cannon))
+	if (!instance_exists(o_building_grid))
 	{
 		return noone;
 	}
@@ -864,7 +864,7 @@ minimap_geometry_get = function()
 	var _minimap_size = minimap_size * _minimap_scale;
 	var _minimap_x = _gui_width - (minimap_margin_right * _minimap_scale) - _minimap_size;
 	var _minimap_y = min(minimap_y * _minimap_scale, shop_offer_rect(-1).y - BALANCE_WAVE_TIMER_GAP - _minimap_size);
-	var _minimap_cannon = instance_find(o_cannon, 0);
+	var _minimap_cannon = instance_find(o_building_grid, 0);
 
 	return {
 		x: _minimap_x,
@@ -910,12 +910,12 @@ minimap_ground_cache_update = function()
 	minimap_ground_is_saint = [];
 minimap_ground_factions = [];
 
-	if (!instance_exists(o_cannon) || !instance_exists(o_corruption_grid))
+	if (!instance_exists(o_building_grid) || !instance_exists(o_corruption_grid))
 	{
 		return;
 	}
 
-	var _cannon = instance_find(o_cannon, 0);
+	var _cannon = instance_find(o_building_grid, 0);
 	var _corruption_grid_object = instance_find(o_corruption_grid, 0);
 	var _corruption_cell_size = _corruption_grid_object.cell_size;
 	var _left_cell = clamp(floor((_cannon.x - minimap_world_radius) / _corruption_cell_size), 0, _corruption_grid_object.grid_width - 1);

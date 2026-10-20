@@ -4,6 +4,7 @@ hp = max_hp;
 unit_faction = UNIT_FACTION.ENEMY;
 is_attackable = true;
 y_sort_enabled = true;
+depth = BALANCE_BUILDING_GRID_ACTOR_DEPTH - floor(y);
 image_speed = 0;
 reward_paid = false;
 // Explicit combat destruction keeps room and fight cleanup from granting Mana.

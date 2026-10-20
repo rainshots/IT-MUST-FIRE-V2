@@ -928,7 +928,7 @@ global.explosion_sounds = [
 global.ui_hover_sounds = [
 	ui_hover_03,
 	ui_hover_05,
-	
+
 ];
 global.ui_confirm_sound = ui_confirm97;
 global.damage_sounds = [
@@ -3306,20 +3306,20 @@ resource_color_get = function(_resource)
 
 worker_idle_wander_target_pick = function(_worker)
 {
-	if (!instance_exists(_worker) || !instance_exists(o_cannon))
+	if (!instance_exists(_worker))
 	{
 		return;
 	}
 
-	var _cannon = instance_find(o_cannon, 0);
+
 	var _wander_direction = random_range(
 		BALANCE_IDLE_WORKER_WANDER_DIRECTION_MIN,
 		BALANCE_IDLE_WORKER_WANDER_DIRECTION_MAX
 	);
 	var _wander_distance = random(BALANCE_IDLE_WORKER_WANDER_RADIUS);
 
-	_worker.idle_wander_target_x = _cannon.x + lengthdir_x(_wander_distance, _wander_direction);
-	_worker.idle_wander_target_y = _cannon.y + BALANCE_DAY_CANNON_REGROUP_OFFSET_Y + lengthdir_y(_wander_distance, _wander_direction);
+	_worker.idle_wander_target_x = BALANCE_BUILDING_GRID_CENTER_X + lengthdir_x(_wander_distance, _wander_direction);
+	_worker.idle_wander_target_y = BALANCE_BUILDING_GRID_CENTER_Y + BALANCE_DAY_CANNON_REGROUP_OFFSET_Y + lengthdir_y(_wander_distance, _wander_direction);
 	_worker.idle_wander_wait_timer = irandom_range(
 		round(BALANCE_IDLE_WORKER_WANDER_WAIT_MIN * room_speed),
 		round(BALANCE_IDLE_WORKER_WANDER_WAIT_MAX * room_speed)
@@ -3335,7 +3335,7 @@ worker_idle_wander_can_update = function(_worker, _allow_cannon_assignment = fal
 {
 	return instance_exists(_worker) && _worker.object_index == o_cultist
 		&& _worker.hp > 0 && !_worker.is_being_dragged
-		&& !_worker.is_assigned_to_building && instance_exists(o_cannon);
+		&& !_worker.is_assigned_to_building;
 };
 
 worker_idle_wander_update = function(_worker, _allow_cannon_assignment = false)
@@ -3350,16 +3350,6 @@ worker_idle_wander_update = function(_worker, _allow_cannon_assignment = false)
 		|| !variable_instance_exists(_worker, "idle_wander_wait_timer"))
 	{
 		worker_idle_wander_target_pick(_worker);
-	}
-
-	var _cannon = instance_find(o_cannon, 0);
-
-	if (variable_instance_exists(_cannon, "cannon_worker_is_behind_sprite")
-		&& _cannon.cannon_worker_is_behind_sprite(_worker)
-		&& _worker.idle_wander_target_y < _cannon.y + BALANCE_DAY_CANNON_REGROUP_OFFSET_Y)
-	{
-		worker_idle_wander_target_pick(_worker);
-		_worker.idle_wander_wait_timer = 0;
 	}
 
 	var _distance = point_distance(_worker.x, _worker.y, _worker.idle_wander_target_x, _worker.idle_wander_target_y);
@@ -4330,6 +4320,7 @@ shop_open = false;
 player_unit_cap = BALANCE_PLAYER_UNIT_CAP;
 building_zone_expansions = 0;
 shop_options = [];
+player_unit_mode = PLAYER_UNIT_MODE.DEFEND;
 shop_preview = noone;
 shop_cost = 0;
 // Purchase slot is retained until placement succeeds; -1 denotes relocation.

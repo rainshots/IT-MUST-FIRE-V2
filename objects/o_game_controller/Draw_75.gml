@@ -691,6 +691,8 @@ debug_menu_draw();
 worker_drag_draw();
 
 // Manual artillery UI appears above ordinary HUD elements.
-cannon_ammo_draw();
+// Cannon loading, charge and firing UI removed.
 
 shop_draw();
+
+player_unit_mode_draw();
