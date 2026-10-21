@@ -14,6 +14,20 @@ function fight_living_houses_spawn()
 		{
 			var _type = _i < _counts[_zone_index] ? o_living_house : o_defense_tower;
 			var _house = instance_create_layer(_zone.left, _zone.top, "Instances", _type);
+			// Each guard independently rolls from the zone roster; repeats are allowed.
+			switch (_zone_index)
+			{
+				case 1:
+					_house.guard_unit_options = [o_enemy_archer, o_enemy_knight];
+					_house.guard_count_min = BALANCE_ZONE_2_HOUSE_GUARDS;
+					_house.guard_count_max = BALANCE_ZONE_2_HOUSE_GUARDS;
+					break;
+				case 2:
+					_house.guard_unit_options = [o_enemy_knight, o_enemy_mage, o_enemy_archer];
+					_house.guard_count_min = BALANCE_ZONE_3_HOUSE_GUARDS;
+					_house.guard_count_max = BALANCE_ZONE_3_HOUSE_GUARDS;
+					break;
+			}
 			var _sprite = _house.sprite_index;
 			var _left = _zone.left + sprite_get_xoffset(_sprite) + _margin;
 			var _right = _zone.right - sprite_get_width(_sprite) + sprite_get_xoffset(_sprite) - _margin;

@@ -20,6 +20,11 @@ draw_set_alpha(BALANCE_BUILDING_GRID_OCCUPIED_ALPHA);
 with (o_worker_building_parent)
 {
 	if (placement_preview || id == o_game_controller.shop_preview) continue;
+	// Matching upgradable buildings are purchase merge targets.
+	var _preview = o_game_controller.shop_preview;
+	var _can_merge = o_game_controller.shop_cost > 0 && !is_being_dragged
+		&& object_index == _preview.object_index && _preview.upgrade_object != noone;
+	draw_set_color(_can_merge ? COLOR_BUILDING_GRID_MERGE : COLOR_BUILDING_GRID_OCCUPIED);
 	var _bounds = building_bounds_get(id, x, y);
 	var _left = max(_grid.left, _bounds.left);
 	var _right = min(_grid.right, _bounds.right);

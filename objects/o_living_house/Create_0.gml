@@ -11,6 +11,9 @@ building_label = "Living House";
 mana_reward = BALANCE_LIVING_HOUSE_MANA;
 guards_enabled = true;
 guards_spawned = false;
+guard_unit_options = [o_enemy_peasant];
+guard_count_min = BALANCE_LIVING_HOUSE_GUARDS_MIN;
+guard_count_max = BALANCE_LIVING_HOUSE_GUARDS_MAX;
 // Explicit combat destruction keeps room and fight cleanup from granting Mana.
 house_death_process = function()
 {
@@ -36,12 +39,13 @@ house_guards_spawn = function()
 {
 	if (!guards_enabled || guards_spawned) return;
 	guards_spawned = true;
-	var _count = irandom_range(BALANCE_LIVING_HOUSE_GUARDS_MIN, BALANCE_LIVING_HOUSE_GUARDS_MAX);
+	var _count = irandom_range(guard_count_min, guard_count_max);
 	for (var _i = 0; _i < _count; ++_i)
 	{
 		var _angle = random(360);
 		var _distance = random(BALANCE_HOUSE_SPAWN_RADIUS);
-		var _unit = instance_create_layer(x + lengthdir_x(_distance, _angle), y + lengthdir_y(_distance, _angle), "Instances", o_enemy_peasant);
+		var _type = guard_unit_options[irandom(array_length(guard_unit_options) - 1)];
+		var _unit = instance_create_layer(x + lengthdir_x(_distance, _angle), y + lengthdir_y(_distance, _angle), "Instances", _type);
 		_unit.guard_target = id;
 		_unit.guard_radius = BALANCE_HOUSE_GUARD_RADIUS;
 		_unit.unit_can_attack_cannon = false;

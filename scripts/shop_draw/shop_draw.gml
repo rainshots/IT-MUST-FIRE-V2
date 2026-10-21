@@ -5,7 +5,7 @@ function shop_draw()
 	if(font_exists(global.ui_font)) draw_set_font(global.ui_font);
 	var _first=shop_offer_rect(-1);
 	draw_set_alpha(1);draw_set_color(COLOR_HUD_TEXT);draw_set_halign(fa_left);draw_set_valign(fa_bottom);
-	draw_text_transformed(_first.x,_first.y-10*_first.scale,"Mana: "+string(floor(global.faction_mana[global.player_faction]))+"   Units: "+string(player_unit_count_get())+" / "+string(player_unit_cap),0.7*_first.scale,0.7*_first.scale,0);
+	draw_text_transformed(_first.x,_first.y-10*_first.scale,"Mana: "+string(floor(global.faction_mana[global.player_faction]))+"   Units: "+string(player_unit_count_get())+" / "+string(player_unit_cap_get()),0.7*_first.scale,0.7*_first.scale,0);
 	draw_set_halign(fa_center);draw_set_valign(fa_middle);
 	for(var _i=-1;_i<array_length(shop_options);++_i)
 	{
@@ -36,5 +36,6 @@ function shop_draw()
 		draw_set_color(COLOR_HUD_TEXT);
 		draw_text_transformed(display_get_gui_width()*0.5,_first.y-50*_first.scale,"Place on the Building Grid or merge. Esc / RMB cancels.",0.65*_first.scale,0.65*_first.scale,0);
 	}
+	shop_tooltip_draw();
 	draw_set_halign(fa_left);draw_set_valign(fa_top);draw_set_color(c_white);draw_set_alpha(1);
 }

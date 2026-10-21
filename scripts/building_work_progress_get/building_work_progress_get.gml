@@ -50,7 +50,7 @@ function building_work_progress_get()
 				if (instance_exists(held_shell)) { _progress = 1; _status = "Shell ready - storage full"; }
 				else if (production_seconds <= 0 && is_undefined(warehouse_free_get())) _status = "No storage space";
 			}
-			else if (player_unit_count_get() >= o_game_controller.player_unit_cap) _status = "Unit cap reached";
+			else if (player_unit_count_get() >= player_unit_cap_get()) _status = "Unit cap reached";
 		}
 	}
 	if (array_length(worker_cultists) == 0) _status = "Needs Cultist";

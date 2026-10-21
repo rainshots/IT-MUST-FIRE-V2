@@ -47,3 +47,5 @@ worker_positions_update = function()
 		worker_total_speed += _worker.worker_speed_multiplier;
 	}
 };
+
+unit_capacity_bonus = 0;
