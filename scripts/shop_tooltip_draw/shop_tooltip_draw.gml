@@ -10,10 +10,11 @@ function shop_tooltip_draw()
 		var _button = shop_offer_rect(_i);
 		if (!point_in_rectangle(_mouse_x, _mouse_y, _button.x, _button.y,
 			_button.x + _button.width, _button.y + _button.height)) continue;
-		var _text = "Refresh\nReplaces all five Shop offers for " + string(BALANCE_SHOP_REFRESH_COST) + " Mana.";
+		var _text = "Refresh\nReplaces all five Shop offers for " + string(shop_refresh_cost) + " Mana.";
 		if (_i >= 0)
 		{
 			var _offer = shop_options[_i];
+			if (!is_struct(_offer)) return;
 			if (!variable_struct_exists(_offer, "description")) return;
 			_text = _offer.name + "\n" + _offer.description;
 		}

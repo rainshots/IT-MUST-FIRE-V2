@@ -2,7 +2,7 @@
 function building_work_progress_draw()
 {
 	if (!building_accepts_workers || placement_preview || is_being_dragged) return;
-	if (!is_grid_trash && !is_defense_building && object_index != o_furnace && !variable_instance_exists(id, "production_kind")) return;
+	if (!is_grid_trash && !is_defense_building && object_index != o_furnace && !variable_instance_exists(id, "production_kind") && !variable_instance_exists(id, "custom_work_status")) return;
 	if (is_grid_trash && production_seconds <= 0) return;
 	var _work = building_work_progress_get();
 	var _width = BALANCE_BUILDING_WORK_BAR_WIDTH;

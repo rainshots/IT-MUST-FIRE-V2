@@ -28,7 +28,7 @@ catapult_target_is_in_attack_band = function(_target)
 		return false;
 	}
 
-	if (_target.object_index == o_cannon)
+	if (_target.object_index == o_heart)
 	{
 		return unit_can_attack_cannon
 			&& navigation_target_distance_get(_target) <= attack_radius;
@@ -89,18 +89,18 @@ catapult_target_find = function()
 		}
 	}
 
-	// The cannon participates in the same nearest-structure selection.
-	if (unit_can_attack_cannon && instance_exists(o_cannon))
+	// The Heart participates in the same nearest-structure selection.
+	if (unit_can_attack_cannon && instance_exists(o_heart))
 	{
-		var _cannon = instance_find(o_cannon, 0);
+		var _heart = instance_find(o_heart, 0);
 
-		if (target_can_be_attacked(_cannon))
+		if (target_can_be_attacked(_heart))
 		{
-			var _cannon_distance = navigation_target_distance_get(_cannon);
+			var _heart_distance = navigation_target_distance_get(_heart);
 
-			if (_cannon_distance <= _nearest_target_distance)
+			if (_heart_distance <= _nearest_target_distance)
 			{
-				_nearest_target = _cannon;
+				_nearest_target = _heart;
 			}
 		}
 	}
@@ -149,7 +149,7 @@ catapult_projectile_create = function(_target)
 
 catapult_behavior_update = function()
 {
-	// Artillery also breaks the defense before firing on the Cannon.
+	// Artillery also breaks the defense before firing on The Heart.
 	var _defense_wall = fight_wall_target_get(id);
 	if (instance_exists(_defense_wall))
 	{
@@ -221,10 +221,10 @@ catapult_behavior_update = function()
 		return true;
 	}
 
-	// With no valid target, continue advancing toward the player's cannon.
-	if (instance_exists(o_cannon))
+	// With no valid target, continue advancing toward the player's Heart.
+	if (instance_exists(o_heart))
 	{
-		move_towards_target(instance_find(o_cannon, 0));
+		move_towards_target(instance_find(o_heart, 0));
 	}
 	else
 	{

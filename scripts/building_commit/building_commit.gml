@@ -54,12 +54,16 @@ function building_commit(_b, _x, _y)
 				}
 			}
 		}
+		_up.purchase_value = _b.purchase_value + _merge.purchase_value;
+		building_smoke_create(_merge);
 		instance_destroy(_b); instance_destroy(_merge);
+		building_smoke_create(_up);
 		return true;
 	}
 	if(!building_place_valid(_b,_x,_y)) return false;
 	if (!building_units_displace(_b, _x, _y)) return false;
 	_b.x=_x;_b.y=_y;_b.placement_preview=false;_b.is_being_dragged=false;
 	_b.worker_positions_update();
+	building_smoke_create(_b);
 	return true;
 }

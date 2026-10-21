@@ -34,23 +34,40 @@ unit_damage_receive = function(_damage_amount, _source_faction = UNIT_FACTION.NO
 };
 
 
-// Spawn only after zone placement has finished, using the original house guard settings.
+// Keep the initial garrison size and replace casualties one at a time.
+guard_capacity = 0;
+guard_replace_seconds = 0;
+house_guard_spawn_one = function()
+{
+	var _angle = random(360);
+	var _distance = random(BALANCE_HOUSE_SPAWN_RADIUS);
+	var _type = guard_unit_options[irandom(array_length(guard_unit_options) - 1)];
+	var _unit = instance_create_layer(x + lengthdir_x(_distance, _angle), y + lengthdir_y(_distance, _angle), "Instances", _type);
+	_unit.guard_target = id;
+	_unit.guard_radius = BALANCE_HOUSE_GUARD_RADIUS;
+	_unit.unit_can_attack_cannon = false;
+	_unit.is_night_attack_unit = false;
+	_unit.ignored_for_night_end = true;
+	_unit.owner_garnizon = noone;
+};
 house_guards_spawn = function()
 {
 	if (!guards_enabled || guards_spawned) return;
 	guards_spawned = true;
-	var _count = irandom_range(guard_count_min, guard_count_max);
-	for (var _i = 0; _i < _count; ++_i)
+	guard_capacity = irandom_range(guard_count_min, guard_count_max);
+	for (var _i = 0; _i < guard_capacity; ++_i) house_guard_spawn_one();
+};
+house_guards_regenerate = function(_seconds)
+{
+	if (!guards_enabled || !guards_spawned) return;
+	var _alive = 0;
+	var _home = id;
+	with (o_enemy_units) if (hp > 0 && guard_target == _home) _alive++;
+	if (_alive >= guard_capacity) { guard_replace_seconds = 0; return; }
+	guard_replace_seconds += _seconds;
+	if (guard_replace_seconds >= BALANCE_HOUSE_GUARD_REPLACE_SECONDS)
 	{
-		var _angle = random(360);
-		var _distance = random(BALANCE_HOUSE_SPAWN_RADIUS);
-		var _type = guard_unit_options[irandom(array_length(guard_unit_options) - 1)];
-		var _unit = instance_create_layer(x + lengthdir_x(_distance, _angle), y + lengthdir_y(_distance, _angle), "Instances", _type);
-		_unit.guard_target = id;
-		_unit.guard_radius = BALANCE_HOUSE_GUARD_RADIUS;
-		_unit.unit_can_attack_cannon = false;
-		_unit.is_night_attack_unit = false;
-		_unit.ignored_for_night_end = true;
-		_unit.owner_garnizon = noone;
+		guard_replace_seconds -= BALANCE_HOUSE_GUARD_REPLACE_SECONDS;
+		house_guard_spawn_one();
 	}
 };

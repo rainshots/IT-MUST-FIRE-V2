@@ -991,6 +991,10 @@ unit_move_speed_multiplier_get = function()
 	{
 		_move_multiplier *= BALANCE_CORRUPTION_FRIENDLY_MOVE_MULTIPLIER;
 	}
+	else if (unit_faction == UNIT_FACTION.ENEMY && unit_is_on_tainted_ground())
+	{
+		_move_multiplier *= BALANCE_CORRUPTION_ENEMY_MOVE_MULTIPLIER;
+	}
 
 	if (variable_instance_exists(id, "imp_blood_frenzy_move_multiplier_get"))
 	{

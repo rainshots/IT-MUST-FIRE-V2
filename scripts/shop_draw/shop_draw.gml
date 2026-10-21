@@ -10,8 +10,14 @@ function shop_draw()
 	for(var _i=-1;_i<array_length(shop_options);++_i)
 	{
 		var _r=shop_offer_rect(_i);
+		if (_i >= 0 && !is_struct(shop_options[_i]))
+		{
+			draw_set_color(COLOR_HUD_BACKGROUND);
+			draw_rectangle(_r.x, _r.y, _r.x + _r.width, _r.y + _r.height, false);
+			continue;
+		}
 		var _name=_i<0 ? "Refresh" : shop_options[_i].name;
-		var _cost=_i<0 ? BALANCE_SHOP_REFRESH_COST : shop_options[_i].cost;
+		var _cost=_i<0 ? shop_refresh_cost : shop_options[_i].cost;
 		var _available=!instance_exists(shop_preview) && fight_state==FIGHT_STATE.ACTIVE && global.faction_mana[global.player_faction]>=_cost;
 		draw_set_color(COLOR_HUD_BACKGROUND);
 		draw_rectangle(_r.x,_r.y,_r.x+_r.width,_r.y+_r.height,false);
@@ -34,7 +40,10 @@ function shop_draw()
 	if(instance_exists(shop_preview))
 	{
 		draw_set_color(COLOR_HUD_TEXT);
-		draw_text_transformed(display_get_gui_width()*0.5,_first.y-50*_first.scale,"Place on the Building Grid or merge. Esc / RMB cancels.",0.65*_first.scale,0.65*_first.scale,0);
+		var _hint = shop_preview.placement_preview
+			? "Place on the Building Grid or merge. Esc / RMB cancels."
+			: "Place or merge. Click the Shop area to sell for " + string(shop_preview.purchase_value * BALANCE_BUILDING_SELL_SHARE) + " Mana. Esc / RMB cancels.";
+		draw_text_transformed(display_get_gui_width()*0.5,_first.y-50*_first.scale,_hint,0.65*_first.scale,0.65*_first.scale,0);
 	}
 	shop_tooltip_draw();
 	draw_set_halign(fa_left);draw_set_valign(fa_top);draw_set_color(c_white);draw_set_alpha(1);

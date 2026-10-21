@@ -1,5 +1,5 @@
 // Pause freezes particle movement and lifetime.
-if (global.pause)
+if (global.pause && !ignore_pause)
 {
 	exit;
 }

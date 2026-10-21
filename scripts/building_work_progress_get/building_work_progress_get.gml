@@ -8,6 +8,11 @@ function building_work_progress_get()
 		_progress = production_seconds / clear_seconds;
 		_status = "Clearing: " + string(ceil(max(0, clear_seconds - production_seconds))) + "s";
 	}
+	else if (variable_instance_exists(id, "custom_work_status"))
+	{
+		_progress = production_seconds / production_interval;
+		_status = custom_work_status;
+	}
 	else if (object_index == o_furnace && instance_exists(o_game_controller))
 	{
 		_progress = o_game_controller.fight_charge / BALANCE_FIGHT_CHARGE_MAX;
@@ -50,7 +55,7 @@ function building_work_progress_get()
 				if (instance_exists(held_shell)) { _progress = 1; _status = "Shell ready - storage full"; }
 				else if (production_seconds <= 0 && is_undefined(warehouse_free_get())) _status = "No storage space";
 			}
-			else if (player_unit_count_get() >= player_unit_cap_get()) _status = "Unit cap reached";
+			else if (player_unit_count_get() + (production_unit == o_ripcage_cannon ? BALANCE_RIPCAGE_UNIT_SLOTS : 1) > player_unit_cap_get()) _status = "Unit cap reached";
 		}
 	}
 	if (array_length(worker_cultists) == 0) _status = "Needs Cultist";

@@ -4,7 +4,7 @@ event_inherited();
 faction = FACTION.NONE;
 building_label = "Defense Tower";
 guards_enabled = false;
-mana_reward = 0;
+mana_reward = BALANCE_ENEMY_DEFENSE_TOWER_MANA;
 max_hp = BALANCE_ENEMY_DEFENSE_TOWER_HP;
 hp = max_hp;
 reload_seconds = 0;

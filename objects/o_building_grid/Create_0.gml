@@ -14,6 +14,7 @@ var _zone_three_x = _zone_two_x + BALANCE_ENEMY_ZONE_3_OFFSET_X;
 var _centers = [_zone_one_x, _zone_two_x, _zone_three_x];
 var _widths = [BALANCE_ENEMY_ZONE_1_WIDTH, BALANCE_ENEMY_ZONE_2_WIDTH, BALANCE_ENEMY_ZONE_3_WIDTH];
 enemy_zones = [];
+enemy_zone_corrupted = [false, false, false];
 for (var _i = 0; _i < array_length(_centers); ++_i)
 {
 	enemy_zones[_i] = {

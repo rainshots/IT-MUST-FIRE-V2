@@ -29,6 +29,7 @@ function fight_update()
 		return;
 	}
 	if (global.pause) return;
+	enemy_zone_corruption_update();
 	fight_elapsed_seconds += global.gameplay_time_scale / max(1, room_speed);
 	if (!instance_exists(o_base_tower) || o_base_tower.hp <= 0)
 	{

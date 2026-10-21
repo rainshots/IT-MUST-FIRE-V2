@@ -42,7 +42,7 @@ saint_update_timer = 0;
 // Visual settings for corrupted ground cells.
 minimum_draw_corruption = 0.01;
 minimum_corruption_alpha = 0.18;
-maximum_corruption_alpha = 1;
+maximum_corruption_alpha = BALANCE_CORRUPTION_DRAW_ALPHA;
 maximum_saint_alpha = 0.72;
 uncorrupted_color = c_black;
 maximum_corruption_color = COLOR_CORRUPTION_MAX;

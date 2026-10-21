@@ -1,6 +1,7 @@
 // Smoke lifetime and fade settings.
 life_time = 2.2 * room_speed;
 life_timer = 0;
+ignore_pause = false;
 start_alpha = random_range(0.32, 0.55);
 current_alpha = start_alpha;
 

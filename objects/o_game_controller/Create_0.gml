@@ -1126,6 +1126,7 @@ corpse_next_id = 1;
 
 corpse_snapshot_add = function(_unit)
 {
+	if (instance_exists(_unit) && object_is_ancestor(_unit.object_index, o_friendly_units)) return;
 	if (!instance_exists(_unit) || !sprite_exists(_unit.sprite_index))
 	{
 		return;
@@ -1147,6 +1148,7 @@ corpse_snapshot_add = function(_unit)
 		corpse_draw_data,
 		{
 			corpse_id: _corpse_id,
+			seconds_remaining: _unit.unit_faction == UNIT_FACTION.ENEMY ? BALANCE_ENEMY_CORPSE_SECONDS : -1,
 			source_object_index: _unit.object_index,
 			sprite_index: _unit.sprite_index,
 			image_index: floor(_unit.image_index),
@@ -4321,6 +4323,7 @@ player_unit_cap = BALANCE_PLAYER_UNIT_CAP;
 building_zone_expansions = 0;
 shop_options = [];
 player_unit_mode = PLAYER_UNIT_MODE.DEFEND;
+shop_refresh_cost = BALANCE_SHOP_REFRESH_COST;
 shop_preview = noone;
 shop_cost = 0;
 // Purchase slot is retained until placement succeeds; -1 denotes relocation.

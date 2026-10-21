@@ -49,3 +49,5 @@ worker_positions_update = function()
 };
 
 unit_capacity_bonus = 0;
+// Total Mana invested in this building, including both merge participants.
+purchase_value = 0;

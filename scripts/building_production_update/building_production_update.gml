@@ -12,7 +12,9 @@ function building_production_update(_seconds)
 		return;
 	}
 	// Shell production is unavailable while the Cannon and Warehouses are removed.
-	if (production_kind == 1 || player_unit_count_get() >= player_unit_cap_get()) return;
+	if (production_kind == 1) return;
+	var _slots = production_unit == o_ripcage_cannon ? BALANCE_RIPCAGE_UNIT_SLOTS : 1;
+	if (player_unit_count_get() + _slots > player_unit_cap_get()) return;
 	production_seconds += _seconds;
 	if (production_seconds + 0.000001 < production_interval) return;
 	production_seconds = 0;

@@ -17,7 +17,11 @@ function shop_input_update()
 		}
 		// Bottom-bar clicks never place a preview into the world behind the UI.
 		var _bar=shop_offer_rect(-1);
-		if(mouse_check_button_pressed(mb_left) && _my<_bar.y) shop_place(_x,_y);
+		if (mouse_check_button_pressed(mb_left))
+		{
+			if (_my >= _bar.y) shop_sell();
+			else shop_place(_x, _y);
+		}
 		return true;
 	}
 	if(cannon_aiming || instance_exists(cargo_dragged) || instance_exists(worker_dragged) || global.focus_window!=FOCUS_WINDOW.NOONE) return false;
@@ -45,6 +49,7 @@ function shop_input_update()
 		}
 		if(instance_exists(_building))
 		{
+			building_smoke_create(_building);
 			building_workers_release(_building);
 			cargo_drag_start_x=_building.x;cargo_drag_start_y=_building.y;
 			shop_purchase_index = -1;

@@ -37,5 +37,9 @@ function fight_wave_spawn()
 		}
 	}
 	fight_wave_index++;
+	if (fight_wave_index mod BALANCE_CORRUPTION_WAVE_INTERVAL == 0) corruption_wave_spread();
+	// Every newly spawned wave replenishes offers and resets paid rerolls.
+	shop_begin();
+	shop_refresh_cost = BALANCE_SHOP_REFRESH_COST;
 	fight_next_wave_seconds = fight_elapsed_seconds + random_range(BALANCE_WAVE_INTERVAL_MIN, BALANCE_WAVE_INTERVAL_MAX);
 }

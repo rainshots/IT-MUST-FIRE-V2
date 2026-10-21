@@ -48,6 +48,10 @@ function cargo_unit_update()
 			_nearest = _distance;
 		}
 	}
+	// Retaliate against ranged attackers outside the normal defense perimeter.
+	// The latched return above still takes priority when a unit strays too far.
+	if (!cargo_launched && target_can_be_attacked(alert_target))
+		target_instance = alert_target;
 	if (cargo_launched)
 	{
 		with (o_living_house)

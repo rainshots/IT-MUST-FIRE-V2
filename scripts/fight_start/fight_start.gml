@@ -34,6 +34,7 @@ function fight_start()
 	// Keep the entire tower sprite inside the right end of its zone.
 	_tower.x -= sprite_get_width(_tower.sprite_index) - sprite_get_xoffset(_tower.sprite_index) + BALANCE_ENEMY_ZONE_BUILDING_MARGIN;
 	fight_living_houses_spawn();
+	o_building_grid.enemy_zone_corrupted = [false, false, false];
 	// Start on the objective now that faction selection no longer positions the camera.
 	if (!fight_initialized && instance_exists(o_camera_controller))
 	{
@@ -49,6 +50,7 @@ function fight_start()
 		with (o_exploding_shell) instance_destroy();
 		instance_create_layer(BALANCE_BUILDING_GRID_CENTER_X, BALANCE_BUILDING_GRID_CENTER_Y, "Instances", o_heart);
 		building_grid_trash_spawn();
+		heart_corruption_seed();
 		global.faction_mana[global.player_faction]=BALANCE_STARTING_MANA;
 	}
 	fight_bonus_open = false;

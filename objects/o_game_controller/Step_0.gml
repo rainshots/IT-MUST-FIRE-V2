@@ -1,3 +1,16 @@
+// Enemy corpse lifetime follows active simulation time, including fast-forward.
+if (!global.pause)
+{
+	var _corpse_seconds = global.gameplay_time_scale / max(1, room_speed);
+	for (var _corpse_index = array_length(corpse_draw_data) - 1; _corpse_index >= 0; --_corpse_index)
+	{
+		var _corpse = corpse_draw_data[_corpse_index];
+		if (!variable_struct_exists(_corpse, "seconds_remaining") || _corpse.seconds_remaining < 0) continue;
+		_corpse.seconds_remaining = max(0, _corpse.seconds_remaining - _corpse_seconds);
+		if (_corpse.seconds_remaining <= 0) array_delete(corpse_draw_data, _corpse_index, 1);
+	}
+}
+
 // Keep game surfaces aligned before any tutorial popup can block gameplay input.
 resources_clamp_to_max();
 
