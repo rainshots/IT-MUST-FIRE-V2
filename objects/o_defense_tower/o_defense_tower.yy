@@ -1,0 +1,62 @@
+{
+  "$GMObject": "",
+  "%Name": "o_defense_tower",
+  "eventList": [
+    {
+      "$GMEvent": "v1",
+      "%Name": "",
+      "collisionObjectId": null,
+      "eventNum": 0,
+      "eventType": 0,
+      "isDnD": false,
+      "name": "",
+      "resourceType": "GMEvent",
+      "resourceVersion": "2.0"
+    },
+    {
+      "$GMEvent": "v1",
+      "%Name": "",
+      "collisionObjectId": null,
+      "eventNum": 0,
+      "eventType": 3,
+      "isDnD": false,
+      "name": "",
+      "resourceType": "GMEvent",
+      "resourceVersion": "2.0"
+    }
+  ],
+  "managed": true,
+  "name": "o_defense_tower",
+  "overriddenProperties": [],
+  "parent": {
+    "name": "map_objects",
+    "path": "folders/Objects/map_objects.yy"
+  },
+  "parentObjectId": {
+    "name": "o_living_house",
+    "path": "objects/o_living_house/o_living_house.yy"
+  },
+  "persistent": false,
+  "physicsAngularDamping": 0.1,
+  "physicsDensity": 0.5,
+  "physicsFriction": 0.2,
+  "physicsGroup": 1,
+  "physicsKinematic": false,
+  "physicsLinearDamping": 0.1,
+  "physicsObject": false,
+  "physicsRestitution": 0.1,
+  "physicsSensor": false,
+  "physicsShape": 1,
+  "physicsShapePoints": [],
+  "physicsStartAwake": true,
+  "properties": [],
+  "resourceType": "GMObject",
+  "resourceVersion": "2.0",
+  "solid": false,
+  "spriteId": {
+    "name": "s_defence_tower",
+    "path": "sprites/s_defence_tower/s_defence_tower.yy"
+  },
+  "spriteMaskId": null,
+  "visible": true
+}

@@ -1,3 +1,15 @@
+// Enemy territory outlines remain visible outside construction mode.
+draw_set_alpha(1);
+draw_set_color(COLOR_ENEMY_ZONE);
+var _zone_count = array_length(enemy_zones);
+for (var _zone_index = 0; _zone_index < _zone_count; ++_zone_index)
+{
+	var _zone = enemy_zones[_zone_index];
+	draw_rectangle(_zone.left, _zone.top, _zone.right, _zone.bottom, true);
+}
+draw_set_color(c_white);
+draw_set_alpha(1);
+
 // Show the construction overlay only during a purchase or building relocation.
 if (!instance_exists(o_game_controller) || !instance_exists(o_game_controller.shop_preview)) exit;
 var _grid = building_grid_bounds_get();

@@ -27,8 +27,12 @@ function fight_start()
 	if (instance_exists(fight_wall)) instance_destroy(fight_wall);
 	fight_wall = noone;
 	with (o_base_tower) instance_destroy();
-	instance_create_layer(BALANCE_BUILDING_GRID_CENTER_X + BALANCE_FIGHT_ENEMY_OFFSET_X + BALANCE_BASE_TOWER_ENEMY_OFFSET_X,
-		BALANCE_BUILDING_GRID_CENTER_Y, "Instances", o_base_tower);
+	if (!instance_exists(o_building_grid)) instance_create_layer(BALANCE_BUILDING_GRID_CENTER_X, BALANCE_BUILDING_GRID_CENTER_Y, "Instances", o_building_grid);
+	var _zones = o_building_grid.enemy_zones;
+	var _last_zone = _zones[array_length(_zones) - 1];
+	var _tower = instance_create_layer(_last_zone.right, (_last_zone.top + _last_zone.bottom) * 0.5, "Instances", o_base_tower);
+	// Keep the entire tower sprite inside the right end of its zone.
+	_tower.x -= sprite_get_width(_tower.sprite_index) - sprite_get_xoffset(_tower.sprite_index) + BALANCE_ENEMY_ZONE_BUILDING_MARGIN;
 	fight_living_houses_spawn();
 	// Start on the objective now that faction selection no longer positions the camera.
 	if (!fight_initialized && instance_exists(o_camera_controller))

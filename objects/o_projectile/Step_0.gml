@@ -1,5 +1,5 @@
 if (favor_source_faction == FACTION.NONE && instance_exists(source_instance)
-	&& variable_instance_exists(source_instance, "unit_faction")) favor_source_faction = source_instance.faction;
+	&& variable_instance_exists(source_instance, "faction")) favor_source_faction = source_instance.faction;
 if (!corruption_owner_initialized)
 {
 	corruption_owner_initialized = true;

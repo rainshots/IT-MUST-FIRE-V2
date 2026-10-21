@@ -302,8 +302,8 @@ if (variable_instance_exists(id, "cannon_no_corpse_warning_active") && cannon_no
 	draw_text(_corpse_warning_x, _corpse_warning_y, _corpse_warning_text);
 }
 
-// Draw short attack feedback line.
-if (attack_feedback_timer > 0)
+// Keep attack feedback lines off player units.
+if (attack_feedback_timer > 0 && unit_faction != UNIT_FACTION.FRIENDLY)
 {
 	var _feedback_progress = clamp(attack_feedback_timer / attack_feedback_time, 0, 1);
 	var _feedback_alpha = _feedback_progress;

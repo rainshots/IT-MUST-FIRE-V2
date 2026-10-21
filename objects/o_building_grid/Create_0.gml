@@ -6,3 +6,20 @@ is_attackable = false;
 hp = 1;
 faction = global.player_faction;
 vision_radius = BALANCE_FACTION_BASE_REVEAL_RADIUS;
+
+// Static world-space bounds also remain available for future enemy placement.
+var _zone_one_x = BALANCE_BUILDING_GRID_CENTER_X + BALANCE_ENEMY_ZONE_1_OFFSET_X;
+var _zone_two_x = _zone_one_x + BALANCE_ENEMY_ZONE_2_OFFSET_X;
+var _zone_three_x = _zone_two_x + BALANCE_ENEMY_ZONE_3_OFFSET_X;
+var _centers = [_zone_one_x, _zone_two_x, _zone_three_x];
+var _widths = [BALANCE_ENEMY_ZONE_1_WIDTH, BALANCE_ENEMY_ZONE_2_WIDTH, BALANCE_ENEMY_ZONE_3_WIDTH];
+enemy_zones = [];
+for (var _i = 0; _i < array_length(_centers); ++_i)
+{
+	enemy_zones[_i] = {
+		left: _centers[_i] - _widths[_i] * 0.5,
+		right: _centers[_i] + _widths[_i] * 0.5,
+		top: BALANCE_BUILDING_GRID_CENTER_Y - BALANCE_ENEMY_ZONE_HEIGHT * 0.5,
+		bottom: BALANCE_BUILDING_GRID_CENTER_Y + BALANCE_ENEMY_ZONE_HEIGHT * 0.5
+	};
+}

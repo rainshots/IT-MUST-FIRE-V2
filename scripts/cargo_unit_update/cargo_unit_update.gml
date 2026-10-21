@@ -10,7 +10,8 @@ function cargo_unit_update()
 	var _home_x = BALANCE_BUILDING_GRID_CENTER_X;
 	var _home_y = BALANCE_BUILDING_GRID_CENTER_Y;
 	if (instance_exists(o_heart)) { _home_x = o_heart.x; _home_y = o_heart.y; }
-	var _idle_x = _home_x + cargo_idle_offset_x;
+	var _grid = building_grid_bounds_get();
+	var _idle_x = _grid.right + BALANCE_BUILDING_GRID_CELL_SIZE;
 	var _idle_y = _home_y + cargo_idle_offset_y;
 	target_instance = noone;
 
@@ -20,7 +21,7 @@ function cargo_unit_update()
 	{
 		var _home_distance = point_distance(x, y, _home_x, _home_y);
 		if (_home_distance > BALANCE_UNIT_DEFENSE_LEASH) defense_returning = true;
-		if (defense_returning && _home_distance <= BALANCE_UNIT_DEFENSE_RETURN_RADIUS) defense_returning = false;
+		if (defense_returning && point_distance(x, y, _idle_x, _idle_y) <= BALANCE_UNIT_IDLE_STOP_DISTANCE) defense_returning = false;
 		if (defense_returning)
 		{
 			alert_target = noone;
@@ -59,10 +60,12 @@ function cargo_unit_update()
 				_nearest = _distance;
 			}
 		}
-		if (!instance_exists(target_instance) && instance_exists(o_base_tower))
+		// The objective wins when closest, including ties, and remains the fallback destination.
+		if (instance_exists(o_base_tower))
 		{
 			var _tower = instance_nearest(x, y, o_base_tower);
-			if (target_can_be_attacked(_tower)) target_instance = _tower;
+			if (target_can_be_attacked(_tower)
+				&& point_distance(x, y, _tower.x, _tower.y) <= _nearest) target_instance = _tower;
 		}
 	}
 	if (instance_exists(target_instance))
