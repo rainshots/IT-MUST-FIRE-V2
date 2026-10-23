@@ -4362,3 +4362,6 @@ worker_cursor_hidden = false;
 worker_notice = "";
 worker_notice_timer = 0;
 workers_initialized = false;
+
+// Optional grids remain visible outside construction mode.
+show_building_grid = false;

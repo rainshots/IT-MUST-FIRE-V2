@@ -25,7 +25,7 @@ worker_work_update = function(_seconds)
 		if (_trash.left < _right && _trash.right > _left && _trash.top < _bottom && _trash.bottom > _top)
 		{
 			building_smoke_create(id);
-			instance_destroy();
+			trash_clear();
 		}
 	}
 	building_smoke_create(id);

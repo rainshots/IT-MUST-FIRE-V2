@@ -12,6 +12,8 @@ function building_hover_draw()
 	if (point_in_rectangle(_mx, _my, _mode.x, _mode.y, _mode.x + _mode.width, _mode.y + _mode.height)) return;
 	var _speed = game_speed_button_rect();
 	if (point_in_rectangle(_mx, _my, _speed.x, _speed.y, _speed.x + _speed.width, _speed.y + _speed.height)) return;
+	var _outlines = building_outlines_button_rect();
+	if (point_in_rectangle(_mx, _my, _outlines.x, _outlines.y, _outlines.x + _outlines.width, _outlines.y + _outlines.height)) return;
 	var _camera = o_camera_controller.camera_id;
 	var _x = camera_get_view_x(_camera) + _mx * camera_get_view_width(_camera) / display_get_gui_width();
 	var _y = camera_get_view_y(_camera) + _my * camera_get_view_height(_camera) / display_get_gui_height();
@@ -53,7 +55,7 @@ function building_hover_draw()
 	if (font_exists(global.ui_font)) draw_set_font(global.ui_font);
 	var _label = _building.object_index == o_base_tower ? "Base Tower" : _building.building_label;
 	var _text = _label + "\n" + _description;
-	var _scale = _bar.scale;
+	var _scale = _bar.scale * BALANCE_BUILDING_TOOLTIP_SCALE;
 	var _padding = BALANCE_SHOP_TOOLTIP_PADDING * _scale;
 	var _width = min(BALANCE_SHOP_TOOLTIP_WIDTH * _scale, display_get_gui_width() - _padding * 2);
 	var _text_scale = BALANCE_SHOP_TOOLTIP_TEXT_SCALE * _scale;

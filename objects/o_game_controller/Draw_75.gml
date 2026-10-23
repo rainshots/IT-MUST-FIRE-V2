@@ -700,3 +700,4 @@ player_unit_mode_draw();
 building_hover_draw();
 
 game_speed_draw();
+building_outlines_draw();

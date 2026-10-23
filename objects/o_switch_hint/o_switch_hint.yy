@@ -1,18 +1,20 @@
 {
   "$GMObject":"",
-  "%Name":"o_taint_hint",
+  "%Name":"o_switch_hint",
   "eventList":[
     {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":0,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
-    {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":8,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
   ],
   "managed":true,
-  "name":"o_taint_hint",
+  "name":"o_switch_hint",
   "overriddenProperties":[],
   "parent":{
-    "name":"Objects",
-    "path":"folders/Objects.yy",
+    "name":"Hints",
+    "path":"folders/Objects/Hints.yy",
   },
-  "parentObjectId":null,
+  "parentObjectId":{
+    "name":"o_hint_base",
+    "path":"objects/o_hint_base/o_hint_base.yy",
+  },
   "persistent":false,
   "physicsAngularDamping":0.1,
   "physicsDensity":0.5,

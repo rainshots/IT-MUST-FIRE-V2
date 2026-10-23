@@ -13,7 +13,7 @@ function game_speed_draw()
 	var _label = "Speed " + string(global.gameplay_time_scale) + "x";
 	// Preserve label sizes independently of the enlarged button bounds.
 	var _label_scale = min(BALANCE_CONTROL_TEXT_HEIGHT * 0.48 / max(1, string_height(_label)), BALANCE_CONTROL_TEXT_WIDTH * 0.9 / max(1, string_width(_label)));
-	var _hint = "Left Alt";
+	var _hint = "Left Ctrl";
 	var _hint_scale = min(_label_scale * 0.75, BALANCE_CONTROL_TEXT_WIDTH * 0.9 / max(1, string_width(_hint)));
 	draw_text_transformed(_r.x + _r.width * 0.5, _r.y + _r.height * 0.3, _label, _label_scale, _label_scale, 0);
 	draw_text_transformed(_r.x + _r.width * 0.5, _r.y + _r.height * 0.76, _hint, _hint_scale, _hint_scale, 0);

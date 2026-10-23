@@ -10,7 +10,7 @@ function player_unit_mode_draw()
 	draw_set_color(COLOR_HUD_TEXT);
 	draw_set_halign(fa_center);
 	draw_set_valign(fa_middle);
-	var _label = player_unit_mode == PLAYER_UNIT_MODE.DEFEND ? "Defend" : "Attack";
+	var _label = player_unit_mode == PLAYER_UNIT_MODE.DEFEND ? "Defense Mode" : "Attack Mode";
 	// Preserve label sizes independently of the enlarged button bounds.
 	var _label_scale = min(BALANCE_CONTROL_TEXT_HEIGHT * 0.48 / max(1, string_height(_label)), BALANCE_CONTROL_TEXT_WIDTH * 0.9 / max(1, string_width(_label)));
 	var _hint = "Left Shift";
