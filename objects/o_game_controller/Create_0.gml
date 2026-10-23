@@ -3320,8 +3320,9 @@ worker_idle_wander_target_pick = function(_worker)
 	);
 	var _wander_distance = random(BALANCE_IDLE_WORKER_WANDER_RADIUS);
 
-	_worker.idle_wander_target_x = BALANCE_BUILDING_GRID_CENTER_X + lengthdir_x(_wander_distance, _wander_direction);
-	_worker.idle_wander_target_y = BALANCE_BUILDING_GRID_CENTER_Y + BALANCE_DAY_CANNON_REGROUP_OFFSET_Y + lengthdir_y(_wander_distance, _wander_direction);
+	var _grid = building_grid_bounds_get(_worker.x, _worker.y);
+	_worker.idle_wander_target_x = (_grid.left + _grid.right) * 0.5 + lengthdir_x(_wander_distance, _wander_direction);
+	_worker.idle_wander_target_y = (_grid.top + _grid.bottom) * 0.5 + BALANCE_DAY_CANNON_REGROUP_OFFSET_Y + lengthdir_y(_wander_distance, _wander_direction);
 	_worker.idle_wander_wait_timer = irandom_range(
 		round(BALANCE_IDLE_WORKER_WANDER_WAIT_MIN * room_speed),
 		round(BALANCE_IDLE_WORKER_WANDER_WAIT_MAX * room_speed)

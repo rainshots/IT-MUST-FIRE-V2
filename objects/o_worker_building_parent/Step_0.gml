@@ -20,7 +20,7 @@ for (var _index = _count - 1; _index >= 0; --_index)
 		array_delete(worker_cultists, _index, 1);
 		continue;
 	}
-	if (!building_accepts_workers || _worker.hp <= 0 || _worker.is_being_dragged)
+	if (!building_accepts_workers || !building_grid_work_enabled(id) || _worker.hp <= 0 || _worker.is_being_dragged)
 	{
 		worker_release(_worker);
 		continue;

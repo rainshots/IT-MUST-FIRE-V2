@@ -18,7 +18,7 @@ function building_production_update(_seconds)
 	production_seconds += _seconds;
 	if (production_seconds + 0.000001 < production_interval) return;
 	production_seconds = 0;
-	var _grid = building_grid_bounds_get();
+	var _grid = building_grid_bounds_get(x, y);
 	instance_create_layer(_grid.right + BALANCE_BUILDING_GRID_CELL_SIZE,
-		BALANCE_BUILDING_GRID_CENTER_Y + random_range(-BALANCE_CARGO_IDLE_HALF_HEIGHT, BALANCE_CARGO_IDLE_HALF_HEIGHT), "Instances", production_unit);
+		(_grid.top + _grid.bottom) * 0.5 + random_range(-BALANCE_CARGO_IDLE_HALF_HEIGHT, BALANCE_CARGO_IDLE_HALF_HEIGHT), "Instances", production_unit);
 }

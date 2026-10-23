@@ -623,7 +623,7 @@ else if (!_special_behavior_handled && _should_search_target && _is_enemy_unit)
 
 		if (!instance_exists(target_instance) && unit_can_attack_cannon && instance_exists(o_heart))
 		{
-			target_instance = instance_find(o_heart, 0);
+			target_instance = player_objective_target_get(id);
 		}
 	}
 }

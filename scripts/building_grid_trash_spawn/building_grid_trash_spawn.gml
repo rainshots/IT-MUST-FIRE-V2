@@ -1,9 +1,9 @@
 /// @description Fills about half the grid with mixed trash, with a mild outer bias and random placement throughout.
-function building_grid_trash_spawn()
+function building_grid_trash_spawn(_grid = undefined, _fill_share = BALANCE_GRID_TRASH_FILL_SHARE)
 {
-	var _grid = building_grid_bounds_get();
-	var _columns = BALANCE_BUILDING_GRID_COLUMNS;
-	var _rows = BALANCE_BUILDING_GRID_ROWS;
+	if (is_undefined(_grid)) _grid = building_grid_bounds_get();
+	var _columns = round((_grid.right - _grid.left) / BALANCE_BUILDING_GRID_CELL_SIZE);
+	var _rows = round((_grid.bottom - _grid.top) / BALANCE_BUILDING_GRID_CELL_SIZE);
 	var _size = BALANCE_BUILDING_GRID_CELL_SIZE;
 	var _occupied = array_create(_columns * _rows, false);
 	// Reserve The Heart and any other pre-existing buildings before sampling trash positions.
@@ -20,7 +20,7 @@ function building_grid_trash_spawn()
 	var _types = [o_trash_big_rock, o_trash_house_rubble, o_trash_dead_tree];
 	var _widths = [2, 3, 1];
 	var _heights = [2, 1, 1];
-	var _target_cells = round(_columns * _rows * BALANCE_GRID_TRASH_FILL_SHARE);
+	var _target_cells = round(_columns * _rows * _fill_share);
 	var _filled = 0;
 	var _first_type = irandom(array_length(_types) - 1);
 	// At most one object per target cell; larger pieces alternate with trees to maintain variety.

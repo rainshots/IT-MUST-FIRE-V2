@@ -1,0 +1,15 @@
+var _sprite = sprite_index;
+var _scale = placement_size / max(sprite_get_width(_sprite), sprite_get_height(_sprite));
+var _draw_x = x + (sprite_get_xoffset(_sprite) - sprite_get_width(_sprite) * 0.5) * _scale;
+var _draw_y = y + (sprite_get_yoffset(_sprite) - sprite_get_height(_sprite) * 0.5) * _scale;
+draw_sprite_ext(_sprite, 0, _draw_x, _draw_y, _scale, _scale, 0, c_white, 1);
+draw_set_color(COLOR_HUD_TEXT);
+draw_set_halign(fa_center);
+draw_set_valign(fa_bottom);
+draw_text_transformed(x, y - placement_size * 0.5, "New Idol\n" + string(ceil(hp)) + " / " + string(max_hp) + " HP", 0.5, 0.5, 0);
+draw_set_halign(fa_left);
+draw_set_valign(fa_top);
+draw_set_color(c_white);
+draw_set_alpha(1);
+
+building_work_progress_draw();

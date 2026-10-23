@@ -89,6 +89,17 @@ catapult_target_find = function()
 		}
 	}
 
+	// Living Idols are artillery targets too, using their footprint edge distance.
+	with (o_new_idol)
+	{
+		if (!other.target_can_be_attacked(id)) continue;
+		var _distance = other.navigation_target_distance_get(id);
+		if (_distance <= _nearest_target_distance)
+		{
+			_nearest_target = id;
+			_nearest_target_distance = _distance;
+		}
+	}
 	// The Heart participates in the same nearest-structure selection.
 	if (unit_can_attack_cannon && instance_exists(o_heart))
 	{
@@ -224,7 +235,7 @@ catapult_behavior_update = function()
 	// With no valid target, continue advancing toward the player's Heart.
 	if (instance_exists(o_heart))
 	{
-		move_towards_target(instance_find(o_heart, 0));
+		move_towards_target(player_objective_target_get(id));
 	}
 	else
 	{

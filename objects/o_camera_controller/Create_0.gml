@@ -115,39 +115,30 @@ half_view_height = view_height * 0.5;
 
 camera_center_clamp_to_room = function()
 {
-	var _minimum_center_x = half_view_width;
-	var _maximum_center_x = room_width - half_view_width;
-	var _minimum_center_y = half_view_height;
-	var _maximum_center_y = room_height - half_view_height;
-
-	// Center the view if it ever becomes wider than the room.
-	if (_minimum_center_x > _maximum_center_x)
-	{
-		x = room_width * 0.5;
-	}
-	else
-	{
-		x = clamp(x, _minimum_center_x, _maximum_center_x);
-	}
-
-	if (_minimum_center_y > _maximum_center_y)
-	{
-		y = room_height * 0.5;
-	}
-	else
-	{
-		y = clamp(y, _minimum_center_y, _maximum_center_y);
-	}
+	var _view = camera_view_position_clamp_to_room(x - half_view_width, y - half_view_height);
+	x = _view[0] + half_view_width;
+	y = _view[1] + half_view_height;
 };
 
 camera_view_position_clamp_to_room = function(_view_x, _view_y)
 {
-	var _maximum_view_x = max(0, room_width - view_width);
-	var _maximum_view_y = max(0, room_height - view_height);
-
+	var _bounds = camera_play_bounds_get();
+	// Limit zoom-out too, so the visible edges cannot exceed the allowed margin.
+	var _fit = min((_bounds.right - _bounds.left) / base_view_width,
+		(_bounds.bottom - _bounds.top) / base_view_height);
+	if (zoom_level > _fit)
+	{
+		zoom_level = _fit;
+		target_zoom_level = min(target_zoom_level, _fit);
+		view_width = base_view_width * zoom_level;
+		view_height = base_view_height * zoom_level;
+		half_view_width = view_width * 0.5;
+		half_view_height = view_height * 0.5;
+		if (variable_instance_exists(id, "camera_id")) camera_set_view_size(camera_id, view_width, view_height);
+	}
 	return [
-		clamp(_view_x, 0, _maximum_view_x),
-		clamp(_view_y, 0, _maximum_view_y)
+		clamp(_view_x, _bounds.left, max(_bounds.left, _bounds.right - view_width)),
+		clamp(_view_y, _bounds.top, max(_bounds.top, _bounds.bottom - view_height))
 	];
 };
 

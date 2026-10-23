@@ -1,4 +1,4 @@
-/// @description Seeds 80 percent of a territory once its enemy buildings are destroyed.
+/// @description Awards each cleared zone once and corrupts 80 percent of its new outpost (or the final territory).
 function enemy_zone_corruption_update()
 {
 	if (!instance_exists(o_building_grid) || !instance_exists(o_corruption_grid)) return;
@@ -16,6 +16,11 @@ function enemy_zone_corruption_update()
 			if (hp > 0 && point_in_rectangle(x, y, _zone.left, _zone.top, _zone.right, _zone.bottom)) _occupied = true;
 		if (_occupied) continue;
 		_grid.enemy_zone_corrupted[_i] = true;
+		if (_i < array_length(_grid.enemy_zones) - 1) _zone = building_grid_unlock(_i);
+		global.faction_mana[global.player_faction] += BALANCE_ZONE_CLEAR_MANA;
+		var _home = building_grid_latest_get();
+		instance_create_layer((_home.left + _home.right) * 0.5,
+			(_home.top + _home.bottom) * 0.5 + BALANCE_BUILDING_GRID_CELL_SIZE * 2, "Instances", o_cultist);
 		var _cells = [];
 		for (var _cx = max(0, ceil(_zone.left / _size - 0.5)); _cx < min(_terrain.grid_width, ceil(_zone.right / _size - 0.5)); ++_cx)
 			for (var _cy = max(0, ceil(_zone.top / _size - 0.5)); _cy < min(_terrain.grid_height, ceil(_zone.bottom / _size - 0.5)); ++_cy)

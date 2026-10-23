@@ -696,3 +696,7 @@ worker_drag_draw();
 shop_draw();
 
 player_unit_mode_draw();
+
+building_hover_draw();
+
+game_speed_draw();

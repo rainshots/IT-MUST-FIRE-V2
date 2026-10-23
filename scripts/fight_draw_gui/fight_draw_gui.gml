@@ -14,7 +14,15 @@ function fight_draw_gui()
 	draw_set_halign(fa_left);
 	draw_set_valign(fa_top);
 	draw_set_color(COLOR_HUD_TEXT);
-	draw_text_transformed(_left, _margin, "FIGHT " + string(fight_number) + " / " + string(BALANCE_FIGHT_COUNT), _scale, _scale, 0);
+	if (fight_state == FIGHT_STATE.ACTIVE)
+	{
+		var _remaining = ceil(max(0, fight_next_wave_seconds - fight_elapsed_seconds));
+		var _minutes = floor(_remaining / 60);
+		var _seconds = _remaining mod 60;
+		var _label = "Wave " + string(fight_wave_index + 1) + " in "
+			+ string(_minutes) + ":" + (_seconds < 10 ? "0" : "") + string(_seconds);
+		draw_text_transformed(_left, _margin, _label, _scale, _scale, 0);
+	}
 	if (fight_state == FIGHT_STATE.CLEARED && global.focus_window == FOCUS_WINDOW.NOONE)
 	{
 		var _rect = fight_move_on_rect_get();
@@ -35,7 +43,7 @@ function fight_draw_gui()
 		draw_set_color(COLOR_HUD_TEXT);
 		draw_set_halign(fa_center);
 		draw_set_valign(fa_middle);
-		var _message = fight_state == FIGHT_STATE.WON ? "VICTORY - ALL 10 FIGHTS CLEARED" : "GAME OVER - THE HEART DESTROYED";
+		var _message = fight_state == FIGHT_STATE.WON ? "VICTORY - BASE TOWER DESTROYED" : "GAME OVER - THE HEART DESTROYED";
 		draw_text(_gui_width * 0.5, _gui_height * 0.5, _message);
 		draw_text(_gui_width * 0.5, _gui_height * 0.5 + 56 * _scale, "Press Enter to restart");
 	}

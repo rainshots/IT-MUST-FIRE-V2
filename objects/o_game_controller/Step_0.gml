@@ -58,6 +58,7 @@ if (fight_bonus_open)
 	fight_bonus_input_update();
 	exit;
 }
+if (game_speed_input_update()) exit;
 if (player_unit_mode_input_update()) exit;
 if (shop_input_update()) exit;
 // Only Cultists and buildings are draggable in grid gameplay.

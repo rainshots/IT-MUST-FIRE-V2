@@ -1,6 +1,6 @@
 // The minimap remains available independently of the disabled legacy HUD.
 // Draw minimap in the lower part of the right HUD sidebar.
-if (instance_exists(o_building_grid))
+if (HUD_MINIMAP_ENABLED && instance_exists(o_building_grid))
 {
 	var _minimap_gui_width = display_get_gui_width();
 	var _minimap_gui_height = display_get_gui_height();
@@ -282,25 +282,6 @@ if (instance_exists(o_building_grid))
 		corruption_minimap_label_scale * _minimap_scale,
 		0
 	);
-}
-if (instance_exists(o_building_grid) && instance_exists(o_game_controller))
-{
-	var _geometry = minimap_geometry_get();
-	var _controller = o_game_controller;
-	if (_controller.fight_state == FIGHT_STATE.ACTIVE)
-	{
-		var _remaining = ceil(max(0, _controller.fight_next_wave_seconds - _controller.fight_elapsed_seconds));
-		var _minutes = floor(_remaining / 60);
-		var _seconds = _remaining mod 60;
-		var _label = "Wave " + string(_controller.fight_wave_index + 1) + " in "
-			+ string(_minutes) + ":" + (_seconds < 10 ? "0" : "") + string(_seconds);
-		if (font_exists(global.ui_font)) draw_set_font(global.ui_font);
-		draw_set_color(COLOR_HUD_TEXT);
-		draw_set_halign(fa_center);
-		draw_set_valign(fa_bottom);
-		draw_text_transformed(_geometry.center_x, _geometry.y - BALANCE_WAVE_TIMER_GAP * _geometry.scale,
-			_label, 0.65 * _geometry.scale, 0.65 * _geometry.scale, 0);
-	}
 }
 draw_set_halign(fa_left);
 draw_set_valign(fa_top);
@@ -767,7 +748,7 @@ if (_regular_hud_is_visible)
 }
 
 // Draw minimap in the lower part of the right HUD sidebar.
-if (instance_exists(o_building_grid))
+if (HUD_MINIMAP_ENABLED && instance_exists(o_building_grid))
 {
 	var _minimap_gui_width = display_get_gui_width();
 	var _minimap_gui_height = display_get_gui_height();

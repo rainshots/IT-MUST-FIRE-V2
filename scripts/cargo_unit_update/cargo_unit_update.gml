@@ -7,10 +7,9 @@ function cargo_unit_update()
 	if (cannon_loaded || is_being_dragged) return;
 	cargo_launched = instance_exists(o_game_controller)
 		&& o_game_controller.player_unit_mode == PLAYER_UNIT_MODE.ATTACK;
-	var _home_x = BALANCE_BUILDING_GRID_CENTER_X;
-	var _home_y = BALANCE_BUILDING_GRID_CENTER_Y;
-	if (instance_exists(o_heart)) { _home_x = o_heart.x; _home_y = o_heart.y; }
-	var _grid = building_grid_bounds_get();
+	var _grid = building_grid_latest_get();
+	var _home_x = (_grid.left + _grid.right) * 0.5;
+	var _home_y = (_grid.top + _grid.bottom) * 0.5;
 	var _idle_x = _grid.right + BALANCE_BUILDING_GRID_CELL_SIZE;
 	var _idle_y = _home_y + cargo_idle_offset_y;
 	target_instance = noone;

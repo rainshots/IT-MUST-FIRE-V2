@@ -2788,6 +2788,8 @@ find_player_building_on_cannon_path = function()
 	}
 
 	var _cannon = instance_find(o_heart, 0);
+	var _objective = player_objective_target_get(id);
+	if (instance_exists(_objective) && _objective.object_index == o_new_idol) return _objective;
 	var _nearest_building = noone;
 	var _nearest_distance_squared = infinity;
 	var _settlement_building_count = instance_number(o_v13buildings_parent);
@@ -2892,6 +2894,17 @@ find_nearest_attackable_player_structure = function(_max_distance)
 		}
 	}
 
+	// Idols also attract nearby defenders, even when they are not marching to the Heart.
+	with (o_new_idol)
+	{
+		if (!other.target_can_be_attacked(id)) continue;
+		var _distance = other.navigation_target_distance_get(id);
+		if (_distance * _distance <= _nearest_distance_squared)
+		{
+			_nearest_target = id;
+			_nearest_distance_squared = _distance * _distance;
+		}
+	}
 	return _nearest_target;
 };
 

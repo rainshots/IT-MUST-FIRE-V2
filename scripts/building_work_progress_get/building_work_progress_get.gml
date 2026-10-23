@@ -60,5 +60,6 @@ function building_work_progress_get()
 	}
 	if (array_length(worker_cultists) == 0) _status = "Needs Cultist";
 	else if (global.pause) _status = "Paused";
+	if (!building_grid_work_enabled(id)) _status = "Repair New Idol";
 	return {progress: clamp(_progress, 0, 1), status: _status};
 }

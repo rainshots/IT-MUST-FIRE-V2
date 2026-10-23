@@ -883,6 +883,7 @@ minimap_geometry_get = function()
 
 minimap_world_position_from_gui = function(_mouse_x, _mouse_y)
 {
+	if (!HUD_MINIMAP_ENABLED) return [false, 0, 0];
 	var _geometry = minimap_geometry_get();
 
 	if (!is_struct(_geometry)
