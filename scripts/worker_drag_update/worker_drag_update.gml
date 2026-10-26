@@ -4,7 +4,7 @@ function worker_drag_update()
 	worker_hovered = noone;
 	worker_drop_building = noone;
 	worker_notice_timer = max(0, worker_notice_timer - 1 / max(1, room_speed));
-	var _allowed = !global.pause && fight_state == FIGHT_STATE.ACTIVE
+	var _allowed = fight_state == FIGHT_STATE.ACTIVE
 		&& global.focus_window == FOCUS_WINDOW.NOONE && !debug_menu_open && instance_exists(o_camera_controller);
 	if (!_allowed)
 	{
@@ -56,7 +56,7 @@ function worker_drag_update()
 	{
 		var _foot_offset = worker_dragged.bbox_bottom - worker_dragged.y;
 		worker_dragged.x = _world_x;
-		worker_dragged.y = _world_y + BALANCE_PICKUP_HAND_DRAG_OFFSET_Y * _scale_y - _foot_offset;
+		worker_dragged.y = _world_y + (BALANCE_PICKUP_HAND_DRAG_OFFSET_Y - BALANCE_WORKER_DRAG_LIFT) * _scale_y - _foot_offset;
 		var _count = instance_number(o_worker_building_parent);
 		var _nearest_distance = infinity;
 		for (var _index = 0; !_over_hud && _index < _count; ++_index)

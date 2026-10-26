@@ -883,7 +883,10 @@ global.whip_sounds = [
 	whip_sound01,
 	whip_sound02,
 	whip_sound03,
-	whip_sound04
+	whip_sound04,
+	whip_sound05,
+	whip_sound06,
+	whip_sound07
 ];
 global.cannon_shot_sounds = [
 	cannon_shot01,
@@ -4314,6 +4317,7 @@ fight_number = 0;
 fight_elapsed_seconds = 0;
 fight_wave_index = 0;
 fight_next_wave_seconds = BALANCE_WAVE_FIRST_DELAY;
+	fight_wave_countdown_started = 0;
 fight_charge = 0;
 // Loaded ammunition persists between fights; aiming never does.
 cannon_ammo = [];
@@ -4323,6 +4327,8 @@ shop_open = false;
 player_unit_cap = BALANCE_PLAYER_UNIT_CAP;
 building_zone_expansions = 0;
 shop_options = [];
+// Only purchased Cultists raise the price; zone rewards do not.
+shop_cultists_purchased = 0;
 player_unit_mode = PLAYER_UNIT_MODE.DEFEND;
 shop_refresh_cost = BALANCE_SHOP_REFRESH_COST;
 shop_preview = noone;

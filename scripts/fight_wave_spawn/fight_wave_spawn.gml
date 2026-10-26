@@ -37,9 +37,11 @@ function fight_wave_spawn()
 		}
 	}
 	fight_wave_index++;
+	global.sound_play_random([bell_sound01, bell_sound02, bell_sound03]);
 	if (fight_wave_index mod BALANCE_CORRUPTION_WAVE_INTERVAL == 0) corruption_wave_spread();
 	// Every newly spawned wave replenishes offers and resets paid rerolls.
 	shop_begin();
 	shop_refresh_cost = BALANCE_SHOP_REFRESH_COST;
+	fight_wave_countdown_started = fight_elapsed_seconds;
 	fight_next_wave_seconds = fight_elapsed_seconds + random_range(BALANCE_WAVE_INTERVAL_MIN, BALANCE_WAVE_INTERVAL_MAX);
 }

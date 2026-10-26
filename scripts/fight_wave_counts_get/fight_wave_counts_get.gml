@@ -1,8 +1,8 @@
 /// @description Returns counts in peasant, archer, knight, mage, catapult order for a one-based wave.
 function fight_wave_counts_get(_wave)
 {
-	if (_wave <= 1) return [round(BALANCE_WAVE_START_PEASANTS * BALANCE_WAVE_STRENGTH_MULTIPLIER), 0, 0, 0, 0];
-	if (_wave == 2) return [round(BALANCE_WAVE_START_PEASANTS * BALANCE_WAVE_STRENGTH_MULTIPLIER), round(BALANCE_WAVE_SECOND_ARCHERS * BALANCE_WAVE_STRENGTH_MULTIPLIER), 0, 0, 0];
+	if (_wave <= 1) return [(round(BALANCE_WAVE_START_PEASANTS * BALANCE_WAVE_STRENGTH_MULTIPLIER) * BALANCE_ENEMY_SPAWN_COUNT_MULTIPLIER), 0, 0, 0, 0];
+	if (_wave == 2) return [(round(BALANCE_WAVE_START_PEASANTS * BALANCE_WAVE_STRENGTH_MULTIPLIER) * BALANCE_ENEMY_SPAWN_COUNT_MULTIPLIER), (round(BALANCE_WAVE_SECOND_ARCHERS * BALANCE_WAVE_STRENGTH_MULTIPLIER) * BALANCE_ENEMY_SPAWN_COUNT_MULTIPLIER), 0, 0, 0];
 	var _types = [o_enemy_peasant, o_enemy_archer, o_enemy_knight, o_enemy_mage, o_enemy_catapult];
 	var _unlocks = [1, 2, BALANCE_WAVE_KNIGHT_UNLOCK, BALANCE_WAVE_MAGE_UNLOCK, BALANCE_WAVE_CATAPULT_UNLOCK];
 	var _base_budget = BALANCE_WAVE_START_PEASANTS * fight_enemy_difficulty_get(o_enemy_peasant)
@@ -21,5 +21,6 @@ function fight_wave_counts_get(_wave)
 	}
 	// Peasants spend the remainder; whole-unit rounding stays within one peasant of the budget.
 	_counts[0] = max(0, floor(_remaining / fight_enemy_difficulty_get(o_enemy_peasant)));
+	for (var _i = 0; _i < array_length(_counts); ++_i) _counts[_i] *= BALANCE_ENEMY_SPAWN_COUNT_MULTIPLIER;
 	return _counts;
 }

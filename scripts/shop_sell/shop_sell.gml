@@ -11,5 +11,6 @@ function shop_sell()
 	shop_purchase_index = -1;
 	shop_wait_release = false;
 	global.pause = shop_previous_pause;
+	global.sound_play_random(global.construction_sounds);
 	return true;
 }

@@ -4,14 +4,10 @@ function defense_work_update(_seconds)
 	if (!instance_exists(o_game_controller) || o_game_controller.fight_state != FIGHT_STATE.ACTIVE) return;
 	if (object_index == o_pumpkin_patch)
 	{
-		if (array_length(mines) >= BALANCE_PUMPKIN_MAX_MINES) return;
-		production_seconds += _seconds;
-		if (production_seconds >= production_interval)
-		{
-			production_seconds -= production_interval;
-			var _limit = placement_size * 0.5 - BALANCE_PUMPKIN_MINE_INSET;
-			array_push(mines, {x: random_range(-_limit, _limit), y: random_range(-_limit, _limit)});
-		}
+		if (instance_number(o_patch_mine) >= BALANCE_PUMPKIN_MAX_MINES) return;
+		production_seconds = min(production_interval, production_seconds + _seconds);
+		if (production_seconds >= production_interval && instance_exists(pumpkin_mine_spawn(id)))
+			production_seconds = 0;
 		return;
 	}
 	// Reload only while staffed; retain a ready shot until an enemy is in range.

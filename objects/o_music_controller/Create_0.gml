@@ -53,7 +53,8 @@ night_music_track_names = [
 	"Berserk OST Sign 1 - Guts",
 	"BERSERK Forces - Susumu Hirasawa",
 	"Disposal Unit - Milky Way Sweep",
-	"UltraChurch - ULTRAKILL Original Game Soundtrack - Keygen Church"
+	"UltraChurch - ULTRAKILL Original Game Soundtrack - Keygen Church",
+	"Berserk Aria Ash Crow - Guts"
 ];
 
 // Shared music settings.
@@ -145,7 +146,7 @@ music_ambient_start = function()
 
 music_day_stop = function()
 {
-	if (day_music_handle != noone)
+	if (day_music_handle != noone && audio_is_playing(day_music_handle))
 	{
 		audio_stop_sound(day_music_handle);
 	}
@@ -157,7 +158,7 @@ music_day_stop = function()
 
 music_night_stop = function()
 {
-	if (night_music_handle != noone)
+	if (night_music_handle != noone && audio_is_playing(night_music_handle))
 	{
 		audio_stop_sound(night_music_handle);
 	}
@@ -187,27 +188,18 @@ music_track_name_get = function(_track_names, _track_index)
 	return "unknown track";
 };
 
+// Uniformly choose a different track whenever more than one is available.
 music_next_track_index_get = function(_tracks, _previous_music_sound)
 {
-	var _track_count = array_length(_tracks);
-
-	if (_track_count <= 0)
+	var _choices = [];
+	for (var _i = 0; _i < array_length(_tracks); ++_i)
 	{
-		return -1;
+		if (_tracks[_i] != _previous_music_sound && music_sound_can_play(_tracks[_i])) array_push(_choices, _i);
 	}
-
-	var _chosen_track_index = 0;
-
-	for (var _track_index = 0; _track_index < _track_count; ++_track_index)
-	{
-		if (_tracks[_track_index] == _previous_music_sound)
-		{
-			_chosen_track_index = (_track_index + 1) mod _track_count;
-			break;
-		}
-	}
-
-	return _chosen_track_index;
+	if (array_length(_choices) > 0) return _choices[irandom(array_length(_choices) - 1)];
+	for (var _i = 0; _i < array_length(_tracks); ++_i)
+		if (music_sound_can_play(_tracks[_i])) return _i;
+	return -1;
 };
 
 music_day_silence_timer_roll = function()
@@ -289,18 +281,11 @@ music_night_next_roll = function()
 	music_night_track_start(_chosen_track_index);
 };
 
+// Night music is the continuous soundtrack, independent of the old day/night cycle.
 music_target_gain_update = function()
 {
-	var _music_volume = music_volume_get();
-
-	day_music_target_gain = music_day_gain * _music_volume;
-	night_music_target_gain = music_muted_gain;
-
-	if (variable_global_exists("day_phase") && global.day_phase == DAY_PHASE.NIGHT)
-	{
-		day_music_target_gain = music_muted_gain;
-		night_music_target_gain = music_night_gain * _music_volume;
-	}
+	day_music_target_gain = music_muted_gain;
+	night_music_target_gain = music_night_gain * music_volume_get();
 };
 
 music_active_track_state_update = function()
@@ -349,17 +334,17 @@ music_gain_update = function()
 		night_music_current_gain = max(night_music_current_gain - _fade_step, night_music_target_gain);
 	}
 
-	if (day_music_handle != noone)
+	if (day_music_handle != noone && audio_is_playing(day_music_handle))
 	{
 		audio_sound_gain(day_music_handle, day_music_current_gain, 0);
 	}
 
-	if (night_music_handle != noone)
+	if (night_music_handle != noone && audio_is_playing(night_music_handle))
 	{
 		audio_sound_gain(night_music_handle, night_music_current_gain, 0);
 	}
 
-	if (ambient_handle != noone)
+	if (ambient_handle != noone && audio_is_playing(ambient_handle))
 	{
 		audio_sound_gain(ambient_handle, ambient_gain * ambient_volume_get(), 0);
 	}
@@ -398,7 +383,7 @@ music_start_initial = function()
 	music_audio_unlocked = true;
 	music_ambient_start();
 
-	// Start both music layers immediately so crossfades do not restart tracks.
+	// Start a random Night track immediately, independent of the current phase.
 	current_day_phase = DAY_PHASE.DAY;
 
 	if (variable_global_exists("day_phase"))
@@ -410,23 +395,8 @@ music_start_initial = function()
 	day_music_current_gain = day_music_target_gain;
 	night_music_current_gain = night_music_target_gain;
 
-	if (array_length(day_music_tracks) > 0)
-	{
-		music_day_track_start(0);
-	}
-	else
-	{
-		music_day_silence_timer_roll();
-	}
-
-	if (array_length(night_music_tracks) > 0)
-	{
-		music_night_track_start(0);
-	}
-	else
-	{
-		music_night_silence_timer_roll();
-	}
+	music_day_stop();
+	music_night_next_roll();
 
 	music_active_track_state_update();
 };

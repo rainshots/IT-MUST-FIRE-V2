@@ -13,5 +13,6 @@ function worker_assign(_worker, _building)
 	_worker.is_assigned_to_building = true;
 	_worker.is_being_dragged = false;
 	_building.worker_positions_update();
+	global.sound_play_random(global.pick_worker_sounds);
 	return true;
 }

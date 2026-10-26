@@ -28,41 +28,8 @@ music_ambient_start();
 music_phase_update();
 music_gain_update();
 
-// Wait a fixed pause after a day track ends before choosing the next one.
-if (day_music_waiting_between_tracks)
-{
-	day_music_reroll_timer = max(0, day_music_reroll_timer - 1);
-
-	if (day_music_reroll_timer <= 0)
-	{
-		day_music_waiting_between_tracks = false;
-		music_day_next_roll();
-	}
-}
-
-// Avoid checking music handles every frame.
-if (music_check_timer > 0)
-{
-	music_check_timer--;
-	exit;
-}
-
-music_check_timer = music_check_interval;
-
-// Silence is an intentional day music state between possible tracks.
-if (day_music_handle == noone)
-{
-	if (array_length(day_music_tracks) > 0 && !day_music_waiting_between_tracks)
-	{
-		music_day_silence_timer_roll();
-	}
-}
-else if (!audio_is_playing(day_music_handle))
-{
-	day_music_next_previous_sound = day_current_music_sound;
-	music_day_stop();
-	music_day_silence_timer_roll();
-}
+// Retire the legacy day channel; check the Night track every frame to avoid gaps.
+if (day_music_handle != noone) music_day_stop();
 
 // Night music should continue without an intentional pause between tracks.
 if (night_music_handle == noone)

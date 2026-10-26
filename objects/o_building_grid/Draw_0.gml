@@ -16,6 +16,15 @@ if (instance_exists(o_game_controller) && instance_exists(o_game_controller.work
 			|| array_length(worker_cultists) >= worker_max) continue;
 		var _bounds = building_bounds_get(id, x, y);
 		draw_rectangle(_bounds.left, _bounds.top, _bounds.right, _bounds.bottom, false);
+		// Emphasize the valid workplace currently under the carried Cultist.
+		if (id == o_game_controller.worker_drop_building)
+		{
+			draw_set_color(COLOR_BUILDING_GRID);
+			draw_set_alpha(1);
+			draw_rectangle(_bounds.left, _bounds.top, _bounds.right, _bounds.bottom, true);
+			draw_set_color(COLOR_BUILDING_GRID_MERGE);
+			draw_set_alpha(BALANCE_BUILDING_GRID_OCCUPIED_ALPHA);
+		}
 	}
 	draw_set_color(c_white);
 	draw_set_alpha(1);
@@ -46,6 +55,41 @@ for (var _grid_index = 0; _grid_index < array_length(building_grids); ++_grid_in
 		if (_left < _right && _top < _bottom)
 		{
 			draw_rectangle(_left, _top, _right, _bottom, false);
+		}
+	}
+
+	// Color each hovered grid slot by occupancy, excluding the carried building itself.
+	if (_placing)
+	{
+		var _carried = o_game_controller.shop_preview;
+		var _footprint = building_bounds_get(_carried, _carried.x, _carried.y);
+		var _cell_size = BALANCE_BUILDING_GRID_CELL_SIZE;
+		var _column_start = max(0, floor((_footprint.left - _grid.left) / _cell_size));
+		var _column_end = min(round((_grid.right - _grid.left) / _cell_size), ceil((_footprint.right - _grid.left) / _cell_size));
+		var _row_start = max(0, floor((_footprint.top - _grid.top) / _cell_size));
+		var _row_end = min(round((_grid.bottom - _grid.top) / _cell_size), ceil((_footprint.bottom - _grid.top) / _cell_size));
+		draw_set_alpha(BALANCE_BUILDING_PLACEMENT_FILL_ALPHA);
+		for (var _column = _column_start; _column < _column_end; ++_column)
+		{
+			for (var _row = _row_start; _row < _row_end; ++_row)
+			{
+				var _cell_left = _grid.left + _column * _cell_size;
+				var _cell_top = _grid.top + _row * _cell_size;
+				var _blocked = false;
+				with (o_worker_building_parent)
+				{
+					if (id == _carried || placement_preview || is_being_dragged) continue;
+					var _occupied = building_bounds_get(id, x, y);
+					if (_cell_left < _occupied.right && _cell_left + _cell_size > _occupied.left
+						&& _cell_top < _occupied.bottom && _cell_top + _cell_size > _occupied.top)
+					{
+						_blocked = true;
+						break;
+					}
+				}
+				draw_set_color(_blocked ? COLOR_BUILDING_PLACEMENT_BLOCKED : COLOR_BUILDING_PLACEMENT_OPEN);
+				draw_rectangle(_cell_left, _cell_top, _cell_left + _cell_size, _cell_top + _cell_size, false);
+			}
 		}
 	}
 

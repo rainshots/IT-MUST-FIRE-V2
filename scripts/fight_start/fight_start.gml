@@ -43,6 +43,7 @@ function fight_start()
 	if (!fight_initialized)
 	{
 		with (o_worker_building_parent) instance_destroy();
+		with (o_patch_mine) instance_destroy();
 		if (!instance_exists(o_building_grid)) instance_create_layer(BALANCE_BUILDING_GRID_CENTER_X, BALANCE_BUILDING_GRID_CENTER_Y, "Instances", o_building_grid);
 		with (o_cannon) instance_destroy();
 		with (o_furnace) instance_destroy();
@@ -51,6 +52,19 @@ function fight_start()
 		instance_create_layer(BALANCE_BUILDING_GRID_CENTER_X, BALANCE_BUILDING_GRID_CENTER_Y, "Instances", o_heart);
 		building_grid_trash_spawn();
 		heart_corruption_seed();
+		// Deploy the initial army beside the original grid, using the same side as recruited units.
+		var _grid = building_grid_bounds_get();
+		var _starting_types = [o_mawling, o_skeleton_archer];
+		var _starting_counts = [BALANCE_STARTING_MAWLINGS, BALANCE_STARTING_ARCHERS];
+		for (var _type = 0; _type < array_length(_starting_types); ++_type)
+		{
+			for (var _unit = 0; _unit < _starting_counts[_type]; ++_unit)
+			{
+				instance_create_layer(_grid.right + BALANCE_BUILDING_GRID_CELL_SIZE,
+					BALANCE_BUILDING_GRID_CENTER_Y + random_range(-BALANCE_CARGO_IDLE_HALF_HEIGHT, BALANCE_CARGO_IDLE_HALF_HEIGHT),
+					"Instances", _starting_types[_type]);
+			}
+		}
 		global.faction_mana[global.player_faction]=BALANCE_STARTING_MANA;
 	}
 	fight_bonus_open = false;
@@ -73,6 +87,7 @@ function fight_start()
 
 	// Each fight begins with the same two-minute preparation and opening wave.
 	fight_next_wave_seconds = BALANCE_WAVE_FIRST_DELAY;
+	fight_wave_countdown_started = 0;
 	fight_enemy_hp_multiplier = 1;
 	fight_enemy_damage_multiplier = 1;
 }

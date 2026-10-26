@@ -25,7 +25,7 @@ function building_work_progress_get()
 		if (object_index == o_pumpkin_patch)
 		{
 			_status = "Growing mine";
-			if (array_length(mines) >= BALANCE_PUMPKIN_MAX_MINES) { _progress = 1; _status = "Patch full"; }
+			if (instance_number(o_patch_mine) >= BALANCE_PUMPKIN_MAX_MINES) { _progress = 1; _status = "Mine limit reached"; }
 		}
 		else if (_progress >= 1) _status = "Ready";
 	}

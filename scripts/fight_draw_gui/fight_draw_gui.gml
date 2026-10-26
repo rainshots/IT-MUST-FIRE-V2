@@ -6,7 +6,8 @@ function fight_draw_gui()
 	var _gui_height = display_get_gui_height();
 	var _scale = clamp(_gui_height / 1080, 0.6, 1);
 	var _margin = 28 * _scale;
-	var _width = 300 * _scale;
+	var _wave_scale = _scale * BALANCE_WAVE_HUD_SCALE;
+	var _width = 300 * _wave_scale;
 	var _height = 28 * _scale;
 	var _left = _gui_width - _width - _margin;
 	var _top = 64 * _scale;
@@ -21,7 +22,20 @@ function fight_draw_gui()
 		var _seconds = _remaining mod 60;
 		var _label = "Wave " + string(fight_wave_index + 1) + " in "
 			+ string(_minutes) + ":" + (_seconds < 10 ? "0" : "") + string(_seconds);
-		draw_text_transformed(_left, _margin, _label, _scale, _scale, 0);
+		// Normalize against this wave's actual randomized countdown interval.
+		var _duration = max(0.000001, fight_next_wave_seconds - fight_wave_countdown_started);
+		var _progress = clamp((fight_elapsed_seconds - fight_wave_countdown_started) / _duration, 0, 1);
+		var _warning = clamp((_progress - BALANCE_WAVE_BAR_WARNING_START) / (1 - BALANCE_WAVE_BAR_WARNING_START), 0, 1);
+		var _bar_height = BALANCE_WAVE_BAR_HEIGHT * _wave_scale;
+		draw_set_color(COLOR_HUD_BACKGROUND);
+		draw_rectangle(_left, _margin, _left + _width, _margin + _bar_height, false);
+		draw_set_color(merge_color(COLOR_WAVE_BAR_START, COLOR_WAVE_BAR_END, _warning));
+		if (_progress > 0) draw_rectangle(_left, _margin, _left + _width * _progress, _margin + _bar_height, false);
+		draw_rectangle(_left, _margin, _left + _width, _margin + _bar_height, true);
+		draw_set_color(COLOR_HUD_TEXT);
+		draw_set_halign(fa_center);
+		draw_text_transformed(_left + _width * 0.5, _margin + _bar_height + BALANCE_WAVE_BAR_TIMER_GAP * _wave_scale, _label, _wave_scale, _wave_scale, 0);
+		draw_set_halign(fa_left);
 	}
 	if (fight_state == FIGHT_STATE.CLEARED && global.focus_window == FOCUS_WINDOW.NOONE)
 	{

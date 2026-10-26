@@ -9,6 +9,7 @@ function player_unit_mode_input_update()
 	if (_available && (keyboard_check_pressed(vk_lshift) || (_hover && mouse_check_button_pressed(mb_left))))
 	{
 		player_unit_mode = player_unit_mode == PLAYER_UNIT_MODE.DEFEND ? PLAYER_UNIT_MODE.ATTACK : PLAYER_UNIT_MODE.DEFEND;
+		global.sound_play_random(player_unit_mode == PLAYER_UNIT_MODE.ATTACK ? global.night_start_sounds : global.whip_sounds);
 		with (o_friendly_units)
 		{
 			cargo_launched = other.player_unit_mode == PLAYER_UNIT_MODE.ATTACK;

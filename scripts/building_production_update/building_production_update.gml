@@ -21,4 +21,5 @@ function building_production_update(_seconds)
 	var _grid = building_grid_bounds_get(x, y);
 	instance_create_layer(_grid.right + BALANCE_BUILDING_GRID_CELL_SIZE,
 		(_grid.top + _grid.bottom) * 0.5 + random_range(-BALANCE_CARGO_IDLE_HALF_HEIGHT, BALANCE_CARGO_IDLE_HALF_HEIGHT), "Instances", production_unit);
+	global.sound_play_random(global.release_worker_sounds);
 }

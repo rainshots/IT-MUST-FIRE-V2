@@ -4,6 +4,7 @@ function shop_select(_index)
 	if(fight_state != FIGHT_STATE.ACTIVE || instance_exists(shop_preview) || _index<0 || _index>=array_length(shop_options)) return false;
 	var _offer=shop_options[_index];
 	if (!is_struct(_offer)) return false;
+	if (_offer.kind == SHOP_OFFER_KIND.CULTIST) _offer.cost = BALANCE_SHOP_CULTIST_COST + shop_cultists_purchased * BALANCE_SHOP_CULTIST_COST_INCREASE;
 	if(global.faction_mana[global.player_faction]<_offer.cost) return false;
 	// Upgrades apply immediately; building purchases still pay only on placement.
 	if (_offer.kind != SHOP_OFFER_KIND.BUILDING)
@@ -11,6 +12,7 @@ function shop_select(_index)
 		switch (_offer.kind)
 		{
 			case SHOP_OFFER_KIND.CULTIST:
+				shop_cultists_purchased++;
 
 				instance_create_layer(BALANCE_BUILDING_GRID_CENTER_X, BALANCE_BUILDING_GRID_CENTER_Y + BALANCE_DAY_CANNON_REGROUP_OFFSET_Y, "Instances", o_cultist);
 				break;

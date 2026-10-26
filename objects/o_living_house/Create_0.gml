@@ -53,8 +53,19 @@ house_guard_spawn_one = function()
 house_guards_spawn = function()
 {
 	if (!guards_enabled || guards_spawned) return;
+	// Dormant houses reveal their defenders only when a living player unit approaches.
+	var _approached = false;
+	with (o_friendly_units)
+	{
+		if (hp > 0 && point_distance(x, y, other.x, other.y) <= BALANCE_HOUSE_ACTIVATION_RADIUS)
+		{
+			_approached = true;
+			break;
+		}
+	}
+	if (!_approached) return;
 	guards_spawned = true;
-	guard_capacity = irandom_range(guard_count_min, guard_count_max);
+	guard_capacity = irandom_range(guard_count_min, guard_count_max) * BALANCE_ENEMY_SPAWN_COUNT_MULTIPLIER;
 	for (var _i = 0; _i < guard_capacity; ++_i) house_guard_spawn_one();
 };
 house_guards_regenerate = function(_seconds)

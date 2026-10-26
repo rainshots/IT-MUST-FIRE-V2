@@ -39,7 +39,7 @@ function building_hover_draw()
 		if (_pool[_i].object == _building.object_index) { _description = _pool[_i].description; break; }
 	switch (_building.object_index)
 	{
-		case o_living_house: _description = "Houses enemy defenders and replaces one fallen guard every minute. Destroy for 15 Mana."; break;
+		case o_living_house: _description = "Spawns defenders when player units approach within 300px, then replaces one fallen guard every minute. Destroy for 15 Mana."; break;
 		case o_defense_tower: _description = "Fires explosive shots at player units. Destroy for 30 Mana."; break;
 		case o_base_tower: _description = "Destroy the Base Tower to finish the fight."; break;
 		case o_new_idol: _description = "Protect this outpost. If destroyed, a Cultist must repair it for 3 minutes before this Grid can work again."; break;
@@ -48,7 +48,7 @@ function building_hover_draw()
 		case o_unholy_shrine: _description = "A working Cultist summons Balgors.\nFully upgraded."; break;
 		case o_feast_table: _description = "A working Cultist heals idle units with 50% more healing than a Kitchen.\nFully upgraded."; break;
 		case o_bomb_tower: _description = "Fires explosive projectiles at enemies while a Cultist works here.\nFully upgraded."; break;
-		case o_big_hall: _description = "Adds +5 unit capacity while placed on the Grid. No worker required.\nFully upgraded."; break;
+		case o_big_hall: _description = "Adds +10 unit capacity while placed on the Grid. No worker required.\nFully upgraded."; break;
 		case o_witch_well: _description = "A working Cultist generates 1 Mana every 5 seconds.\nFully upgraded."; break;
 	}
 	if (_description == "") return;

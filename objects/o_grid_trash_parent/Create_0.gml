@@ -19,5 +19,9 @@ worker_work_update = function(_seconds)
 {
 	if (!instance_exists(o_game_controller) || o_game_controller.fight_state != FIGHT_STATE.ACTIVE) return;
 	production_seconds = min(clear_seconds, production_seconds + _seconds);
-	if (production_seconds + 0.000001 >= clear_seconds) trash_clear();
+	if (production_seconds + 0.000001 >= clear_seconds)
+	{
+		global.sound_play_random(global.release_worker_sounds);
+		trash_clear();
+	}
 };

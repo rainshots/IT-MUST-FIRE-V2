@@ -1,7 +1,7 @@
 /// @description Draws the restored big hand and civilian work information; controller context.
 function worker_drag_draw()
 {
-	if (global.pause || global.focus_window != FOCUS_WINDOW.NOONE) return;
+	if (global.focus_window != FOCUS_WINDOW.NOONE) return;
 	var _worker = instance_exists(worker_dragged) ? worker_dragged : worker_hovered;
 	var _x = device_mouse_x_to_gui(0);
 	var _y = device_mouse_y_to_gui(0);

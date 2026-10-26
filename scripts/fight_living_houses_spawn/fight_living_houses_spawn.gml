@@ -34,6 +34,7 @@ function fight_living_houses_spawn()
 			var _top = _zone.top + sprite_get_yoffset(_sprite) + _margin;
 			var _bottom = _zone.bottom - sprite_get_height(_sprite) + sprite_get_yoffset(_sprite) - _margin;
 			var _best_score = -infinity;
+			var _best_spacing_valid = false;
 			var _best_x = _left;
 			var _best_y = _top;
 			// Choose the best of several random candidates to avoid clustering.
@@ -55,13 +56,25 @@ function fight_living_houses_spawn()
 					var _gap_y = max(bbox_top - _house.bbox_bottom, _house.bbox_top - bbox_bottom);
 					_score = min(_score, max(_gap_x, _gap_y));
 				}
-				if (_score > _best_score)
+				var _tower_distance = infinity;
+				if (_type == o_defense_tower)
 				{
+					with (o_defense_tower)
+					{
+						if (id != _house) _tower_distance = min(_tower_distance, point_distance(x, y, _house.x, _house.y));
+					}
+				}
+				// Prefer non-overlapping positions meeting the tower spacing before comparing spare room.
+				var _spacing_valid = _tower_distance >= BALANCE_ENEMY_TOWER_MIN_SPACING && _score >= 0;
+				_score = min(_score, _tower_distance * BALANCE_ENEMY_ZONE_BUILDING_GAP / BALANCE_ENEMY_TOWER_MIN_SPACING);
+				if ((_spacing_valid && !_best_spacing_valid) || (_spacing_valid == _best_spacing_valid && _score > _best_score))
+				{
+					_best_spacing_valid = _spacing_valid;
 					_best_score = _score;
 					_best_x = _house.x;
 					_best_y = _house.y;
 				}
-				if (_score >= BALANCE_ENEMY_ZONE_BUILDING_GAP) break;
+				if (_spacing_valid && _score >= BALANCE_ENEMY_ZONE_BUILDING_GAP) break;
 			}
 			_house.x = _best_x;
 			_house.y = _best_y;

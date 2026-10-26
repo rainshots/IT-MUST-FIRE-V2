@@ -34,6 +34,25 @@ function building_commit(_b, _x, _y)
 		}
 		if(_available<max(0,_needed-1)) { instance_destroy(_up);return false; }
 		if (!building_units_displace(_up, _up.x, _up.y, _b, _merge)) { instance_destroy(_up); return false; }
+		// Keep the resident worker first; preserve the furthest completed cycle without adding cycles together.
+		var _returning_workers = [];
+		var _progress = 0;
+		var _work_sources = [_merge, _b];
+		for (var _i = 0; _i < array_length(_work_sources); ++_i)
+		{
+			var _source = _work_sources[_i];
+			for (var _j = 0; _j < array_length(_source.worker_cultists); ++_j)
+			{
+				var _worker = _source.worker_cultists[_j];
+				if (instance_exists(_worker) && _worker.assigned_building == _source)
+					array_push(_returning_workers, _worker);
+			}
+			if (variable_instance_exists(_source, "production_interval") && _source.production_interval > 0)
+				_progress = max(_progress, clamp(_source.production_seconds / _source.production_interval, 0, 1));
+		}
+		if (variable_instance_exists(_up, "production_interval"))
+			_up.production_seconds = _progress * _up.production_interval;
+
 		// Preserve any completed shells while releasing both sets of workers.
 		var _sources=[_b,_merge];
 		for(var _i=0;_i<2;++_i)
@@ -57,7 +76,14 @@ function building_commit(_b, _x, _y)
 		_up.purchase_value = _b.purchase_value + _merge.purchase_value;
 		building_smoke_create(_merge);
 		instance_destroy(_b); instance_destroy(_merge);
+		// Assign only after source cleanup, so it cannot release the transferred worker.
+		for (var _i = 0; _i < array_length(_returning_workers); ++_i)
+		{
+			if (array_length(_up.worker_cultists) >= _up.worker_max) break;
+			worker_assign(_returning_workers[_i], _up);
+		}
 		building_smoke_create(_up);
+		global.sound_play_random(global.construction_sounds);
 		return true;
 	}
 	if(!building_place_valid(_b,_x,_y)) return false;
@@ -65,5 +91,6 @@ function building_commit(_b, _x, _y)
 	_b.x=_x;_b.y=_y;_b.placement_preview=false;_b.is_being_dragged=false;
 	_b.worker_positions_update();
 	building_smoke_create(_b);
+	global.sound_play_random(global.construction_sounds);
 	return true;
 }
